@@ -120,29 +120,34 @@ const firebaseConfig = {
 const fapp = initializeApp(firebaseConfig);
 const db = getDatabase(fapp);
 
-// 1. INIZIALIZZAZIONE DELLO STATO GLOBALE
-window.STATE = { user: null, teams: [], players: [], votes: {}, status: {}, matches: {}, currentCompetition: 'fantacazz' };
+// INIZIALIZZAZIONE DELLO STATO GLOBALE (Aggiunto booted per controllare lo sblocco dell'interfaccia)
+window.STATE = { 
+  user: null, 
+  teams: [], 
+  players: [], 
+  votes: {}, 
+  status: {}, 
+  matches: {}, 
+  currentCompetition: 'fantacazz',
+  booted: false 
+};
 
-// 2. FUNZIONE PER ASCOLTARE I DATI SPECIFICI DEL TORNEO SELEZIONATO
+// ASCOLTA I DATI SPECIFICI DEL TORNEO SELEZIONATO
 function caricaDatiCompetizione(compId) {
-  // Ascolta la Giornata Attuale e lo Stato della competizione specifica
   onValue(ref(db, `competitions/${compId}/status`), snap => { 
     window.STATE.status = snap.val() || { currentGW: 1 }; 
     refreshUI(); 
   });
 
-  // Ascolta il Calendario Incontri della competizione specifica
   onValue(ref(db, `competitions/${compId}/matches`), snap => { 
     window.STATE.matches = snap.val() || {}; 
     refreshUI(); 
   });
 
-  // Ascolta la Classifica e le Squadre della competizione specifica
   onValue(ref(db, `competitions/${compId}/teams`), snap => {
     const raw = snap.val() || {};
     window.STATE.teams = Object.values(raw).sort((a,b) => b.pts - a.pts);
     
-    // Mantiene allineato l'utente loggato con la squadra corrispondente nella nuova competizione
     if (window.STATE.user) {
       const foundCurrentTeam = window.STATE.teams.find(t => t.id === window.STATE.user.id);
       if (foundCurrentTeam) {
@@ -155,26 +160,24 @@ function caricaDatiCompetizione(compId) {
   });
 }
 
-// 3. FUNZIONE GLOBALE INVOCATA AL CAMBIO DELLA COMBOBOX IN HOME
+// GESTIONE CAMBIO COMPETIZIONE DALLA HOME
 window._handleCompetitionChange = function(newCompetitionId) {
   window.STATE.currentCompetition = newCompetitionId;
   window.showToast(`Competizione: ${newCompetitionId.toUpperCase()}`, 'ok');
   
-  // Svuota graficamente il select dei turni nel calendario per obbligarlo a rigenerarsi
   const calSelect = document.getElementById('calGwSelect');
   if (calSelect) {
     calSelect.innerHTML = '';
     delete calSelect.dataset.currentComp;
   }
 
-  // Ri-scatena i listener puntando alla nuova competizione selezionata
   caricaDatiCompetizione(newCompetitionId);
 };
 
-// 4. FA PARTIRE IL PRIMO CARICAMENTO ALL'APERTURA DELL'APP (Default: 'fantacazz')
+// AVVIO PRIMO CARICAMENTO DATA-STREAM
 caricaDatiCompetizione(window.STATE.currentCompetition);
 
-// 5. LISTENER GLOBALI COMUNI (Rimangono fuori dalle cartelle, accessibili a tutti)
+// LISTENER SUI VOTI LIVE E GIOCATORI GLOBALI
 onValue(ref(db, 'votes'), snap => { 
   window.STATE.votes = snap.val() || {}; 
   refreshUI(); 
@@ -185,25 +188,20 @@ onValue(ref(db, 'players'), snap => {
   refreshUI();
 });
 
-// 6. POPOLAMENTO MENU A TENDINA E LOGICA DI AUTO-LOGIN
+// FUNZIONE PER POPOLARE IL MENU A TENDINA O PROCEDERE ALL'AUTO-LOGIN
 function populateLoginDropdown() {
-  // 1. CONTROLLO AUTO-LOGIN
+  if (window.STATE.booted) return; // Se l'app è già avviata, non serve ridisegnare il login
+
   const savedUserId = localStorage.getItem('fantaUser');
-  if (savedUserId) {
+  if (savedUserId && window.STATE.teams.length > 0) {
     const loggedInUser = window.STATE.teams.find(t => t.id === savedUserId);
     if (loggedInUser) {
       window.STATE.user = loggedInUser;
-      // Se la schermata di login è ancora attiva, fa saltare l'utente dentro l'app
-      if (document.getElementById('page-login').style.display !== 'none') {
-        bootApp();
-      } else {
-        refreshUI();
-      }
+      bootApp();
       return;
     }
   }
 
-  // 2. POPOLAMENTO GRAFICO DEL SELECT ORIGINALE
   const select = document.getElementById('loginSelect');
   if (!select) return;
 
@@ -213,37 +211,53 @@ function populateLoginDropdown() {
     `).join('');
 }
 
-// 7. FUNZIONE DI LOGIN CHIAMATA DAL PULSANTE "ENTRA NELL'APP"
+// AZIONE ESEGUITA AL CLICK SUL PULSANTE "ENTRA NELL'APP"
 window.doLogin = function() {
-  const id = document.getElementById('loginSelect').value;
-  if(!id) return;
-  const found = window.STATE.teams.find(t=>t.id===id);
+  const select = document.getElementById('loginSelect');
+  if (!select) return;
+  
+  const id = select.value;
+  if(!id) {
+    window.showToast('Seleziona una squadra valida per entrare!', 'err');
+    return;
+  }
+  
+  const found = window.STATE.teams.find(t => t.id === id);
   if(found) {
     window.STATE.user = found;
-    localStorage.setItem('fantaUser', id); // Salva l'ID nel browser per i futuri avvii
+    localStorage.setItem('fantaUser', id); // Registra l'accesso persistente nel browser
     bootApp();
   }
 };
 
+// SBLOCCA L'INTERFACCIA GENERANDO IL CONTENUTO DINAMICO DELLE COORTI JS
 function bootApp() {
+  if (window.STATE.booted) return;
+  window.STATE.booted = true; // Impedisce loop o doppie inizializzazioni
+
+  const container = document.getElementById('dynamic-pages-container');
+  if (container) {
+    container.innerHTML = `
+      ${HomePage.renderHTML()}
+      ${CalendarioPage.renderHTML()}
+      ${FormazionePage.renderHTML()}
+      ${MercatoPage.renderHTML()}
+      ${RosePage.renderHTML()}
+      ${StatsPage.renderHTML()}
+    `;
+  }
+
+  // Nasconde la schermata di selezione e mostra la Nav Bar
   document.getElementById('page-login').style.display = 'none';
   document.getElementById('nav').style.display = 'flex';
   
-  const container = document.getElementById('dynamic-pages-container');
-  container.innerHTML = `
-    ${HomePage.renderHTML()}
-    ${CalendarioPage.renderHTML()}
-    ${FormazionePage.renderHTML()}
-    ${MercatoPage.renderHTML()}
-    ${RosePage.renderHTML()}
-    ${StatsPage.renderHTML()}
-  `;
   window.goPage('home', document.querySelector('.nav-btn'));
   refreshUI();
 }
 
+// RENDERIZZA I COMPONENTI SOLO SE L'APP È AVVIATA E L'UTENTE È APPOSTO
 function refreshUI() {
-  if (!window.STATE.user || !document.getElementById('page-home')) return;
+  if (!window.STATE.booted || !window.STATE.user || !document.getElementById('page-home')) return;
   HomePage.render(window.STATE);
   CalendarioPage.render(window.STATE);
   FormazionePage.render(window.STATE);
@@ -262,18 +276,19 @@ window.goPage = function(name, btn) {
 
 window.showToast = function(msg, type='ok') {
   const t = document.getElementById('toast');
+  if(!t) return;
   t.textContent = msg; t.className = 'toast '+type+' show';
   setTimeout(()=>t.classList.remove('show'),2600);
 };
 
 window._saveNode = (path, payload) => set(ref(db, path), payload);
 
-// REGISTRAZIONE DEL SERVICE WORKER
+// REGISTRAZIONE SERVICE WORKER
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
-      .then(reg => console.log('Service Worker registrato con successo', reg))
-      .catch(err => console.error('Errore registrazione Service Worker', err));
+      .then(reg => console.log('SW registrato', reg))
+      .catch(err => console.error('Errore SW', err));
   });
 }
 </script>
