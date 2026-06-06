@@ -2,7 +2,7 @@ export const CalendarioPage = {
   renderHTML() {
     return `
       <div class="page" id="page-calendario">
-        <div class="sec" style="margin-top:1.2rem">Calendario Campionato</div>
+        <div class="sec" style="margin-top:1.2rem">Calendario Incontri</div>
         <div class="card card-sm" style="margin-bottom:1rem;">
           <div class="label" style="margin-bottom:.4rem;">Seleziona Turno di Gioco</div>
           <select id="calGwSelect" class="select-rose"></select>
@@ -16,7 +16,9 @@ export const CalendarioPage = {
     const select = document.getElementById('calGwSelect');
     if(!select) return;
 
-    if(select.options.length === 0) {
+    // Se cambia competizione, forziamo il reset delle opzioni del calendario
+    if(select.options.length === 0 || select.dataset.currentComp !== STATE.currentCompetition) {
+      select.dataset.currentComp = STATE.currentCompetition;
       let opts = '';
       for (let fantaGw = 1; fantaGw <= 33; fantaGw++) {
         const serieAGw = fantaGw + 2;
@@ -24,7 +26,11 @@ export const CalendarioPage = {
       }
       select.innerHTML = opts;
       select.value = STATE.status?.currentGW || 1;
-      select.addEventListener('change', () => this.drawMatches(STATE));
+
+      // Cloniamo il select per rimuovere vecchi event listener accumulati
+      const newSelect = select.cloneNode(true);
+      select.parentNode.replaceChild(newSelect, select);
+      newSelect.addEventListener('change', () => this.drawMatches(STATE));
     }
     this.drawMatches(STATE);
   },
