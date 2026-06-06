@@ -1,3 +1,13 @@
+Ora guardando l'intero file HTML la situazione è chiarissima. Nel codice che mi hai inviato hai una discrepanza tra la struttura del tag HTML e il Javascript:
+
+1. Nell'HTML (riga 48) hai un tag **`<select id="loginSelect">`** (un menu a tendina classico) ed un pulsante con **`onclick="window.doLogin()"`**.
+2. Nel Javascript (riga 168), però, la funzione `populateLoginDropdown()` provava a generare dei pulsanti (`<button class="team-btn">`) iniettandoli dentro il `select`. Questo rompeva la grafica e impediva al login di funzionare, e mancava del tutto la funzione `window._selectTeam`.
+
+Dato che mi hai chiesto di rimettere la logica del login **com'era prima** (ovvero la selezione a griglia con i pulsanti grandi per ogni squadra), dobbiamo correggere sia il blocco HTML della schermata di login che le funzioni Javascript associate.
+
+Sostituisci interamente il codice del tuo file con questa versione corretta e pronta all'uso:
+
+```html
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -14,12 +24,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <title>Fantacazz</title>
 <style>
-:root{
-  --bg:#0a0f1e;--bg2:#111827;--bg3:#1a2236;
-  --card:#141b2d;--card2:#1e2840;
-  --accent:#00e5a0;--accent2:#0077ff;--accent3:#ff4757;--gold:#f0b429;
-  --text:#f0f4ff;--text2:#8892a4;--text3:#4a5568;
-}
+:root{\n  --bg:#0a0f1e;--bg2:#111827;--bg3:#1a2236;\n  --card:#141b2d;--card2:#1e2840;\n  --accent:#00e5a0;--accent2:#0077ff;--accent3:#ff4757;--gold:#f0b429;\n  --text:#f0f4ff;--text2:#8892a4;--text3:#4a5568;\n}
 *{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-tap-highlight-color:transparent}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;padding-bottom:calc(70px + env(safe-area-inset-bottom))}
 .app-header{display:flex;align-items:center;justify-content:space-between;padding:1.2rem 1rem .6rem;background:linear-gradient(to bottom, var(--bg), transparent)}
@@ -43,7 +48,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
 .btn{background:var(--accent2);color:#fff;border:none;padding:.7rem 1.2rem;border-radius:10px;font-size:.85rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;transition:all 0.2s}
 .btn-green{background:var(--accent);color:#0a0f1e;font-weight:600}
 .btn:active{opacity:0.8;transform:scale(0.98)}
-.select-rose{width:100%;background:var(--bg3);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:.6rem .9rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none}
+
+/* STILI DELLA GRIGLIA DI LOGIN RIPRISTINATI */
+.login-grid {display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.5rem;}
+.team-btn {background:var(--card2);border:1px solid rgba(255,255,255,0.05);border-radius:14px;padding:1rem .75rem;display:flex;flex-direction:column;align-items:center;text-align:center;gap:.4rem;cursor:pointer;transition:all 0.2s;color:var(--text);}
+.team-btn:active {transform:scale(0.96);background:var(--bg3);}
+.team-btn .em {font-size:1.6rem;margin-bottom:.2rem;}
+.team-btn span:nth-child(2) {font-size:.85rem;font-weight:600;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.team-btn .own {font-size:.68rem;color:var(--text2);font-weight:400;}
+
 #nav{position:fixed;bottom:0;left:0;right:0;height:calc(60px + env(safe-area-inset-bottom));background:rgba(17,24,39,0.85);backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,0.05);display:flex;justify-content:space-around;padding-top:.5rem;padding-bottom:env(safe-area-inset-bottom);z-index:999}
 .nav-btn{background:none;border:none;color:var(--text2);display:flex;flex-direction:column;align-items:center;gap:.25rem;font-family:'DM Sans',sans-serif;font-size:.58rem !important;font-weight:500;cursor:pointer;width:16%}
 .nav-btn svg{width:20px;height:20px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:all 0.2s}
@@ -64,14 +77,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
 <body>
 
 <div id="app">
-  <div id="page-login" style="padding:3rem 2rem; text-align:center; max-width:400px; margin:40px auto 0;">
-    <div class="logo" style="font-size:3rem; margin-bottom:2rem;">FANTACAZZ</div>
-    <div class="card">
-      <div class="label" style="margin-bottom:.5rem;">Seleziona la tua squadra</div>
-      <select id="loginSelect" class="select-rose" style="margin-bottom:1.5rem; background:var(--bg2);">
-        <option value="">Caricamento leghe...</option>
-      </select>
-      <button class="btn btn-green" style="width:100%; padding:.8rem;" onclick="window.doLogin()">Entra nell'App</button>
+  <div id="page-login" style="padding:2rem 1rem; max-width:450px; margin:20px auto 0;">
+    <div class="logo" style="font-size:3rem; margin-bottom:1.5rem; text-align:center;">FANTACAZZ</div>
+    <div class="sec" style="justify-content:center; margin-bottom:1.2rem;">Scegli la tua Squadra</div>
+    <div id="loginSelect" class="login-grid">
+      <div style="grid-column:1/-1; text-align:center; padding:2rem; color:var(--text3);">Caricamento squadre...</div>
     </div>
   </div>
 
@@ -103,7 +113,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, onValue, update, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 // IMPORT DELLE PAGINE DALLA CARTELLA JS
 import { HomePage } from './js/home.js';
@@ -120,33 +130,10 @@ const firebaseConfig = {
 const fapp = initializeApp(firebaseConfig);
 const db = getDatabase(fapp);
 
-// 1. INIZIALIZZAZIONE DELLO STATO GLOBALE (Con l'aggiunta della competizione attiva di default)
+// 1. INIZIALIZZAZIONE DELLO STATO GLOBALE
 window.STATE = { user: null, teams: [], players: [], votes: {}, status: {}, matches: {}, currentCompetition: 'fantacazz' };
 
-// 2. FUNZIONE GLOBALE CHE GESTISCE IL CAMBIO COMPETIZIONE DALLA TUA COMBOBOX IN HOME
-window._handleCompetitionChange = function(newCompetitionId) {
-  window.STATE.currentCompetition = newCompetitionId;
-  window.showToast(`Competizione: ${newCompetitionId.toUpperCase()}`, 'ok');
-  
-  // Svuota graficamente il select dei turni nel calendario per obbligarlo a rigenerarsi
-  const calSelect = document.getElementById('calGwSelect');
-  if (calSelect) {
-    calSelect.innerHTML = '';
-    delete calSelect.dataset.currentComp;
-  }
-
-  // Ri-sottoscrive i listener puntando alla nuova competizione selezionata
-  caricaDatiCompetizione(newCompetitionId);
-};
-
-// 3. NUOVA FUNZIONE PER ASCOLTARE I DATI SPECIFICI DEL TORNEO SELEZIONATO
-
-
-// 1. STATO GLOBALE (Con l'aggiunta della competizione corrente)
-
-
 // 2. FUNZIONE PER ASCOLTARE I DATI SPECIFICI DEL TORNEO SELEZIONATO
-// La dichiariamo subito in modo che sia disponibile ovunque nello script
 function caricaDatiCompetizione(compId) {
   // Ascolta la Giornata Attuale e lo Stato della competizione specifica
   onValue(ref(db, `competitions/${compId}/status`), snap => { 
@@ -197,7 +184,7 @@ window._handleCompetitionChange = function(newCompetitionId) {
 // 4. FA PARTIRE IL PRIMO CARICAMENTO ALL'APERTURA DELL'APP (Default: 'fantacazz')
 caricaDatiCompetizione(window.STATE.currentCompetition);
 
-// 5. LISTENER GLOBALI COMUNI (Rimangono fuori dalle cartelle, accessibili a tutti)
+// 5. LISTENER GLOBALI COMUNI
 onValue(ref(db, 'votes'), snap => { 
   window.STATE.votes = snap.val() || {}; 
   refreshUI(); 
@@ -207,28 +194,45 @@ onValue(ref(db, 'players'), snap => {
   window.STATE.players = Object.values(snap.val() || {});
   refreshUI();
 });
+
+// 6. LOGICA DI CARICAMENTO E CONTROLLO LOGIN RIPRISTINATA
 function populateLoginDropdown() {
-  const select = document.getElementById('loginSelect');
-  if(!select || window.STATE.user) return;
-  select.innerHTML = '<option value="">-- Chi sei? --</option>' + 
-    window.STATE.teams.map(t=>`<option value="${t.id}">${t.emoji||'⚽'} ${t.name} (${t.owner})</option>`).join('');
-  
-  const saved = localStorage.getItem('fantaUser');
-  if(saved) {
-    const found = window.STATE.teams.find(t=>t.id===saved);
-    if(found) { window.STATE.user = found; bootApp(); }
+  // 1. CONTROLLO AUTO-LOGIN AUTOMATICO
+  const savedUserId = localStorage.getItem('fantaUser');
+  if (savedUserId) {
+    const loggedInUser = window.STATE.teams.find(t => t.id === savedUserId);
+    if (loggedInUser) {
+      window.STATE.user = loggedInUser;
+      if (document.getElementById('page-login').style.display !== 'none') {
+        bootApp();
+      } else {
+        refreshUI();
+      }
+      return;
+    }
   }
+
+  // 2. RENDERING DELLA GRIGLIA PULSANTI ORIGINALE (Se non si è loggati)
+  const grid = document.getElementById('loginSelect');
+  if (!grid) return;
+
+  grid.innerHTML = window.STATE.teams.map(t => `
+    <button class="team-btn" onclick="window._selectTeam('${t.id}')">
+      <span class="em">${t.emoji || '⚽'}</span>
+      <span>${t.name}</span>
+      <span class="own">${t.owner}</span>
+    </button>
+  `).join('');
 }
 
-window.doLogin = function() {
-  const id = document.getElementById('loginSelect').value;
-  if(!id) return;
-  const found = window.STATE.teams.find(t=>t.id===id);
-  if(found) {
-    window.STATE.user = found;
-    localStorage.setItem('fantaUser', id);
-    bootApp();
-  }
+// 7. AGGIUNTA DELLA FUNZIONE GLOBALE DI SELEZIONE DELLA GRIGLIA
+window._selectTeam = function(id) {
+  const t = window.STATE.teams.find(x => x.id === id);
+  if (!t) return;
+  
+  window.STATE.user = t;
+  localStorage.setItem('fantaUser', id); // Memorizza l'accesso sul browser
+  bootApp(); // Inizializza ed entra nell'app
 };
 
 function bootApp() {
@@ -276,3 +280,5 @@ window._saveNode = (path, payload) => set(ref(db, path), payload);
 </script>
 </body>
 </html>
+
+```
