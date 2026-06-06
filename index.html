@@ -444,6 +444,29 @@ body{
     <div id="playerList"></div>
   </div>
 
+  <div class="page" id="page-rose">
+    <div class="sec">Rose Lega</div>
+    
+    <div class="card card-sm" style="margin-bottom: 1rem;">
+      <div class="label" style="margin-bottom: .4rem;">Seleziona Squadra</div>
+      <div class="irow" style="margin-bottom: 0;">
+        <style>
+          /* Stile rapido per adattare il select al design scuro esistente */
+          .select-rose {
+            width: 100%; background: var(--bg3); border: 1px solid var(--border); 
+            border-radius: 10px; padding: .6rem .9rem; color: var(--text); 
+            font-family: 'DM Sans', sans-serif; font-size: .88rem; outline: none;
+          }
+        </style>
+        <select id="roseTeamSelect" class="select-rose" onchange="window._renderSelectedRosa()">
+          </select>
+      </div>
+    </div>
+
+    <div id="roseContainer">
+      </div>
+  </div>
+
   <div class="page" id="page-stats">
     <div class="sec">Statistiche</div>
     <div class="tabs">
@@ -486,6 +509,10 @@ body{
   </button>
   <button class="nav-btn" onclick="goPage('mercato',this)">
     <svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 001.95-1.55L23 6H6"/></svg>Mercato
+  </button>
+  <nav id="nav" style="display:none">
+  <button class="nav-btn" onclick="goPage('rose',this)">
+    <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Rose
   </button>
   <button class="nav-btn" onclick="goPage('stats',this)">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>Stats
@@ -715,6 +742,7 @@ function refreshUI() {
   buildFormazione();
   buildMercato();
   buildStats();
+  buildRoseDropdown();
 }
 
 // ══════════════════════════════════════════
@@ -1023,6 +1051,96 @@ window.showToast = function(msg, type='ok') {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
+// ══════════════════════════════════════════
+// GESTIONE ROSE LEGA
+// ══════════════════════════════════════════
+
+// Popola il menu a tendina con tutte le squadre della lega
+function buildRoseDropdown() {
+  const select = document.getElementById('roseTeamSelect');
+  if (!select) return;
+
+  // Salva la vecchia selezione per non resettarla durante i refresh real-time
+  const currentSelection = select.value || STATE.user.id;
+
+  // Popola le opzioni del select
+  select.innerHTML = STATE.teams.map(t => {
+    const isMe = t.id === STATE.user.id ? ' (Tu)' : '';
+    return `<option value="${t.id}">${t.emoji || '⚽'} ${t.name} - ${t.owner}${isMe}</option>`;
+  }).join('');
+
+  // Ripristina la selezione precedente
+  select.value = currentSelection;
+  
+  // Renderizza la rosa effettiva
+  window._renderSelectedRosa();
+}
+
+// Renderizza i calciatori appartenenti alla squadra selezionata
+window._renderSelectedRosa = function() {
+  const select = document.getElementById('roseTeamSelect');
+  const container = document.getElementById('roseContainer');
+  if (!select || !container) return;
+
+  const targetTeamId = select.value;
+  if (!targetTeamId) return;
+
+  // Filtra tutti i giocatori il cui teamId corrisponde alla squadra selezionata
+  const rosterPlayers = STATE.players.filter(p => p.teamId === targetTeamId);
+
+  // Se la squadra non ha ancora giocatori assegnati
+  if (rosterPlayers.length === 0) {
+    container.innerHTML = `<div style="color:var(--text3);text-align:center;padding:3rem;font-size:.85rem">Questa squadra non ha ancora acquistato calciatori.</div>`;
+    return;
+  }
+
+  // Suddividi i giocatori per ruolo e ordinali per prezzo decrescente
+  const roles = {
+    'P': { name: '🧤 Portieri', list: [] },
+    'D': { name: '🛡️ Difensori', list: [] },
+    'C': { name: '🪄 Centrocampisti', list: [] },
+    'A': { name: '🏹 Attaccanti', list: [] }
+  };
+
+  rosterPlayers.forEach(p => {
+    if (roles[p.role]) roles[p.role].list.push(p);
+  });
+
+  // Ordina le liste interne per prezzo
+  Object.keys(roles).forEach(r => {
+    roles[r].list.sort((a, b) => (b.price || 0) - (a.price || 0));
+  });
+
+  // Genera l'HTML finale strutturato per blocchi di ruolo
+  container.innerHTML = Object.keys(roles).map(roleKey => {
+    const roleData = roles[roleKey];
+    if (roleData.list.length === 0) return ''; // Salta il blocco se non ci sono giocatori in quel ruolo
+
+    const playersHtml = roleData.list.map(p => {
+      const vote = STATE.votes[p.id];
+      const mvHtml = vote ? `<span class="mv-badge ${vote>=7?'mv-up':'mv-dn'}">${vote.toFixed(1)}</span>` : '';
+      
+      return `
+        <div class="pcard" style="margin-bottom: .35rem; padding: .65rem .8rem;">
+          <div class="rbadge r${p.role}" style="width:24px; height:24px; font-size:.6rem; border-radius:5px;">${p.role}</div>
+          <div class="pi">
+            <div class="pn" style="font-size: .82rem;">${p.name}${mvHtml}</div>
+            <div class="pm" style="font-size: .65rem;">${p.club}</div>
+          </div>
+          <div class="pr">
+            <div class="price" style="font-size: .85rem;">${p.price || 0}M</div>
+            <div class="pavg" style="font-size: .62rem;">Mv ${(p.avg || 6).toFixed(1)}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div style="margin-top: 1rem; margin-bottom: .5rem;" class="label">${roleData.name} (${roleData.list.length})</div>
+      <div>${playersHtml}</div>
+    `;
+  }).join('');
+};
 </script>
 </body>
 </html>
