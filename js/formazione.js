@@ -2,7 +2,7 @@ export const FormazionePage = {
   renderHTML() {
     return `
       <div class="page" id="page-formazione">
-        <div class="sec">Schiera Formazione</div>
+        <div class="sec" style="margin-top:1.2rem">Schiera Formazione</div>
         <div class="card card-sm" style="margin-bottom: 1rem;">
           <div class="label" style="margin-bottom: .4rem;">Seleziona Modulo</div>
           <select id="f-modulo" class="select-rose">
@@ -15,7 +15,7 @@ export const FormazionePage = {
         <div id="titolari-slots" style="display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1.5rem;"></div>
         <div class="label" style="margin-bottom: .5rem; color: var(--gold);">🪑 PANCHINA (1 P | 2 D | 2 C | 2 A)</div>
         <div id="panchina-slots" style="display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1.5rem;"></div>
-        <button class="btn btn-green" style="width: 100%; padding: .8rem;" id="btn-save-lineup">💾 Salva Formazione</button>
+        <button class="btn btn-green" style="width: 100%; padding: .8rem; margin-bottom:2rem;" id="btn-save-lineup">💾 Salva Formazione</button>
       </div>
     `;
   },

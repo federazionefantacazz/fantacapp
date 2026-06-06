@@ -14,7 +14,52 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <title>Fantacazz</title>
 <style>
-:root{\n  --bg:#0a0f1e;--bg2:#111827;--bg3:#1a2236;\n  --card:#141b2d;--card2:#1e2840;\n  --accent:#00e5a0;--accent2:#0077ff;--accent3:#ff4757;--gold:#f0b429;\n  --text:#f0f4ff;--text2:#8892a4;--text3:#4a5568;\n}\n*{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-tap-highlight-color:transparent}\nbody{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;padding-bottom:calc(70px + env(safe-area-inset-bottom))}\n.app-header{display:flex;align-items:center;justify-content:between;padding:1.2rem 1rem .6rem;background:linear-gradient(to bottom, var(--bg), transparent)}\n.logo{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:1px;background:linear-gradient(45deg, #fff, var(--text2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}\n.sec{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:0.5px;color:var(--text);margin-bottom:.8rem;display:flex;align-items:center;gap:.4rem}\n.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1rem;margin-bottom:1rem;box-shadow:0 4px 20px rgba(0,0,0,0.2)}\n.card-sm{padding:.75rem 1rem}\n.label{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;margin-bottom:.2rem}\n.pcard{background:var(--card2);border-radius:12px;padding:.5rem .75rem;display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem}\n.rbadge{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;flex-shrink:0}\n.rP{background:#4a5568}\n.rD{background:#0077ff}\n.rC{background:#00e5a0;color:#0a0f1e}\n.rA{background:#ff4757}\n.pi{flex:1;min-width:0}\n.pn{font-size:.9rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}\n.pm{font-size:.72rem;color:var(--text2)}\n.pr{text-align:right;flex-shrink:0}\n.price{font-size:.9rem;font-weight:600;font-family:'DM Mono',monospace;color:var(--gold)}\n.pavg{font-size:.68rem;color:var(--text2)}\n.btn{background:var(--accent2);color:#fff;border:none;padding:.7rem 1.2rem;border-radius:10px;font-size:.85rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;transition:all 0.2s}\n.btn-green{background:var(--accent);color:#0a0f1e;font-weight:600}\n.btn:active{opacity:0.8;transform:scale(0.98)}\n.tbl{width:100%;border-collapse:collapse}\n.tbl th{text-align:left;font-size:.7rem;text-transform:uppercase;color:var(--text2);padding:.6rem .4rem;font-weight:600}\n.tbl td{padding:.65rem .4rem;font-size:.85rem;border-bottom:1px solid rgba(255,255,255,0.03)}\n.badge{padding:.2rem .4rem;border-radius:6px;font-size:.68rem;font-weight:600}\n.badge-green{background:rgba(0,229,160,0.1);color:var(--accent)}\n.badge-blue{background:rgba(0,119,255,0.1);color:var(--accent2)}\n.badge-red{background:rgba(255,71,87,0.1);color:var(--accent3)}\n.badge-gray{background:rgba(255,255,255,0.05);color:var(--text2)}\n.select-rose{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:.6rem .9rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none}\n.nav-btn{font-size:.58rem !important}\n#nav{position:fixed;bottom:0;left:0;right:0;height:calc(60px + env(safe-area-inset-bottom));background:rgba(17,24,39,0.85);backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;justify-content:around;padding-top:.5rem;padding-bottom:env(safe-area-inset-bottom);z-index:999}\n.nav-btn{background:none;border:none;color:var(--text2);display:flex;flex-direction:column;align-items:center;gap:.25rem;font-family:'DM Sans',sans-serif;font-size:.65rem;font-weight:500;cursor:pointer;width:16%}\n.nav-btn svg{width:20px;height:20px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:all 0.2s}\n.nav-btn.active{color:var(--accent)}\n.nav-btn.active svg{transform:translateY(-2px)}\n.page{display:none;padding:0 1rem}\n.page.active{display:block;animation:fadeIn 0.25s ease-out}\n@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}\n.toast{position:fixed;top:1.5rem;left:50%;transform:translateX(-50%) translateY(-40px);background:var(--card);border:1px solid var(--border);padding:.75rem 1.5rem;border-radius:12px;font-size:.85rem;font-weight:500;z-index:9999;box-shadow:0 10px 30px rgba(0,0,0,0.5);opacity:0;transition:all 0.3s ease;pointer-events:none}\n.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}\n.toast.ok{border-color:var(--accent);color:var(--accent)}\n.toast.err{border-color:var(--accent3);color:var(--accent3)}\n.mv-badge{font-family:'DM Mono',monospace;font-size:.7rem;font-weight:600;padding:1px 4px;border-radius:4px;margin-left:.4rem}\n.mv-up{background:rgba(0,229,160,0.15);color:var(--accent)}\n.mv-dn{background:rgba(255,71,87,0.15);color:var(--accent3)}\n</style>
+:root{
+  --bg:#0a0f1e;--bg2:#111827;--bg3:#1a2236;
+  --card:#141b2d;--card2:#1e2840;
+  --accent:#00e5a0;--accent2:#0077ff;--accent3:#ff4757;--gold:#f0b429;
+  --text:#f0f4ff;--text2:#8892a4;--text3:#4a5568;
+}
+*{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-tap-highlight-color:transparent}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;padding-bottom:calc(70px + env(safe-area-inset-bottom))}
+.app-header{display:flex;align-items:center;justify-content:space-between;padding:1.2rem 1rem .6rem;background:linear-gradient(to bottom, var(--bg), transparent)}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:1px;background:linear-gradient(45deg, #fff, var(--text2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sec{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:0.5px;color:var(--text);margin-bottom:.8rem;display:flex;align-items:center;gap:.4rem}
+.card{background:var(--card);border:1px solid rgba(255,255,255,0.05);border-radius:16px;padding:1rem;margin-bottom:1rem;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
+.card-sm{padding:.75rem 1rem}
+.label{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;margin-bottom:.2rem}
+.pcard{background:var(--card2);border-radius:12px;padding:.5rem .75rem;display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem}
+.rbadge{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;flex-shrink:0}
+.rP{background:#4a5568}
+.rD{background:#0077ff}
+.rC{background:#00e5a0;color:#0a0f1e}
+.rA{background:#ff4757}
+.pi{flex:1;min-width:0}
+.pn{font-size:.9rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.pm{font-size:.72rem;color:var(--text2)}
+.pr{text-align:right;flex-shrink:0}
+.price{font-size:.9rem;font-weight:600;font-family:'DM Mono',monospace;color:var(--gold)}
+.pavg{font-size:.68rem;color:var(--text2)}
+.btn{background:var(--accent2);color:#fff;border:none;padding:.7rem 1.2rem;border-radius:10px;font-size:.85rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;transition:all 0.2s}
+.btn-green{background:var(--accent);color:#0a0f1e;font-weight:600}
+.btn:active{opacity:0.8;transform:scale(0.98)}
+.select-rose{width:100%;background:var(--bg3);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:.6rem .9rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none}
+#nav{position:fixed;bottom:0;left:0;right:0;height:calc(60px + env(safe-area-inset-bottom));background:rgba(17,24,39,0.85);backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,0.05);display:flex;justify-content:space-around;padding-top:.5rem;padding-bottom:env(safe-area-inset-bottom);z-index:999}
+.nav-btn{background:none;border:none;color:var(--text2);display:flex;flex-direction:column;align-items:center;gap:.25rem;font-family:'DM Sans',sans-serif;font-size:.58rem !important;font-weight:500;cursor:pointer;width:16%}
+.nav-btn svg{width:20px;height:20px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:all 0.2s}
+.nav-btn.active{color:var(--accent)}
+.nav-btn.active svg{transform:translateY(-2px)}
+.page{display:none;padding:0 1rem}
+.page.active{display:block;animation:fadeIn 0.25s ease-out}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.toast{position:fixed;top:1.5rem;left:50%;transform:translateX(-50%) translateY(-40px);background:var(--card);border:1px solid rgba(255,255,255,0.1);padding:.75rem 1.5rem;border-radius:12px;font-size:.85rem;font-weight:500;z-index:9999;box-shadow:0 10px 30px rgba(0,0,0,0.5);opacity:0;transition:all 0.3s ease;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{border-color:var(--accent);color:var(--accent)}
+.toast.err{border-color:var(--accent3);color:var(--accent3)}
+.mv-badge{font-family:'DM Mono',monospace;font-size:.7rem;font-weight:600;padding:1px 4px;border-radius:4px;margin-left:.4rem}
+.mv-up{background:rgba(0,229,160,0.15);color:var(--accent)}
+.mv-dn{background:rgba(255,71,87,0.15);color:var(--accent3)}
+</style>
 </head>
 <body>
 
@@ -58,9 +103,9 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, onValue, update, set, push, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, onValue, update, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-// Importiamo le pagine esterne
+// IMPORT DELLE PAGINE DALLA CARTELLA JS
 import { HomePage } from './js/home.js';
 import { CalendarioPage } from './js/calendario.js';
 import { FormazionePage } from './js/formazione.js';
@@ -75,17 +120,8 @@ const firebaseConfig = {
 const fapp = initializeApp(firebaseConfig);
 const db = getDatabase(fapp);
 
-// Stato condiviso centrale
-window.STATE = {
-  user: null,
-  teams: [],
-  players: [],
-  votes: {},
-  status: {},
-  matches: {}
-};
+window.STATE = { user: null, teams: [], players: [], votes: {}, status: {}, matches: {} };
 
-// Sincronizzazione Firebase Realtime
 onValue(ref(db,'status'), snap => { window.STATE.status = snap.val()||{}; refreshUI(); });
 onValue(ref(db,'votes'), snap => { window.STATE.votes = snap.val()||{}; refreshUI(); });
 onValue(ref(db,'matches'), snap => { window.STATE.matches = snap.val()||{}; refreshUI(); });
@@ -98,8 +134,7 @@ onValue(ref(db,'teams'), snap => {
 });
 
 onValue(ref(db,'players'), snap => {
-  const raw = snap.val()||{};
-  window.STATE.players = Object.values(raw);
+  window.STATE.players = Object.values(snap.val()||{});
   refreshUI();
 });
 
@@ -131,25 +166,21 @@ function bootApp() {
   document.getElementById('page-login').style.display = 'none';
   document.getElementById('nav').style.display = 'flex';
   
-  // Iniettiamo tutto l'HTML delle sottopagine
   const container = document.getElementById('dynamic-pages-container');
   container.innerHTML = `
-    \${HomePage.renderHTML()}
-    \${CalendarioPage.renderHTML()}
-    \${FormazionePage.renderHTML()}
-    \${MercatoPage.renderHTML()}
-    \${RosePage.renderHTML()}
-    \${StatsPage.renderHTML()}
+    ${HomePage.renderHTML()}
+    ${CalendarioPage.renderHTML()}
+    ${FormazionePage.renderHTML()}
+    ${MercatoPage.renderHTML()}
+    ${RosePage.renderHTML()}
+    ${StatsPage.renderHTML()}
   `;
-  
-  // Mostra la home di default
   window.goPage('home', document.querySelector('.nav-btn'));
   refreshUI();
 }
 
 function refreshUI() {
-  if (!window.STATE.user) return;
-  // Chiamiamo i metodi di render per aggiornare le pagine in tempo reale
+  if (!window.STATE.user || !document.getElementById('page-home')) return;
   HomePage.render(window.STATE);
   CalendarioPage.render(window.STATE);
   FormazionePage.render(window.STATE);
@@ -172,10 +203,7 @@ window.showToast = function(msg, type='ok') {
   setTimeout(()=>t.classList.remove('show'),2600);
 };
 
-// Esponiamo i metodi di salvataggio critici ai moduli interni
-window._dbRef = () => db;
 window._saveNode = (path, payload) => set(ref(db, path), payload);
-window._updateNode = (path, payload) => update(ref(db, path), payload);
 </script>
 </body>
 </html>

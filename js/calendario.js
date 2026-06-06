@@ -2,7 +2,7 @@ export const CalendarioPage = {
   renderHTML() {
     return `
       <div class="page" id="page-calendario">
-        <div class="sec">Calendario Campionato</div>
+        <div class="sec" style="margin-top:1.2rem">Calendario Campionato</div>
         <div class="card card-sm" style="margin-bottom:1rem;">
           <div class="label" style="margin-bottom:.4rem;">Seleziona Turno di Gioco</div>
           <select id="calGwSelect" class="select-rose"></select>

@@ -2,7 +2,7 @@ export const MercatoPage = {
   renderHTML() {
     return `
       <div class="page" id="page-mercato">
-        <div class="sec">Mercato Svincolati</div>
+        <div class="sec" style="margin-top:1.2rem">Mercato Svincolati</div>
         <div class="card">
           <div class="label">Lista Calciatori Disponibili</div>
           <div id="lista-svincolati" style="max-height:500px;overflow-y:auto;margin-top:.5rem"></div>
@@ -15,7 +15,7 @@ export const MercatoPage = {
     if(!container) return;
     const svincolati = STATE.players.filter(p => !p.teamId || p.teamId === "");
     if(svincolati.length === 0) {
-      container.innerHTML = `<div style="color:var(--text3);text-align:center;padding:1rem;font-size:.85rem">Tutti i calciatori sono stati acquistati!</div>`;
+      container.innerHTML = `<div style="color:var(--text3);text-align:center;padding:1rem;font-size:.85rem">Tutti i calciatori sono acquistati!</div>`;
       return;
     }
     container.innerHTML = svincolati.sort((a,b)=>a.name.localeCompare(b.name)).map(p => `

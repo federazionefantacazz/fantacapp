@@ -2,7 +2,7 @@ export const StatsPage = {
   renderHTML() {
     return `
       <div class="page" id="page-stats">
-        <div class="sec">Statistiche Lega</div>
+        <div class="sec" style="margin-top:1.2rem">Statistiche Lega</div>
         <div class="card">
           <div class="label">Migliori per Media Voto (Top 15)</div>
           <div id="stats-ranking" style="margin-top:.5rem"></div>

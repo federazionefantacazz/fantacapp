@@ -2,7 +2,7 @@ export const RosePage = {
   renderHTML() {
     return `
       <div class="page" id="page-rose">
-        <div class="sec">Rose Lega</div>
+        <div class="sec" style="margin-top:1.2rem">Rose Lega</div>
         <div class="card card-sm" style="margin-bottom: 1rem;">
           <div class="label" style="margin-bottom: .4rem;">Seleziona Squadra</div>
           <select id="roseTeamSelect" class="select-rose"></select>
