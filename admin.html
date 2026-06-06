@@ -146,6 +146,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <button class="snav" onclick="showSec('sync',this)">
       <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>SofaScore Sync
     </button>
+    <button class="snav" onclick="showSec('mercato',this)">
+       <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>Assegna Squadre
+    </button>
     <button class="snav" onclick="showSec('classifica',this)">
       <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Classifica
     </button>
@@ -259,6 +262,62 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         <table class="tbl" id="playersTable"></table>
       </div>
     </div>
+
+    <div class="section" id="sec-mercato">
+  <div class="page-title">Assegna Giocatore a Squadra</div>
+  
+  <div class="grid2">
+    <div class="card">
+      <div style="font-size:.9rem;font-weight:600;margin-bottom:1rem;color:var(--text)">🔗 Collega Giocatore</div>
+      
+      <div class="form-row full">
+        <div class="field-group">
+          <label>Seleziona Giocatore</label>
+          <select id="m-player-select">
+            <option value="">-- Scegli un giocatore --</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row full">
+        <div class="field-group">
+          <label>Seleziona Squadra Fantacalcio</label>
+          <select id="m-team-select">
+            <option value="">-- Svincolato (Nessuna squadra) --</option>
+          </select>
+        </div>
+      </div>
+      
+      <div style="margin-top: 1rem; display: flex; gap: .5rem;">
+        <button class="btn btn-green" onclick="assignPlayerTeam()">💾 Salva Assegnazione</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-size:.82rem;font-weight:600;color:var(--text2);margin-bottom:.75rem">INFO SQUADRA SELEZIONATA</div>
+      <div id="mercato-team-info" style="font-size: .85rem; color: var(--text2); line-height: 1.6;">
+        Seleziona una squadra per vedere i dettagli e i giocatori attualmente in rosa.
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="font-size:.82rem;font-weight:600;color:var(--text2);margin-bottom:.75rem">RIASSUNTO ASSEGNAZIONI</div>
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Giocatore</th>
+          <th>Ruolo</th>
+          <th>Club Reale</th>
+          <th>Squadra Fantacalcio</th>
+          <th>Azione</th>
+        </tr>
+      </thead>
+      <tbody id="mercatoTableBody">
+        </tbody>
+    </table>
+  </div>
+</div>
 
     <!-- VOTI GW -->
     <div class="section" id="sec-votes">
@@ -600,12 +659,14 @@ onValue(ref(db,'teams'), snap => {
   const raw = snap.val()||{};
   TEAMS = Object.values(raw).sort((a,b)=>b.pts-a.pts);
   updateDashboard(); renderTeamsTable(); renderRankAdmin();
+  populateMercatoSelects(); // <-- AGGIUNGI QUESTO
 });
 onValue(ref(db,'players'), snap => {
   const raw = snap.val()||{};
   PLAYERS = Object.values(raw);
   document.getElementById('pCount').textContent = PLAYERS.length;
   renderPlayersTable(); renderVoteGrid();
+  populateMercatoSelects(); // <-- AGGIUNGI QUESTO
 });
 onValue(ref(db,'votes'), snap => {
   VOTES = snap.val()||{};
@@ -885,6 +946,141 @@ function toast(msg,type='ok'){
   setTimeout(()=>t.classList.remove('show'),2800);
 }
 function delay(ms){return new Promise(r=>setTimeout(r,ms));}
+  // Popola i menu a tendina dei giocatori e delle squadre nella tab Mercato
+function populateMercatoSelects() {
+  const playerSelect = document.getElementById('m-player-select');
+  const teamSelect = document.getElementById('m-team-select');
+  
+  if (!playerSelect || !teamSelect) return;
+
+  // Salva l'opzione attualmente selezionata per non perderla durante il refresh in tempo reale
+  const selectedPlayer = playerSelect.value;
+  const selectedTeam = teamSelect.value;
+
+  // Ordina i giocatori alfabeticamente
+  const sortedPlayers = [...PLAYERS].sort((a, b) => a.name.localeCompare(b.name));
+
+  // Popola Select Giocatori
+  playerSelect.innerHTML = '<option value="">-- Scegli un giocatore --</option>' + 
+    sortedPlayers.map(p => {
+      const currentTeam = TEAMS.find(t => t.id === p.teamId);
+      const teamLabel = currentTeam ? `(${currentTeam.emoji || '⚽'} ${currentTeam.name})` : '(Svincolato)';
+      return `<option value="${p.id}">${p.name} [${p.role}] — ${p.club} ${teamLabel}</option>`;
+    }).join('');
+
+  // Popola Select Squadre
+  teamSelect.innerHTML = '<option value="">-- Svincolato (Nessuna squadra) --</option>' + 
+    TEAMS.map(t => `<option value="${t.id}">${t.emoji || '⚽'} ${t.name} (${t.owner})</option>`).join('');
+
+  // Ripristina le selezioni precedenti se ancora esistenti
+  playerSelect.value = selectedPlayer;
+  teamSelect.value = selectedTeam;
+
+  // Aggiorna anche la tabella riassuntiva del mercato e le info della squadra
+  renderMercatoTable();
+  updateMercatoTeamInfo();
+}
+
+// Mostra i dettagli della squadra selezionata nel box laterale
+window.updateMercatoTeamInfo = function() {
+  const teamId = document.getElementById('m-team-select').value;
+  const infoBox = document.getElementById('mercato-team-info');
+  if(!infoBox) return;
+
+  if (!teamId) {
+    infoBox.innerHTML = "Nessuna squadra selezionata (i giocatori assegnati diventeranno svincolati).";
+    return;
+  }
+
+  const team = TEAMS.find(t => t.id === teamId);
+  if (!team) return;
+
+  const rosterGiocatori = PLAYERS.filter(p => p.teamId === teamId);
+  const portieri = rosterGiocatori.filter(p => p.role === 'P').length;
+  const difensori = rosterGiocatori.filter(p => p.role === 'D').length;
+  const centrocampisti = rosterGiocatori.filter(p => p.role === 'C').length;
+  const attaccanti = rosterGiocatori.filter(p => p.role === 'A').length;
+
+  infoBox.innerHTML = `
+    <p><strong>Squadra:</strong> ${team.emoji || '⚽'} ${team.name}</p>
+    <p><strong>Presidente:</strong> ${team.owner}</p>
+    <p><strong>Budget Residuo:</strong> ${team.budget}M</p>
+    <div class="divider" style="margin: .5rem 0"></div>
+    <p><strong>Totale in Rosa:</strong> ${rosterGiocatori.length} giocatori</p>
+    <p style="font-size: .78rem; color: var(--text3)">
+      🧤 P: ${portieri} | 🛡️ D: ${difensori} | 🪄 C: ${centrocampisti} | 🏹 A: ${attaccanti}
+    </p>
+  `;
+};
+
+// Listener per cambiare le info della squadra quando l'utente cambia la selezione dal menu a tendina
+document.getElementById('m-team-select').addEventListener('change', window.updateMercatoTeamInfo);
+
+// Salva l'assegnazione modificando il campo teamId del giocatore su Firebase
+window.assignPlayerTeam = async function() {
+  const playerId = document.getElementById('m-player-select').value;
+  const teamId = document.getElementById('m-team-select').value; // Può essere "" (Svincolato)
+
+  if (!playerId) {
+    toast('Seleziona prima un giocatore!', 'err');
+    return;
+  }
+
+  const giocatore = PLAYERS.find(p => p.id === playerId);
+  if (!giocatore) return;
+
+  try {
+    // Aggiorna unicamente il nodo teamId all'interno del giocatore selezionato
+    await update(ref(db, 'players/' + playerId), { teamId: teamId });
+    
+    if (teamId === "") {
+      toast(`${giocatore.name} svincolato con successo!`, 'ok');
+    } else {
+      const team = TEAMS.find(t => t.id === teamId);
+      toast(`${giocatore.name} assegnato a ${team ? team.name : teamId}!`, 'ok');
+    }
+  } catch (error) {
+    console.error(error);
+    toast('Errore durante l\'assegnazione', 'err');
+  }
+};
+
+// Renderizza la tabella inferiore con lo storico di tutti i giocatori e le rispettive squadre fanta
+function renderMercatoTable() {
+  const tbody = document.getElementById('mercatoTableBody');
+  if (!tbody) return;
+
+  const sortedPlayers = [...PLAYERS].sort((a, b) => a.name.localeCompare(b.name));
+
+  tbody.innerHTML = sortedPlayers.map(p => {
+    const fantaTeam = TEAMS.find(t => t.id === p.teamId);
+    const teamBadge = fantaTeam 
+      ? `<span class="badge badge-blue">${fantaTeam.emoji || '⚽'} ${fantaTeam.name}</span>`
+      : `<span class="badge badge-gray">❌ Svincolato</span>`;
+
+    return `
+      <tr>
+        <td><strong>${p.name}</strong></td>
+        <td><span class="badge ${p.role==='P'?'badge-gray':p.role==='D'?'badge-blue':p.role==='C'?'badge-green':'badge-red'}">${p.role}</span></td>
+        <td>${p.club}</td>
+        <td>${teamBadge}</td>
+        <td>
+          ${p.teamId ? `<button class="btn btn-red" style="font-size:.7rem;padding:.25rem .5rem" onclick="releasePlayer('${p.id}')">Svincola</button>` : '—'}
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Funzione rapida per svincolare un giocatore direttamente dalla tabella delle assegnazioni
+window.releasePlayer = async function(playerId) {
+  const giocatore = PLAYERS.find(p => p.id === playerId);
+  if (!giocatore) return;
+  if (!confirm(`Vuoi davvero svincolare ${giocatore.name}?`)) return;
+
+  await update(ref(db, 'players/' + playerId), { teamId: "" });
+  toast(`${giocatore.name} svincolato!`, 'info');
+};
 </script>
 </body>
 </html>
