@@ -14,7 +14,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <title>Fantacazz</title>
 <style>
-:root{\n  --bg:#0a0f1e;--bg2:#111827;--bg3:#1a2236;\n  --card:#141b2d;--card2:#1e2840;\n  --accent:#00e5a0;--accent2:#0077ff;--accent3:#ff4757;--gold:#f0b429;\n  --text:#f0f4ff;--text2:#8892a4;--text3:#4a5568;\n}
+:root{
+  --bg:#0a0f1e;--bg2:#111827;--bg3:#1a2236;
+  --card:#141b2d;--card2:#1e2840;
+  --accent:#00e5a0;--accent2:#0077ff;--accent3:#ff4757;--gold:#f0b429;
+  --text:#f0f4ff;--text2:#8892a4;--text3:#4a5568;
+}
 *{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-tap-highlight-color:transparent}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;padding-bottom:calc(70px + env(safe-area-inset-bottom))}
 .app-header{display:flex;align-items:center;justify-content:space-between;padding:1.2rem 1rem .6rem;background:linear-gradient(to bottom, var(--bg), transparent)}
@@ -38,15 +43,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
 .btn{background:var(--accent2);color:#fff;border:none;padding:.7rem 1.2rem;border-radius:10px;font-size:.85rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;transition:all 0.2s}
 .btn-green{background:var(--accent);color:#0a0f1e;font-weight:600}
 .btn:active{opacity:0.8;transform:scale(0.98)}
-
-/* STILI DELLA GRIGLIA DI LOGIN RIPRISTINATI */
-.login-grid {display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.5rem;}
-.team-btn {background:var(--card2);border:1px solid rgba(255,255,255,0.05);border-radius:14px;padding:1rem .75rem;display:flex;flex-direction:column;align-items:center;text-align:center;gap:.4rem;cursor:pointer;transition:all 0.2s;color:var(--text);}
-.team-btn:active {transform:scale(0.96);background:var(--bg3);}
-.team-btn .em {font-size:1.6rem;margin-bottom:.2rem;}
-.team-btn span:nth-child(2) {font-size:.85rem;font-weight:600;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-.team-btn .own {font-size:.68rem;color:var(--text2);font-weight:400;}
-
+.select-rose{width:100%;background:var(--bg3);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:.6rem .9rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none}
 #nav{position:fixed;bottom:0;left:0;right:0;height:calc(60px + env(safe-area-inset-bottom));background:rgba(17,24,39,0.85);backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,0.05);display:flex;justify-content:space-around;padding-top:.5rem;padding-bottom:env(safe-area-inset-bottom);z-index:999}
 .nav-btn{background:none;border:none;color:var(--text2);display:flex;flex-direction:column;align-items:center;gap:.25rem;font-family:'DM Sans',sans-serif;font-size:.58rem !important;font-weight:500;cursor:pointer;width:16%}
 .nav-btn svg{width:20px;height:20px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:all 0.2s}
@@ -67,11 +64,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
 <body>
 
 <div id="app">
-  <div id="page-login" style="padding:2rem 1rem; max-width:450px; margin:20px auto 0;">
-    <div class="logo" style="font-size:3rem; margin-bottom:1.5rem; text-align:center;">FANTACAZZ</div>
-    <div class="sec" style="justify-content:center; margin-bottom:1.2rem;">Scegli la tua Squadra</div>
-    <div id="loginSelect" class="login-grid">
-      <div style="grid-column:1/-1; text-align:center; padding:2rem; color:var(--text3);">Caricamento squadre...</div>
+  <div id="page-login" style="padding:3rem 2rem; text-align:center; max-width:400px; margin:40px auto 0;">
+    <div class="logo" style="font-size:3rem; margin-bottom:2rem;">FANTACAZZ</div>
+    <div class="card">
+      <div class="label" style="margin-bottom:.5rem;">Seleziona la tua squadra</div>
+      <select id="loginSelect" class="select-rose" style="margin-bottom:1.5rem; background:var(--bg2);">
+        <option value="">Caricamento leghe...</option>
+      </select>
+      <button class="btn btn-green" style="width:100%; padding:.8rem;" onclick="window.doLogin()">Entra nell'App</button>
     </div>
   </div>
 
@@ -174,7 +174,7 @@ window._handleCompetitionChange = function(newCompetitionId) {
 // 4. FA PARTIRE IL PRIMO CARICAMENTO ALL'APERTURA DELL'APP (Default: 'fantacazz')
 caricaDatiCompetizione(window.STATE.currentCompetition);
 
-// 5. LISTENER GLOBALI COMUNI
+// 5. LISTENER GLOBALI COMUNI (Rimangono fuori dalle cartelle, accessibili a tutti)
 onValue(ref(db, 'votes'), snap => { 
   window.STATE.votes = snap.val() || {}; 
   refreshUI(); 
@@ -185,14 +185,15 @@ onValue(ref(db, 'players'), snap => {
   refreshUI();
 });
 
-// 6. LOGICA DI CARICAMENTO E CONTROLLO LOGIN RIPRISTINATA
+// 6. POPOLAMENTO MENU A TENDINA E LOGICA DI AUTO-LOGIN
 function populateLoginDropdown() {
-  // 1. CONTROLLO AUTO-LOGIN AUTOMATICO
+  // 1. CONTROLLO AUTO-LOGIN
   const savedUserId = localStorage.getItem('fantaUser');
   if (savedUserId) {
     const loggedInUser = window.STATE.teams.find(t => t.id === savedUserId);
     if (loggedInUser) {
       window.STATE.user = loggedInUser;
+      // Se la schermata di login è ancora attiva, fa saltare l'utente dentro l'app
       if (document.getElementById('page-login').style.display !== 'none') {
         bootApp();
       } else {
@@ -202,27 +203,26 @@ function populateLoginDropdown() {
     }
   }
 
-  // 2. RENDERING DELLA GRIGLIA PULSANTI ORIGINALE (Se non si è loggati)
-  const grid = document.getElementById('loginSelect');
-  if (!grid) return;
+  // 2. POPOLAMENTO GRAFICO DEL SELECT ORIGINALE
+  const select = document.getElementById('loginSelect');
+  if (!select) return;
 
-  grid.innerHTML = window.STATE.teams.map(t => `
-    <button class="team-btn" onclick="window._selectTeam('${t.id}')">
-      <span class="em">${t.emoji || '⚽'}</span>
-      <span>${t.name}</span>
-      <span class="own">${t.owner}</span>
-    </button>
-  `).join('');
+  select.innerHTML = '<option value="">Scegli la tua squadra...</option>' + 
+    window.STATE.teams.map(t => `
+      <option value="${t.id}">${t.emoji || '⚽'} ${t.name} (${t.owner})</option>
+    `).join('');
 }
 
-// 7. AGGIUNTA DELLA FUNZIONE GLOBALE DI SELEZIONE DELLA GRIGLIA
-window._selectTeam = function(id) {
-  const t = window.STATE.teams.find(x => x.id === id);
-  if (!t) return;
-  
-  window.STATE.user = t;
-  localStorage.setItem('fantaUser', id); // Memorizza l'accesso sul browser
-  bootApp(); // Inizializza ed entra nell'app
+// 7. FUNZIONE DI LOGIN CHIAMATA DAL PULSANTE "ENTRA NELL'APP"
+window.doLogin = function() {
+  const id = document.getElementById('loginSelect').value;
+  if(!id) return;
+  const found = window.STATE.teams.find(t=>t.id===id);
+  if(found) {
+    window.STATE.user = found;
+    localStorage.setItem('fantaUser', id); // Salva l'ID nel browser per i futuri avvii
+    bootApp();
+  }
 };
 
 function bootApp() {
@@ -267,6 +267,15 @@ window.showToast = function(msg, type='ok') {
 };
 
 window._saveNode = (path, payload) => set(ref(db, path), payload);
+
+// REGISTRAZIONE DEL SERVICE WORKER
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('Service Worker registrato con successo', reg))
+      .catch(err => console.error('Errore registrazione Service Worker', err));
+  });
+}
 </script>
 </body>
 </html>
