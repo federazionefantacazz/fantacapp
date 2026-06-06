@@ -659,13 +659,16 @@ const db = getDatabase(app);
 // ══════════════════════════════════════════
 // STATO GLOBALE E COMPETIZIONE ATTIVA
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════
+// STATO GLOBALE E COMPETIZIONE ATTIVA
+// ══════════════════════════════════════════
 window.CURRENT_COMPETITION = 'fantacazz';
 
 let TEAMS = [];
 let PLAYERS = [];
 let VOTES = {};
-let MATCHES = {};    // Contiene i match della competizione attiva
-let CURRENT_GW = 1;  // Contiene la giornata della competizione attiva
+let MATCHES = {};    
+let CURRENT_GW = 1;  
 let adminPlayerFilter = '';
 
 // 1. FUNZIONE DINAMICA PER ASCOLTARE I DATI DEL TORNEO SELEZIONATO
@@ -675,58 +678,66 @@ function ascoltaDatiCompetizione(compId) {
     const statusData = snap.val() || {};
     CURRENT_GW = statusData.currentGW || 1;
     
-    // Aggiorna tutti gli elementi grafici della giornata nell'admin
-    document.getElementById('adminGWNum').textContent = CURRENT_GW;
-    document.getElementById('gwBadge').textContent = 'GW ' + CURRENT_GW;
-    document.getElementById('ds-gw').textContent = CURRENT_GW;
+    // Aggiorna in sicurezza gli elementi grafici se esistono nella pagina
+    const el1 = document.getElementById('adminGWNum');
+    const el2 = document.getElementById('gwBadge');
+    const el3 = document.getElementById('ds-gw');
     
-    updateDashboard();
-    renderVoteGrid();
+    if (el1) el1.textContent = CURRENT_GW;
+    if (el2) el2.textContent = 'GW ' + CURRENT_GW;
+    if (el3) el3.textContent = CURRENT_GW;
+    
+    if (typeof updateDashboard === "function") updateDashboard();
+    if (typeof renderVoteGrid === "function") renderVoteGrid();
   });
 
   // Riferimento ai MATCH (Calendario) della competizione specifica
   onValue(ref(db, `competitions/${compId}/matches`), snap => {
     MATCHES = snap.val() || {};
-    // Se hai una funzione per renderizzare i match del calendario nell'admin, chiamala qui
-    updateDashboard(); 
+    if (typeof updateDashboard === "function") updateDashboard(); 
   });
 }
 
 // 2. GESTORE DEL CAMBIO COMPETIZIONE DALLA SIDEBAR
 window._handleAdminCompChange = function(newCompId) {
   window.CURRENT_COMPETITION = newCompId;
-  toast(`Pannello Admin spostato su: ${newCompId.toUpperCase()}`, 'info');
+  
+  if (typeof toast === "function") toast(`Pannello Admin spostato su: ${newCompId.toUpperCase()}`, 'ok');
+  
   ascoltaDatiCompetizione(newCompId);
 };
 
-// Fai partire subito l'ascolto sulla competizione di default ('fantacazz')
+// 3. AVVIA IL PRIMO ASCOLTO ALL'AVVIO
 ascoltaDatiCompetizione(window.CURRENT_COMPETITION);
 
-
 // ══════════════════════════════════════════
-// LOAD DATA GLOBALE (Rimane invariato)
+// LOAD DATA GLOBALE (Ripristinato esattamente come l'originale)
 // ══════════════════════════════════════════
 onValue(ref(db, 'teams'), snap => {
   const raw = snap.val() || {};
-  TEAMS = Object.values(raw).sort((a, b) => b.pts - a.pts);
-  updateDashboard(); 
-  renderTeamsTable(); 
-  renderRankAdmin();
-  populateMercatoSelects();
+  TEAMS = Object.values(raw).sort((a,b) => b.pts - a.pts);
+  
+  if (typeof updateDashboard === "function") updateDashboard(); 
+  if (typeof renderTeamsTable === "function") renderTeamsTable(); 
+  if (typeof renderRankAdmin === "function") renderRankAdmin();
+  if (typeof populateMercatoSelects === "function") populateMercatoSelects();
 });
 
 onValue(ref(db, 'players'), snap => {
   const raw = snap.val() || {};
   PLAYERS = Object.values(raw);
-  document.getElementById('pCount').textContent = PLAYERS.length;
-  renderPlayersTable(); 
-  renderVoteGrid();
-  populateMercatoSelects();
+  
+  const pCount = document.getElementById('pCount');
+  if (pCount) pCount.textContent = PLAYERS.length;
+  
+  if (typeof renderPlayersTable === "function") renderPlayersTable(); 
+  if (typeof renderVoteGrid === "function") renderVoteGrid();
+  if (typeof populateMercatoSelects === "function") populateMercatoSelects();
 });
 
 onValue(ref(db, 'votes'), snap => {
   VOTES = snap.val() || {};
-  renderVoteGrid();
+  if (typeof renderVoteGrid === "function") renderVoteGrid();
 });
 
 setTimeout(()=>{
