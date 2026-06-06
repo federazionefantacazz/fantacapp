@@ -171,17 +171,20 @@ onAuthStateChanged(auth, firebaseUser => {
 });
 
 function caricaDatiCompetizione(compId) {
+  // 1. Ascolta lo stato specifico del torneo (Resta così com'è)
   onValue(ref(db, `competitions/${compId}/status`), snap => { 
     window.STATE.status = snap.val() || { currentGW: 1 }; 
     refreshUI(); 
   });
 
+  // 2. Ascolta i match specifici del torneo (Resta così com'è)
   onValue(ref(db, `competitions/${compId}/matches`), snap => { 
     window.STATE.matches = snap.val() || {}; 
     refreshUI(); 
   });
 
-  onValue(ref(db, `competitions/${compId}/teams`), snap => {
+  // 3. SQUADRE SPOSTATE SULLA RADICE GLOBALE PER EVITARE IL BLOCCO LOGIN
+  onValue(ref(db, 'teams'), snap => {
     const raw = snap.val() || {};
     window.STATE.teams = Object.values(raw).sort((a,b) => b.pts - a.pts);
     
@@ -196,7 +199,6 @@ function caricaDatiCompetizione(compId) {
     refreshUI();
   });
 }
-
 window._handleCompetitionChange = function(newCompetitionId) {
   window.STATE.currentCompetition = newCompetitionId;
   window.showToast(`Competizione: ${newCompetitionId.toUpperCase()}`, 'ok');
