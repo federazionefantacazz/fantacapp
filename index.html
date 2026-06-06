@@ -31,21 +31,22 @@ body{
   padding-bottom:calc(72px + var(--safe-bottom));
 }
 
-/* SPLASH */
+/* SPLASH & AUTH */
 #splash{
   position:fixed;inset:0;z-index:999;background:var(--bg);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;
-  transition:opacity .4s ease;
+  padding:1.5rem;overflow-y:auto;
 }
 .logo-big{font-family:'Bebas Neue',sans-serif;font-size:3.8rem;letter-spacing:.1em;color:var(--accent);text-shadow:0 0 50px rgba(0,229,160,.35)}
 .logo-sub{font-size:.75rem;color:var(--text3);letter-spacing:.2em;text-transform:uppercase}
-.login-box{
+.auth-box{
   background:var(--card);border:1px solid var(--border);border-radius:20px;
-  padding:1.5rem;width:88vw;max-width:360px;
+  padding:1.5rem;width:100%;max-width:360px;
   display:flex;flex-direction:column;gap:1rem;
 }
-.login-box h3{font-size:.85rem;color:var(--text2);font-weight:500}
-.team-grid{display:grid;grid-template-columns:1fr 1fr;gap:.55rem}
+.auth-box h3{font-size:.95rem;color:var(--text);font-weight:600}
+.auth-toggle{font-size:.8rem;color:var(--text2);text-align:center;cursor:pointer;text-decoration:underline}
+.team-grid{display:grid;grid-template-columns:1fr 1fr;gap:.55rem;max-height:220px;overflow-y:auto;padding-right:2px}
 .team-btn{
   background:var(--bg3);border:1.5px solid var(--border);border-radius:12px;
   padding:.75rem .5rem;color:var(--text);font-family:'DM Sans',sans-serif;
@@ -89,7 +90,7 @@ body{
   width:32px;height:32px;border-radius:50%;
   background:linear-gradient(135deg,var(--accent2),var(--accent));
   display:flex;align-items:center;justify-content:center;
-  font-size:.75rem;font-weight:700;color:#fff;
+  font-size:.75rem;font-weight:700;color:#fff;cursor:pointer;
 }
 
 /* MAIN */
@@ -184,8 +185,6 @@ body{
 .rank-pts{font-family:'DM Mono',monospace;font-size:1.05rem;font-weight:500;color:var(--text)}
 .rank-sub{font-size:.68rem;color:var(--text2)}
 .me-badge{font-size:.6rem;color:var(--accent);background:rgba(0,229,160,.1);padding:.1rem .35rem;border-radius:4px;margin-left:.3rem}
-.trend{font-size:.65rem;padding:.12rem .3rem;border-radius:4px;font-weight:700;margin-left:.3rem}
-.tr-u{color:#00e5a0;background:rgba(0,229,160,.1)}.tr-d{color:var(--accent3);background:rgba(255,71,87,.1)}.tr-s{color:var(--text3)}
 
 /* FORMAZIONE */
 .campo{
@@ -280,37 +279,21 @@ body{
 .bar-f{height:5px;border-radius:4px;transition:width .9s ease}
 .ba{background:var(--accent)}.bb{background:var(--accent2)}.br{background:var(--accent3)}.bgold{background:var(--gold)}
 
-/* MODAL */
-.modal-ov{
-  position:fixed;inset:0;z-index:500;
-  background:rgba(0,0,0,.75);backdrop-filter:blur(6px);
-  display:none;align-items:flex-end;justify-content:center;
-}
-.modal-ov.open{display:flex}
-.modal{
-  background:var(--bg2);border:1px solid var(--border);border-radius:24px 24px 0 0;
-  padding:1.5rem 1.5rem calc(1.5rem + var(--safe-bottom));
-  width:100%;max-width:480px;animation:slideUp .25s ease;
-}
-@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-.mhandle{width:36px;height:4px;background:var(--text3);border-radius:2px;margin:0 auto 1.2rem}
-.mtitle{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;margin-bottom:1rem}
+/* INPUT STYLES */
 .irow{margin-bottom:.7rem}
 .irow label{display:block;font-size:.72rem;color:var(--text2);margin-bottom:.3rem;letter-spacing:.05em}
-.irow input,.irow select,.irow textarea{
+.irow input,.irow select{
   width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;
   padding:.6rem .9rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.88rem;
-  outline:none;transition:border-color .15s;resize:none;
+  outline:none;transition:border-color .15s;
 }
-.irow input:focus,.irow select:focus,.irow textarea:focus{border-color:var(--accent2)}
-.irow select option{background:var(--bg3)}
+.irow input:focus{border-color:var(--accent2)}
 .btn-p{
   width:100%;padding:.82rem;border-radius:12px;border:none;
   background:var(--accent);color:#000;font-family:'DM Sans',sans-serif;
   font-size:.92rem;font-weight:700;cursor:pointer;transition:all .15s;margin-top:.4rem;
 }
 .btn-p:active{transform:scale(.97);opacity:.85}
-.btn-sec{background:var(--bg3);color:var(--text);border:1px solid var(--border)}
 
 /* TOAST */
 .toast{
@@ -323,30 +306,32 @@ body{
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.ok{background:var(--accent);color:#000}
 .toast.err{background:var(--accent3);color:#fff}
-.toast.info{background:var(--accent2);color:#fff}
-
-/* Skeleton */
-.skel{background:linear-gradient(90deg,var(--bg3) 25%,var(--card2) 50%,var(--bg3) 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:8px;height:14px}
-@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-
-/* GW indicator */
-.gw-chip{
-  display:inline-flex;align-items:center;gap:.35rem;
-  background:var(--bg3);border:1px solid var(--border);border-radius:8px;
-  padding:.3rem .7rem;font-size:.78rem;color:var(--text2);
-}
-.gw-chip strong{color:var(--text);font-family:'DM Mono',monospace}
 </style>
 </head>
 <body>
 
-<!-- SPLASH -->
 <div id="splash">
   <div class="logo-big">Fantacazz</div>
   <div class="logo-sub">Serie A — Stagione 2024/25</div>
-  <div class="login-box">
-    <h3>Chi sei?</h3>
-    <div id="teamGrid">
+  
+  <div class="auth-box" id="authBox">
+    <h3 id="authTitle">Accedi al tuo Account</h3>
+    <div class="irow">
+      <label>Email</label>
+      <input type="email" id="authEmail" placeholder="tuanome@esempio.com">
+    </div>
+    <div class="irow">
+      <label>Password</label>
+      <input type="password" id="authPassword" placeholder="••••••••">
+    </div>
+    <button class="btn-p" id="btnAuthAction" onclick="window._processAuth()">Accedi</button>
+    <div class="auth-toggle" id="authToggle" onclick="window._toggleAuthMode()">Non hai un account? Registrati</div>
+  </div>
+
+  <div class="auth-box" id="teamSelectBox" style="display:none">
+    <h3>Scegli la tua squadra</h3>
+    <p style="font-size:.75rem; color:var(--text2); margin-bottom:.5rem;">Associa permanentemente il tuo account a una di queste squadre:</p>
+    <div id="teamGrid" class="team-grid">
       <div style="grid-column:1/-1" class="loading-team">
         <div class="spinner"></div> Caricamento squadre…
       </div>
@@ -354,19 +339,16 @@ body{
   </div>
 </div>
 
-<!-- TOPBAR -->
 <div id="topbar" style="display:none">
   <div class="tl">Fantacazz</div>
   <div class="topbar-right">
     <div class="live-badge" id="liveBadge">🔴 LIVE</div>
-    <div class="avatar" id="topAvatar">?</div>
+    <div class="avatar" id="topAvatar" onclick="window._logout()" title="Clicca per disconnetterti">?</div>
   </div>
 </div>
 
-<!-- APP -->
 <div id="app">
 
-  <!-- HOME -->
   <div class="page active" id="page-home">
     <div class="hero" id="heroCard">
       <div class="label" style="margin-bottom:.35rem">La tua squadra</div>
@@ -381,7 +363,6 @@ body{
       </div>
     </div>
 
-    <!-- LIVE MATCHES -->
     <div class="live-panel" id="livePanel" style="display:none">
       <div class="live-panel-hdr">
         <div style="font-size:.78rem;font-weight:600;color:var(--text)">
@@ -411,7 +392,6 @@ body{
     <div id="topScorers"></div>
   </div>
 
-  <!-- CLASSIFICA -->
   <div class="page" id="page-classifica">
     <div class="sec">Classifica</div>
     <div class="tabs">
@@ -424,7 +404,6 @@ body{
     <div id="rk-form" style="display:none"></div>
   </div>
 
-  <!-- FORMAZIONE -->
   <div class="page" id="page-formazione">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
       <div class="sec" style="margin:0">Formazione</div>
@@ -444,7 +423,6 @@ body{
     </div>
   </div>
 
-  <!-- MERCATO -->
   <div class="page" id="page-mercato">
     <div class="sec">Mercato</div>
     <div class="mkt-hdr">
@@ -461,7 +439,6 @@ body{
     <div id="playerList"></div>
   </div>
 
-  <!-- STATS -->
   <div class="page" id="page-stats">
     <div class="sec">Statistiche</div>
     <div class="tabs">
@@ -490,9 +467,8 @@ body{
     </div>
   </div>
 
-</div><!-- /app -->
+</div>
 
-<!-- BOTTOM NAV -->
 <nav id="nav" style="display:none">
   <button class="nav-btn active" onclick="goPage('home',this)">
     <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Home
@@ -513,15 +489,11 @@ body{
 
 <div class="toast" id="toast"></div>
 
-<!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getDatabase, ref, onValue, get } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+import { getDatabase, ref, onValue, update } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
-// ══════════════════════════════════════════
-// 🔧 CONFIGURAZIONE FIREBASE
-// Sostituisci con i tuoi dati da Firebase Console
-// ══════════════════════════════════════════
 const firebaseConfig = {
   apiKey: "AIzaSyCjjjOlnLKuCcf4OD_pBVe1PvjHIvM0Y_g",
   authDomain: "fantacapp-79d1c.firebaseapp.com",
@@ -534,33 +506,107 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+const auth = getAuth(app);
 
 // ══════════════════════════════════════════
 // STATO GLOBALE
 // ══════════════════════════════════════════
 let STATE = {
-  user: null,
+  firebaseUser: null, // Oggetto Auth di Firebase
+  user: null,         // La squadra (team) collegata all'utente corrente
   teams: [],
   players: [],
-  votes: {},       // { playerId: voto }
-  matches: [],     // partite Serie A live
+  votes: {},       
+  matches: [],     
   currentGW: 1,
   modulo: '4-3-3',
   marketFilter: 'Tutti',
 };
 
+let isSignUpMode = false;
 const MODULI = ['4-3-3','4-4-2','3-5-2','4-2-3-1','3-4-3','5-3-2'];
 
 // ══════════════════════════════════════════
-// FIREBASE: carica dati lega in realtime
+// GESTIONE AUTENTICAZIONE (UI & LOGIC)
+// ══════════════════════════════════════════
+window._toggleAuthMode = function() {
+  isSignUpMode = !isSignUpMode;
+  document.getElementById('authTitle').textContent = isSignUpMode ? "Crea un nuovo Account" : "Accedi al tuo Account";
+  document.getElementById('btnAuthAction').textContent = isSignUpMode ? "Registrati" : "Accedi";
+  document.getElementById('authToggle').textContent = isSignUpMode ? "Hai già un account? Accedi" : "Non hai un account? Registrati";
+};
+
+window._processAuth = async function() {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+
+  if(!email || !password) {
+    showToast('Compila tutti i campi!', 'err');
+    return;
+  }
+
+  try {
+    if(isSignUpMode) {
+      await createUserWithEmailAndPassword(auth, email, password);
+      showToast('Account creato con successo!', 'ok');
+    } else {
+      await signInWithEmailAndPassword(auth, email, password);
+      showToast('Accesso effettuato!', 'ok');
+    }
+  } catch (error) {
+    let msg = 'Errore durante l\'autenticazione.';
+    if(error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') msg = 'Credenziali errate.';
+    if(error.code === 'auth/email-already-in-use') msg = 'Email già registrata.';
+    if(error.code === 'auth/weak-password') msg = 'Password troppo debole (min 6 caratteri).';
+    showToast(msg, 'err');
+  }
+};
+
+window._logout = function() {
+  signOut(auth).then(() => {
+    showToast('Disconnesso.', 'ok');
+    location.reload();
+  });
+};
+
+// Monitora lo stato di Login dell'utente
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    STATE.firebaseUser = user;
+    subscribeLeague();
+  } else {
+    // Non loggato: mostra la scatola di auth e nascondi il resto
+    document.getElementById('splash').style.display = 'flex';
+    document.getElementById('splash').style.opacity = '1';
+    document.getElementById('authBox').style.display = 'flex';
+    document.getElementById('teamSelectBox').style.display = 'none';
+    document.getElementById('topbar').style.display = 'none';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('nav').style.display = 'none';
+  }
+});
+
+// ══════════════════════════════════════════
+// FIREBASE: sincronizzazione Realtime
 // ══════════════════════════════════════════
 function subscribeLeague() {
   // Squadre
   onValue(ref(db, 'teams'), snap => {
     const raw = snap.val() || {};
-    STATE.teams = Object.values(raw).sort((a,b) => b.pts - a.pts);
-    if (STATE.user) refreshUI();
-    else buildLoginGrid();
+    STATE.teams = Object.values(raw);
+    
+    // Controlla se questo account ha già una squadra associata (tramite uid)
+    const associatedTeam = STATE.teams.find(t => t.uid === STATE.firebaseUser.uid);
+    
+    if (associatedTeam) {
+      STATE.user = associatedTeam;
+      showApp();
+    } else {
+      // Se l'utente è loggato ma non ha ancora scelto una squadra
+      document.getElementById('authBox').style.display = 'none';
+      document.getElementById('teamSelectBox').style.display = 'flex';
+      buildTeamSelectionGrid();
+    }
   });
 
   // Giocatori
@@ -570,7 +616,7 @@ function subscribeLeague() {
     if (STATE.user) { buildMercato(); buildFormazione(); }
   });
 
-  // Voti giornata (aggiornati dall'admin dopo SofaScore)
+  // Voti giornata
   onValue(ref(db, 'votes'), snap => {
     STATE.votes = snap.val() || {};
     if (STATE.user) { buildFormazione(); buildStats(); }
@@ -584,7 +630,7 @@ function subscribeLeague() {
     if (STATE.user) refreshUI();
   });
 
-  // Partite live (aggiornate dallo script SofaScore)
+  // Partite live
   onValue(ref(db, 'liveMatches'), snap => {
     STATE.matches = snap.val() ? Object.values(snap.val()) : [];
     renderLiveMatches();
@@ -594,24 +640,28 @@ function subscribeLeague() {
 
 function checkLiveBadge() {
   const hasLive = STATE.matches.some(m => m.status === 'inprogress' || m.status === 'live');
-  document.getElementById('liveBadge').style.display = hasLive ? 'block' : 'none';
+  const badge = document.getElementById('liveBadge');
+  if(badge) badge.style.display = hasLive ? 'block' : 'none';
 }
 
 // ══════════════════════════════════════════
-// LOGIN
+// ASSOCIAZIONE SQUADRA LIBERA ALL'UTENTE
 // ══════════════════════════════════════════
-function buildLoginGrid() {
+function buildTeamSelectionGrid() {
   const grid = document.getElementById('teamGrid');
-  if (!STATE.teams.length) {
+  // Filtra solo le squadre che NON sono ancora state associate a nessun UID utente
+  const freeTeams = STATE.teams.filter(t => !t.uid);
+
+  if (!freeTeams.length) {
     grid.innerHTML = `<div style="grid-column:1/-1" class="loading-team">
-      <div class="spinner"></div> Nessuna squadra trovata.<br>
-      <span style="font-size:.72rem;color:var(--text3)">Configura la lega nel pannello admin.</span>
+      Nessuna squadra disponibile o non assegnata.<br>
+      <span style="font-size:.72rem;color:var(--text3)">Contatta l'amministratore per aggiungerne una.</span>
     </div>`;
     return;
   }
-  grid.style.display = 'grid';
-  grid.innerHTML = STATE.teams.map(t => `
-    <button class="team-btn" onclick="window._selectTeam('${t.id}')">
+
+  grid.innerHTML = freeTeams.map(t => `
+    <button class="team-btn" onclick="window._claimTeam('${t.id}')">
       <span class="em">${t.emoji || '⚽'}</span>
       <span>${t.name}</span>
       <span class="own">${t.owner}</span>
@@ -619,22 +669,19 @@ function buildLoginGrid() {
   `).join('');
 }
 
-window._selectTeam = function(id) {
-  const t = STATE.teams.find(x => x.id === id);
-  if (!t) return;
-  STATE.user = t;
-  localStorage.setItem('fl_user_id', id);
-  showApp();
+// Salva nel database che la squadra X appartiene all'utente loggato (UID)
+window._claimTeam = function(teamId) {
+  if (!STATE.firebaseUser) return;
+  
+  // Aggiorna sul DB aggiungendo il campo "uid" alla squadra selezionata
+  update(ref(db, `teams/${teamId}`), {
+    uid: STATE.firebaseUser.uid
+  }).then(() => {
+    showToast('Squadra associata correttamente!', 'ok');
+  }).catch(() => {
+    showToast('Errore di associazione.', 'err');
+  });
 };
-
-function tryAutoLogin() {
-  const savedId = localStorage.getItem('fl_user_id');
-  if (savedId && STATE.teams.length) {
-    const t = STATE.teams.find(x => x.id === savedId);
-    if (t) { STATE.user = t; showApp(); return; }
-  }
-  buildLoginGrid();
-}
 
 // ══════════════════════════════════════════
 // SHOW APP
@@ -652,6 +699,8 @@ function showApp() {
 }
 
 function refreshUI() {
+  // Riordina le squadre per classifica generale aggiornata
+  STATE.teams.sort((a,b) => b.pts - a.pts);
   buildHome();
   buildClassifica();
   buildFormazione();
@@ -698,7 +747,7 @@ function buildHome() {
 }
 
 // ══════════════════════════════════════════
-// LIVE MATCHES (da Firebase, aggiornate dallo script SofaScore)
+// LIVE MATCHES
 // ══════════════════════════════════════════
 function renderLiveMatches() {
   const panel = document.getElementById('livePanel');
@@ -759,8 +808,8 @@ function renderRank(cId, list, ptsFn, subFn) {
 // FORMAZIONE
 // ══════════════════════════════════════════
 function buildFormazione() {
-  // Moduli
   const mb = document.getElementById('moduliBar');
+  if(!mb) return;
   mb.innerHTML = MODULI.map(m=>`
     <div class="mtag ${m===STATE.modulo?'active':''}" onclick="window._setModulo('${m}')">${m}</div>
   `).join('');
@@ -787,7 +836,6 @@ function renderCampo() {
 
   document.getElementById('campoLbl').textContent = 'Campo — '+STATE.modulo;
 
-  // Calcola punteggio GW dai voti
   const allStarters = [
     ...portieri.slice(0,1),
     ...difensori.slice(0,nDif),
@@ -804,7 +852,6 @@ function renderCampo() {
   fr.appendChild(makeRow(difensori.slice(0,nDif),'dif'));
   fr.appendChild(makeRow(portieri.slice(0,1),'por'));
 
-  // Panchina
   const starterIds = new Set(allStarters.map(p=>p.id));
   const bench = [...portieri,...difensori,...centrocampisti,...attaccanti].filter(p=>!starterIds.has(p.id)).slice(0,7);
   document.getElementById('benchRow').innerHTML = bench.map(p=>{
@@ -967,12 +1014,6 @@ window.showToast = function(msg, type='ok') {
   t.textContent = msg; t.className = 'toast '+type+' show';
   setTimeout(()=>t.classList.remove('show'),2600);
 };
-
-// ══════════════════════════════════════════
-// INIT
-// ══════════════════════════════════════════
-subscribeLeague();
-setTimeout(tryAutoLogin, 800); // aspetta che Firebase carichi
 
 // Service Worker
 if ('serviceWorker' in navigator) {
