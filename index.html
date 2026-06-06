@@ -1,13 +1,3 @@
-Ora guardando l'intero file HTML la situazione è chiarissima. Nel codice che mi hai inviato hai una discrepanza tra la struttura del tag HTML e il Javascript:
-
-1. Nell'HTML (riga 48) hai un tag **`<select id="loginSelect">`** (un menu a tendina classico) ed un pulsante con **`onclick="window.doLogin()"`**.
-2. Nel Javascript (riga 168), però, la funzione `populateLoginDropdown()` provava a generare dei pulsanti (`<button class="team-btn">`) iniettandoli dentro il `select`. Questo rompeva la grafica e impediva al login di funzionare, e mancava del tutto la funzione `window._selectTeam`.
-
-Dato che mi hai chiesto di rimettere la logica del login **com'era prima** (ovvero la selezione a griglia con i pulsanti grandi per ogni squadra), dobbiamo correggere sia il blocco HTML della schermata di login che le funzioni Javascript associate.
-
-Sostituisci interamente il codice del tuo file con questa versione corretta e pronta all'uso:
-
-```html
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -280,5 +270,3 @@ window._saveNode = (path, payload) => set(ref(db, path), payload);
 </script>
 </body>
 </html>
-
-```
