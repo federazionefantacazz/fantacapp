@@ -514,39 +514,52 @@ window.importaCSV = async function() {
 window.syncSofaScore = async function() {
   const btn = document.getElementById('btn-sync-sofa');
   
-  // Disabilitiamo il bottone per evitare clic multipli
+  // Filtriamo solo i giocatori che hanno effettivamente un ID SofaScore inserito
+  const giocatoriConSofa = PLAYERS.filter(p => p.sofaId && p.sofaId.trim() !== "");
+
+  if (giocatoriConSofa.length === 0) {
+    toast('Nessun giocatore con ID SofaScore trovato nel database!', 'err');
+    return;
+  }
+  
   btn.disabled = true;
   btn.innerText = "⏳ Sincronizzazione...";
-  toast('Inizio sincronizzazione voti...', 'info');
+  toast(`Inizio sync voti per ${giocatoriConSofa.length} giocatori...`, 'info');
 
   try {
-    // Cicliamo tutti i giocatori nel dizionario
-    for (const [nome, id] of Object.entries(LISTA_GIOCATORI_SOFA)) {
+    // Cicliamo sui giocatori reali del database
+    for (const giocatore of giocatoriConSofa) {
+      const id = giocatore.sofaId;
+      const nome = giocatore.name;
       
-      // URL reale di SofaScore + Proxy gratuito per evitare il blocco CORS del browser
+      // URL reale di SofaScore + Proxy gratuito per evitare il blocco CORS
       const targetUrl = `https://api.sofascore.com/api/v1/player/${id}/statistics`;
       const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
 
-      const risposta = await fetch(proxyUrl);
-      
-      if (risposta.ok) {
-        const dati = await risposta.json();
+      try {
+        const risposta = await fetch(proxyUrl);
         
-        // Estraiamo il voto live (se non c'è, mettiamo 6.0 di default)
-        const votoLive = dati.statistics?.rating || 6.0;
+        if (risposta.ok) {
+          const dati = await risposta.json();
+          
+          // Estraiamo il voto live (se non c'è, mettiamo 6.0 di default)
+          const votoLive = dati.statistics?.rating || 6.0;
 
-        // Salviamo il voto direttamente su Firebase nel nodo 'voti_live/NomeGiocatore'
-        await set(ref(db, 'voti_live/' + nome), {
-          voto: votoLive,
-          orario: new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
-        });
-        
-        console.log(`Aggiornato ${nome}: ${votoLive}`);
-      } else {
-        console.error(`Impossibile recuperare i dati per ${nome}`);
+          // Salviamo il voto direttamente su Firebase nel nodo 'voti_live/NomeGiocatore'
+          await set(ref(db, 'voti_live/' + nome), {
+            voto: votoLive,
+            orario: new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+          });
+          
+          console.log(`Aggiornato ${nome}: ${votoLive}`);
+        } else {
+          console.error(`Impossibile recuperare i dati per ${nome}`);
+        }
+      } catch (err) {
+        console.error(`Errore di rete per ${nome}:`, err);
       }
       
-      // Aspettiamo mezzo secondo tra un giocatore e l'altro per non sovraccaricare il servizio
+      // Aspettiamo mezzo secondo tra un giocatore e l'altro per evitare ban/blocchi dal proxy
       await new Promise(resolve => setTimeout(resolve, 500));
     }
 
@@ -554,9 +567,8 @@ window.syncSofaScore = async function() {
 
   } catch (errore) {
     console.error(errore);
-    toast('Errore durante il sync di SofaScore', 'error');
+    toast('Errore durante il sync di SofaScore', 'err');
   } finally {
-    // Riattiviamo il bottone a fine processo
     btn.disabled = false;
     btn.innerText = "🔄 Sincronizza Voti SofaScore";
   }
