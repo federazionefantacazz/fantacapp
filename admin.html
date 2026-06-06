@@ -913,7 +913,7 @@ window.changeGW = function(delta){
   document.getElementById('adminGWNum').textContent = CURRENT_GW;
 };
 
-wwindow.saveGW = async function(){
+window.saveGW = async function(){
   // Salva nel percorso dinamico della competizione attiva
   await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/status`), { currentGW: CURRENT_GW });
   toast('Giornata GW'+CURRENT_GW+' salvata per ' + window.CURRENT_COMPETITION.toUpperCase(), 'ok');
@@ -1077,7 +1077,14 @@ window.updateMercatoTeamInfo = function() {
 };
 
 // Listener per cambiare le info della squadra quando l'utente cambia la selezione dal menu a tendina
-document.getElementById('m-team-select').addEventListener('change', window.updateMercatoTeamInfo);
+// Sostituisci la vecchia riga isolata con questo blocco sicuro:
+document.addEventListener("DOMContentLoaded", () => {
+  const selectTeam = document.getElementById('m-team-select');
+  if (selectTeam) {
+    selectTeam.addEventListener('change', window.updateMercatoTeamInfo);
+  }
+});
+  
 
 // Salva l'assegnazione modificando il campo teamId del giocatore su Firebase
 window.assignPlayerTeam = async function() {
