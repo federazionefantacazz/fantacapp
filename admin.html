@@ -131,6 +131,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   <!-- SIDEBAR -->
   <div class="sidebar">
     <div class="logo">Fantacazz<span>Pannello Admin</span></div>
+    <div style="padding: 0 1rem 1rem 1rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem;">
+      <label style="font-size: .7rem; color: var(--text2); text-transform: uppercase; font-weight: 600; display: block; margin-bottom: .4rem;">Competizione Attiva</label>
+      <select id="adminCompSelect" style="width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; color: #fff; padding: .5rem; font-size: .85rem;" onchange="window._handleAdminCompChange(this.value)">
+        <option value="fantacazz">🏆 Fantacazz (Campionato)</option>
+        <option value="coppa">🏆 Coppa Italia</option>
+      </select>
+    </div>
     <button class="snav active" onclick="showSec('dashboard',this)">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard
     </button>
@@ -649,35 +656,77 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-let TEAMS = [], PLAYERS = [], VOTES = {}, CURRENT_GW = 1;
+// ══════════════════════════════════════════
+// STATO GLOBALE E COMPETIZIONE ATTIVA
+// ══════════════════════════════════════════
+window.CURRENT_COMPETITION = 'fantacazz';
+
+let TEAMS = [];
+let PLAYERS = [];
+let VOTES = {};
+let MATCHES = {};    // Contiene i match della competizione attiva
+let CURRENT_GW = 1;  // Contiene la giornata della competizione attiva
 let adminPlayerFilter = '';
 
+// 1. FUNZIONE DINAMICA PER ASCOLTARE I DATI DEL TORNEO SELEZIONATO
+function ascoltaDatiCompetizione(compId) {
+  // Riferimento allo STATO (Giornata attuale) della competizione specifica
+  onValue(ref(db, `competitions/${compId}/status`), snap => {
+    const statusData = snap.val() || {};
+    CURRENT_GW = statusData.currentGW || 1;
+    
+    // Aggiorna tutti gli elementi grafici della giornata nell'admin
+    document.getElementById('adminGWNum').textContent = CURRENT_GW;
+    document.getElementById('gwBadge').textContent = 'GW ' + CURRENT_GW;
+    document.getElementById('ds-gw').textContent = CURRENT_GW;
+    
+    updateDashboard();
+    renderVoteGrid();
+  });
+
+  // Riferimento ai MATCH (Calendario) della competizione specifica
+  onValue(ref(db, `competitions/${compId}/matches`), snap => {
+    MATCHES = snap.val() || {};
+    // Se hai una funzione per renderizzare i match del calendario nell'admin, chiamala qui
+    updateDashboard(); 
+  });
+}
+
+// 2. GESTORE DEL CAMBIO COMPETIZIONE DALLA SIDEBAR
+window._handleAdminCompChange = function(newCompId) {
+  window.CURRENT_COMPETITION = newCompId;
+  toast(`Pannello Admin spostato su: ${newCompId.toUpperCase()}`, 'info');
+  ascoltaDatiCompetizione(newCompId);
+};
+
+// Fai partire subito l'ascolto sulla competizione di default ('fantacazz')
+ascoltaDatiCompetizione(window.CURRENT_COMPETITION);
+
+
 // ══════════════════════════════════════════
-// LOAD DATA
+// LOAD DATA GLOBALE (Rimane invariato)
 // ══════════════════════════════════════════
-onValue(ref(db,'teams'), snap => {
-  const raw = snap.val()||{};
-  TEAMS = Object.values(raw).sort((a,b)=>b.pts-a.pts);
-  updateDashboard(); renderTeamsTable(); renderRankAdmin();
-  populateMercatoSelects(); // <-- AGGIUNGI QUESTO
+onValue(ref(db, 'teams'), snap => {
+  const raw = snap.val() || {};
+  TEAMS = Object.values(raw).sort((a, b) => b.pts - a.pts);
+  updateDashboard(); 
+  renderTeamsTable(); 
+  renderRankAdmin();
+  populateMercatoSelects();
 });
-onValue(ref(db,'players'), snap => {
-  const raw = snap.val()||{};
+
+onValue(ref(db, 'players'), snap => {
+  const raw = snap.val() || {};
   PLAYERS = Object.values(raw);
   document.getElementById('pCount').textContent = PLAYERS.length;
-  renderPlayersTable(); renderVoteGrid();
-  populateMercatoSelects(); // <-- AGGIUNGI QUESTO
-});
-onValue(ref(db,'votes'), snap => {
-  VOTES = snap.val()||{};
+  renderPlayersTable(); 
   renderVoteGrid();
+  populateMercatoSelects();
 });
-onValue(ref(db,'config'), snap => {
-  const cfg = snap.val()||{};
-  CURRENT_GW = cfg.currentGW||1;
-  document.getElementById('adminGWNum').textContent = CURRENT_GW;
-  document.getElementById('gwBadge').textContent = 'GW '+CURRENT_GW;
-  document.getElementById('ds-gw').textContent = CURRENT_GW;
+
+onValue(ref(db, 'votes'), snap => {
+  VOTES = snap.val() || {};
+  renderVoteGrid();
 });
 
 setTimeout(()=>{
@@ -853,9 +902,10 @@ window.changeGW = function(delta){
   document.getElementById('adminGWNum').textContent = CURRENT_GW;
 };
 
-window.saveGW = async function(){
-  await update(ref(db,'config'),{currentGW: CURRENT_GW});
-  toast('Giornata GW'+CURRENT_GW+' salvata','ok');
+wwindow.saveGW = async function(){
+  // Salva nel percorso dinamico della competizione attiva
+  await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/status`), { currentGW: CURRENT_GW });
+  toast('Giornata GW'+CURRENT_GW+' salvata per ' + window.CURRENT_COMPETITION.toUpperCase(), 'ok');
 };
 
 // ══════════════════════════════════════════
@@ -919,8 +969,10 @@ window.saveRankRow = async function(id){
   const w = parseInt(document.getElementById('rk-w-'+id).value)||0;
   const d = parseInt(document.getElementById('rk-d-'+id).value)||0;
   const l = parseInt(document.getElementById('rk-l-'+id).value)||0;
+  
+  // Continua a salvare nel nodo globale teams perché le squadre sono uniche
   await update(ref(db,'teams/'+id),{pts,lastGW:lgw,w,d,l});
-  toast('Classifica aggiornata!','ok');
+  toast('Classifica di squadra aggiornata globalmente!', 'ok');
 };
 
 window.recalcAll = function(){
