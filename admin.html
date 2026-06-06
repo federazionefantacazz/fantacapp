@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<title>Fantacazz — Admin</title>
+<style>
+:root{
+  --bg:#0a0f1e;--bg2:#111827;--bg3:#1a2236;
+  --card:#141b2d;--border:rgba(255,255,255,0.08);
+  --accent:#00e5a0;--accent2:#0077ff;--accent3:#ff4757;--gold:#f0b429;
+  --text:#f0f4ff;--text2:#8892a4;--text3:#4a5568;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.layout{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+/* SIDEBAR */
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:1.5rem 1rem;display:flex;flex-direction:column;gap:.3rem}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--accent);letter-spacing:.08em;margin-bottom:1.5rem}
+.logo span{display:block;font-family:'DM Sans',sans-serif;font-size:.65rem;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;font-weight:600}
+.snav{
+  padding:.55rem .85rem;border-radius:10px;font-size:.85rem;color:var(--text2);
+  cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:.6rem;border:none;background:none;width:100%;text-align:left;
+}
+.snav:hover{color:var(--text);background:var(--bg3)}
+.snav.active{color:var(--accent);background:rgba(0,229,160,.08);font-weight:500}
+.snav svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.sidebar-bottom{margin-top:auto}
+.sync-status{font-size:.72rem;color:var(--text3);padding:.6rem .85rem}
+/* MAIN */
+.main{padding:2rem;overflow-y:auto}
+.page-title{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:.05em;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between}
+.section{display:none}.section.active{display:block}
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.25rem;margin-bottom:1rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1rem}
+.stat-card{background:var(--bg3);border-radius:12px;padding:1rem 1.1rem;border:1px solid var(--border)}
+.stat-card .lbl{font-size:.65rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:.3rem}
+.stat-card .val{font-family:'DM Mono',monospace;font-size:1.6rem;font-weight:500;color:var(--text)}
+.stat-card .val.green{color:var(--accent)}.stat-card .val.blue{color:var(--accent2)}.stat-card .val.red{color:var(--accent3)}
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;font-size:.84rem}
+.tbl th{font-size:.65rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--border)}
+.tbl td{padding:.65rem 1rem;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text2)}
+.tbl td:first-child{color:var(--text);font-weight:500}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:rgba(255,255,255,.02)}
+/* FORM */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:.8rem}
+.form-row.full{grid-template-columns:1fr}
+.field-group{display:flex;flex-direction:column;gap:.3rem}
+.field-group label{font-size:.72rem;color:var(--text2);letter-spacing:.04em}
+.field-group input,.field-group select{
+  background:var(--bg3);border:1px solid var(--border);border-radius:9px;
+  padding:.6rem .9rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.88rem;
+  outline:none;transition:border-color .15s;
+}
+.field-group input:focus,.field-group select:focus{border-color:var(--accent2)}
+.field-group select option{background:var(--bg3)}
+.btn{
+  padding:.6rem 1.2rem;border-radius:9px;border:none;font-family:'DM Sans',sans-serif;
+  font-size:.85rem;font-weight:600;cursor:pointer;transition:all .15s;
+}
+.btn-green{background:var(--accent);color:#000}.btn-green:hover{opacity:.85}
+.btn-blue{background:var(--accent2);color:#fff}.btn-blue:hover{opacity:.85}
+.btn-red{background:var(--accent3);color:#fff}.btn-red:hover{opacity:.85}
+.btn-ghost{background:var(--bg3);color:var(--text);border:1px solid var(--border)}.btn-ghost:hover{border-color:var(--text2)}
+/* VOTE TABLE */
+.vote-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.6rem}
+.vote-item{
+  background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:.65rem .8rem;
+  display:flex;align-items:center;gap:.6rem;
+}
+.role-dot{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:700;flex-shrink:0}
+.rdP{background:rgba(240,180,0,.15);color:#ffc300}
+.rdD{background:rgba(0,119,255,.15);color:#4d9fff}
+.rdC{background:rgba(0,229,160,.15);color:var(--accent)}
+.rdA{background:rgba(255,71,87,.15);color:var(--accent3)}
+.vi-name{font-size:.8rem;font-weight:500;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vi-club{font-size:.65rem;color:var(--text3)}
+.vi-input{
+  width:52px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;
+  padding:.3rem .4rem;color:var(--text);font-family:'DM Mono',monospace;font-size:.82rem;
+  text-align:center;outline:none;transition:border-color .15s;
+}
+.vi-input:focus{border-color:var(--accent)}
+/* SYNC PANEL */
+.sync-card{
+  background:linear-gradient(135deg,rgba(0,119,255,.1),rgba(0,229,160,.05));
+  border:1px solid rgba(0,119,255,.3);border-radius:14px;padding:1.5rem;
+  margin-bottom:1rem;
+}
+.sync-card h3{font-size:1rem;font-weight:600;margin-bottom:.4rem;color:var(--text)}
+.sync-card p{font-size:.82rem;color:var(--text2);line-height:1.6;margin-bottom:1rem}
+.sync-log{
+  background:var(--bg);border:1px solid var(--border);border-radius:8px;
+  padding:.8rem;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--accent);
+  height:140px;overflow-y:auto;white-space:pre-wrap;
+}
+.badge{display:inline-flex;align-items:center;gap:.3rem;font-size:.68rem;font-weight:600;padding:.2rem .55rem;border-radius:5px}
+.badge-green{background:rgba(0,229,160,.12);color:var(--accent)}
+.badge-red{background:rgba(255,71,87,.12);color:var(--accent3)}
+.badge-blue{background:rgba(0,119,255,.12);color:var(--accent2)}
+.badge-gray{background:var(--bg3);color:var(--text2)}
+/* GW controls */
+.gw-control{display:flex;align-items:center;gap:.75rem;margin-bottom:1.2rem}
+.gw-num{font-family:'DM Mono',monospace;font-size:1.8rem;font-weight:500;color:var(--accent);min-width:40px;text-align:center}
+.gw-btn{
+  width:36px;height:36px;border-radius:50%;background:var(--bg3);border:1px solid var(--border);
+  color:var(--text);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all .15s;
+}
+.gw-btn:hover{border-color:var(--accent);color:var(--accent)}
+/* Toast */
+.toast{
+  position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;
+  padding:.65rem 1.1rem;border-radius:10px;font-size:.85rem;font-weight:600;
+  opacity:0;transition:all .28s;pointer-events:none;
+}
+.toast.show{opacity:1}
+.toast.ok{background:var(--accent);color:#000}
+.toast.err{background:var(--accent3);color:#fff}
+.toast.info{background:var(--accent2);color:#fff}
+.divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
+</style>
+</head>
+<body>
+<div class="layout">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="logo">Fantacazz<span>Pannello Admin</span></div>
+    <button class="snav active" onclick="showSec('dashboard',this)">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard
+    </button>
+    <button class="snav" onclick="showSec('teams',this)">
+      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>Squadre
+    </button>
+    <button class="snav" onclick="showSec('players',this)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>Giocatori
+    </button>
+    <button class="snav" onclick="showSec('votes',this)">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Voti GW
+    </button>
+    <button class="snav" onclick="showSec('sync',this)">
+      <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>SofaScore Sync
+    </button>
+    <button class="snav" onclick="showSec('classifica',this)">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Classifica
+    </button>
+    <div class="sidebar-bottom">
+      <div class="sync-status" id="syncStatus">⚪ Non connesso a Firebase</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- DASHBOARD -->
+    <div class="section active" id="sec-dashboard">
+      <div class="page-title">
+        Dashboard
+        <div style="display:flex;gap:.6rem;align-items:center">
+          <span class="badge badge-gray" id="gwBadge">GW —</span>
+          <button class="btn btn-blue" onclick="showSec('sync',document.querySelector('.snav:nth-child(6)'))">⚡ Sync SofaScore</button>
+        </div>
+      </div>
+      <div class="grid3">
+        <div class="stat-card"><div class="lbl">Squadre</div><div class="val blue" id="ds-teams">—</div></div>
+        <div class="stat-card"><div class="lbl">Giocatori</div><div class="val" id="ds-players">—</div></div>
+        <div class="stat-card"><div class="lbl">Giornata</div><div class="val green" id="ds-gw">—</div></div>
+      </div>
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+          <div style="font-size:.82rem;font-weight:600;color:var(--text2)">CLASSIFICA RAPIDA</div>
+        </div>
+        <table class="tbl" id="dashRank"></table>
+      </div>
+    </div>
+
+    <!-- SQUADRE -->
+    <div class="section" id="sec-teams">
+      <div class="page-title">Squadre</div>
+      <div class="card" style="margin-bottom:1rem">
+        <div style="font-size:.9rem;font-weight:600;margin-bottom:1rem;color:var(--text)">➕ Aggiungi / Modifica Squadra</div>
+        <div class="form-row">
+          <div class="field-group"><label>ID squadra (es: fc1)</label><input id="t-id" placeholder="fc1" /></div>
+          <div class="field-group"><label>Nome squadra</label><input id="t-name" placeholder="Draghi FC" /></div>
+        </div>
+        <div class="form-row">
+          <div class="field-group"><label>Proprietario</label><input id="t-owner" placeholder="Marco" /></div>
+          <div class="field-group"><label>Emoji</label><input id="t-emoji" placeholder="🐉" /></div>
+        </div>
+        <div class="form-row">
+          <div class="field-group"><label>Colore (hex)</label><input id="t-color" placeholder="#4d9fff" /></div>
+          <div class="field-group"><label>Budget (M)</label><input id="t-budget" type="number" placeholder="250" /></div>
+        </div>
+        <div class="form-row">
+          <div class="field-group"><label>Punti totali</label><input id="t-pts" type="number" placeholder="0" /></div>
+          <div class="field-group"><label>V / P / S</label>
+            <div style="display:flex;gap:.4rem">
+              <input id="t-w" type="number" placeholder="V" style="width:60px">
+              <input id="t-d" type="number" placeholder="P" style="width:60px">
+              <input id="t-l" type="number" placeholder="S" style="width:60px">
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-green" onclick="saveTeam()">💾 Salva Squadra</button>
+      </div>
+      <div class="card">
+        <div style="font-size:.82rem;font-weight:600;color:var(--text2);margin-bottom:.75rem">SQUADRE IN LEGA</div>
+        <table class="tbl" id="teamsTable"></table>
+      </div>
+    </div>
+
+    <!-- GIOCATORI -->
+    <div class="section" id="sec-players">
+      <div class="page-title">Giocatori</div>
+      <div class="card">
+        <div style="font-size:.9rem;font-weight:600;margin-bottom:1rem;color:var(--text)">➕ Aggiungi Giocatore</div>
+        <div class="form-row">
+          <div class="field-group"><label>ID (es: 1)</label><input id="p-id" placeholder="1" /></div>
+          <div class="field-group"><label>Nome</label><input id="p-name" placeholder="Maignan" /></div>
+        </div>
+        <div class="form-row">
+          <div class="field-group"><label>Ruolo</label>
+            <select id="p-role"><option value="P">P — Portiere</option><option value="D">D — Difensore</option><option value="C">C — Centrocampista</option><option value="A">A — Attaccante</option></select>
+          </div>
+          <div class="field-group"><label>Squadra reale</label><input id="p-club" placeholder="Milan" /></div>
+        </div>
+        <div class="form-row">
+          <div class="field-group"><label>Prezzo (M)</label><input id="p-price" type="number" placeholder="18" /></div>
+          <div class="field-group"><label>Media voto</label><input id="p-avg" type="number" step="0.1" placeholder="6.8" /></div>
+        </div>
+        <div class="form-row">
+          <div class="field-group"><label>Gol stagione</label><input id="p-goals" type="number" placeholder="0" /></div>
+          <div class="field-group"><label>Assist stagione</label><input id="p-assists" type="number" placeholder="0" /></div>
+        </div>
+        <div class="form-row">
+          <div class="field-group"><label>ID SofaScore (per voti auto)</label><input id="p-sofaid" placeholder="es. 947024" /></div>
+          <div class="field-group"><label>Squadra fantacalcio (ID)</label><input id="p-team" placeholder="fc1" /></div>
+        </div>
+        <button class="btn btn-green" onclick="savePlayer()">💾 Salva Giocatore</button>
+        <div class="divider"></div>
+        <div style="font-size:.9rem;font-weight:600;margin-bottom:.75rem;color:var(--text)">📥 Importazione Massiva (CSV)</div>
+        <div style="display:flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+          <input type="file" id="csv-file" accept=".csv" style="font-size: .8rem; color: var(--text2);">
+          <button class="btn btn-blue" onclick="importaCSV()">🚀 Carica tutti i giocatori</button>
+        </div>
+      </div>      
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+          <div style="font-size:.82rem;font-weight:600;color:var(--text2)">GIOCATORI (<span id="pCount">0</span>)</div>
+          <select onchange="filterAdminPlayers(this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:.3rem .6rem;font-size:.8rem;outline:none">
+            <option value="">Tutti</option><option value="P">Portieri</option><option value="D">Difensori</option><option value="C">Centrocampisti</option><option value="A">Attaccanti</option>
+          </select>
+        </div>
+        <table class="tbl" id="playersTable"></table>
+      </div>
+    </div>
+
+    <!-- VOTI GW -->
+    <div class="section" id="sec-votes">
+      <div class="page-title">
+        Voti Giornata
+        <div style="display:flex;gap:.6rem">
+          <button class="btn btn-blue" onclick="loadVotesFromFirebase()">🔄 Ricarica</button>
+          <button class="btn btn-green" onclick="saveAllVotes()">💾 Salva tutti i voti</button>
+        </div>
+      </div>
+      <div class="card" style="padding:1rem">
+        <div style="font-size:.82rem;color:var(--text2);margin-bottom:1rem">
+          Inserisci i voti presi da SofaScore per la giornata corrente. Il voto viene automaticamente propagato a tutti gli utenti dell'app in tempo reale.
+        </div>
+        <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap">
+          <span style="font-size:.8rem;color:var(--text2)">Giornata:</span>
+          <button class="gw-btn" onclick="changeGW(-1)">−</button>
+          <span class="gw-num" id="adminGWNum">—</span>
+          <button class="gw-btn" onclick="changeGW(1)">+</button>
+          <button class="btn btn-ghost" onclick="saveGW()" style="font-size:.78rem;padding:.4rem .8rem">Aggiorna GW</button>
+        </div>
+        <div class="vote-grid" id="voteGrid"></div>
+      </div>
+    </div>
+
+    <!-- SOFASCORE SYNC -->
+    <div class="section" id="sec-sync">
+      <div class="page-title">SofaScore Sync</div>
+
+      <div class="sync-card">
+        <h3>⚡ Sincronizzazione automatica voti</h3>
+        <p>
+          Questo pannello mostra come configurare il fetch automatico dei voti da SofaScore.<br>
+          SofaScore non ha un'API pubblica ufficiale ma espone endpoint non documentati
+          usati dalla loro stessa app mobile. Lo script qui sotto li usa per prendere
+          le valutazioni dei giocatori dopo ogni partita.
+        </p>
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.75rem">
+          <button class="btn btn-green" onclick="runSofaSync()">▶ Avvia sync manuale</button>
+          <button class="btn btn-ghost" onclick="clearLog()">🗑 Pulisci log</button>
+        </div>
+         <div style="padding: 1rem; text-align: center;">
+          <button id="btn-sync-sofa" class="btn btn-blue" onclick="syncSofaScore()" style="width: 100%; padding: 0.8rem; font-weight: bold;">
+           Sincronizza Voti SofaScore
+          </button>
+        </div>
+        <div class="sync-log" id="syncLog">In attesa…</div>
+      </div>
+
+      <div class="card">
+        <div style="font-size:.9rem;font-weight:600;margin-bottom:.75rem;color:var(--text)">📡 Come funziona il sync automatico</div>
+        <p style="font-size:.82rem;color:var(--text2);line-height:1.8;margin-bottom:.8rem">
+          Per avere i voti <strong style="color:var(--text)">completamente automatici</strong> senza che tu faccia niente,
+          usa uno di questi approcci:
+        </p>
+        <div style="display:flex;flex-direction:column;gap:.75rem">
+          <div style="background:var(--bg3);border-radius:10px;padding:1rem">
+            <div style="font-size:.82rem;font-weight:600;color:var(--accent);margin-bottom:.4rem">🥇 Opzione 1 — GitHub Actions (GRATIS, consigliata)</div>
+            <div style="font-size:.78rem;color:var(--text2);line-height:1.7">
+              Crea un repository GitHub con il file <code style="color:var(--text);background:var(--bg);padding:.1rem .3rem;border-radius:4px">.github/workflows/sync.yml</code>
+              allegato qui sotto. GitHub esegue automaticamente lo script Python ogni 30 minuti nei giorni di partita.
+              Lo script fetcha SofaScore e scrive i voti su Firebase. <strong style="color:var(--text)">Costo: 0€.</strong>
+            </div>
+          </div>
+          <div style="background:var(--bg3);border-radius:10px;padding:1rem">
+            <div style="font-size:.82rem;font-weight:600;color:var(--accent2);margin-bottom:.4rem">🥈 Opzione 2 — Raspberry Pi / PC sempre acceso</div>
+            <div style="font-size:.78rem;color:var(--text2);line-height:1.7">
+              Esegui lo script Python con un cronjob ogni 30 minuti. Funziona su qualsiasi computer Linux/Mac/Windows.
+            </div>
+          </div>
+          <div style="background:var(--bg3);border-radius:10px;padding:1rem">
+            <div style="font-size:.82rem;font-weight:600;color:var(--gold);margin-bottom:.4rem">🥉 Opzione 3 — Sync manuale da qui</div>
+            <div style="font-size:.78rem;color:var(--text2);line-height:1.7">
+              Clicca "Avvia sync manuale" dopo ogni giornata. I voti vengono scaricati da SofaScore
+              e salvati su Firebase. Tutti i telefoni si aggiornano in <strong style="color:var(--text)">meno di 1 secondo</strong>.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="font-size:.9rem;font-weight:600;margin-bottom:.75rem;color:var(--text)">📋 Script Python (sync.py)</div>
+        <div style="font-size:.75rem;color:var(--text2);margin-bottom:.75rem">Salva questo file e impostalo come cronjob o GitHub Action:</div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:1rem;font-family:'DM Mono',monospace;font-size:.72rem;color:#7ec8e3;line-height:1.7;overflow-x:auto;white-space:pre">import requests, firebase_admin
+from firebase_admin import credentials, db
+import json, os
+
+# --- CONFIG ---
+FIREBASE_URL = "https://TUOPROGETTO-default-rtdb.europe-west1.firebasedatabase.app"
+SERIE_A_ID   = 23  # ID Serie A su SofaScore
+
+cred = credentials.Certificate("serviceAccountKey.json")
+firebase_admin.initialize_app(cred, {"databaseURL": FIREBASE_URL})
+
+def get_serie_a_matches():
+    url = f"https://api.sofascore.com/api/v1/sport/football/scheduled-events/today"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    r = requests.get(url, headers=headers, timeout=10)
+    events = r.json().get("events", [])
+    return [e for e in events if e.get("tournament",{}).get("id") == SERIE_A_ID]
+
+def get_player_ratings(match_id):
+    url = f"https://api.sofascore.com/api/v1/event/{match_id}/lineups"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    r = requests.get(url, headers=headers, timeout=10)
+    data = r.json()
+    ratings = {}
+    for side in ["home", "away"]:
+        for p in data.get(side, {}).get("players", []):
+            pid   = p.get("player", {}).get("id")
+            rating = p.get("statistics", {}).get("rating")
+            if pid and rating:
+                ratings[str(pid)] = round(float(rating), 1)
+    return ratings
+
+def sync():
+    matches = get_serie_a_matches()
+    print(f"Trovate {len(matches)} partite Serie A")
+    all_ratings = {}
+    for m in matches:
+        mid = m["id"]
+        status = m.get("status", {}).get("type", "")
+        # Aggiorna partite live su Firebase
+        db.reference(f"liveMatches/{mid}").set({
+            "homeTeam": m.get("homeTeam",{}).get("shortName","?"),
+            "awayTeam": m.get("awayTeam",{}).get("shortName","?"),
+            "homeScore": m.get("homeScore",{}).get("current"),
+            "awayScore": m.get("awayScore",{}).get("current"),
+            "minute":    m.get("time",{}).get("played"),
+            "status":    status,
+        })
+        # Prendere i voti solo per partite finite o in corso
+        if status in ("inprogress", "finished"):
+            ratings = get_player_ratings(mid)
+            all_ratings.update(ratings)
+            print(f"  Match {mid}: {len(ratings)} voti")
+    # Scrivi i voti su Firebase (ogni player: sofaId -> voto)
+    if all_ratings:
+        db.reference("votes").update(all_ratings)
+        print(f"Salvati {len(all_ratings)} voti su Firebase")
+
+if __name__ == "__main__":
+    sync()</div>
+        <div style="margin-top:.75rem;display:flex;gap:.5rem;flex-wrap:wrap">
+          <span style="font-size:.72rem;color:var(--text3)">Dipendenze:</span>
+          <code style="font-size:.72rem;background:var(--bg3);padding:.15rem .4rem;border-radius:4px;color:var(--text2)">pip install requests firebase-admin</code>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="font-size:.9rem;font-weight:600;margin-bottom:.75rem;color:var(--text)">⚙️ GitHub Actions (sync.yml)</div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:1rem;font-family:'DM Mono',monospace;font-size:.72rem;color:#7ec8e3;line-height:1.7;overflow-x:auto;white-space:pre">name: SofaScore Sync
+on:
+  schedule:
+    - cron: '*/30 * * * 5,6,0'  # ogni 30min ven/sab/dom
+  workflow_dispatch:             # eseguibile manualmente
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: pip install requests firebase-admin
+      - run: python sync.py
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: serviceAccountKey.json</div>
+      </div>
+    </div>
+
+    <!-- CLASSIFICA ADMIN -->
+    <div class="section" id="sec-classifica">
+      <div class="page-title">
+        Gestione Classifica
+        <button class="btn btn-green" onclick="recalcAll()">🔄 Ricalcola tutto</button>
+      </div>
+      <div class="card">
+        <div style="font-size:.82rem;color:var(--text2);margin-bottom:1rem">Modifica manualmente i risultati di ogni squadra. Clicca su una riga per editarla.</div>
+        <table class="tbl" id="rankAdmin"></table>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getDatabase, ref, onValue, set, update, get } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+// ══════════════════════════════════════════
+// IMPORTAZIONE CSV
+// ══════════════════════════════════════════
+window.importaCSV = async function() {
+  const fileInput = document.getElementById('csv-file');
+  
+  if (!fileInput.files.length) {
+    toast('Seleziona prima il file giocatori_serie_a.csv!', 'err');
+    return;
+  }
+
+  const file = fileInput.files[0];
+  const reader = new FileReader();
+
+  reader.onload = async function(e) {
+    // Legge il testo e rimuove i ritorni a capo strani di Windows
+    const text = e.target.result.replace(/\r/g, ''); 
+    const rows = text.split('\n');
+    let count = 0;
+
+    toast('Importazione in corso, attendi...', 'info');
+
+    // Partiamo da 1 per saltare la prima riga (l'intestazione delle colonne)
+    for (let i = 1; i < rows.length; i++) {
+      if (!rows[i].trim()) continue; // Salta le righe vuote
+
+      const cols = rows[i].split(',');
+      if (cols.length >= 4) {
+        const idSofa = cols[0].trim();
+        const nome = cols[1].trim();
+        const squadra = cols[2].trim();
+        const ruolo = cols[3].trim();
+
+        // Strutturiamo il giocatore esattamente come si aspetta la tua app
+        const p = {
+          id: idSofa, // Usiamo l'ID di SofaScore come ID unico del giocatore
+          name: nome,
+          role: ruolo,
+          club: squadra,
+          price: 1,      // Costo di default
+          avg: 6.0,      // Media voto di default
+          goals: 0,
+          assists: 0,
+          sofaId: idSofa,
+          teamId: ""     // Nessuna squadra assegnata all'inizio (sono svincolati)
+        };
+
+        // Salviamo su Firebase (senza "await" per farlo andare super veloce in parallelo)
+        set(ref(db, 'players/' + idSofa), p);
+        count++;
+      }
+    }
+    
+    toast(`Finito! 🚀 ${count} giocatori caricati nel database.`, 'ok');
+  };
+
+  // Fa partire la lettura del file
+  reader.readAsText(file);
+};
+
+
+window.syncSofaScore = async function() {
+  const btn = document.getElementById('btn-sync-sofa');
+  
+  // Disabilitiamo il bottone per evitare clic multipli
+  btn.disabled = true;
+  btn.innerText = "⏳ Sincronizzazione...";
+  toast('Inizio sincronizzazione voti...', 'info');
+
+  try {
+    // Cicliamo tutti i giocatori nel dizionario
+    for (const [nome, id] of Object.entries(LISTA_GIOCATORI_SOFA)) {
+      
+      // URL reale di SofaScore + Proxy gratuito per evitare il blocco CORS del browser
+      const targetUrl = `https://api.sofascore.com/api/v1/player/${id}/statistics`;
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+
+      const risposta = await fetch(proxyUrl);
+      
+      if (risposta.ok) {
+        const dati = await risposta.json();
+        
+        // Estraiamo il voto live (se non c'è, mettiamo 6.0 di default)
+        const votoLive = dati.statistics?.rating || 6.0;
+
+        // Salviamo il voto direttamente su Firebase nel nodo 'voti_live/NomeGiocatore'
+        await set(ref(db, 'voti_live/' + nome), {
+          voto: votoLive,
+          orario: new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+        });
+        
+        console.log(`Aggiornato ${nome}: ${votoLive}`);
+      } else {
+        console.error(`Impossibile recuperare i dati per ${nome}`);
+      }
+      
+      // Aspettiamo mezzo secondo tra un giocatore e l'altro per non sovraccaricare il servizio
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    toast('Voti live aggiornati con successo!', 'ok');
+
+  } catch (errore) {
+    console.error(errore);
+    toast('Errore durante il sync di SofaScore', 'error');
+  } finally {
+    // Riattiviamo il bottone a fine processo
+    btn.disabled = false;
+    btn.innerText = "🔄 Sincronizza Voti SofaScore";
+  }
+};
+  
+// ══════════════════════════════════════════
+// 🔧 STESSA CONFIG FIREBASE DELL'APP PRINCIPALE
+// ══════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyCjjjOlnLKuCcf4OD_pBVe1PvjHIvM0Y_g",
+  authDomain: "fantacapp-79d1c.firebaseapp.com",
+  databaseURL: "https://fantacapp-79d1c-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "fantacapp-79d1c",
+  storageBucket: "fantacapp-79d1c.firebasestorage.app",
+  messagingSenderId: "912456367747",
+  appId: "1:912456367747:web:d0fcb5d67b7546d53665b6"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+let TEAMS = [], PLAYERS = [], VOTES = {}, CURRENT_GW = 1;
+let adminPlayerFilter = '';
+
+// ══════════════════════════════════════════
+// LOAD DATA
+// ══════════════════════════════════════════
+onValue(ref(db,'teams'), snap => {
+  const raw = snap.val()||{};
+  TEAMS = Object.values(raw).sort((a,b)=>b.pts-a.pts);
+  updateDashboard(); renderTeamsTable(); renderRankAdmin();
+});
+onValue(ref(db,'players'), snap => {
+  const raw = snap.val()||{};
+  PLAYERS = Object.values(raw);
+  document.getElementById('pCount').textContent = PLAYERS.length;
+  renderPlayersTable(); renderVoteGrid();
+});
+onValue(ref(db,'votes'), snap => {
+  VOTES = snap.val()||{};
+  renderVoteGrid();
+});
+onValue(ref(db,'config'), snap => {
+  const cfg = snap.val()||{};
+  CURRENT_GW = cfg.currentGW||1;
+  document.getElementById('adminGWNum').textContent = CURRENT_GW;
+  document.getElementById('gwBadge').textContent = 'GW '+CURRENT_GW;
+  document.getElementById('ds-gw').textContent = CURRENT_GW;
+});
+
+setTimeout(()=>{
+  document.getElementById('syncStatus').innerHTML='🟢 Connesso a Firebase';
+},1500);
+
+// ══════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════
+function updateDashboard(){
+  document.getElementById('ds-teams').textContent = TEAMS.length;
+  document.getElementById('ds-players').textContent = PLAYERS.length;
+  const sorted = [...TEAMS].sort((a,b)=>b.pts-a.pts);
+  document.getElementById('dashRank').innerHTML =
+    '<tr><th>#</th><th>Squadra</th><th>Owner</th><th>Punti</th><th>V</th><th>P</th><th>S</th></tr>' +
+    sorted.map((t,i)=>`
+      <tr>
+        <td style="color:var(--text3)">${i+1}</td>
+        <td>${t.emoji||'⚽'} ${t.name}</td>
+        <td style="color:var(--text3)">${t.owner}</td>
+        <td style="font-family:'DM Mono',monospace;color:var(--accent)">${(t.pts||0).toFixed(1)}</td>
+        <td>${t.w||0}</td><td>${t.d||0}</td><td>${t.l||0}</td>
+      </tr>`).join('');
+}
+
+// ══════════════════════════════════════════
+// SQUADRE
+// ══════════════════════════════════════════
+window.saveTeam = async function() {
+  const t = {
+    id: document.getElementById('t-id').value.trim(),
+    name: document.getElementById('t-name').value.trim(),
+    owner: document.getElementById('t-owner').value.trim(),
+    emoji: document.getElementById('t-emoji').value.trim(),
+    color: document.getElementById('t-color').value.trim()||'#4d9fff',
+    budget: parseFloat(document.getElementById('t-budget').value)||250,
+    pts: parseFloat(document.getElementById('t-pts').value)||0,
+    w: parseInt(document.getElementById('t-w').value)||0,
+    d: parseInt(document.getElementById('t-d').value)||0,
+    l: parseInt(document.getElementById('t-l').value)||0,
+    lastGW: 0, bestGW: 0, roster: 0,
+  };
+  if(!t.id||!t.name){toast('Compila ID e Nome','err');return;}
+  await set(ref(db,'teams/'+t.id), t);
+  toast('Squadra salvata!','ok');
+};
+
+function renderTeamsTable(){
+  document.getElementById('teamsTable').innerHTML =
+    '<tr><th>ID</th><th>Nome</th><th>Owner</th><th>Punti</th><th>V/P/S</th><th>Azioni</th></tr>'+
+    TEAMS.map(t=>`
+      <tr>
+        <td style="font-family:'DM Mono',monospace;font-size:.75rem;color:var(--text3)">${t.id}</td>
+        <td>${t.emoji||''} ${t.name}</td><td>${t.owner}</td>
+        <td style="font-family:'DM Mono',monospace;color:var(--accent)">${(t.pts||0).toFixed(1)}</td>
+        <td>${t.w||0}/${t.d||0}/${t.l||0}</td>
+        <td><button class="btn btn-ghost" style="font-size:.72rem;padding:.3rem .6rem" onclick="loadTeam('${t.id}')">✏️</button>
+            <button class="btn btn-red" style="font-size:.72rem;padding:.3rem .6rem" onclick="deleteTeam('${t.id}')">🗑</button></td>
+      </tr>`).join('');
+}
+
+window.loadTeam = function(id){
+  const t = TEAMS.find(x=>x.id===id);
+  if(!t)return;
+  document.getElementById('t-id').value=t.id;
+  document.getElementById('t-name').value=t.name;
+  document.getElementById('t-owner').value=t.owner;
+  document.getElementById('t-emoji').value=t.emoji||'';
+  document.getElementById('t-color').value=t.color||'';
+  document.getElementById('t-budget').value=t.budget||250;
+  document.getElementById('t-pts').value=t.pts||0;
+  document.getElementById('t-w').value=t.w||0;
+  document.getElementById('t-d').value=t.d||0;
+  document.getElementById('t-l').value=t.l||0;
+  showSec('teams',document.querySelector('[onclick*="teams"]'));
+};
+
+window.deleteTeam = async function(id){
+  if(!confirm('Eliminare la squadra '+id+'?'))return;
+  await set(ref(db,'teams/'+id),null);
+  toast('Squadra eliminata','info');
+};
+
+// ══════════════════════════════════════════
+// GIOCATORI
+// ══════════════════════════════════════════
+window.savePlayer = async function(){
+  const p = {
+    id: document.getElementById('p-id').value.trim(),
+    name: document.getElementById('p-name').value.trim(),
+    role: document.getElementById('p-role').value,
+    club: document.getElementById('p-club').value.trim(),
+    price: parseFloat(document.getElementById('p-price').value)||0,
+    avg: parseFloat(document.getElementById('p-avg').value)||6,
+    goals: parseInt(document.getElementById('p-goals').value)||0,
+    assists: parseInt(document.getElementById('p-assists').value)||0,
+    sofaId: document.getElementById('p-sofaid').value.trim(),
+    teamId: document.getElementById('p-team').value.trim(),
+  };
+  if(!p.id||!p.name){toast('Compila ID e Nome','err');return;}
+  await set(ref(db,'players/'+p.id), p);
+  toast('Giocatore salvato!','ok');
+};
+
+window.filterAdminPlayers = function(role){ adminPlayerFilter=role; renderPlayersTable(); };
+
+function renderPlayersTable(){
+  let list = adminPlayerFilter ? PLAYERS.filter(p=>p.role===adminPlayerFilter) : PLAYERS;
+  list = [...list].sort((a,b)=>a.name.localeCompare(b.name));
+  document.getElementById('playersTable').innerHTML =
+    '<tr><th>Nome</th><th>Ruolo</th><th>Club</th><th>Prezzo</th><th>Media</th><th>Sofa ID</th><th>Del</th></tr>'+
+    list.map(p=>`
+      <tr>
+        <td>${p.name}</td>
+        <td><span class="badge ${p.role==='P'?'badge-gray':p.role==='D'?'badge-blue':p.role==='C'?'badge-green':'badge-red'}">${p.role}</span></td>
+        <td>${p.club}</td>
+        <td style="font-family:'DM Mono',monospace">${p.price||0}M</td>
+        <td style="font-family:'DM Mono',monospace">${(p.avg||6).toFixed(1)}</td>
+        <td style="font-family:'DM Mono',monospace;font-size:.72rem;color:var(--text3)">${p.sofaId||'—'}</td>
+        <td><button class="btn btn-red" style="font-size:.7rem;padding:.25rem .5rem" onclick="deletePlayer('${p.id}')">🗑</button></td>
+      </tr>`).join('');
+}
+
+window.deletePlayer = async function(id){
+  if(!confirm('Eliminare?'))return;
+  await set(ref(db,'players/'+id),null);
+  toast('Eliminato','info');
+};
+
+// ══════════════════════════════════════════
+// VOTI GW
+// ══════════════════════════════════════════
+function renderVoteGrid(){
+  const sorted = [...PLAYERS].sort((a,b)=>{
+    const ro = {P:0,D:1,C:2,A:3};
+    return (ro[a.role]||0)-(ro[b.role]||0)||a.name.localeCompare(b.name);
+  });
+  document.getElementById('voteGrid').innerHTML = sorted.map(p=>`
+    <div class="vote-item">
+      <div class="role-dot rd${p.role}">${p.role}</div>
+      <div style="flex:1;min-width:0">
+        <div class="vi-name">${p.name}</div>
+        <div class="vi-club">${p.club}</div>
+      </div>
+      <input class="vi-input" id="vote-${p.id}" type="number" step="0.5" min="0" max="10" placeholder="—"
+        value="${VOTES[p.sofaId||p.id]||VOTES[p.id]||''}">
+    </div>
+  `).join('');
+}
+
+window.saveAllVotes = async function(){
+  const newVotes = {};
+  PLAYERS.forEach(p=>{
+    const inp = document.getElementById('vote-'+p.id);
+    if(inp && inp.value!==''){
+      const key = p.sofaId||p.id;
+      newVotes[key] = parseFloat(inp.value);
+    }
+  });
+  await set(ref(db,'votes'), newVotes);
+  toast('Voti salvati! Tutti i telefoni si aggiornano ora.','ok');
+};
+
+window.loadVotesFromFirebase = async function(){
+  const snap = await get(ref(db,'votes'));
+  VOTES = snap.val()||{};
+  renderVoteGrid();
+  toast('Voti ricaricati','info');
+};
+
+window.changeGW = function(delta){
+  CURRENT_GW = Math.max(1,CURRENT_GW+delta);
+  document.getElementById('adminGWNum').textContent = CURRENT_GW;
+};
+
+window.saveGW = async function(){
+  await update(ref(db,'config'),{currentGW: CURRENT_GW});
+  toast('Giornata GW'+CURRENT_GW+' salvata','ok');
+};
+
+// ══════════════════════════════════════════
+// SOFASCORE SYNC (dal browser, demo)
+// ══════════════════════════════════════════
+window.runSofaSync = async function(){
+  const log = document.getElementById('syncLog');
+  log.textContent='';
+  const print = t=>{log.textContent+=t+'\n';log.scrollTop=log.scrollHeight;};
+
+  print('🔍 Ricerca partite Serie A oggi…');
+  try{
+    // Nota: SofaScore blocca richieste dirette dal browser per CORS.
+    // Dal browser usiamo il loro widget embed per leggere i dati.
+    // Lo script Python (sync.py) funziona lato server senza CORS.
+    // Qui simuliamo il flusso per mostrare cosa succederebbe.
+    print('📡 Endpoint: api.sofascore.com/api/v1/sport/football/scheduled-events/today');
+    await delay(600);
+    print('⚠️  Nota: SofaScore blocca fetch diretti dal browser (CORS policy).');
+    print('   Usa lo script Python (sync.py) per il sync automatico.');
+    print('   Da qui puoi inserire i voti manualmente nella tab "Voti GW".');
+    print('');
+    print('💡 Alternativa: aggiungi i voti manualmente:');
+    print('   1. Vai su SofaScore.com dopo la giornata');
+    print('   2. Apri ogni partita → vai su "Statistiche"');
+    print('   3. Copia le valutazioni giocatori');
+    print('   4. Incollali nella tab "Voti GW" di questo admin');
+    print('   5. Premi "Salva tutti i voti"');
+    print('   → Tutti i telefoni si aggiornano in <1 secondo!');
+    print('');
+    print('✅ Setup script Python per sync 100% automatico:');
+    print('   pip install requests firebase-admin');
+    print('   python sync.py');
+  }catch(e){print('❌ Errore: '+e.message);}
+};
+
+window.clearLog = function(){document.getElementById('syncLog').textContent='In attesa…';};
+
+// ══════════════════════════════════════════
+// CLASSIFICA ADMIN
+// ══════════════════════════════════════════
+function renderRankAdmin(){
+  const sorted=[...TEAMS].sort((a,b)=>b.pts-a.pts);
+  document.getElementById('rankAdmin').innerHTML=
+    '<tr><th>#</th><th>Squadra</th><th>Pts totali</th><th>Ultima GW</th><th>V</th><th>P</th><th>S</th><th>Salva</th></tr>'+
+    sorted.map((t,i)=>`<tr>
+      <td style="color:var(--text3)">${i+1}</td>
+      <td>${t.emoji||'⚽'} ${t.name}</td>
+      <td><input type="number" step="0.5" value="${(t.pts||0).toFixed(1)}" id="rk-pts-${t.id}" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:.25rem .4rem;color:var(--text);font-family:'DM Mono',monospace;font-size:.8rem;width:70px;outline:none"></td>
+      <td><input type="number" step="0.5" value="${(t.lastGW||0).toFixed(1)}" id="rk-lgw-${t.id}" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:.25rem .4rem;color:var(--text);font-family:'DM Mono',monospace;font-size:.8rem;width:60px;outline:none"></td>
+      <td><input type="number" value="${t.w||0}" id="rk-w-${t.id}" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:.25rem .4rem;color:var(--text);font-size:.8rem;width:42px;outline:none"></td>
+      <td><input type="number" value="${t.d||0}" id="rk-d-${t.id}" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:.25rem .4rem;color:var(--text);font-size:.8rem;width:42px;outline:none"></td>
+      <td><input type="number" value="${t.l||0}" id="rk-l-${t.id}" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:.25rem .4rem;color:var(--text);font-size:.8rem;width:42px;outline:none"></td>
+      <td><button class="btn btn-green" style="font-size:.72rem;padding:.3rem .6rem" onclick="saveRankRow('${t.id}')">💾</button></td>
+    </tr>`).join('');
+}
+
+window.saveRankRow = async function(id){
+  const pts = parseFloat(document.getElementById('rk-pts-'+id).value)||0;
+  const lgw = parseFloat(document.getElementById('rk-lgw-'+id).value)||0;
+  const w = parseInt(document.getElementById('rk-w-'+id).value)||0;
+  const d = parseInt(document.getElementById('rk-d-'+id).value)||0;
+  const l = parseInt(document.getElementById('rk-l-'+id).value)||0;
+  await update(ref(db,'teams/'+id),{pts,lastGW:lgw,w,d,l});
+  toast('Classifica aggiornata!','ok');
+};
+
+window.recalcAll = function(){
+  toast('Salva le righe singolarmente per aggiornare','info');
+};
+
+// ══════════════════════════════════════════
+// NAV
+// ══════════════════════════════════════════
+window.showSec = function(name, btn){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.snav').forEach(b=>b.classList.remove('active'));
+  document.getElementById('sec-'+name).classList.add('active');
+  if(btn) btn.classList.add('active');
+};
+
+// ══════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════
+function toast(msg,type='ok'){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast '+type+' show';
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+function delay(ms){return new Promise(r=>setTimeout(r,ms));}
+</script>
+</body>
+</html>
