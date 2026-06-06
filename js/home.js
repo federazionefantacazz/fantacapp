@@ -6,6 +6,15 @@ export const HomePage = {
           <div class="logo">FANTACAZZ</div>
           <div id="user-badge" style="font-size:.85rem;font-weight:600;color:var(--accent)"></div>
         </div>
+
+        <div class="card card-sm" style="margin-bottom: 1rem; padding: .8rem 1rem;">
+          <div class="label" style="margin-bottom: .4rem;">Seleziona Competizione</div>
+          <select id="home-competition-select" class="select-rose" style="background: var(--bg3); width:100%; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:.6rem; color:#fff;" onchange="window._handleCompetitionChange(this.value)">
+            <option value="fantacazz">🏆 Fantacazz (Campionato)</option>
+            <option value="coppa">🏆 Coppa Italia</option>
+          </select>
+        </div>
+
         <div class="card" style="background:linear-gradient(135deg, var(--card), var(--bg3))">
           <div class="label">Giornata Attuale</div>
           <div id="home-gw" style="font-size:2rem;font-family:'Bebas Neue';color:#fff">-</div>
@@ -19,12 +28,19 @@ export const HomePage = {
     const badge = document.getElementById('user-badge');
     const gw = document.getElementById('home-gw');
     const lv = document.getElementById('live-votes');
+    const compSelect = document.getElementById('home-competition-select');
+    
     if(!badge) return;
 
-    badge.textContent = `${STATE.user.emoji||'⚽'} ${STATE.user.name}`;
-    gw.textContent = `GIORNATA ${STATE.status.currentGW || 1}`;
+    // Sincronizza il selettore grafico con la competizione attiva nello stato
+    if (compSelect && STATE.currentCompetition) {
+      compSelect.value = STATE.currentCompetition;
+    }
 
-    const vArr = Object.entries(STATE.votes);
+    badge.textContent = `${STATE.user?.emoji||'⚽'} ${STATE.user?.name || 'Utente'}`;
+    gw.textContent = `GIORNATA ${STATE.status?.currentGW || 1}`;
+
+    const vArr = Object.entries(STATE.votes || {});
     if(vArr.length === 0) {
       lv.innerHTML = `<div style="color:var(--text3);font-size:.85rem;text-align:center;padding:1rem">Nessun voto live inserito.</div>`;
     } else {
