@@ -46,17 +46,19 @@ body{
 }
 .auth-box h3{font-size:.95rem;color:var(--text);font-weight:600}
 .auth-toggle{font-size:.8rem;color:var(--text2);text-align:center;cursor:pointer;text-decoration:underline}
-.team-grid{display:grid;grid-template-columns:1fr 1fr;gap:.55rem;max-height:220px;overflow-y:auto;padding-right:2px}
+.team-grid{display:grid;grid-template-columns:1fr;gap:.55rem;max-height:260px;overflow-y:auto;padding-right:2px}
 .team-btn{
   background:var(--bg3);border:1.5px solid var(--border);border-radius:12px;
-  padding:.75rem .5rem;color:var(--text);font-family:'DM Sans',sans-serif;
-  font-size:.82rem;font-weight:500;cursor:pointer;text-align:center;
-  display:flex;flex-direction:column;align-items:center;gap:.3rem;
+  padding:.75rem 1rem;color:var(--text);font-family:'DM Sans',sans-serif;
+  font-size:.85rem;font-weight:500;cursor:pointer;text-align:left;
+  display:flex;align-items:center;justify-content:between;gap:.8rem;
   transition:all .15s;
 }
-.team-btn:active{border-color:var(--accent);color:var(--accent);transform:scale(.97)}
-.team-btn .em{font-size:1.3rem}
-.team-btn .own{font-size:.65rem;color:var(--text3)}
+.team-btn:active{border-color:var(--accent);background:rgba(0,229,160,0.02);transform:scale(.98)}
+.team-btn .em{font-size:1.4rem}
+.team-btn .team-details{flex:1;display:flex;flex-direction:column}
+.team-btn .own{font-size:.68rem;color:var(--text3)}
+.team-btn .users-count{font-size:.65rem;color:var(--accent);background:rgba(0,229,160,0.1);padding:.15rem .4rem;border-radius:4px;white-space:nowrap}
 .loading-team{
   display:flex;align-items:center;justify-content:center;gap:.5rem;
   font-size:.85rem;color:var(--text2);padding:1rem 0;
@@ -180,7 +182,7 @@ body{
 .rank-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0}
 .rank-info{flex:1}
 .rank-n{font-size:.88rem;font-weight:600;color:var(--text)}
-.rank-o{font-size:.7rem;color:var(--text2);margin-top:.1rem}
+.rank-o覆{font-size:.7rem;color:var(--text2);margin-top:.1rem}
 .rank-r{text-align:right}
 .rank-pts{font-family:'DM Mono',monospace;font-size:1.05rem;font-weight:500;color:var(--text)}
 .rank-sub{font-size:.68rem;color:var(--text2)}
@@ -233,202 +235,7 @@ body{
 .mkt-hdr{display:flex;gap:.5rem;margin-bottom:.75rem}
 .mkt-stat{flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:.7rem .9rem}
 .mkt-stat .label{margin-bottom:.2rem}
-.mkt-val{font-family:'DM Mono',monospace;font-size:1.15rem;color:var(--accent)}
-.filters{display:flex;gap:.4rem;margin-bottom:.85rem;overflow-x:auto;padding-bottom:.2rem}
-.filters::-webkit-scrollbar{display:none}
-.ftag{
-  background:var(--bg3);border:1.5px solid var(--border);border-radius:20px;
-  padding:.28rem .8rem;font-size:.77rem;color:var(--text2);cursor:pointer;
-  white-space:nowrap;transition:all .15s;flex-shrink:0;
-}
-.ftag.active{border-color:var(--accent2);color:var(--accent2);background:rgba(0,119,255,.08)}
-.pcard{
-  background:var(--card);border:1px solid var(--border);border-radius:13px;
-  padding:.8rem 1rem;margin-bottom:.45rem;display:flex;align-items:center;gap:.8rem;
-}
-.rbadge{
-  width:30px;height:30px;border-radius:7px;
-  display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:700;flex-shrink:0;
-}
-.rP{background:rgba(240,180,0,.15);color:#ffc300}
-.rD{background:rgba(0,119,255,.15);color:#4d9fff}
-.rC{background:rgba(0,229,160,.15);color:var(--accent)}
-.rA{background:rgba(255,71,87,.15);color:var(--accent3)}
-.pi{flex:1}
-.pi .pn{font-size:.88rem;font-weight:600;color:var(--text)}
-.pi .pm{font-size:.7rem;color:var(--text2)}
-.pr{text-align:right}
-.price{font-family:'DM Mono',monospace;font-size:.92rem;font-weight:500;color:var(--text)}
-.pavg{font-size:.68rem;color:var(--text2)}
-.offer-btn{
-  background:rgba(0,119,255,.15);border:1px solid rgba(0,119,255,.3);color:var(--accent2);
-  border-radius:7px;padding:.22rem .55rem;font-size:.7rem;font-weight:600;cursor:pointer;
-  margin-top:.25rem;font-family:'DM Sans',sans-serif;transition:all .15s;display:block;
-}
-.offer-btn:active{transform:scale(.95)}
-.mv-badge{
-  font-size:.62rem;font-weight:700;padding:.12rem .35rem;border-radius:4px;margin-left:.3rem;
-}
-.mv-up{color:#00e5a0;background:rgba(0,229,160,.12)}.mv-dn{color:var(--accent3);background:rgba(255,71,87,.12)}
-
-/* STATS */
-.bar-row{margin-bottom:.7rem}
-.bar-lbl{display:flex;justify-content:space-between;font-size:.77rem;margin-bottom:.28rem}
-.bar-lbl span{color:var(--text2)}.bar-lbl strong{color:var(--text);font-family:'DM Mono',monospace}
-.bar-bg{background:var(--bg3);border-radius:4px;height:5px}
-.bar-f{height:5px;border-radius:4px;transition:width .9s ease}
-.ba{background:var(--accent)}.bb{background:var(--accent2)}.br{background:var(--accent3)}.bgold{background:var(--gold)}
-
-/* INPUT STYLES */
-.irow{margin-bottom:.7rem}
-.irow label{display:block;font-size:.72rem;color:var(--text2);margin-bottom:.3rem;letter-spacing:.05em}
-.irow input,.irow select{
-  width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;
-  padding:.6rem .9rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.88rem;
-  outline:none;transition:border-color .15s;
-}
-.irow input:focus{border-color:var(--accent2)}
-.btn-p{
-  width:100%;padding:.82rem;border-radius:12px;border:none;
-  background:var(--accent);color:#000;font-family:'DM Sans',sans-serif;
-  font-size:.92rem;font-weight:700;cursor:pointer;transition:all .15s;margin-top:.4rem;
-}
-.btn-p:active{transform:scale(.97);opacity:.85}
-
-/* TOAST */
-.toast{
-  position:fixed;top:calc(var(--safe-top) + 78px);left:50%;
-  transform:translateX(-50%) translateY(-12px);
-  padding:.55rem 1.1rem;border-radius:10px;
-  font-size:.82rem;font-weight:600;z-index:9999;
-  opacity:0;transition:all .28s;pointer-events:none;white-space:nowrap;
-}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.toast.ok{background:var(--accent);color:#000}
-.toast.err{background:var(--accent3);color:#fff}
-</style>
-</head>
-<body>
-
-<div id="splash">
-  <div class="logo-big">Fantacazz</div>
-  <div class="logo-sub">Serie A — Stagione 2024/25</div>
-  
-  <div class="auth-box" id="authBox">
-    <h3 id="authTitle">Accedi al tuo Account</h3>
-    <div class="irow">
-      <label>Email</label>
-      <input type="email" id="authEmail" placeholder="tuanome@esempio.com">
-    </div>
-    <div class="irow">
-      <label>Password</label>
-      <input type="password" id="authPassword" placeholder="••••••••">
-    </div>
-    <button class="btn-p" id="btnAuthAction" onclick="window._processAuth()">Accedi</button>
-    <div class="auth-toggle" id="authToggle" onclick="window._toggleAuthMode()">Non hai un account? Registrati</div>
-  </div>
-
-  <div class="auth-box" id="teamSelectBox" style="display:none">
-    <h3>Scegli la tua squadra</h3>
-    <p style="font-size:.75rem; color:var(--text2); margin-bottom:.5rem;">Associa permanentemente il tuo account a una di queste squadre:</p>
-    <div id="teamGrid" class="team-grid">
-      <div style="grid-column:1/-1" class="loading-team">
-        <div class="spinner"></div> Caricamento squadre…
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="topbar" style="display:none">
-  <div class="tl">Fantacazz</div>
-  <div class="topbar-right">
-    <div class="live-badge" id="liveBadge">🔴 LIVE</div>
-    <div class="avatar" id="topAvatar" onclick="window._logout()" title="Clicca per disconnetterti">?</div>
-  </div>
-</div>
-
-<div id="app">
-
-  <div class="page active" id="page-home">
-    <div class="hero" id="heroCard">
-      <div class="label" style="margin-bottom:.35rem">La tua squadra</div>
-      <div class="hero-name" id="heroName">—</div>
-      <div class="hero-pts" id="heroPts">0.0</div>
-      <div class="hero-sub">Punti totali · <span id="heroGWNum">GW?</span></div>
-      <div class="stats-row">
-        <div class="stat-p"><strong id="hW">0</strong>V</div>
-        <div class="stat-p"><strong id="hD">0</strong>P</div>
-        <div class="stat-p"><strong id="hL">0</strong>S</div>
-        <div class="stat-p"><strong id="hPos">—</strong>Pos</div>
-      </div>
-    </div>
-
-    <div class="live-panel" id="livePanel" style="display:none">
-      <div class="live-panel-hdr">
-        <div style="font-size:.78rem;font-weight:600;color:var(--text)">
-          <span class="live-dot"></span>Partite in corso
-        </div>
-        <div style="font-size:.68rem;color:var(--text3)" id="liveUpdateTime">—</div>
-      </div>
-      <div id="liveMatchList"></div>
-    </div>
-
-    <div class="label" style="margin-bottom:.5rem">Prossima sfida · <span id="nextGWLabel"></span></div>
-    <div class="card" id="nextMatchCard" style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.1rem">
-      <div style="text-align:center;flex:1">
-        <div style="font-size:.88rem;font-weight:600" id="nmHome">—</div>
-        <div style="font-size:.68rem;color:var(--text2)" id="nmHomeOwner">—</div>
-      </div>
-      <div style="text-align:center;padding:0 .5rem">
-        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--text3)">VS</div>
-      </div>
-      <div style="text-align:center;flex:1">
-        <div style="font-size:.88rem;font-weight:600" id="nmAway">—</div>
-        <div style="font-size:.68rem;color:var(--text2)" id="nmAwayOwner">—</div>
-      </div>
-    </div>
-
-    <div class="label" style="margin-bottom:.5rem">Top scorer della giornata</div>
-    <div id="topScorers"></div>
-  </div>
-
-  <div class="page" id="page-classifica">
-    <div class="sec">Classifica</div>
-    <div class="tabs">
-      <button class="tab active" onclick="switchTab(this,'rk-gen')">Generale</button>
-      <button class="tab" onclick="switchTab(this,'rk-gw')">Ultima GW</button>
-      <button class="tab" onclick="switchTab(this,'rk-form')">Forma</button>
-    </div>
-    <div id="rk-gen"></div>
-    <div id="rk-gw" style="display:none"></div>
-    <div id="rk-form" style="display:none"></div>
-  </div>
-
-  <div class="page" id="page-formazione">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
-      <div class="sec" style="margin:0">Formazione</div>
-      <div style="text-align:right">
-        <div class="label">Punteggio GW</div>
-        <div style="font-family:'DM Mono',monospace;font-size:1.3rem;color:var(--accent)" id="fScore">—</div>
-      </div>
-    </div>
-    <div class="moduli" id="moduliBar"></div>
-    <div class="campo" id="campo">
-      <div class="campo-lbl" id="campoLbl">Campo</div>
-      <div id="fieldRows"></div>
-    </div>
-    <div>
-      <div class="bench-lbl">Panchinari</div>
-      <div class="bench-row" id="benchRow"></div>
-    </div>
-  </div>
-
-  <div class="page" id="page-mercato">
-    <div class="sec">Mercato</div>
-    <div class="mkt-hdr">
-      <div class="mkt-stat">
-        <div class="label">Budget rimasto</div>
-        <div class="mkt-val" id="budgetVal">—</div>
+.mkt-val" id="budgetVal">—</div>
       </div>
       <div class="mkt-stat">
         <div class="label">Rosa</div>
@@ -512,8 +319,8 @@ const auth = getAuth(app);
 // STATO GLOBALE
 // ══════════════════════════════════════════
 let STATE = {
-  firebaseUser: null, // Oggetto Auth di Firebase
-  user: null,         // La squadra (team) collegata all'utente corrente
+  firebaseUser: null, // Utente corrente autenticato
+  user: null,         // Oggetto squadra associato all'utente corrente
   teams: [],
   players: [],
   votes: {},       
@@ -569,13 +376,13 @@ window._logout = function() {
   });
 };
 
-// Monitora lo stato di Login dell'utente
+// Monitora lo stato di Login di Firebase
 onAuthStateChanged(auth, (user) => {
   if (user) {
     STATE.firebaseUser = user;
     subscribeLeague();
   } else {
-    // Non loggato: mostra la scatola di auth e nascondi il resto
+    // Schermata iniziale se disconnesso
     document.getElementById('splash').style.display = 'flex';
     document.getElementById('splash').style.opacity = '1';
     document.getElementById('authBox').style.display = 'flex';
@@ -590,19 +397,19 @@ onAuthStateChanged(auth, (user) => {
 // FIREBASE: sincronizzazione Realtime
 // ══════════════════════════════════════════
 function subscribeLeague() {
-  // Squadre
+  // Lettura Squadre
   onValue(ref(db, 'teams'), snap => {
     const raw = snap.val() || {};
     STATE.teams = Object.values(raw);
     
-    // Controlla se questo account ha già una squadra associata (tramite uid)
-    const associatedTeam = STATE.teams.find(t => t.uid === STATE.firebaseUser.uid);
+    // NUOVA LOGICA: Cerca se l'UID dell'utente corrente si trova nella sotto-mappa "uids" della squadra
+    const associatedTeam = STATE.teams.find(t => t.uids && t.uids[STATE.firebaseUser.uid] === true);
     
     if (associatedTeam) {
       STATE.user = associatedTeam;
       showApp();
     } else {
-      // Se l'utente è loggato ma non ha ancora scelto una squadra
+      // Se l'utente è registrato ma non fa ancora parte di nessuna squadra
       document.getElementById('authBox').style.display = 'none';
       document.getElementById('teamSelectBox').style.display = 'flex';
       buildTeamSelectionGrid();
@@ -616,21 +423,21 @@ function subscribeLeague() {
     if (STATE.user) { buildMercato(); buildFormazione(); }
   });
 
-  // Voti giornata
+  // Voti
   onValue(ref(db, 'votes'), snap => {
     STATE.votes = snap.val() || {};
     if (STATE.user) { buildFormazione(); buildStats(); }
     checkLiveBadge();
   });
 
-  // Info giornata corrente
+  // Info Config
   onValue(ref(db, 'config'), snap => {
     const cfg = snap.val() || {};
     STATE.currentGW = cfg.currentGW || 1;
     if (STATE.user) refreshUI();
   });
 
-  // Partite live
+  // Live Matches
   onValue(ref(db, 'liveMatches'), snap => {
     STATE.matches = snap.val() ? Object.values(snap.val()) : [];
     renderLiveMatches();
@@ -645,46 +452,49 @@ function checkLiveBadge() {
 }
 
 // ══════════════════════════════════════════
-// ASSOCIAZIONE SQUADRA LIBERA ALL'UTENTE
+// AGGIUNTA UTENTE A UNA SQUADRA (CO-GESTIONE)
 // ══════════════════════════════════════════
 function buildTeamSelectionGrid() {
   const grid = document.getElementById('teamGrid');
-  // Filtra solo le squadre che NON sono ancora state associate a nessun UID utente
-  const freeTeams = STATE.teams.filter(t => !t.uid);
-
-  if (!freeTeams.length) {
-    grid.innerHTML = `<div style="grid-column:1/-1" class="loading-team">
-      Nessuna squadra disponibile o non assegnata.<br>
-      <span style="font-size:.72rem;color:var(--text3)">Contatta l'amministratore per aggiungerne una.</span>
-    </div>`;
+  
+  if (!STATE.teams.length) {
+    grid.innerHTML = `<div class="loading-team">Nessuna squadra configurata dall'Admin.</div>`;
     return;
   }
 
-  grid.innerHTML = freeTeams.map(t => `
+  // Mostra TUTTE le squadre della lega, permettendo l'inserimento di più membri
+  grid.innerHTML = STATE.teams.map(t => {
+    // Calcola quanti utenti gestiscono già questa squadra
+    const activeUsers = t.uids ? Object.keys(t.uids).length : 0;
+    const usersLabel = activeUsers === 0 ? "Nessun gestore" : activeUsers === 1 ? "1 Gestore attivo" : `${activeUsers} Gestori attivi`;
+    
+    return `
     <button class="team-btn" onclick="window._claimTeam('${t.id}')">
       <span class="em">${t.emoji || '⚽'}</span>
-      <span>${t.name}</span>
-      <span class="own">${t.owner}</span>
+      <div class="team-details">
+        <span style="font-weight:600;">${t.name}</span>
+        <span class="own">Fondatore: ${t.owner || 'N/D'}</span>
+      </div>
+      <span class="users-count">${usersLabel}</span>
     </button>
-  `).join('');
+  `}).join('');
 }
 
-// Salva nel database che la squadra X appartiene all'utente loggato (UID)
 window._claimTeam = function(teamId) {
   if (!STATE.firebaseUser) return;
   
-  // Aggiorna sul DB aggiungendo il campo "uid" alla squadra selezionata
-  update(ref(db, `teams/${teamId}`), {
-    uid: STATE.firebaseUser.uid
+  // Imposta sul database il valore true per l'UID dell'utente corrente all'interno della mappa 'uids' della squadra
+  update(ref(db, `teams/${teamId}/uids`), {
+    [STATE.firebaseUser.uid]: true
   }).then(() => {
-    showToast('Squadra associata correttamente!', 'ok');
-  }).catch(() => {
-    showToast('Errore di associazione.', 'err');
+    showToast('Sei entrato nella squadra con successo!', 'ok');
+  }).catch((err) => {
+    showToast('Errore durante l\'unione alla squadra.', 'err');
   });
 };
 
 // ══════════════════════════════════════════
-// SHOW APP
+// APERTURA INTERFACCIA
 // ══════════════════════════════════════════
 function showApp() {
   const splash = document.getElementById('splash');
@@ -693,13 +503,14 @@ function showApp() {
   document.getElementById('topbar').style.display = 'flex';
   document.getElementById('app').style.display = 'block';
   document.getElementById('nav').style.display = 'flex';
+  
   const av = document.getElementById('topAvatar');
-  av.textContent = (STATE.user.owner || '?').slice(0,2).toUpperCase();
+  // Se la mail è disponibile mostra la prima lettera, altrimenti l'owner della squadra
+  av.textContent = STATE.firebaseUser.email ? STATE.firebaseUser.email.slice(0,2).toUpperCase() : (STATE.user.owner || '?').slice(0,2).toUpperCase();
   refreshUI();
 }
 
 function refreshUI() {
-  // Riordina le squadre per classifica generale aggiornata
   STATE.teams.sort((a,b) => b.pts - a.pts);
   buildHome();
   buildClassifica();
@@ -709,7 +520,7 @@ function refreshUI() {
 }
 
 // ══════════════════════════════════════════
-// HOME
+// SCHERMATA HOME
 // ══════════════════════════════════════════
 function buildHome() {
   const u = STATE.user;
@@ -723,16 +534,16 @@ function buildHome() {
   document.getElementById('hL').textContent = u.l || 0;
   document.getElementById('hPos').textContent = pos + '°';
 
-  // Prossima sfida
+  // Prossima sfida simulata/generata
   const others = STATE.teams.filter(t => t.id !== u.id);
   const opp = others[Math.floor(Math.random() * others.length)] || {};
   document.getElementById('nmHome').textContent = (u.emoji||'⚽') + ' ' + u.name;
-  document.getElementById('nmHomeOwner').textContent = u.owner;
+  document.getElementById('nmHomeOwner').textContent = "I tuoi soci";
   document.getElementById('nmAway').textContent = (opp.emoji||'⚽') + ' ' + (opp.name||'—');
   document.getElementById('nmAwayOwner').textContent = opp.owner||'—';
   document.getElementById('nextGWLabel').textContent = 'GW ' + (STATE.currentGW+1);
 
-  // Top scorer
+  // Top scorers
   const top = [...STATE.players].sort((a,b)=>(b.goals||0)-(a.goals||0)).slice(0,3);
   document.getElementById('topScorers').innerHTML = top.map(p => `
     <div class="pcard card-sm card">
@@ -793,8 +604,8 @@ function renderRank(cId, list, ptsFn, subFn) {
       <div class="rank-pos ${posC[i]||''}">${i+1}</div>
       <div class="rank-av" style="background:${t.color||'#333'}22;color:${t.color||'#aaa'}">${t.emoji||'⚽'}</div>
       <div class="rank-info">
-        <div class="rank-n">${t.name}${isMe?'<span class="me-badge">Tu</span>':''}</div>
-        <div class="rank-o">${t.owner}</div>
+        <div class="rank-n">${t.name}${isMe?'<span class="me-badge">La tua squadra</span>':''}</div>
+        <div class="rank-o">${t.owner || 'Più gestori'}</div>
       </div>
       <div class="rank-r">
         <div class="rank-pts">${ptsFn(t,i)}</div>
@@ -988,7 +799,7 @@ function buildStats() {
 }
 
 // ══════════════════════════════════════════
-// NAV
+// GESTIONE CAMBIO PAGINE
 // ══════════════════════════════════════════
 window.goPage = function(name, btn) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -1007,7 +818,7 @@ window.switchTab = function(btn, targetId) {
 };
 
 // ══════════════════════════════════════════
-// TOAST
+// TOAST NOTIFICHE
 // ══════════════════════════════════════════
 window.showToast = function(msg, type='ok') {
   const t = document.getElementById('toast');
