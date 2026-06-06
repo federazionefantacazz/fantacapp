@@ -409,25 +409,34 @@ body{
     <div id="rk-form" style="display:none"></div>
   </div>
 
-  <div class="page" id="page-formazione">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
-      <div class="sec" style="margin:0">Formazione</div>
-      <div style="text-align:right">
-        <div class="label">Punteggio GW</div>
-        <div style="font-family:'DM Mono',monospace;font-size:1.3rem;color:var(--accent)" id="fScore">—</div>
-      </div>
-    </div>
-    <div class="moduli" id="moduliBar"></div>
-    <div class="campo" id="campo">
-      <div class="campo-lbl" id="campoLbl">Campo</div>
-      <div id="fieldRows"></div>
-    </div>
-    <div>
-      <div class="bench-lbl">Panchinari</div>
-      <div class="bench-row" id="benchRow"></div>
-    </div>
-  </div>
+ <div class="page" id="page-formazione">
+    <div class="sec">Schiera Formazione</div>
 
+    <div class="card card-sm" style="margin-bottom: 1rem;">
+      <div class="label" style="margin-bottom: .4rem;">Seleziona Modulo</div>
+      <select id="f-modulo" class="select-rose" onchange="window.changeModulo()">
+        <option value="3-4-3">3-4-3</option>
+        <option value="3-5-2">3-5-2</option>
+        <option value="4-3-3" selected>4-3-3</option>
+        <option value="4-4-2">4-4-2</option>
+        <option value="4-5-1">4-5-1</option>
+        <option value="5-3-2">5-3-2</option>
+        <option value="5-4-1">5-4-1</option>
+      </select>
+    </div>
+
+    <div class="label" style="margin-bottom: .5rem; color: var(--accent);">👕 TITOLARI (11)</div>
+    <div id="titolari-slots" style="display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1.5rem;">
+      </div>
+
+    <div class="label" style="margin-bottom: .5rem; color: var(--gold);">🪑 PANCHINA (1 P | 2 D | 2 C | 2 A)</div>
+    <div id="panchina-slots" style="display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1.5rem;">
+      </div>
+
+    <button class="btn btn-green" style="width: 100%; padding: .8rem; font-weight: 600; border-radius: 10px;" onclick="window.saveFormazione()">
+      💾 Salva Formazione
+    </button>
+  </div>
   <div class="page" id="page-mercato">
     <div class="sec">Mercato</div>
     <div class="mkt-hdr">
@@ -843,14 +852,156 @@ function renderRank(cId, list, ptsFn, subFn) {
 // ══════════════════════════════════════════
 // FORMAZIONE
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════
+// GESTIONE FORMAZIONE CON SLOT MODULO E PANCHINA
+// ══════════════════════════════════════════
+
+// Mappa globale per salvare lo stato temporaneo della formazione prima del clic su "Salva"
+let currentLineup = {
+  titolari: {}, // es: { 'tit-P-1': 'id_giocatore', 'tit-D-1': 'id_giocatore'... }
+  panchina: {}  // es: { 'pan-P-1': 'id_giocatore', 'pan-D-1': 'id_giocatore'... }
+};
+
 function buildFormazione() {
-  const mb = document.getElementById('moduliBar');
-  if(!mb) return;
-  mb.innerHTML = MODULI.map(m=>`
-    <div class="mtag ${m===STATE.modulo?'active':''}" onclick="window._setModulo('${m}')">${m}</div>
-  `).join('');
-  renderCampo();
+  if (!STATE.user || !STATE.user.id) return;
+  
+  // 1. Recuperiamo la formazione già salvata su Firebase (se esiste) per pre-compilare gli slot
+  const currentGw = STATE.status?.currentGW || 1;
+  const savedRef = ref(db, `lineups/gw${currentGw}/${STATE.user.id}`);
+  
+  // Generiamo gli slot vuoti iniziali (o basati sul modulo selezionato)
+  window.changeModulo();
 }
+
+// Chiamata ogni volta che l'utente cambia il modulo dal select
+window.changeModulo = function() {
+  const modulo = document.getElementById('f-modulo').value;
+  const [def, mid, att] = modulo.split('-').map(Number);
+
+  // Schema dei titolari basato sul modulo scelto
+  const schemaTitolari = [
+    { role: 'P', count: 1 },
+    { role: 'D', count: def },
+    { role: 'C', count: mid },
+    { role: 'A', count: att }
+  ];
+
+  // Schema fisso richiesto della panchina: 1P, 2D, 2C, 2A
+  const schemaPanchina = [
+    { role: 'P', count: 1 },
+    { role: 'D', count: 2 },
+    { role: 'C', count: 2 },
+    { role: 'A', count: 2 }
+  ];
+
+  // Filtriamo SOLTANTO i giocatori che appartengono alla squadra dell'utente loggato
+  const miaRosa = STATE.players.filter(p => p.teamId === STATE.user.id);
+
+  // Renderizza i blocchi degli slot
+  renderSlots('titolari-slots', schemaTitolari, 'tit', miaRosa);
+  renderSlots('panchina-slots', schemaPanchina, 'pan', miaRosa);
+};
+
+// Funzione interna per generare graficamente gli slot di scelta
+function renderSlots(containerId, schema, prefix, miaRosa) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+
+  schema.forEach(item => {
+    for (let i = 1; i <= item.count; i++) {
+      const slotId = `${prefix}-${item.role}-${i}`;
+      
+      // Filtriamo i giocatori della rosa disponibili per QUESTO specifico ruolo dello slot
+      const opzioniGiocatori = miaRosa.filter(p => p.role === item.role);
+
+      // Definiamo il colore del badge del ruolo
+      const rClass = item.role==='P'?'rP':item.role==='D'?'rD':item.role==='C'?'rC':'rA';
+
+      // Creiamo l'elemento HTML dello slot
+      const divSlot = document.createElement('div');
+      divSlot.className = 'pcard';
+      divSlot.style.padding = '.4rem .6rem';
+      divSlot.style.display = 'flex';
+      divSlot.style.alignItems = 'center';
+      divSlot.style.gap = '.6rem';
+
+      // Identificativo del ruolo nello slot
+      divSlot.innerHTML = `
+        <div class="rbadge ${rClass}" style="width:24px; height:24px; font-size:.65rem; border-radius:5px;">${item.role}</div>
+        <div style="flex:1;">
+          <select id="${slotId}" class="select-rose" style="padding:.4rem .6rem; font-size:.8rem; background:var(--bg2);" onchange="window._validateFormazioneUnique('${slotId}')">
+            <option value="">-- Seleziona ${item.role === 'P' ? 'Portiere' : item.role === 'D' ? 'Difensore' : item.role === 'C' ? 'Centrocampista' : 'Attaccante'} --</option>
+            ${opzioniGiocatori.map(p => `<option value="${p.id}">${p.name} (${p.club})</option>`).join('')}
+          </select>
+        </div>
+      `;
+      container.appendChild(divSlot);
+    }
+  });
+}
+
+// Funzione di controllo: evita che lo stesso giocatore sia selezionato in due slot contemporaneamente
+window._validateFormazioneUnique = function(changedSlotId) {
+  const changedSelect = document.getElementById(changedSlotId);
+  if (!changedSelect || !changedSelect.value) return;
+
+  const allSelects = document.querySelectorAll('#titolari-slots select, #panchina-slots select');
+  let duplicate = false;
+
+  allSelects.forEach(select => {
+    if (select.id !== changedSlotId && select.value === changedSelect.value) {
+      duplicate = true;
+    }
+  });
+
+  if (duplicate) {
+    showToast('Questo calciatore è già stato inserito in un altro slot!', 'err');
+    changedSelect.value = ''; // Resetta la selezione duplicata
+  }
+};
+
+// Funzione di Salvataggio su Firebase
+window.saveFormazione = async function() {
+  if (!STATE.user || !STATE.user.id) return;
+
+  const currentGw = STATE.status?.currentGW || 1;
+  const modulo = document.getElementById('f-modulo').value;
+  
+  const titolariSelects = document.querySelectorAll('#titolari-slots select');
+  const panchinaSelects = document.querySelectorAll('#panchina-slots select');
+
+  let titolariIds = [];
+  let panchinaIds = [];
+
+  // Raccogli gli ID dei titolari scelti
+  titolariSelects.forEach(s => { if (s.value) titolariIds.push(s.value); });
+  // Raccogli gli ID dei panchinari scelti
+  panchinaSelects.forEach(s => { if (s.value) panchinaIds.push(s.value); });
+
+  // Validazione: i titolari devono essere esattamente 11
+  if (titolariIds.length < 11) {
+    showToast(`Hai schierato solo ${titolariIds.length} titolari su 11!`, 'err');
+    return;
+  }
+
+  const payload = {
+    teamId: STATE.user.id,
+    modulo: modulo,
+    titolari: titolariIds,
+    panchina: panchinaIds,
+    timestamp: Date.now()
+  };
+
+  try {
+    // Salvataggio nel database sotto il nodo lineups / gw attuale / id_utente
+    await set(ref(db, `lineups/gw${currentGw}/${STATE.user.id}`), payload);
+    showToast('Formazione salvata con successo!', 'ok');
+  } catch (err) {
+    console.error(err);
+    showToast('Errore durante il salvataggio della formazione', 'err');
+  }
+};
 
 window._setModulo = function(m) {
   STATE.modulo = m;
