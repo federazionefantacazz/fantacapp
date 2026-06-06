@@ -120,21 +120,68 @@ const firebaseConfig = {
 const fapp = initializeApp(firebaseConfig);
 const db = getDatabase(fapp);
 
-window.STATE = { user: null, teams: [], players: [], votes: {}, status: {}, matches: {} };
+// 1. INIZIALIZZAZIONE DELLO STATO GLOBALE (Con l'aggiunta della competizione attiva di default)
+window.STATE = { user: null, teams: [], players: [], votes: {}, status: {}, matches: {}, currentCompetition: 'fantacazz' };
 
-onValue(ref(db,'status'), snap => { window.STATE.status = snap.val()||{}; refreshUI(); });
-onValue(ref(db,'votes'), snap => { window.STATE.votes = snap.val()||{}; refreshUI(); });
-onValue(ref(db,'matches'), snap => { window.STATE.matches = snap.val()||{}; refreshUI(); });
+// 2. FUNZIONE GLOBALE CHE GESTISCE IL CAMBIO COMPETIZIONE DALLA TUA COMBOBOX IN HOME
+window._handleCompetitionChange = function(newCompetitionId) {
+  window.STATE.currentCompetition = newCompetitionId;
+  window.showToast(`Competizione: ${newCompetitionId.toUpperCase()}`, 'ok');
+  
+  // Svuota graficamente il select dei turni nel calendario per obbligarlo a rigenerarsi
+  const calSelect = document.getElementById('calGwSelect');
+  if (calSelect) {
+    calSelect.innerHTML = '';
+    delete calSelect.dataset.currentComp;
+  }
 
-onValue(ref(db,'teams'), snap => {
-  const raw = snap.val()||{};
-  window.STATE.teams = Object.values(raw).sort((a,b)=>b.pts-a.pts);
-  populateLoginDropdown();
-  refreshUI();
+  // Ri-sottoscrive i listener puntando alla nuova competizione selezionata
+  caricaDatiCompetizione(newCompetitionId);
+};
+
+// 3. NUOVA FUNZIONE PER ASCOLTARE I DATI SPECIFICI DEL TORNEO SELEZIONATO
+function caricaDatiCompetizione(compId) {
+  // Ascolta la Giornata Attuale e lo Stato della competizione specifica
+  onValue(ref(db, `competitions/${compId}/status`), snap => { 
+    window.STATE.status = snap.val() || {}; 
+    refreshUI(); 
+  });
+
+  // Ascolta il Calendario Incontri della competizione specifica
+  onValue(ref(db, `competitions/${compId}/matches`), snap => { 
+    window.STATE.matches = snap.val() || {}; 
+    refreshUI(); 
+  });
+
+  // Ascolta la Classifica e le Squadre della competizione specifica
+  onValue(ref(db, `competitions/${compId}/teams`), snap => {
+    const raw = snap.val() || {};
+    window.STATE.teams = Object.values(raw).sort((a,b) => b.pts - a.pts);
+    
+    // Mantiene allineata l'associazione dell'utente loggato con i dati della squadra della nuova competizione
+    if (window.STATE.user) {
+      const foundCurrentTeam = window.STATE.teams.find(t => t.id === window.STATE.user.id);
+      if (foundCurrentTeam) {
+        window.STATE.user = foundCurrentTeam;
+      }
+    }
+
+    populateLoginDropdown();
+    refreshUI();
+  });
+}
+
+// 4. FA PARTIRE IL PRIMO CARICAMENTO ALL'APERTURA DELL'APP (Usa 'fantacazz' come partenza)
+caricaDatiCompetizione(window.STATE.currentCompetition);
+
+// 5. LISTENER GLOBALI COMUNI (Restano centralizzati fuori dalle cartelle delle competizioni)
+onValue(ref(db, 'votes'), snap => { 
+  window.STATE.votes = snap.val() || {}; 
+  refreshUI(); 
 });
 
-onValue(ref(db,'players'), snap => {
-  window.STATE.players = Object.values(snap.val()||{});
+onValue(ref(db, 'players'), snap => {
+  window.STATE.players = Object.values(snap.val() || {});
   refreshUI();
 });
 
