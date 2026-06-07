@@ -55,10 +55,40 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
 .select-rose, .input-login{width:100%;background:var(--bg3);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:.7rem .9rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none}
 .input-login{background:var(--bg2);border-color:rgba(255,255,255,0.15);margin-bottom:1rem;user-select:text !important;-webkit-user-select:text !important;}
 .link-toggle{color:var(--accent2);font-size:.8rem;text-decoration:none;display:inline-block;margin-top:1rem;cursor:pointer}
-#nav{position:fixed;bottom:0;left:0;right:0;height:calc(60px + env(safe-area-inset-bottom));background:rgba(17,24,39,0.85);backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,0.05);display:flex;justify-content:space-around;padding-top:.5rem;padding-bottom:env(safe-area-inset-bottom);z-index:999}
-.nav-btn{background:none;border:none;color:var(--text2);display:flex;flex-direction:column;align-items:center;gap:.25rem;font-family:'DM Sans',sans-serif;font-size:.58rem !important;font-weight:500;cursor:pointer;width:16%}
-.nav-btn svg{width:20px;height:20px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:all 0.2s}
-.nav-btn.active{color:var(--accent)}.nav-btn.active svg{transform:translateY(-2px)}
+#nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(60px + env(safe-area-inset-bottom));
+  background: var(--card); /* <-- Diventa bianca se il tema ha le card bianche */
+  border-top: 1px solid rgba(0, 0, 0, 0.08); /* Un bordo leggero scuro per staccare dallo sfondo giallo */
+  display: flex;
+  justify-content: space-around;
+  padding-top: .5rem;
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 999;
+  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.05); /* Un'ombra delicata verso l'alto */
+}
+
+.nav-btn {
+  background: none;
+  border: none;
+  color: var(--text2); /* <-- Prende il colore del testo secondario (grigio scuro) */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .25rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: .58rem !important;
+  font-weight: 500;
+  cursor: pointer;
+  width: 16%;
+}
+
+.nav-btn.active {
+  color: var(--text); /* <-- Il bottone attivo diventa Nero come il testo principale delle card */
+}
 .page{display:none;padding:0 1rem}.page.active{display:block;animation:fadeIn 0.25s ease-out}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 .toast{position:fixed;top:1.5rem;left:50%;transform:translateX(-50%) translateY(-40px);background:var(--card);border:1px solid rgba(255,255,255,0.1);padding:.75rem 1.5rem;border-radius:12px;font-size:.85rem;font-weight:500;z-index:9999;box-shadow:0 10px 30px rgba(0,0,0,0.5);opacity:0;transition:all 0.3s ease;pointer-events:none}
