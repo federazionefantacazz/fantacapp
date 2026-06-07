@@ -32,91 +32,95 @@ export const FormazionePage = {
         
         <button class="btn btn-green" style="width: 100%; padding: .8rem; margin-bottom:2rem;" id="btn-save-lineup">💾 Salva Formazione</button>
 
-        <style>
-          .soccer-field {
-            position: relative;
-            width: 100%;
-            height: 480px;
-            background: linear-gradient(to bottom, #1b4d22, #2e7d32);
-            border: 2px solid rgba(255,255,255,0.4);
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: inset 0 0 40px rgba(0,0,0,0.5), 0 4px 15px rgba(0,0,0,0.3);
-          }
-          .field-lines {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none;
-          }
-          /* Linea di centrocampo */
-          .field-lines::before {
-            content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 2px;
-            background: rgba(255,255,255,0.3);
-          }
-          /* Cerchio di centrocampo */
-          .field-center-circle {
-            position: absolute; top: 50%; left: 50%; width: 90px; height: 90px;
-            border: 2px solid rgba(255,255,255,0.3); border-radius: 50%;
-            transform: translate(-50%, -50%);
-          }
-          /* Area di rigore inferiore (Portiere) */
-          .field-penalty-box {
-            position: absolute; bottom: 0; left: 50%; width: 160px; height: 60px;
-            border: 2px solid rgba(255,255,255,0.3); border-bottom: none;
-            transform: translateX(-50%);
-          }
-          /* Area superiore (Estetica finta) */
-          .field-lines::after {
-            content: ''; position: absolute; top: 0; left: 50%; width: 160px; height: 60px;
-            border: 2px solid rgba(255,255,255,0.2); border-top: none;
-            transform: translateX(-50%);
-          }
-          /* Singolo giocatore posizionato sul campo */
-          .field-player {
-            position: absolute;
-            transform: translate(-50%, -50%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 75px;
-            z-index: 10;
-          }
-          /* Icona maglia/cerchio giocatore */
-          .player-shirt {
-            width: 38px; height: 38px;
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 0.75rem; font-weight: bold; color: #fff;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            border: 2px solid #fff;
-            transition: transform 0.2s;
-            cursor: pointer;
-          }
-          .field-player:active .player-shirt {
-            transform: scale(1.1);
-          }
-          /* Dropdown stilizzato invisibile sopra la maglia */
-          .field-player select {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 38px;
-            opacity: 0; cursor: pointer; z-index: 12;
-          }
-          /* Etichetta col nome sotto la maglia */
-          .player-name-label {
-            margin-top: 4px;
-            background: rgba(10, 15, 30, 0.85);
-            color: #fff;
-            font-size: 0.7rem;
-            padding: 2px 6px;
-            border-radius: 4px;
-            max-width: 85px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            border: 1px solid rgba(255,255,255,0.1);
-            text-align: center;
-          }
-        </style>
+    <style>
+    .soccer-field {
+      position: relative;
+      width: 100%;
+      height: 480px;
+      /* 1. MODIFICATO: Sfondo Giallo con sfumatura Arcade/Cartoon */
+      background: linear-gradient(to bottom, #ffeb3b, #fdd835);
+      /* 2. MODIFICATO: Spessore e bordo scuro stile fumetto */
+      border: 4px solid var(--bg2);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: inset 0 0 30px rgba(0,0,0,0.15), 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .field-lines {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+    }
+    /* 3. MODIFICATO: Linea di centrocampo più spessa */
+    .field-lines::before {
+      content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 4px;
+      background: rgba(255, 255, 255, 0.7);
+    }
+    /* 4. MODIFICATO: Cerchio di centrocampo più evidente */
+    .field-center-circle {
+      position: absolute; top: 50%; left: 50%; width: 100px; height: 100px;
+      border: 4px solid rgba(255, 255, 255, 0.7); border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+    /* 5. MODIFICATO: Area di rigore con linee spesse */
+    .field-penalty-box {
+      position: absolute; bottom: 0; left: 50%; width: 180px; height: 70px;
+      border: 4px solid rgba(255, 255, 255, 0.7); border-bottom: none;
+      transform: translateX(-50%);
+    }
+    .field-lines::after {
+      content: ''; position: absolute; top: 0; left: 50%; width: 180px; height: 70px;
+      border: 4px solid rgba(255, 255, 255, 0.4); border-top: none;
+      transform: translateX(-50%);
+    }
+    .field-player {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 80px;
+      z-index: 10;
+    }
+    /* 6. MODIFICATO: Maglia con ombra netta (Stile Adesivo Pop) */
+    .player-shirt {
+      width: 42px; height: 42px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem; font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.5px;
+      color: #fff;
+      box-shadow: 0 5px 0px rgba(0,0,0,0.25); /* Ombra cartoon netta */
+      border: 3px solid #fff;
+      transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
+      cursor: pointer;
+    }
+    /* Effetto pressione cartoon */
+    .field-player:active .player-shirt {
+      transform: translateY(3px);
+      box-shadow: 0 2px 0px rgba(0,0,0,0.25);
+    }
+    .field-player select {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 42px;
+      opacity: 0; cursor: pointer; z-index: 12;
+    }
+    /* 7. MODIFICATO: Etichetta nome con più contrasto sul giallo */
+    .player-name-label {
+      margin-top: 8px;
+      background: #0a0f1e;
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      max-width: 85px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      border: 2px solid rgba(255,255,255,0.15);
+      text-align: center;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+    }
+  </style>
       </div>
     `;
   },
@@ -181,11 +185,11 @@ export const FormazionePage = {
         const ops = rosa.filter(p => p.role === reparto.role);
 
         // Identifichiamo il colore della maglia in base al ruolo (riutilizzando i tuoi colori)
-        let bgShirt = '#64748b'; // rD
-        if (reparto.role === 'P') bgShirt = '#475569';
-        if (reparto.role === 'C') bgShirt = '#50e3c2';
-        if (reparto.role === 'A') bgShirt = '#ff6b6b';
-        let colorText = reparto.role === 'C' ? '#0a0f1e' : '#fff';
+        let bgShirt = '#475569'; // P: Grigio scuro
+        if (reparto.role === 'D') bgShirt = '#2196f3'; // D: Blu Elettrico Cartoon
+        if (reparto.role === 'C') bgShirt = '#e91e63'; // C: Rosa/Fucsia Pop
+        if (reparto.role === 'A') bgShirt = '#ff5722'; // A: Arancione Fiamma
+        let colorText = '#fff';
 
         const playerDiv = document.createElement('div');
         playerDiv.className = 'field-player';
