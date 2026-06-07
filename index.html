@@ -194,13 +194,36 @@ function caricaDatiCompetizione(compId) {
     refreshUI(); 
   });
 
+  // [NUOVO] 1b. Ascolta il tema personalizzato della competizione
+  onValue(ref(db, `competitions/${compId}/theme`), snap => {
+    const theme = snap.val();
+    if (theme) {
+      const root = document.documentElement;
+      // Mappa le chiavi ricevute da Firebase con le variabili CSS del :root
+      if (theme.bg) root.style.setProperty('--bg', theme.bg);
+      if (theme.bg2) root.style.setProperty('--bg2', theme.bg2);
+      if (theme.bg3) root.style.setProperty('--bg3', theme.bg3);
+      if (theme.card) root.style.setProperty('--card', theme.card);
+      if (theme.card2) root.style.setProperty('--card2', theme.card2);
+      if (theme.accent) root.style.setProperty('--accent', theme.accent);
+      if (theme.accent2) root.style.setProperty('--accent2', theme.accent2);
+      if (theme.accent3) root.style.setProperty('--accent3', theme.accent3);
+      if (theme.gold) root.style.setProperty('--gold', theme.gold);
+      if (theme.text) root.style.setProperty('--text', theme.text);
+      if (theme.text2) root.style.setProperty('--text2', theme.text2);
+    } else {
+      // Opzionale: Se la competizione non ha un tema, ripristina i colori di default
+      resetThemeToDefault();
+    }
+  });
+
   // 2. Ascolta i match specifici del torneo (Resta così com'è)
   onValue(ref(db, `competitions/${compId}/matches`), snap => { 
     window.STATE.matches = snap.val() || {}; 
     refreshUI(); 
   });
 
-  // 3. SQUADRE SPOSTATE SULLA RADICE GLOBALE PER EVITARE IL BLOCCO LOGIN
+  // 3. Squadre (Resta così com'è)
   onValue(ref(db, 'teams'), snap => {
     const raw = snap.val() || {};
     window.STATE.teams = Object.values(raw).sort((a,b) => b.pts - a.pts);
@@ -215,6 +238,20 @@ function caricaDatiCompetizione(compId) {
     populateLoginDropdown();
     refreshUI();
   });
+}
+function resetThemeToDefault() {
+  const root = document.documentElement;
+  root.style.setProperty('--bg', '#1a1e24');
+  root.style.setProperty('--bg2', '#22272f');
+  root.style.setProperty('--bg3', '#2b323c');
+  root.style.setProperty('--card', '#282e37');
+  root.style.setProperty('--card2', '#333a46');
+  root.style.setProperty('--accent', '#50e3c2');
+  root.style.setProperty('--accent2', '#64748b');
+  root.style.setProperty('--accent3', '#ff6b6b');
+  root.style.setProperty('--gold', '#f5a623');
+  root.style.setProperty('--text', '#e2e8f0');
+  root.style.setProperty('--text2', '#94a3b8');
 }
 window._handleCompetitionChange = function(newCompetitionId) {
   window.STATE.currentCompetition = newCompetitionId;
