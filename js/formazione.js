@@ -150,13 +150,21 @@ export const FormazionePage = {
     if (!modSelect) return;
 
     const currentGw = STATE.status?.currentGW || 1;
+    const userId = STATE.user.id;
+    const compId = STATE.currentCompetition;
     
-    // Cerchiamo se esiste già una formazione salvata nello STATE locale caricato da Firebase
-    // Adattalo alla struttura nodale esatta del tuo window.STATE (es. STATE.lineups o STATE.competitions[...].lineups)
-    const savedLineup = STATE.competitions?.[STATE.currentCompetition]?.lineups?.[`gw${currentGw}`]?.[STATE.user.id] 
-                     || STATE.lineups?.[`gw${currentGw}`]?.[STATE.user.id];
+    // RADAR: Cerca la formazione provando tutti i percorsi possibili nel database
+    let savedLineup = null;
+    
+    if (STATE.competitions?.[compId]?.lineups?.[`gw${currentGw}`]?.[userId]) {
+      savedLineup = STATE.competitions[compId].lineups[`gw${currentGw}`][userId];
+    } else if (STATE.lineups?.[`gw${currentGw}`]?.[userId]) {
+      savedLineup = STATE.lineups[`gw${currentGw}`][userId];
+    } else if (STATE.lineups?.[compId]?.[`gw${currentGw}`]?.[userId]) {
+      savedLineup = STATE.lineups[compId][`gw${currentGw}`][userId];
+    }
 
-    // Se c'è una formazione salvata e l'utente NON ha appena cambiato a mano il modulo dal menu a tendina, usa il modulo salvato
+    // Se troviamo la formazione e l'utente non ha cambiato modulo a mano, caricalo
     if (savedLineup && savedLineup.modulo && !userChangedModulo) {
       modSelect.value = savedLineup.modulo;
     }
@@ -165,19 +173,17 @@ export const FormazionePage = {
     const [def, mid, att] = modulo.split('-').map(Number);
     
     const miaRosa = STATE.players.filter(p => {
-      const pTeamId = String(p.teamId || '');
-      const uId = String(STATE.user.id || '');
+      const pTeamId = String(p.teamId || p.team || '');
+      const uId = String(userId || '');
       return pTeamId !== '' && pTeamId === uId;
     });
 
-    // Estraggo gli ID già salvati (se esistono)
+    // Recuperiamo gli ID dei calciatori salvati
     const savedTitolariIds = savedLineup?.titolari || [];
     const savedPanchinaIds = savedLineup?.panchina || [];
 
-    // Disegna Titolari passando l'array dei salvati
+    // Rigenera i campi visivi
     this.drawFieldTitolari(def, mid, att, miaRosa, savedTitolariIds);
-    
-    // Disegna Panchina passando l'array dei salvati
     const schemaPan = [{role:'P', count:1}, {role:'D', count:2}, {role:'C', count:2}, {role:'A', count:2}];
     this.drawSchemaPanchina('panchina-slots', schemaPan, 'pan', miaRosa, savedPanchinaIds);
   },
