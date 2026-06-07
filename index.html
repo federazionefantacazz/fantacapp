@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="sheet">
 <title>Fantacazz</title>
 <style>
 :root {
@@ -31,6 +31,11 @@
   --text: #e2e8f0;     /* Testo principale chiaro (Grigio ghiaccio) */
   --text2: #94a3b8;    /* Testo secondario ed etichette (Grigio cemento chiaro) */
   --text3: #475569;    /* Testo disattivato o dettagli minori */
+}
+.field-player select {
+  -webkit-appearance: none;
+  appearance: none;
+  text-align: center;
 }
 *{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-tap-highlight-color:transparent}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;padding-bottom:calc(70px + env(safe-area-inset-bottom))}
