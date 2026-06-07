@@ -346,6 +346,7 @@ tr:hover td{background:rgba(255,255,255,0.01)}
 <div id="toast" class="toast"></div>
 
 <script type="module">
+<script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, onValue, set, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
@@ -377,16 +378,115 @@ let MATCHES = {};
 let CURRENT_GW = 1;  
 let adminPlayerFilter = '';
 
-// Funzione centralizzata per renderizzare l'intera interfaccia grafica appena cambiano i dati
-function renderGenerale() {
-  updateDashboard(); 
-  renderTeamsTable(); 
-  renderRankAdmin();
-  renderPlayersTable(); 
-  renderVoteGrid();
-  populateMercatoSelects();
-  aggiornaAnteprimaSquadreCalendario();
-}
+let teamsCaricate = false;
+let giocatoriCaricati = false;
+
+/* ==========================================================================
+   LOGICA DI GESTIONE & CREAZIONE NUOVE COMPETIZIONI
+   ========================================================================== */
+
+// Cambia visibilità dei campi in base al tipo di torneo scelto
+window.toggleCompFields = function(type) {
+  const fg = document.getElementById('fieldGironi');
+  const fq = document.getElementById('fieldQualificati');
+  if(!fg || !fq) return;
+  
+  if (type === 'campionato') {
+    fg.style.display = 'block';
+    fq.style.display = 'none';
+  } else if (type === 'eliminazione') {
+    fg.style.display = 'none';
+    fq.style.display = 'none';
+  } else if (type === 'misto') {
+    fg.style.display = 'block';
+    fq.style.display = 'block';
+  }
+};
+
+// Crea e inizializza la competizione nel DB
+window.creaCompetizione = async function() {
+  const idInput = document.getElementById('compId');
+  const nameInput = document.getElementById('compName');
+  if(!idInput || !nameInput) return;
+
+  const id = idInput.value.trim().toLowerCase().replace(/\s+/g, '-');
+  const name = nameInput.value.trim();
+  const type = document.getElementById('compType').value;
+  const gironi = parseInt(document.getElementById('compGironi').value) || 1;
+  const qualificati = parseInt(document.getElementById('compQualificati').value) || 0;
+
+  if (!id || !name) {
+    toast("ID e Nome Competizione sono obbligatori!", "err");
+    return;
+  }
+
+  const metaPayload = { id, name, type };
+  if (type === 'campionato' || type === 'misto') metaPayload.gironi = gironi;
+  if (type === 'misto') metaPayload.qualificatiFaseFinale = qualificati;
+
+  try {
+    // Registra i metadati strutturali
+    await set(ref(db, `competitions_meta/${id}`), metaPayload);
+    // Imposta lo stato della giornata iniziale
+    await set(ref(db, `competitions/${id}/status`), { currentGW: 1 });
+    
+    toast(`Competizione "${name}" creata con successo!`, "ok");
+    
+    idInput.value = '';
+    nameInput.value = '';
+  } catch (err) {
+    console.error(err);
+    toast("Errore durante la creazione", "err");
+  }
+};
+
+// Sincronizzazione Realtime dei metadati delle competizioni create
+onValue(ref(db, 'competitions_meta'), snap => {
+  const comps = snap.val() || {};
+  const list = Object.values(comps);
+
+  // Aggiorna dinamicamente la select "Competizione Attiva" nella sidebar
+  const adminSelect = document.getElementById('adminCompSelect');
+  if (adminSelect) {
+    if(list.length === 0) {
+      adminSelect.innerHTML = `<option value="fantacazz">🏆 Fantacazz (Campionato)</option>`;
+    } else {
+      adminSelect.innerHTML = list.map(c => `
+        <option value="${c.id}" ${window.CURRENT_COMPETITION === c.id ? 'selected' : ''}>
+          🏆 ${c.name} (${c.type.toUpperCase()})
+        </option>
+      `).join('');
+    }
+  }
+
+  // Aggiorna la tabella di riepilogo delle competizioni
+  const tbody = document.getElementById('compTableBody');
+  if (tbody) {
+    if(list.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text3)">Nessuna competizione configurata nel database.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(c => {
+      let dettagli = '—';
+      if (c.type === 'campionato') dettagli = `${c.gironi} Giri di calendario`;
+      if (c.type === 'misto') dettagli = `${c.gironi} Giri Classifica + Primi ${c.qualificatiFaseFinale} ai Playoff`;
+      if (c.type === 'eliminazione') dettagli = `Tabellone scontro diretto`;
+      
+      return `
+        <tr>
+          <td><code style="color:var(--accent)">${c.id}</code></td>
+          <td><strong>${c.name}</strong></td>
+          <td><span class="badge badge-blue">${c.type}</span></td>
+          <td>${dettagli}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+});
+
+/* ==========================================================================
+   LOGICA CORE COMPETIZIONI & SQUADRE
+   ========================================================================== */
 
 function ascoltaDatiCompetizione(compId) {
   onValue(ref(db, `competitions/${compId}/status`), snap => {
@@ -401,11 +501,17 @@ function ascoltaDatiCompetizione(compId) {
     if (el2) el2.textContent = 'GW ' + CURRENT_GW;
     if (el3) el3.textContent = CURRENT_GW;
     
-    renderVoteGrid();
+    if (teamsCaricate && giocatoriCaricati) {
+      updateDashboard();
+      renderVoteGrid();
+    }
   });
 
   onValue(ref(db, `competitions/${compId}/matches`), snap => {
     MATCHES = snap.val() || {};
+    if (teamsCaricate && giocatoriCaricati) {
+      updateDashboard(); 
+    }
   });
 }
 
@@ -415,51 +521,45 @@ window._handleAdminCompChange = function(newCompId) {
   ascoltaDatiCompetizione(newCompId);
 };
 
-// ASCOLTATORE SQUADRE: Renderizza immediatamente appena riceve i dati, senza condizioni bloccanti
 onValue(ref(db, 'teams'), snap => {
   const raw = snap.val() || {};
-  TEAMS = Object.entries(raw).map(([key, val]) => {
-    if (typeof val === 'object' && val !== null) {
-      return { id: key, ...val };
-    }
-    return { id: key };
-  });
+  TEAMS = Object.values(raw).sort((a,b) => (b.pts || 0) - (a.pts || 0));
+  teamsCaricate = true;
   
-  TEAMS.sort((a, b) => {
-    const ptsA = a.pts ?? a.Pts ?? a.punti ?? a.Punti ?? 0;
-    const ptsB = b.pts ?? b.Pts ?? b.punti ?? b.Punti ?? 0;
-    return ptsB - ptsA;
-  });
-
-  // Forza il rendering immediato delle tabelle collegate alle squadre
-  renderTeamsTable(); 
-  renderRankAdmin();
-  populateMercatoSelects();
-  aggiornaAnteprimaSquadreCalendario();
+  if (teamsCaricate && giocatoriCaricati) {
+    updateDashboard(); 
+    renderTeamsTable(); 
+    renderRankAdmin();
+    populateMercatoSelects();
+    aggiornaAnteprimaSquadreCalendario();
+  }
 });
 
-// ASCOLTATORE GIOCATORI: Renderizza immediatamente appena riceve i dati
 onValue(ref(db, 'players'), snap => {
   const raw = snap.val() || {};
   PLAYERS = Object.values(raw);
+  giocatoriCaricati = true;
   
   const pCount = document.getElementById('pCount');
   if (pCount) pCount.textContent = PLAYERS.length;
   
-  renderPlayersTable(); 
-  populateMercatoSelects();
-  renderVoteGrid();
+  ascoltaDatiCompetizione(window.CURRENT_COMPETITION);
+  
+  if (teamsCaricate && giocatoriCaricati) {
+    renderPlayersTable(); 
+    renderVoteGrid();
+    populateMercatoSelects();
+    updateDashboard();
+    aggiornaAnteprimaSquadreCalendario();
+  }
 });
 
-// ASCOLTATORE VOTI
 onValue(ref(db, 'votes'), snap => {
   VOTES = snap.val() || {};
-  renderVoteGrid();
+  if (teamsCaricate && giocatoriCaricati) {
+    renderVoteGrid();
+  }
 });
-
-// Avviamo l'ascolto della competizione fin da subito
-ascoltaDatiCompetizione(window.CURRENT_COMPETITION);
-
 
 function aggiornaAnteprimaSquadreCalendario() {
   const container = document.getElementById('genTeamsPreview');
@@ -468,15 +568,11 @@ function aggiornaAnteprimaSquadreCalendario() {
     container.innerHTML = "❌ Nessuna squadra trovata. Crea prima le squadre dal pannello.";
     return;
   }
-  container.innerHTML = TEAMS.map(t => {
-    const name = t.name ?? t.Name ?? t.nome ?? t.Nome ?? t.id;
-    const emoji = t.emoji ?? t.Emoji ?? '⚽';
-    return `
-      <span style="background:var(--bg3); border:1px solid var(--border); padding:.4rem .6rem; border-radius:6px; display:inline-block; margin: 2px;">
-        ${emoji} ${name}
-      </span>
-    `;
-  }).join('');
+  container.innerHTML = TEAMS.map(t => `
+    <span style="background:var(--bg3); border:1px solid var(--border); padding:.4rem .6rem; border-radius:6px; display:inline-block; margin: 2px;">
+      ${t.emoji || '⚽'} ${t.name}
+    </span>
+  `).join('');
 }
 
 function updateDashboard() {
@@ -489,29 +585,15 @@ function updateDashboard() {
 function renderTeamsTable() {
   const tbody = document.getElementById('teamsTableBody');
   if(!tbody) return;
-  
-  if(TEAMS.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text3)">Nessuna squadra caricata nel database.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = TEAMS.map(t => {
-    const teamId = t.id ?? t.Id ?? 'sconosciuto';
-    const name = t.name ?? t.Name ?? t.nome ?? t.Nome ?? `Squadra (${teamId})`;
-    const owner = t.owner ?? t.Owner ?? t.presidente ?? t.Presidente ?? '—';
-    const emoji = t.emoji ?? t.Emoji ?? '⚽';
-    const pts = t.pts ?? t.Pts ?? t.punti ?? t.Punti ?? 0;
-
-    return `
-      <tr>
-        <td style="font-size:1.3rem">${emoji}</td>
-        <td><strong>${name}</strong> <small style="color:var(--text3); display:block; font-size:0.7rem;">ID: ${teamId}</small></td>
-        <td>${owner}</td>
-        <td><span class="badge badge-green">${pts} pts</span></td>
-        <td><button class="btn btn-red" style="padding:.25rem .5rem;font-size:.75rem;width:auto" onclick="window.deleteTeam('${teamId}')">Elimina</button></td>
-      </tr>
-    `;
-  }).join('');
+  tbody.innerHTML = TEAMS.map(t => `
+    <tr>
+      <td style="font-size:1.3rem">${t.emoji||'⚽'}</td>
+      <td><strong>${t.name}</strong></td>
+      <td>${t.owner||'—'}</td>
+      <td><span class="badge badge-green">${t.pts||0} pts</span></td>
+      <td><button class="btn btn-red" style="padding:.25rem .5rem;font-size:.75rem;width:auto" onclick="window.deleteTeam('${t.id}')">Elimina</button></td>
+    </tr>
+  `).join('');
 }
 
 window.addTeam = async function() {
@@ -555,17 +637,14 @@ function renderPlayersTable() {
   const pFoundCount = document.getElementById('pFoundCount');
   if (pFoundCount) pFoundCount.textContent = `Trovati: ${filtered.length}`;
 
-  tbody.innerHTML = filtered.slice(0, 50).map(p => {
-    const pRole = p.role ?? p.Role ?? p.ruolo ?? p.Ruolo ?? '—';
-    return `
-      <tr>
-        <td><strong>${p.name}</strong></td>
-        <td><span class="badge ${pRole==='P'?'badge-gray':pRole==='D'?'badge-blue':pRole==='C'?'badge-green':'badge-red'}">${pRole}</span></td>
-        <td>${p.club||'Svincolato'}</td>
-        <td><strong>${p.value||'—'}</strong></td>
-      </tr>
-    `;
-  }).join('');
+  tbody.innerHTML = filtered.slice(0, 50).map(p => `
+    <tr>
+      <td><strong>${p.name}</strong></td>
+      <td><span class="badge ${p.role==='P'?'badge-gray':p.role==='D'?'badge-blue':p.role==='C'?'badge-green':'badge-red'}">${p.role}</span></td>
+      <td>${p.club||'Svincolato'}</td>
+      <td><strong>${p.value||'—'}</strong></td>
+    </tr>
+  `).join('');
 }
 
 window.filterPlayersAdmin = function(val) {
@@ -635,12 +714,8 @@ function populateMercatoSelects() {
   if (!pSelect || !tSelect) return;
 
   const svincolati = PLAYERS.filter(p => !p.teamId && p.name).sort((a,b) => a.name.localeCompare(b.name));
-  pSelect.innerHTML = svincolati.map(p => `<option value="${p.id}">${p.name} (${p.role || '—'} - ${p.club || 'Svincolato'})</option>`).join('');
-  tSelect.innerHTML = TEAMS.map(t => {
-    const name = t.name ?? t.Name ?? t.nome ?? t.Nome ?? t.id;
-    const emoji = t.emoji ?? t.Emoji ?? '⚽';
-    return `<option value="${t.id}">${emoji} ${name}</option>`;
-  }).join('');
+  pSelect.innerHTML = svincolati.map(p => `<option value="${p.id}">${p.name} (${p.role} - ${p.club || 'Svincolato'})</option>`).join('');
+  tSelect.innerHTML = TEAMS.map(t => `<option value="${t.id}">${t.emoji || '⚽'} ${t.name}</option>`).join('');
   
   renderMercatoTable();
 }
@@ -653,19 +728,14 @@ function renderMercatoTable() {
 
   tbody.innerHTML = sortedPlayers.map(p => {
     const fantaTeam = TEAMS.find(t => t.id === p.teamId);
-    const tName = fantaTeam ? (fantaTeam.name ?? fantaTeam.Name ?? fantaTeam.nome ?? fantaTeam.Nome ?? fantaTeam.id) : '';
-    const tEmoji = fantaTeam ? (fantaTeam.emoji ?? fantaTeam.Emoji ?? '⚽') : '';
-    
     const teamBadge = fantaTeam 
-      ? `<span class="badge badge-blue">${tEmoji} ${tName}</span>`
+      ? `<span class="badge badge-blue">${fantaTeam.emoji || '⚽'} ${fantaTeam.name}</span>`
       : `<span class="badge badge-gray">❌ Svincolato</span>`;
-
-    const pRole = p.role ?? p.Role ?? p.ruolo ?? p.Ruolo ?? '—';
 
     return `
       <tr>
         <td><strong>${p.name}</strong></td>
-        <td><span class="badge ${pRole==='P'?'badge-gray':pRole==='D'?'badge-blue':pRole==='C'?'badge-green':'badge-red'}">${pRole}</span></td>
+        <td><span class="badge ${p.role==='P'?'badge-gray':p.role==='D'?'badge-blue':p.role==='C'?'badge-green':'badge-red'}">${p.role}</span></td>
         <td>${p.club||'Svincolato'}</td>
         <td>${teamBadge}</td>
         <td>
@@ -706,27 +776,17 @@ window.assignPlayerToTeam = async function() {
 function renderRankAdmin() {
   const tbody = document.getElementById('rankAdminTableBody');
   if(!tbody) return;
-  tbody.innerHTML = TEAMS.map(t => {
-    const name = t.name ?? t.Name ?? t.nome ?? t.Nome ?? t.id;
-    const emoji = t.emoji ?? t.Emoji ?? '⚽';
-    const pts = t.pts ?? t.Pts ?? t.punti ?? t.Punti ?? 0;
-    const lastGW = t.lastGW ?? t.LastGW ?? 0;
-    const w = t.w ?? t.W ?? 0;
-    const d = t.d ?? t.D ?? 0;
-    const l = t.l ?? t.L ?? 0;
-
-    return `
-      <tr>
-        <td><strong>${emoji} ${name}</strong></td>
-        <td><input type="number" step="0.5" id="rk-pts-${t.id}" class="input-login" style="width:70px;margin-bottom:0;padding:.3rem" value="${pts}"></td>
-        <td><input type="number" step="0.5" id="rk-lgw-${t.id}" class="input-login" style="width:70px;margin-bottom:0;padding:.3rem" value="${lastGW}"></td>
-        <td><input type="number" id="rk-w-${t.id}" class="input-login" style="width:55px;margin-bottom:0;padding:.3rem" value="${w}"></td>
-        <td><input type="number" id="rk-d-${t.id}" class="input-login" style="width:55px;margin-bottom:0;padding:.3rem" value="${d}"></td>
-        <td><input type="number" id="rk-l-${t.id}" class="input-login" style="width:55px;margin-bottom:0;padding:.3rem" value="${l}"></td>
-        <td><button class="btn btn-green" style="font-size:.75rem;padding:.3rem .6rem;width:auto" onclick="window.saveRankRow('${t.id}')">Salva</button></td>
-      </tr>
-    `;
-  }).join('');
+  tbody.innerHTML = TEAMS.map(t => `
+    <tr>
+      <td><strong>${t.emoji||'⚽'} ${t.name}</strong></td>
+      <td><input type="number" step="0.5" id="rk-pts-${t.id}" class="input-login" style="width:70px;margin-bottom:0;padding:.3rem" value="${t.pts||0}"></td>
+      <td><input type="number" step="0.5" id="rk-lgw-${t.id}" class="input-login" style="width:70px;margin-bottom:0;padding:.3rem" value="${t.lastGW||0}"></td>
+      <td><input type="number" id="rk-w-${t.id}" class="input-login" style="width:55px;margin-bottom:0;padding:.3rem" value="${t.w||0}"></td>
+      <td><input type="number" id="rk-d-${t.id}" class="input-login" style="width:55px;margin-bottom:0;padding:.3rem" value="${t.d||0}"></td>
+      <td><input type="number" id="rk-l-${t.id}" class="input-login" style="width:55px;margin-bottom:0;padding:.3rem" value="${t.l||0}"></td>
+      <td><button class="btn btn-green" style="font-size:.75rem;padding:.3rem .6rem;width:auto" onclick="window.saveRankRow('${t.id}')">Salva</button></td>
+    </tr>
+  `).join('');
 }
 
 window.saveRankRow = async function(id){
@@ -818,120 +878,12 @@ window.generateRandomCalendar = async function() {
   try {
     await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/matches`), calendarioCompleto);
     await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/status`), { currentGW: 1 });
-    toast(`🎯 Calendario generato per ${window.CURRENT_COMPETITION.toUpperCase()}!`, 'ok');
-  } catch (err) {
-    toast("Errore durante la generazione del calendario", "err");
+    toast(`🎯 Calendario generato per ${window.CURRENT_COMPETITION.toUpperCase()}!`, "ok");
+  } catch (error) {
+    console.error(error);
+    toast("Errore durante il salvataggio del calendario", "err");
   }
 };
-// Importa anche 'child' se necessario, o usa ref(db, ...) standard
-import { getDatabase, ref, onValue, set, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
-// Sincronizzazione campi visibili nel form
-window.toggleCompFields = function(type) {
-  const fg = document.getElementById('fieldGironi');
-  const fq = document.getElementById('fieldQualificati');
-  
-  if (type === 'campionato') {
-    fg.style.display = 'block';
-    fq.style.display = 'none';
-  } else if (type === 'eliminazione') {
-    fg.style.display = 'none';
-    fq.style.display = 'none';
-  } else if (type === 'misto') {
-    fg.style.display = 'block';
-    fq.style.display = 'block';
-  }
-};
-
-// Funzione Core di Creazione
-window.creaCompetizione = async function() {
-  const id = document.getElementById('compId').value.trim().toLowerCase().replace(/\s+/g, '-');
-  const name = document.getElementById('compName').value.trim();
-  const type = document.getElementById('compType').value;
-  const gironi = parseInt(document.getElementById('compGironi').value) || 1;
-  const qualificati = parseInt(document.getElementById('compQualificati').value) || 0;
-
-  if (!id || !name) {
-    toast("ID e Nome Competizione sono obbligatori!", "err");
-    return;
-  }
-
-  const metaPayload = { id, name, type };
-  if (type === 'campionato' || type === 'misto') metaPayload.gironi = gironi;
-  if (type === 'misto') metaPayload.qualificatiFaseFinale = qualificati;
-
-  try {
-    // 1. Salva i metadati della competizione per renderla leggibile dall'app
-    await set(ref(db, `competitions_meta/${id}`), metaPayload);
-    
-    // 2. Inizializza lo stato di gioco iniziale (GW 1) per questa competizione
-    await set(ref(db, `competitions/${id}/status`), { currentGW: 1 });
-    
-    toast(`Competizione "${name}" creata con successo!`, "ok");
-    
-    // Reset Campi
-    document.getElementById('compId').value = '';
-    document.getElementById('compName').value = '';
-  } catch (err) {
-    console.error(err);
-    toast("Errore durante la creazione della competizione", "err");
-  }
-};
-
-// Ascolto in tempo reale delle competizioni create per popolare le tendine e la tabella riassuntiva
-onValue(ref(db, 'competitions_meta'), snap => {
-  const comps = snap.val() || {};
-  const list = Object.values(comps);
-
-  // Aggiorna Select di Selezione Competizione Attiva nella Sidebar dell'Admin
-  const adminSelect = document.getElementById('adminCompSelect');
-  if (adminSelect) {
-    adminSelect.innerHTML = list.map(c => `
-      <option value="${c.id}" ${window.CURRENT_COMPETITION === c.id ? 'selected' : ''}>
-        🏆 ${c.name} (${c.type.toUpperCase()})
-      </option>
-    `).join('');
-  }
-
-  // Popola la tabella di riepilogo nella pagina di creazione
-  const tbody = document.getElementById('compTableBody');
-  if (tbody) {
-    tbody.innerHTML = list.map(c => {
-      let dettagli = '—';
-      if (c.type === 'campionato') dettagli = `${c.gironi} Giri di calendario`;
-      if (c.type === 'misto') dettagli = `${c.gironi} Giri Classifica + Primi ${c.qualificatiFaseFinale} ai Playoff`;
-      if (c.type === 'eliminazione') dettagli = `Tabellone scontro diretto`;
-      
-      return `
-        <tr>
-          <td><code style="color:var(--accent)">${c.id}</code></td>
-          <td><strong>${c.name}</strong></td>
-          <td><span class="badge badge-blue">${c.type}</span></td>
-          <td>${dettagli}</td>
-        </tr>
-      `;
-    }).join('');
-  }
-});
-
-window.showSec = function(secId, btn) {
-  document.querySelectorAll('.admin-sec').forEach(s => s.style.display = 'none');
-  const target = document.getElementById('sec-' + secId);
-  if(target) target.style.display = 'block';
-  
-  document.querySelectorAll('.snav').forEach(b => b.classList.remove('active'));
-  if(btn) btn.classList.add('active');
-};
-
-function toast(msg, type = 'info') {
-  const t = document.getElementById('toast');
-  if(!t) return;
-  t.textContent = msg;
-  t.className = `toast show ${type}`;
-  setTimeout(() => {
-    t.classList.remove('show');
-  }, 3000);
-}
 </script>
 
 </body>
