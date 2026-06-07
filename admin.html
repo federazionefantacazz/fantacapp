@@ -123,6 +123,9 @@ tr:hover td{background:rgba(255,255,255,0.01)}
     <button class="snav" onclick="showSec('calendar-gen',this)">
       <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Genera Calendario
     </button>
+    <button class="snav" onclick="showSec('crea-competizioni',this)">
+      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Nuova Competizione
+    </button>
 
     <div class="sidebar-bottom">
       <div class="sync-status" id="syncStatus">⚪ Caricamento...</div>
@@ -271,6 +274,48 @@ tr:hover td{background:rgba(255,255,255,0.01)}
             Stai per generare il calendario per la competizione attiva selezionata nella sidebar.
           </span>
         </div>
+        <div id="sec-crea-competizioni" class="admin-sec" style="display:none">
+          
+  <div class="sec-title">🏆 Gestione & Creazione Competizioni</div>
+  
+  <div class="card" style="max-width:600px">
+    <div class="label" style="margin-bottom:.5rem">Crea Nuova Competizione</div>
+    
+    <input type="text" id="compId" class="input-login" placeholder="ID Univoco (es: championz-2026)">
+    <input type="text" id="compName" class="input-login" placeholder="Nome Visibile (es: Champions League)">
+    
+    <label class="label">Tipologia Torneo</label>
+    <select id="compType" class="input-login" onchange="window.toggleCompFields(this.value)">
+      <option value="campionato">Campionato classico (Girone all'italiana)</option>
+      <option value="eliminazione">Eliminazione Diretta (Coppa)</option>
+      <option value="misto">Misto (Campionato + Fase Finale a Eliminazione)</option>
+    </select>
+
+    <div id="fieldGironi" style="display:block;">
+      <label class="label">Numero di Gironi (Andata/Ritorno o ripetizioni)</label>
+      <input type="number" id="compGironi" class="input-login" value="2" min="1">
+    </div>
+
+    <div id="fieldQualificati" style="display:none;">
+      <label class="label">Squadre Qualificate alla Fase Finale (es: prime 4 della classifica)</label>
+      <input type="number" id="compQualificati" class="input-login" value="4" min="2">
+    </div>
+
+    <button class="btn btn-green" onclick="window.creaCompetizione()">⚡ Crea & Inizializza Competizione</button>
+  </div>
+
+  <div class="card">
+    <div class="label">Competizioni Attive nel Database</div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Nome</th><th>Tipo</th><th>Dettagli Configurazione</th></tr>
+        </thead>
+        <tbody id="compTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
         <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
           <div style="flex: 1;">
@@ -778,6 +823,96 @@ window.generateRandomCalendar = async function() {
     toast("Errore durante la generazione del calendario", "err");
   }
 };
+// Importa anche 'child' se necessario, o usa ref(db, ...) standard
+import { getDatabase, ref, onValue, set, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+// Sincronizzazione campi visibili nel form
+window.toggleCompFields = function(type) {
+  const fg = document.getElementById('fieldGironi');
+  const fq = document.getElementById('fieldQualificati');
+  
+  if (type === 'campionato') {
+    fg.style.display = 'block';
+    fq.style.display = 'none';
+  } else if (type === 'eliminazione') {
+    fg.style.display = 'none';
+    fq.style.display = 'none';
+  } else if (type === 'misto') {
+    fg.style.display = 'block';
+    fq.style.display = 'block';
+  }
+};
+
+// Funzione Core di Creazione
+window.creaCompetizione = async function() {
+  const id = document.getElementById('compId').value.trim().toLowerCase().replace(/\s+/g, '-');
+  const name = document.getElementById('compName').value.trim();
+  const type = document.getElementById('compType').value;
+  const gironi = parseInt(document.getElementById('compGironi').value) || 1;
+  const qualificati = parseInt(document.getElementById('compQualificati').value) || 0;
+
+  if (!id || !name) {
+    toast("ID e Nome Competizione sono obbligatori!", "err");
+    return;
+  }
+
+  const metaPayload = { id, name, type };
+  if (type === 'campionato' || type === 'misto') metaPayload.gironi = gironi;
+  if (type === 'misto') metaPayload.qualificatiFaseFinale = qualificati;
+
+  try {
+    // 1. Salva i metadati della competizione per renderla leggibile dall'app
+    await set(ref(db, `competitions_meta/${id}`), metaPayload);
+    
+    // 2. Inizializza lo stato di gioco iniziale (GW 1) per questa competizione
+    await set(ref(db, `competitions/${id}/status`), { currentGW: 1 });
+    
+    toast(`Competizione "${name}" creata con successo!`, "ok");
+    
+    // Reset Campi
+    document.getElementById('compId').value = '';
+    document.getElementById('compName').value = '';
+  } catch (err) {
+    console.error(err);
+    toast("Errore durante la creazione della competizione", "err");
+  }
+};
+
+// Ascolto in tempo reale delle competizioni create per popolare le tendine e la tabella riassuntiva
+onValue(ref(db, 'competitions_meta'), snap => {
+  const comps = snap.val() || {};
+  const list = Object.values(comps);
+
+  // Aggiorna Select di Selezione Competizione Attiva nella Sidebar dell'Admin
+  const adminSelect = document.getElementById('adminCompSelect');
+  if (adminSelect) {
+    adminSelect.innerHTML = list.map(c => `
+      <option value="${c.id}" ${window.CURRENT_COMPETITION === c.id ? 'selected' : ''}>
+        🏆 ${c.name} (${c.type.toUpperCase()})
+      </option>
+    `).join('');
+  }
+
+  // Popola la tabella di riepilogo nella pagina di creazione
+  const tbody = document.getElementById('compTableBody');
+  if (tbody) {
+    tbody.innerHTML = list.map(c => {
+      let dettagli = '—';
+      if (c.type === 'campionato') dettagli = `${c.gironi} Giri di calendario`;
+      if (c.type === 'misto') dettagli = `${c.gironi} Giri Classifica + Primi ${c.qualificatiFaseFinale} ai Playoff`;
+      if (c.type === 'eliminazione') dettagli = `Tabellone scontro diretto`;
+      
+      return `
+        <tr>
+          <td><code style="color:var(--accent)">${c.id}</code></td>
+          <td><strong>${c.name}</strong></td>
+          <td><span class="badge badge-blue">${c.type}</span></td>
+          <td>${dettagli}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+});
 
 window.showSec = function(secId, btn) {
   document.querySelectorAll('.admin-sec').forEach(s => s.style.display = 'none');
