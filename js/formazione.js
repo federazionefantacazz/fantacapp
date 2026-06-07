@@ -37,7 +37,6 @@ export const FormazionePage = {
           position: relative;
           width: 100%;
           height: 480px;
-          /* MODIFICATO: Elegante sfumatura Grigio Ardesia / Cemento Scuro perfettamente in linea con l'app */
           background: linear-gradient(to bottom, #2e3541, #232932);
           border: 2px solid rgba(255, 255, 255, 0.08);
           border-radius: 20px;
@@ -49,7 +48,6 @@ export const FormazionePage = {
           top: 0; left: 0; width: 100%; height: 100%;
           pointer-events: none;
         }
-        /* Linee bianche pulite con opacità leggera per non disturbare la lettura dei nomi */
         .field-lines::before {
           content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 2px;
           background: rgba(255, 255, 255, 0.2);
@@ -123,19 +121,29 @@ export const FormazionePage = {
     const modSelect = document.getElementById('f-modulo');
     if (!modSelect) return;
     
+    // Attacchiamo i listener globali solo UNA volta alla prima build
     if (!window._formazioneInitialized) {
       modSelect.addEventListener('change', () => this.buildSlots(STATE));
       document.getElementById('btn-save-lineup').addEventListener('click', () => this.save(STATE));
       window._formazioneInitialized = true;
-      this.buildSlots(STATE);
     }
+
+    // Eseguiamo SEMPRE la build alla ricezione dati da Firebase
+    this.buildSlots(STATE);
   },
 
   buildSlots(STATE) {
+    if (!STATE.user || !STATE.players || STATE.players.length === 0) return;
+
     const modulo = document.getElementById('f-modulo').value;
     const [def, mid, att] = modulo.split('-').map(Number);
     
-    const miaRosa = STATE.players.filter(p => p.teamId === STATE.user.id);
+    // CORREZIONE: Controllo flessibile e sicuro su stringhe per mappare la rosa dell'utente loggato
+    const miaRosa = STATE.players.filter(p => {
+      const pTeamId = String(p.teamId || p.team || '');
+      const uId = String(STATE.user.id || '');
+      return pTeamId !== '' && pTeamId === uId;
+    });
 
     // 1. Disegna i Titolari sul Finto Campo
     this.drawFieldTitolari(def, mid, att, miaRosa);
@@ -147,6 +155,7 @@ export const FormazionePage = {
 
   drawFieldTitolari(def, mid, att, rosa) {
     const container = document.getElementById('titolari-field-slots');
+    if (!container) return;
     container.innerHTML = '';
 
     const ruoli = [
@@ -156,12 +165,7 @@ export const FormazionePage = {
       { role: 'A', count: att }
     ];
 
-    const rowPositions = {
-      'A': 20,
-      'C': 45,
-      'D': 70,
-      'P': 90
-    };
+    const rowPositions = { 'A': 20, 'C': 45, 'D': 70, 'P': 90 };
 
     ruoli.forEach(reparto => {
       const y = rowPositions[reparto.role];
@@ -169,7 +173,6 @@ export const FormazionePage = {
 
       for (let i = 1; i <= count; i++) {
         const x = count === 1 ? 50 : (100 / (count + 1)) * i;
-        
         const slotId = `tit-${reparto.role}-${i}`;
         const ops = rosa.filter(p => p.role === reparto.role);
 
@@ -177,7 +180,6 @@ export const FormazionePage = {
         if (reparto.role === 'D') bgShirt = '#2196f3'; 
         if (reparto.role === 'C') bgShirt = '#e91e63'; 
         if (reparto.role === 'A') bgShirt = '#ff5722'; 
-        let colorText = '#fff';
 
         const playerDiv = document.createElement('div');
         playerDiv.className = 'field-player';
@@ -185,7 +187,7 @@ export const FormazionePage = {
         playerDiv.style.top = `${y}%`;
 
         playerDiv.innerHTML = `
-          <div class="player-shirt" style="background: ${bgShirt}; color: ${colorText};">
+          <div class="player-shirt" style="background: ${bgShirt}; color: #fff;">
             ${reparto.role}
           </div>
           <div class="player-name-label" id="label-${slotId}">Scegli</div>
@@ -198,8 +200,8 @@ export const FormazionePage = {
 
         container.appendChild(playerDiv);
 
-        const selectEl = playerDiv.querySelector('select');
-        selectEl.addEventListener('change', (e) => {
+        // Listener Cambio Giocatore
+        playerDiv.querySelector('select').addEventListener('change', (e) => {
           const val = e.target.value;
           const labelId = e.target.dataset.labelTarget;
           const labelEl = document.getElementById(labelId);
@@ -236,7 +238,9 @@ export const FormazionePage = {
 
   drawSchemaPanchina(id, schema, prefix, rosa) {
     const container = document.getElementById(id);
+    if (!container) return;
     container.innerHTML = '';
+    
     schema.forEach(item => {
       for (let i = 1; i <= item.count; i++) {
         const slotId = `${prefix}-${item.role}-${i}`;
@@ -248,7 +252,7 @@ export const FormazionePage = {
           <div class="rbadge r${item.role}" style="width:24px;height:24px;font-size:.65rem;border-radius:5px">${item.role}</div>
           <div style="flex:1;">
             <select id="${slotId}" class="select-rose" style="padding:.4rem .6rem;font-size:.8rem;background:var(--bg2);">
-              <option value="">-- Seleziona Panchina --</option>
+              <option value="">-- Seleziona ${item.role} --</option>
               ${ops.map(p => `<option value="${p.id}">${p.name} (${p.club})</option>`).join('')}
             </select>
           </div>
@@ -289,14 +293,14 @@ export const FormazionePage = {
     }
     
     try {
-      await window._saveNode(`lineups/gw${currentGw}/${STATE.user.id}`, {
+      await window._saveNode(`competitions/${STATE.currentCompetition}/lineups/gw${currentGw}/${STATE.user.id}`, {
         teamId: STATE.user.id, 
         modulo, 
         titolari: titIds, 
         panchina: panIds, 
         timestamp: Date.now()
       });
-      window.showToast('Formazione salvata sul campo!', 'ok');
+      window.showToast('Formazione salvata con successo!', 'ok');
     } catch(e) { 
       window.showToast('Errore durante il salvataggio', 'err'); 
     }
