@@ -121,23 +121,20 @@ export const FormazionePage = {
     const modSelect = document.getElementById('f-modulo');
     if (!modSelect) return;
     
-    // Inizializziamo i listener una sola volta
     if (!window._formazioneInitialized) {
-      modSelect.addEventListener('change', () => this.buildSlots(STATE));
+      // Ascolta il cambio modulo manuale dell'utente
+      modSelect.addEventListener('change', () => this.buildSlots(STATE, true));
       
       const saveBtn = document.getElementById('btn-save-lineup');
       if (saveBtn) {
         saveBtn.addEventListener('click', () => this.save(STATE));
       }
 
-      // TRUCCO CRUCIALI: Intercettiamo il cambio pagina per rigenerare i menu quando la pagina diventa visibile
-      const navButtons = document.querySelectorAll('#nav window, .nav-btn');
+      const navButtons = document.querySelectorAll('#nav window, .nav-btn, [onclick*="formazione"]');
       navButtons.forEach(btn => {
-        if (btn.getAttribute('onclick')?.includes('formazione')) {
-          btn.addEventListener('click', () => {
-            setTimeout(() => this.buildSlots(window.STATE), 50);
-          });
-        }
+        btn.addEventListener('click', () => {
+          setTimeout(() => this.buildSlots(window.STATE), 50);
+        });
       });
 
       window._formazioneInitialized = true;
@@ -146,29 +143,46 @@ export const FormazionePage = {
     this.buildSlots(STATE);
   },
 
-  buildSlots(STATE) {
+  buildSlots(STATE, userChangedModulo = false) {
     if (!STATE || !STATE.user || !STATE.players || STATE.players.length === 0) return;
 
     const modSelect = document.getElementById('f-modulo');
     if (!modSelect) return;
+
+    const currentGw = STATE.status?.currentGW || 1;
     
+    // Cerchiamo se esiste già una formazione salvata nello STATE locale caricato da Firebase
+    // Adattalo alla struttura nodale esatta del tuo window.STATE (es. STATE.lineups o STATE.competitions[...].lineups)
+    const savedLineup = STATE.competitions?.[STATE.currentCompetition]?.lineups?.[`gw${currentGw}`]?.[STATE.user.id] 
+                     || STATE.lineups?.[`gw${currentGw}`]?.[STATE.user.id];
+
+    // Se c'è una formazione salvata e l'utente NON ha appena cambiato a mano il modulo dal menu a tendina, usa il modulo salvato
+    if (savedLineup && savedLineup.modulo && !userChangedModulo) {
+      modSelect.value = savedLineup.modulo;
+    }
+
     const modulo = modSelect.value;
     const [def, mid, att] = modulo.split('-').map(Number);
     
-    // Filtro pulito e forzato a stringa per teamId
     const miaRosa = STATE.players.filter(p => {
       const pTeamId = String(p.teamId || '');
       const uId = String(STATE.user.id || '');
       return pTeamId !== '' && pTeamId === uId;
     });
 
-    // Disegna Titolari e Panchina
-    this.drawFieldTitolari(def, mid, att, miaRosa);
+    // Estraggo gli ID già salvati (se esistono)
+    const savedTitolariIds = savedLineup?.titolari || [];
+    const savedPanchinaIds = savedLineup?.panchina || [];
+
+    // Disegna Titolari passando l'array dei salvati
+    this.drawFieldTitolari(def, mid, att, miaRosa, savedTitolariIds);
+    
+    // Disegna Panchina passando l'array dei salvati
     const schemaPan = [{role:'P', count:1}, {role:'D', count:2}, {role:'C', count:2}, {role:'A', count:2}];
-    this.drawSchemaPanchina('panchina-slots', schemaPan, 'pan', miaRosa);
+    this.drawSchemaPanchina('panchina-slots', schemaPan, 'pan', miaRosa, savedPanchinaIds);
   },
 
-  drawFieldTitolari(def, mid, att, rosa) {
+  drawFieldTitolari(def, mid, att, rosa, savedIds) {
     const container = document.getElementById('titolari-field-slots');
     if (!container) return;
     container.innerHTML = '';
@@ -181,6 +195,9 @@ export const FormazionePage = {
     ];
 
     const rowPositions = { 'A': 20, 'C': 45, 'D': 70, 'P': 90 };
+    
+    // Indice globale per scorrere i giocatori salvati in ordine di ruolo (P -> D -> C -> A)
+    let savedIndex = 0;
 
     ruoli.forEach(reparto => {
       const y = rowPositions[reparto.role];
@@ -189,7 +206,33 @@ export const FormazionePage = {
       for (let i = 1; i <= count; i++) {
         const x = count === 1 ? 50 : (100 / (count + 1)) * i;
         const slotId = `tit-${reparto.role}-${i}`;
+        
+        // Filtra i giocatori disponibili per questo ruolo
         const ops = rosa.filter(p => p.role === reparto.role);
+
+        // Controlla se c'è un ID salvato disponibile per questo slot specifico di ruolo
+        let preselectedId = "";
+        let preselectedText = "Scegli";
+        let isSelected = false;
+
+        // Cerchiamo se tra i giocatori salvati ce n'è uno valido per questo ruolo specifico
+        if (savedIds && savedIds.length > 0) {
+          // Filtriamo i savedIds per trovare quelli che appartengono a questo ruolo
+          const ruoloSavedIds = savedIds.filter(id => {
+            const p = rosa.find(player => player.id === id);
+            return p && p.role === reparto.role;
+          });
+          
+          // Se ne troviamo uno corrispondente al sotto-indice corrente del ciclo i, lo usiamo
+          if (ruoloSavedIds[i - 1]) {
+            preselectedId = ruoloSavedIds[i - 1];
+            const pObj = rosa.find(p => p.id === preselectedId);
+            if (pObj) {
+              preselectedText = pObj.name;
+              isSelected = true;
+            }
+          }
+        }
 
         let bgShirt = '#475569'; 
         if (reparto.role === 'D') bgShirt = '#2196f3'; 
@@ -205,11 +248,13 @@ export const FormazionePage = {
           <div class="player-shirt" style="background: ${bgShirt}; color: #fff;">
             ${reparto.role}
           </div>
-          <div class="player-name-label" id="label-${slotId}">Scegli</div>
+          <div class="player-name-label" id="label-${slotId}" style="${isSelected ? 'color: var(--accent); border-color: var(--accent);' : ''}">
+            ${preselectedText}
+          </div>
           
           <select id="${slotId}" data-label-target="label-${slotId}" class="field-select">
             <option value="">-- ${reparto.role} --</option>
-            ${ops.map(p => `<option value="${p.id}">${p.name} (${p.club})</option>`).join('')}
+            ${ops.map(p => `<option value="${p.id}" ${p.id === preselectedId ? 'selected' : ''}>${p.name} (${p.club})</option>`).join('')}
           </select>
         `;
 
@@ -250,7 +295,7 @@ export const FormazionePage = {
     });
   },
 
-  drawSchemaPanchina(id, schema, prefix, rosa) {
+  drawSchemaPanchina(id, schema, prefix, rosa, savedIds) {
     const container = document.getElementById(id);
     if (!container) return;
     container.innerHTML = '';
@@ -259,6 +304,19 @@ export const FormazionePage = {
       for (let i = 1; i <= item.count; i++) {
         const slotId = `${prefix}-${item.role}-${i}`;
         const ops = rosa.filter(p => p.role === item.role);
+
+        // Troviamo il giocatore pre-selezionato in panchina per questo specifico ruolo ed indice
+        let preselectedId = "";
+        if (savedIds && savedIds.length > 0) {
+          const ruoloSavedIds = savedIds.filter(id => {
+            const p = rosa.find(player => player.id === id);
+            return p && p.role === item.role;
+          });
+          if (ruoloSavedIds[i - 1]) {
+            preselectedId = ruoloSavedIds[i - 1];
+          }
+        }
+
         const div = document.createElement('div');
         div.className = 'pcard'; 
         div.style.padding = '.4rem .6rem';
@@ -267,7 +325,7 @@ export const FormazionePage = {
           <div style="flex:1;">
             <select id="${slotId}" class="select-rose" style="padding:.4rem .6rem;font-size:.8rem;background:var(--bg2);">
               <option value="">-- Seleziona ${item.role} --</option>
-              ${ops.map(p => `<option value="${p.id}">${p.name} (${p.club})</option>`).join('')}
+              ${ops.map(p => `<option value="${p.id}" ${p.id === preselectedId ? 'selected' : ''}>${p.name} (${p.club})</option>`).join('')}
             </select>
           </div>
         `;
@@ -307,13 +365,25 @@ export const FormazionePage = {
     }
     
     try {
-      await window._saveNode(`competitions/${STATE.currentCompetition}/lineups/gw${currentGw}/${STATE.user.id}`, {
+      const path = `competitions/${STATE.currentCompetition}/lineups/gw${currentGw}/${STATE.user.id}`;
+      const dataToSave = {
         teamId: STATE.user.id, 
         modulo, 
         titolari: titIds, 
         panchina: panIds, 
         timestamp: Date.now()
-      });
+      };
+
+      await window._saveNode(path, dataToSave);
+
+      // Aggiorniamo al volo anche lo STATE locale per riflettere subito il salvataggio senza ricaricare l'app
+      if(!STATE.competitions) STATE.competitions = {};
+      if(!STATE.competitions[STATE.currentCompetition]) STATE.competitions[STATE.currentCompetition] = {};
+      if(!STATE.competitions[STATE.currentCompetition].lineups) STATE.competitions[STATE.currentCompetition].lineups = {};
+      if(!STATE.competitions[STATE.currentCompetition].lineups[`gw${currentGw}`]) STATE.competitions[STATE.currentCompetition].lineups[`gw${currentGw}`] = {};
+      
+      STATE.competitions[STATE.currentCompetition].lineups[`gw${currentGw}`][STATE.user.id] = dataToSave;
+
       window.showToast('Formazione salvata con successo!', 'ok');
     } catch(e) { 
       window.showToast('Errore durante il salvataggio', 'err'); 
