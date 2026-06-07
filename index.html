@@ -21,16 +21,16 @@
   --card: #282e37;     /* Colore delle schede/card (Grigio Cemento Scuro) */
   --card2: #333a46;    /* Righe dei giocatori e sub-box (Grigio Cemento Medio) */
   
-  /* COLORI DI ACCENTO */
-  --accent: #50e3c2;   /* Accento principale: Verde menta glaciale (ottimo contrasto sul grigio) */
-  --accent2: #4a90e2;  /* Accento secondario: Blu aviazione per bottoni e link */
+  /* COLORI DI ACCENTO CRISTALLINI E METALLICI */
+  --accent: #50e3c2;   /* Accento principale: Verde menta glaciale (attivi/live) */
+  --accent2: #64748b;  /* Accento secondario: Grigio Acciaio per bottoni secondari e dettagli barra */
   --accent3: #ff6b6b;  /* Colore degli errori / svincoli (Rosso corallo desaturato) */
   --gold: #f5a623;     /* Colore dei crediti / prezzi (Oro ambrato) */
   
   /* TESTI */
   --text: #e2e8f0;     /* Testo principale chiaro (Grigio ghiaccio) */
   --text2: #94a3b8;    /* Testo secondario ed etichette (Grigio cemento chiaro) */
-  --text3: #64748b;    /* Testo disattivato o dettagli minori */
+  --text3: #475569;    /* Testo disattivato o dettagli minori */
 }
 *{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-tap-highlight-color:transparent}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;padding-bottom:calc(70px + env(safe-area-inset-bottom))}
@@ -40,7 +40,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
 .label{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;margin-bottom:.4rem}
 .pcard{background:var(--card2);border-radius:12px;padding:.5rem .75rem;display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem}
 .rbadge{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;flex-shrink:0}
-.rP{background:#4a5568}.rD{background:#0077ff}.rC{background:#00e5a0;color:#0a0f1e}.rA{background:#ff4757}
+.rP{background:#475569}.rD{background:#64748b}.rC{background:var(--accent);color:#0a0f1e}.rA{background:var(--accent3)}
 .pi{flex:1;min-width:0}.pn{font-size:.9rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}.pm{font-size:.72rem;color:var(--text2)}
 .pr{text-align:right;flex-shrink:0}.price{font-size:.9rem;font-weight:600;font-family:'DM Mono',monospace;color:var(--gold)}.pavg{font-size:.68rem;color:var(--text2)}
 .btn{background:var(--accent2);color:#fff;border:none;padding:.7rem 1.2rem;border-radius:10px;font-size:.85rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;transition:all 0.2s;width:100%}
