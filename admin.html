@@ -369,7 +369,31 @@ if(syncStatusEl) {
   syncStatusEl.innerHTML = "🟢 Connesso a Firebase";
   syncStatusEl.style.color = "var(--accent)";
 }
+// Funzione globale per cambiare sezione nella dashboard
+window.showSec = function(secId, btnElement) {
+  // 1. Nascondi tutte le sezioni admin
+  const sections = document.querySelectorAll('.admin-sec');
+  sections.forEach(sec => {
+    sec.style.display = 'none';
+  });
 
+  // 2. Mostra solo la sezione cliccata
+  const targetSec = document.getElementById('sec-' + secId);
+  if (targetSec) {
+    targetSec.style.display = 'block';
+  }
+
+  // 3. Rimuovi la classe 'active' da tutti i bottoni della sidebar
+  const buttons = document.querySelectorAll('.snav');
+  buttons.forEach(btn => {
+    btn.classList.remove('active');
+  });
+
+  // 4. Aggiungi la classe 'active' al bottone cliccato
+  if (btnElement) {
+    btnElement.classList.add('active');
+  }
+};
 window.CURRENT_COMPETITION = 'fantacazz';
 
 let TEAMS = [];
