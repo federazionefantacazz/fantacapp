@@ -159,6 +159,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <button class="snav" onclick="showSec('players',this)">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>Giocatori
     </button>
+    <button class="snav" onclick="showSec('calendar-gen',this)">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Genera Calendario
+    </button>
     <button class="snav" onclick="showSec('votes',this)">
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Voti GW
     </button>
@@ -200,6 +203,42 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         <table class="tbl" id="dashRank"></table>
       </div>
     </div>
+
+    <!-- SEZIONE GENERATORE CALENDARIO -->
+<div id="sec-calendar-gen" class="admin-sec" style="display:none;">
+  <div class="sec-title">🗓️ Generatore Calendario Automatico</div>
+  
+  <div class="card" style="max-width: 600px;">
+    <div style="margin-bottom: 1rem; padding: .8rem; background: rgba(0, 229, 160, 0.1); border-left: 4px solid var(--accent); border-radius: 4px;">
+      <span style="font-size: .85rem; color: var(--text);">
+        Stai per generare il calendario per la competizione attiva selezionata nella sidebar.
+      </span>
+    </div>
+
+    <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+      <div style="flex: 1;">
+        <label class="label">Numero Giornate totali</label>
+        <input type="number" id="genTotalGws" class="input-login" value="33" min="1" max="38" style="margin-bottom:0;">
+      </div>
+      <div style="flex: 1;">
+        <label class="label">Tipo di Turno</label>
+        <select id="genRotationType" style="width:100%; background:var(--bg3); border:1px solid var(--border); border-radius:6px; color:#fff; padding:.7rem; font-size:.85rem;">
+          <option value="andata-ritorno">Andata e Ritorno continui</option>
+          <option value="solo-andata">Solo Andata (fino a esaurimento)</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn btn-green" onclick="window.generateRandomCalendar()">⚡ Genera & Salva su Firebase</button>
+  </div>
+
+  <div class="card">
+    <div class="label">Anteprima delle squadre che parteciperanno:</div>
+    <div id="genTeamsPreview" style="display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; font-size: .85rem; color: var(--text2);">
+      <!-- Caricato via JS -->
+    </div>
+  </div>
+</div>
 
     <!-- SQUADRE -->
     <div class="section" id="sec-teams">
@@ -528,6 +567,132 @@ jobs:
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getDatabase, ref, onValue, set, update, get } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+
+// Funzione per mostrare le squadre pronte al calcolo nell'anteprima della tab
+function aggiornaAnteprimaSquadreCalendario() {
+  const container = document.getElementById('genTeamsPreview');
+  if(!container) return;
+  if(TEAMS.length === 0) {
+    container.innerHTML = "❌ Nessuna squadra trovata. Crea prima le squadre dal pannello.";
+    return;
+  }
+  container.innerHTML = TEAMS.map(t => `
+    <span style="background:var(--bg3); border:1px solid var(--border); padding:.4rem .6rem; border-radius:6px;">
+      ${t.emoji || '⚽'} ${t.name}
+    </span>
+  `).join('');
+}
+
+// Integriamo la chiamata dell'anteprima dentro l'onValue globale delle squadre
+onValue(ref(db, 'teams'), snap => {
+  const raw = snap.val() || {};
+  TEAMS = Object.values(raw).sort((a, b) => b.pts - a.pts);
+  
+  if (typeof updateDashboard === "function") updateDashboard(); 
+  if (typeof renderTeamsTable === "function") renderTeamsTable(); 
+  if (typeof renderRankAdmin === "function") renderRankAdmin();
+  if (typeof populateMercatoSelects === "function") populateMercatoSelects();
+  
+  // FUNZIONE AGGIUNTA ORA:
+  aggiornaAnteprimaSquadreCalendario();
+});
+
+// FUNZIONE GLOBALE DI GENERAZIONE
+window.generateRandomCalendar = async function() {
+  if (TEAMS.length < 2) {
+    toast("Servono almeno 2 squadre per creare un calendario!", "err");
+    return;
+  }
+
+  const totalGwsRequested = parseInt(document.getElementById('genTotalGws').value) || 33;
+  const rotationType = document.getElementById('genRotationType').value;
+
+  if(!confirm(`Vuoi sovrascrivere interamente il calendario di "${window.CURRENT_COMPETITION.toUpperCase()}" per generare ${totalGwsRequested} giornate?`)) {
+    return;
+  }
+
+  // Prepariamo la lista delle squadre (copia per non mutare l'array globale)
+  let listaSquadre = TEAMS.map(t => t.id);
+  
+  // Mescoliamo le squadre all'inizio per rendere il calendario casuale ad ogni generazione
+  listaSquadre.sort(() => Math.random() - 0.5);
+
+  // Se il numero è dispari, aggiungiamo un ID fittizio "RIPOSO"
+  if (listaSquadre.length % 2 !== 0) {
+    listaSquadre.push("RIPOSO");
+  }
+
+  const numSquadre = listaSquadre.length;
+  const matchPerGiornata = numSquadre / 2;
+  const turniUnici = numSquadre - 1; // Giornate necessarie per un girone di sola andata completo
+
+  let calendarioCompleto = {};
+
+  // Generiamo tutti i match necessari per coprire il numero di giornate richieste
+  for (let g = 1; g <= totalGwsRequested; g++) {
+    const gironeCorrente = Math.floor((g - 1) / turniUnici);
+    const turnoNelGirone = (g - 1) % turniUnics;
+    
+    // Stabiliamo se invertire casa/trasferta nel caso di gironi di ritorno (0, 2, 4 andata / 1, 3, 5 ritorno)
+    const invertiCasaTrasferta = (rotationType === 'andata-ritorno' && gironeCorrente % 2 !== 0);
+
+    let matchDellaGiornata = {};
+    let matchIdContatore = 1;
+
+    for (let m = 0; m < matchPerGiornata; m++) {
+      let casaIdx = (turnoNelGirone + m) % (numSquadre - 1);
+      let trasfertaIdx = (numSquadre - 1 - m + turnoNelGirone) % (numSquadre - 1);
+
+      if (m === 0) {
+        trasfertaIdx = numSquadre - 1;
+      }
+
+      let idCasa = listaSquadre[casaIdx];
+      let idTrasferta = listaSquadre[trasfertaIdx];
+
+      // Se uno dei due elementi è il "RIPOSO", saltiamo l'inserimento del match (la squadra riposa)
+      if (idCasa === "RIPOSO" || idTrasferta === "RIPOSO") {
+        continue;
+      }
+
+      // Inversione speculare casa/trasferta se applicabile
+      if (invertiCasaTrasferta) {
+        const temp = idCasa;
+        idCasa = idTrasferta;
+        idTrasferta = temp;
+      }
+
+      const matchKey = `m${matchIdContatore}`;
+      matchDellaGiornata[matchKey] = {
+        id: matchKey,
+        homeId: idCasa,
+        awayId: idTrasferta,
+        homeScore: null,
+        awayScore: null,
+        finished: false
+      };
+
+      matchIdContatore++;
+    }
+
+    // Salviamo la giornata inserendola sotto la chiave corretta attesa dalla tua CalendarioPage (es: gw1, gw2)
+    calendarioCompleto[`gw${g}`] = matchDellaGiornata;
+  }
+
+  try {
+    // Scrittura diretta nel percorso dinamico scelto dalla combobox dell'admin
+    await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/matches`), calendarioCompleto);
+    
+    // Inizializziamo anche la competizione alla giornata 1 per evitare errori di lettura
+    await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/status`), { currentGW: 1 });
+
+    toast(`🎯 Calendario di ${totalGwsRequested} giornate generato per ${window.CURRENT_COMPETITION.toUpperCase()}!`, "ok");
+  } catch (error) {
+    console.error(error);
+    toast("Errore durante il salvataggio del calendario", "err");
+  }
+};
+  
 // ══════════════════════════════════════════
 // IMPORTAZIONE CSV
 // ══════════════════════════════════════════
