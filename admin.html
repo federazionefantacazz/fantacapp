@@ -149,7 +149,7 @@ tr:hover td{background:rgba(255,255,255,0.01)}
         <div class="label" style="margin-bottom:.5rem">Imposta Giornata Gioco (GW)</div>
         <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:1rem">
           <button class="btn btn-blue" style="width:50px;padding:.5rem" onclick="changeGW(-1)">-</button>
-          <div style="font-size:1.4rem;font-weight:600;min-width:600;text-align:center;flex:1" id="ds-gw">1</div>
+          <div style="font-size:1.4rem;font-weight:600;min-width:60px;text-align:center;flex:1" id="ds-gw">1</div>
           <button class="btn btn-blue" style="width:50px;padding:.5rem" onclick="changeGW(1)">+</button>
         </div>
         <button class="btn btn-green" onclick="saveGW()">Aggiorna GW</button>
@@ -304,8 +304,15 @@ tr:hover td{background:rgba(255,255,255,0.01)}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, onValue, set, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
+// !!! COMPILA CON I DATI REALI DELLA TUA WEB APP SULLA CONSOLE DI FIREBASE !!!
 const firebaseConfig = {
-  databaseURL: "https://fantacapp-79d1c-default-rtdb.europe-west1.firebasedatabase.app"
+  apiKey: "INSERISCI_LA_TUA_API_KEY",
+  authDomain: "fantacazz.firebaseapp.com",
+  databaseURL: "https://fantacazz-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "fantacazz",
+  storageBucket: "fantacazz.appspot.com",
+  messagingSenderId: "IL_TUO_SENDER_ID",
+  appId: "IL_TUO_APP_ID"
 };
 
 const fapp = initializeApp(firebaseConfig);
@@ -410,15 +417,17 @@ function aggiornaAnteprimaSquadreCalendario() {
     return;
   }
   container.innerHTML = TEAMS.map(t => `
-    <span style="background:var(--bg3); border:1px solid var(--border); padding:.4rem .6rem; border-radius:6px;">
+    <span style="background:var(--bg3); border:1px solid var(--border); padding:.4rem .6rem; border-radius:6px; display:inline-block; margin: 2px;">
       ${t.emoji || '⚽'} ${t.name}
     </span>
   `).join('');
 }
 
 function updateDashboard() {
-  document.getElementById('adminGWNum').textContent = CURRENT_GW;
-  document.getElementById('ds-gw').textContent = CURRENT_GW;
+  const adminGWNum = document.getElementById('adminGWNum');
+  const dsGW = document.getElementById('ds-gw');
+  if (adminGWNum) adminGWNum.textContent = CURRENT_GW;
+  if (dsGW) dsGW.textContent = CURRENT_GW;
 }
 
 function renderTeamsTable() {
@@ -443,18 +452,26 @@ window.addTeam = async function() {
 
   if(!id || !name) return toast("ID e Nome sono obbligatori!","err");
 
-  await set(ref(db, 'teams/' + id), { id, name, owner, emoji, pts: 0, lastGW: 0, w: 0, d: 0, l: 0 });
-  toast("Squadra creata con successo!", "ok");
-  document.getElementById('tId').value='';
-  document.getElementById('tName').value='';
-  document.getElementById('tOwner').value='';
-  document.getElementById('tEmoji').value='';
+  try {
+    await set(ref(db, 'teams/' + id), { id, name, owner, emoji, pts: 0, lastGW: 0, w: 0, d: 0, l: 0 });
+    toast("Squadra creata con successo!", "ok");
+    document.getElementById('tId').value='';
+    document.getElementById('tName').value='';
+    document.getElementById('tOwner').value='';
+    document.getElementById('tEmoji').value='';
+  } catch (err) {
+    toast("Errore durante la creazione", "err");
+  }
 };
 
 window.deleteTeam = async function(id) {
   if(confirm("Vuoi davvero eliminare questa squadra?")) {
-    await set(ref(db, 'teams/' + id), null);
-    toast("Squadra eliminata.", "ok");
+    try {
+      await set(ref(db, 'teams/' + id), null);
+      toast("Squadra eliminata.", "ok");
+    } catch(err) {
+      toast("Errore nell'eliminazione", "err");
+    }
   }
 };
 
@@ -463,15 +480,16 @@ function renderPlayersTable() {
   if(!tbody) return;
   
   const f = adminPlayerFilter.toLowerCase();
-  const filtered = PLAYERS.filter(p => p.name.toLowerCase().includes(f));
+  const filtered = PLAYERS.filter(p => p.name && p.name.toLowerCase().includes(f));
   
-  document.getElementById('pFoundCount').textContent = `Trovati: ${filtered.length}`;
+  const pFoundCount = document.getElementById('pFoundCount');
+  if (pFoundCount) pFoundCount.textContent = `Trovati: ${filtered.length}`;
 
   tbody.innerHTML = filtered.slice(0, 50).map(p => `
     <tr>
       <td><strong>${p.name}</strong></td>
       <td><span class="badge ${p.role==='P'?'badge-gray':p.role==='D'?'badge-blue':p.role==='C'?'badge-green':'badge-red'}">${p.role}</span></td>
-      <td>${p.club}</td>
+      <td>${p.club||'Svincolato'}</td>
       <td><strong>${p.value||'—'}</strong></td>
     </tr>
   `).join('');
@@ -508,12 +526,17 @@ function renderVoteGrid() {
 window.changeGW = function(val) {
   CURRENT_GW += val;
   if(CURRENT_GW < 1) CURRENT_GW = 1;
-  document.getElementById('ds-gw').textContent = CURRENT_GW;
+  const dsGW = document.getElementById('ds-gw');
+  if (dsGW) dsGW.textContent = CURRENT_GW;
 };
 
 window.saveGW = async function(){
-  await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/status`), { currentGW: CURRENT_GW });
-  toast('Giornata GW'+CURRENT_GW+' salvata per ' + window.CURRENT_COMPETITION.toUpperCase(), 'ok');
+  try {
+    await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/status`), { currentGW: CURRENT_GW });
+    toast('Giornata GW'+CURRENT_GW+' salvata per ' + window.CURRENT_COMPETITION.toUpperCase(), 'ok');
+  } catch(err) {
+    toast("Errore nel salvataggio della GW", "err");
+  }
 };
 
 window.syncSofaScoreVotes = async function() {
@@ -521,14 +544,14 @@ window.syncSofaScoreVotes = async function() {
   const gwNum = document.getElementById('sofaGwNum').value;
   const log = document.getElementById('syncLog');
 
-  log.innerHTML = "Avvio sincronizzazione... Richiesta API in corso...<br>";
+  if (log) log.innerHTML = "Avvio sincronizzazione... Richiesta API in corso...<br>";
 
   try {
     const url = `https://api.sofascore.com/api/v1/unique-tournament/${tId}/season/52357/events`; 
-    log.innerHTML += `URL: ${url}<br>Simulazione completata. Integrazione con i tuoi moduli reali...<br>`;
+    if (log) log.innerHTML += `URL: ${url}<br>Simulazione completata. Integrazione con i tuoi moduli reali...<br>`;
     toast("Sincronizzazione completata con successo!", "ok");
   } catch(e) {
-    log.innerHTML += `Errore: ${e.message}<br>`;
+    if (log) log.innerHTML += `Errore: ${e.message}<br>`;
     toast("Errore durante il sync", "err");
   }
 };
@@ -538,9 +561,8 @@ function populateMercatoSelects() {
   const tSelect = document.getElementById('mTeamSelect');
   if (!pSelect || !tSelect) return;
 
-  const svincolati = PLAYERS.filter(p => !p.teamId).sort((a,b) => a.name.localeCompare(b.name));
-  pSelect.innerHTML = svincolati.map(p => `<option value="${p.id}">${p.name} (${p.role} - ${p.club})</option>`).join('');
-
+  const svincolati = PLAYERS.filter(p => !p.teamId && p.name).sort((a,b) => a.name.localeCompare(b.name));
+  pSelect.innerHTML = svincolati.map(p => `<option value="${p.id}">${p.name} (${p.role} - ${p.club || 'Svincolato'})</option>`).join('');
   tSelect.innerHTML = TEAMS.map(t => `<option value="${t.id}">${t.emoji || '⚽'} ${t.name}</option>`).join('');
   
   renderMercatoTable();
@@ -550,7 +572,7 @@ function renderMercatoTable() {
   const tbody = document.getElementById('mercatoTableBody');
   if (!tbody) return;
 
-  const sortedPlayers = [...PLAYERS].sort((a, b) => a.name.localeCompare(b.name));
+  const sortedPlayers = [...PLAYERS].filter(p => p.name).sort((a, b) => a.name.localeCompare(b.name));
 
   tbody.innerHTML = sortedPlayers.map(p => {
     const fantaTeam = TEAMS.find(t => t.id === p.teamId);
@@ -562,10 +584,10 @@ function renderMercatoTable() {
       <tr>
         <td><strong>${p.name}</strong></td>
         <td><span class="badge ${p.role==='P'?'badge-gray':p.role==='D'?'badge-blue':p.role==='C'?'badge-green':'badge-red'}">${p.role}</span></td>
-        <td>${p.club}</td>
+        <td>${p.club||'Svincolato'}</td>
         <td>${teamBadge}</td>
         <td>
-          ${p.teamId ? `<button class="btn btn-red" style="font-size:.7rem;padding:.25rem .5rem" onclick="window.releasePlayer('${p.id}')">Svincola</button>` : '—'}
+          ${p.teamId ? `<button class="btn btn-red" style="font-size:.7rem;padding:.25rem .5rem; width:auto;" onclick="window.releasePlayer('${p.id}')">Svincola</button>` : '—'}
         </td>
       </tr>
     `;
@@ -576,8 +598,12 @@ window.releasePlayer = async function(playerId) {
   const giocatore = PLAYERS.find(p => p.id === playerId);
   if (!giocatore) return;
   if (confirm(`Vuoi svincolare ${giocatore.name}?`)) {
-    await update(ref(db, 'players/' + playerId), { teamId: null });
-    toast(`${giocatore.name} svincolato.`, 'ok');
+    try {
+      await update(ref(db, 'players/' + playerId), { teamId: null });
+      toast(`${giocatore.name} svincolato.`, 'ok');
+    } catch(err) {
+      toast("Errore durante lo svincolo", "err");
+    }
   }
 };
 
@@ -587,8 +613,12 @@ window.assignPlayerToTeam = async function() {
 
   if (!pId || !tId) return toast("Seleziona sia un giocatore che una squadra!", "err");
 
-  await update(ref(db, 'players/' + pId), { teamId: tId });
-  toast("Giocatore assegnato con successo!", "ok");
+  try {
+    await update(ref(db, 'players/' + pId), { teamId: tId });
+    toast("Giocatore assegnato con successo!", "ok");
+  } catch(err) {
+    toast("Errore durante l'assegnazione", "err");
+  }
 };
 
 function renderRankAdmin() {
@@ -614,8 +644,12 @@ window.saveRankRow = async function(id){
   const d = parseInt(document.getElementById('rk-d-'+id).value)||0;
   const l = parseInt(document.getElementById('rk-l-'+id).value)||0;
   
-  await update(ref(db,'teams/'+id),{pts,lastGW:lgw,w,d,l});
-  toast('Classifica di squadra aggiornata globalmente!', 'ok');
+  try {
+    await update(ref(db,'teams/'+id),{pts,lastGW:lgw,w,d,l});
+    toast('Classifica di squadra aggiornata globalmente!', 'ok');
+  } catch (error) {
+    toast('Errore nel salvataggio della classifica', 'err');
+  }
 };
 
 window.generateRandomCalendar = async function() {
