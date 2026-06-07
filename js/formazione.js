@@ -17,7 +17,7 @@ export const FormazionePage = {
           </select>
         </div>
 
-        <div class="label" style="margin-bottom: .5rem; color: var(--accent);">👕 TITOLARI (CAMPOSANTO DI GIOCO)</div>
+        <div class="label" style="margin-bottom: .5rem; color: var(--accent);">👕 TITOLARI (RETTANGOLO DI GIOCO)</div>
         
         <div class="soccer-field" id="soccer-field-container">
           <div class="field-lines">
@@ -32,95 +32,89 @@ export const FormazionePage = {
         
         <button class="btn btn-green" style="width: 100%; padding: .8rem; margin-bottom:2rem;" id="btn-save-lineup">💾 Salva Formazione</button>
 
-    <style>
-    .soccer-field {
-      position: relative;
-      width: 100%;
-      height: 480px;
-      /* 1. MODIFICATO: Sfondo Giallo con sfumatura Arcade/Cartoon */
-      background: linear-gradient(to bottom, #ffeb3b, #fdd835);
-      /* 2. MODIFICATO: Spessore e bordo scuro stile fumetto */
-      border: 4px solid var(--bg2);
-      border-radius: 20px;
-      overflow: hidden;
-      box-shadow: inset 0 0 30px rgba(0,0,0,0.15), 0 8px 24px rgba(0,0,0,0.4);
-    }
-    .field-lines {
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      pointer-events: none;
-    }
-    /* 3. MODIFICATO: Linea di centrocampo più spessa */
-    .field-lines::before {
-      content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 4px;
-      background: rgba(255, 255, 255, 0.7);
-    }
-    /* 4. MODIFICATO: Cerchio di centrocampo più evidente */
-    .field-center-circle {
-      position: absolute; top: 50%; left: 50%; width: 100px; height: 100px;
-      border: 4px solid rgba(255, 255, 255, 0.7); border-radius: 50%;
-      transform: translate(-50%, -50%);
-    }
-    /* 5. MODIFICATO: Area di rigore con linee spesse */
-    .field-penalty-box {
-      position: absolute; bottom: 0; left: 50%; width: 180px; height: 70px;
-      border: 4px solid rgba(255, 255, 255, 0.7); border-bottom: none;
-      transform: translateX(-50%);
-    }
-    .field-lines::after {
-      content: ''; position: absolute; top: 0; left: 50%; width: 180px; height: 70px;
-      border: 4px solid rgba(255, 255, 255, 0.4); border-top: none;
-      transform: translateX(-50%);
-    }
-    .field-player {
-      position: absolute;
-      transform: translate(-50%, -50%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      width: 80px;
-      z-index: 10;
-    }
-    /* 6. MODIFICATO: Maglia con ombra netta (Stile Adesivo Pop) */
-    .player-shirt {
-      width: 42px; height: 42px;
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 0.85rem; font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.5px;
-      color: #fff;
-      box-shadow: 0 5px 0px rgba(0,0,0,0.25); /* Ombra cartoon netta */
-      border: 3px solid #fff;
-      transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
-      cursor: pointer;
-    }
-    /* Effetto pressione cartoon */
-    .field-player:active .player-shirt {
-      transform: translateY(3px);
-      box-shadow: 0 2px 0px rgba(0,0,0,0.25);
-    }
-    .field-player select {
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 42px;
-      opacity: 0; cursor: pointer; z-index: 12;
-    }
-    /* 7. MODIFICATO: Etichetta nome con più contrasto sul giallo */
-    .player-name-label {
-      margin-top: 8px;
-      background: #0a0f1e;
-      color: #fff;
-      font-size: 0.7rem;
-      font-weight: 600;
-      padding: 3px 8px;
-      border-radius: 6px;
-      max-width: 85px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      border: 2px solid rgba(255,255,255,0.15);
-      text-align: center;
-      box-shadow: 0 3px 6px rgba(0,0,0,0.3);
-    }
-  </style>
+        <style>
+        .soccer-field {
+          position: relative;
+          width: 100%;
+          height: 480px;
+          /* MODIFICATO: Elegante sfumatura Grigio Ardesia / Cemento Scuro perfettamente in linea con l'app */
+          background: linear-gradient(to bottom, #2e3541, #232932);
+          border: 2px solid rgba(255, 255, 255, 0.08);
+          border-radius: 20px;
+          overflow: hidden;
+          box-shadow: inset 0 0 30px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3);
+        }
+        .field-lines {
+          position: absolute;
+          top: 0; left: 0; width: 100%; height: 100%;
+          pointer-events: none;
+        }
+        /* Linee bianche pulite con opacità leggera per non disturbare la lettura dei nomi */
+        .field-lines::before {
+          content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 2px;
+          background: rgba(255, 255, 255, 0.2);
+        }
+        .field-center-circle {
+          position: absolute; top: 50%; left: 50%; width: 100px; height: 100px;
+          border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 50%;
+          transform: translate(-50%, -50%);
+        }
+        .field-penalty-box {
+          position: absolute; bottom: 0; left: 50%; width: 180px; height: 70px;
+          border: 2px solid rgba(255, 255, 255, 0.2); border-bottom: none;
+          transform: translateX(-50%);
+        }
+        .field-lines::after {
+          content: ''; position: absolute; top: 0; left: 50%; width: 180px; height: 70px;
+          border: 2px solid rgba(255, 255, 255, 0.15); border-top: none;
+          transform: translateX(-50%);
+        }
+        .field-player {
+          position: absolute;
+          transform: translate(-50%, -50%);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          width: 80px;
+          z-index: 10;
+        }
+        .player-shirt {
+          width: 42px; height: 42px;
+          border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 0.85rem; font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.5px;
+          color: #fff;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+          border: 2px solid rgba(255,255,255,0.2);
+          transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
+          cursor: pointer;
+        }
+        .field-player:active .player-shirt {
+          transform: translateY(2px);
+          box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+        }
+        .field-player select {
+          position: absolute;
+          top: 0; left: 0; width: 100%; height: 42px;
+          opacity: 0; cursor: pointer; z-index: 12;
+        }
+        .player-name-label {
+          margin-top: 8px;
+          background: #0a0f1e;
+          color: #fff;
+          font-size: 0.7rem;
+          font-weight: 600;
+          padding: 3px 8px;
+          border-radius: 6px;
+          max-width: 85px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          border: 1px solid rgba(255,255,255,0.12);
+          text-align: center;
+          box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+        }
+        </style>
       </div>
     `;
   },
@@ -151,12 +145,10 @@ export const FormazionePage = {
     this.drawSchemaPanchina('panchina-slots', schemaPan, 'pan', miaRosa);
   },
 
-  // FUNZIONE PER GENERARE I CALCIATORI NELLE COORDINATE DEL CAMPO
   drawFieldTitolari(def, mid, att, rosa) {
     const container = document.getElementById('titolari-field-slots');
     container.innerHTML = '';
 
-    // Generiamo la mappa dei ruoli e quanti ce ne sono
     const ruoli = [
       { role: 'P', count: 1 },
       { role: 'D', count: def },
@@ -164,12 +156,11 @@ export const FormazionePage = {
       { role: 'A', count: att }
     ];
 
-    // Coordinate 'Y' (Altezza da top in percentuale) per i 4 reparti sul campo (Attacco in alto, Portiere in basso)
     const rowPositions = {
-      'A': 20,  // 20% dall'alto
-      'C': 45,  // 45% dall'alto
-      'D': 70,  // 70% dall'alto
-      'P': 90   // 90% dall'alto
+      'A': 20,
+      'C': 45,
+      'D': 70,
+      'P': 90
     };
 
     ruoli.forEach(reparto => {
@@ -177,18 +168,15 @@ export const FormazionePage = {
       const count = reparto.count;
 
       for (let i = 1; i <= count; i++) {
-        // Calcolo coordinata 'X' (Larghezza in percentuale) per distribuire i giocatori in orizzontale
-        // Se c'è 1 giocatore va al 50%. Se sono di più, si dividono lo spazio simmetricamente.
         const x = count === 1 ? 50 : (100 / (count + 1)) * i;
         
         const slotId = `tit-${reparto.role}-${i}`;
         const ops = rosa.filter(p => p.role === reparto.role);
 
-        // Identifichiamo il colore della maglia in base al ruolo (riutilizzando i tuoi colori)
-        let bgShirt = '#475569'; // P: Grigio scuro
-        if (reparto.role === 'D') bgShirt = '#2196f3'; // D: Blu Elettrico Cartoon
-        if (reparto.role === 'C') bgShirt = '#e91e63'; // C: Rosa/Fucsia Pop
-        if (reparto.role === 'A') bgShirt = '#ff5722'; // A: Arancione Fiamma
+        let bgShirt = '#475569'; 
+        if (reparto.role === 'D') bgShirt = '#2196f3'; 
+        if (reparto.role === 'C') bgShirt = '#e91e63'; 
+        if (reparto.role === 'A') bgShirt = '#ff5722'; 
         let colorText = '#fff';
 
         const playerDiv = document.createElement('div');
@@ -206,11 +194,10 @@ export const FormazionePage = {
             <option value="">-- ${reparto.role} --</option>
             ${ops.map(p => `<option value="${p.id}">${p.name} (${p.club})</option>`).join('')}
           </select>
-         shadow`;
+        `;
 
         container.appendChild(playerDiv);
 
-        // Controllo duplicati e aggiornamento del nome sotto la maglia grafica
         const selectEl = playerDiv.querySelector('select');
         selectEl.addEventListener('change', (e) => {
           const val = e.target.value;
@@ -220,10 +207,10 @@ export const FormazionePage = {
           if (!val) {
             labelEl.textContent = 'Scegli';
             labelEl.style.color = '#fff';
+            labelEl.style.borderColor = 'rgba(255,255,255,0.12)';
             return;
           }
 
-          // Controllo duplicati globale (Campo + Panchina)
           const allSelects = document.querySelectorAll('#titolari-field-slots select, #panchina-slots select');
           let isDuplicate = false;
           allSelects.forEach(s => {
@@ -235,18 +222,18 @@ export const FormazionePage = {
             e.target.value = '';
             labelEl.textContent = 'Scegli';
             labelEl.style.color = '#fff';
+            labelEl.style.borderColor = 'rgba(255,255,255,0.12)';
           } else {
-            // Aggiorna il testo grafico sotto il giocatore col cognome corretto
             const selectedText = e.target.options[e.target.selectedIndex].text;
-            labelEl.textContent = selectedText.split(' (')[0]; // Prende solo il nome, esclude il club
+            labelEl.textContent = selectedText.split(' (')[0];
             labelEl.style.color = 'var(--accent)';
+            labelEl.style.borderColor = 'var(--accent)';
           }
         });
       }
     });
   },
 
-  // FUNZIONE PANCHINA STANDARD (RIMANE UNA COMODA LISTA SOTTO IL CAMPO)
   drawSchemaPanchina(id, schema, prefix, rosa) {
     const container = document.getElementById(id);
     container.innerHTML = '';
@@ -283,12 +270,10 @@ export const FormazionePage = {
     });
   },
 
-  // OPERAZIONE DI SALVATAGGIO SU FIREBASE REALTIME DATABASE (Invariata a livello logico)
   async save(STATE) {
     const currentGw = STATE.status?.currentGW || 1;
     const modulo = document.getElementById('f-modulo').value;
     
-    // Raccoglie i selettori dal campo e dalla panchina
     const titS = document.querySelectorAll('#titolari-field-slots select');
     const panS = document.querySelectorAll('#panchina-slots select');
     
