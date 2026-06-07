@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantalega-pwa-v2.21.17'; // Ho messo v2 per forzare l'aggiornamento
+const CACHE_NAME = 'fantalega-pwa-v2.22'; // Ho messo v2 per forzare l'aggiornamento
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
