@@ -7,14 +7,6 @@ export const HomePage = {
           <div class="logo" style="font-size: 2.4rem; letter-spacing: 2px;">FANTACAZZ</div>
         </div>
 
-        <div class="card card-sm" style="margin-bottom: 1.2rem; padding: .8rem 1rem;">
-          <div class="label" style="margin-bottom: .4rem;">Seleziona Competizione</div>
-          <select id="home-competition-select" class="select-rose" style="background: var(--bg3); width:100%; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:.6rem; color:#fff;" onchange="window._handleCompetitionChange(this.value)">
-            <option value="fantacazz">🏆 Fantacazz (Campionato)</option>
-            <option value="coppa">🏆 Coppa Italia</option>
-          </select>
-        </div>
-
         <div class="card" style="background: linear-gradient(135deg, var(--card), var(--bg3)); margin-bottom: 1rem; padding: 1.2rem;">
           <div class="label" id="home-team-title">LA TUA SQUADRA</div>
           <div id="home-team-name" style="font-size: 1.8rem; font-family: 'Bebas Neue'; color: #fff; line-height: 1.2; margin-bottom: .8rem;">-</div>
@@ -29,6 +21,14 @@ export const HomePage = {
               <div id="home-team-pts" style="font-size: 1.4rem; font-family: 'DM Mono', monospace; font-weight: 600; color: var(--gold);">-</div>
             </div>
           </div>
+        </div>
+
+      <div class="card card-sm" style="margin-bottom: 1.2rem; padding: .8rem 1rem;">
+          <div class="label" style="margin-bottom: .4rem;">Seleziona Competizione</div>
+          <select id="home-competition-select" class="select-rose" style="background: var(--bg3); width:100%; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:.6rem; color:#fff;" onchange="window._handleCompetitionChange(this.value)">
+            <option value="fantacazz">🏆 Fantacazz (Campionato)</option>
+            <option value="coppa">🏆 Coppa Italia</option>
+          </select>
         </div>
 
         <div class="card" style="background: linear-gradient(135deg, var(--card), rgba(255,255,255,0.02)); margin-bottom: 1.5rem;">
