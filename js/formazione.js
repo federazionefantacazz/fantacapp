@@ -121,34 +121,49 @@ export const FormazionePage = {
     const modSelect = document.getElementById('f-modulo');
     if (!modSelect) return;
     
-    // Attacchiamo i listener globali solo UNA volta alla prima build
+    // Inizializziamo i listener una sola volta
     if (!window._formazioneInitialized) {
       modSelect.addEventListener('change', () => this.buildSlots(STATE));
-      document.getElementById('btn-save-lineup').addEventListener('click', () => this.save(STATE));
+      
+      const saveBtn = document.getElementById('btn-save-lineup');
+      if (saveBtn) {
+        saveBtn.addEventListener('click', () => this.save(STATE));
+      }
+
+      // TRUCCO CRUCIALI: Intercettiamo il cambio pagina per rigenerare i menu quando la pagina diventa visibile
+      const navButtons = document.querySelectorAll('#nav window, .nav-btn');
+      navButtons.forEach(btn => {
+        if (btn.getAttribute('onclick')?.includes('formazione')) {
+          btn.addEventListener('click', () => {
+            setTimeout(() => this.buildSlots(window.STATE), 50);
+          });
+        }
+      });
+
       window._formazioneInitialized = true;
     }
 
-    // Eseguiamo SEMPRE la build alla ricezione dati da Firebase
     this.buildSlots(STATE);
   },
 
   buildSlots(STATE) {
-    if (!STATE.user || !STATE.players || STATE.players.length === 0) return;
+    if (!STATE || !STATE.user || !STATE.players || STATE.players.length === 0) return;
 
-    const modulo = document.getElementById('f-modulo').value;
+    const modSelect = document.getElementById('f-modulo');
+    if (!modSelect) return;
+    
+    const modulo = modSelect.value;
     const [def, mid, att] = modulo.split('-').map(Number);
     
-    // CORREZIONE: Controllo flessibile e sicuro su stringhe per mappare la rosa dell'utente loggato
+    // Filtro pulito e forzato a stringa per teamId
     const miaRosa = STATE.players.filter(p => {
-      const pTeamId = String(p.teamId || p.team || '');
+      const pTeamId = String(p.teamId || '');
       const uId = String(STATE.user.id || '');
       return pTeamId !== '' && pTeamId === uId;
     });
 
-    // 1. Disegna i Titolari sul Finto Campo
+    // Disegna Titolari e Panchina
     this.drawFieldTitolari(def, mid, att, miaRosa);
-
-    // 2. Disegna la panchina normalmente sotto il campo
     const schemaPan = [{role:'P', count:1}, {role:'D', count:2}, {role:'C', count:2}, {role:'A', count:2}];
     this.drawSchemaPanchina('panchina-slots', schemaPan, 'pan', miaRosa);
   },
@@ -200,7 +215,6 @@ export const FormazionePage = {
 
         container.appendChild(playerDiv);
 
-        // Listener Cambio Giocatore
         playerDiv.querySelector('select').addEventListener('change', (e) => {
           const val = e.target.value;
           const labelId = e.target.dataset.labelTarget;
