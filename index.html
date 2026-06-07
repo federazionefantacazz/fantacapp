@@ -188,6 +188,15 @@ onAuthStateChanged(auth, firebaseUser => {
 });
 
 function caricaDatiCompetizione(compId) {
+
+  onValue(ref(db, `competitions/${compId}/lineups`), snap => {
+    if (!window.STATE.competitions) window.STATE.competitions = {};
+    if (!window.STATE.competitions[compId]) window.STATE.competitions[compId] = {};
+    
+    window.STATE.competitions[compId].lineups = snap.val() || {};
+    refreshUI();
+  });
+  
   // 1. Ascolta lo stato specifico del torneo (Resta così com'è)
   onValue(ref(db, `competitions/${compId}/status`), snap => { 
     window.STATE.status = snap.val() || { currentGW: 1 }; 
