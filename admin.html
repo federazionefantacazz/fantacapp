@@ -7,22 +7,18 @@
 <title>Fantacazz — Admin</title>
 <style>
 :root {
-  --bg: #1a1e24;       /* Sfondo principale (Ardesia scura) */
-  --bg2: #22272f;      /* Sfondo secondario / Sidebar admin */
-  --bg3: #2b323c;      /* Sfondo degli input e menu a tendina */
-  --card: #282e37;     /* Colore delle schede/card (Grigio Cemento Scuro) */
-  --card2: #333a46;    /* Righe dei giocatori e sub-box (Grigio Cemento Medio) */
-  
-  /* COLORI DI ACCENTO */
-  --accent: #50e3c2;   /* Accento principale: Verde menta glaciale (ottimo contrasto sul grigio) */
-  --accent2: #4a90e2;  /* Accento secondario: Blu aviazione per bottoni e link */
-  --accent3: #ff6b6b;  /* Colore degli errori / svincoli (Rosso corallo desaturato) */
-  --gold: #f5a623;     /* Colore per i podi / primi posti */
-  
-  /* TESTI */
-  --text: #f5f6f7;     /* Testo principale (Bianco sporco ad alta leggibilità) */
-  --text2: #a0aab5;    /* Testo secondario (Grigio tenue per descrizioni e label) */
-  --text3: #626e7a;    /* Testo disattivato / bordi molto leggeri */
+  --bg: #1a1e24;       
+  --bg2: #22272f;      
+  --bg3: #2b323c;      
+  --card: #282e37;     
+  --card2: #333a46;    
+  --accent: #50e3c2;   
+  --accent2: #4a90e2;  
+  --accent3: #ff6b6b;  
+  --gold: #f5a623;     
+  --text: #f5f6f7;     
+  --text2: #a0aab5;    
+  --text3: #626e7a;    
   --border: rgba(255,255,255,0.06);
 }
 *{margin:0;padding:0;box-sizing:border-box}
@@ -188,7 +184,7 @@ tr:hover td{background:rgba(255,255,255,0.01)}
       <div class="sec-title">Database Calciatori</div>
       <div class="card">
         <div style="display:flex;gap:1rem;margin-bottom:1rem;align-items:center">
-          <input type="text" id="pSearch" class="input-login" placeholder="Cerca calciatore per nome..." style="margin-bottom:0;max-width:300px" oninput="filterPlayersAdmin(this.value)">
+          <input type="text" id="pSearch" class="input-login" placeholder="Cerca calciatore per nome..." style="margin-bottom:0;max-width:300px" oninput="window.filterPlayersAdmin(this.value)">
           <div style="font-size:.85rem;color:var(--text2)" id="pFoundCount"></div>
         </div>
         <div class="table-wrapper" style="max-height:500px">
@@ -235,7 +231,7 @@ tr:hover td{background:rgba(255,255,255,0.01)}
             <select id="mTeamSelect" style="width:100%; background:var(--bg3); border:1px solid var(--border); border-radius:6px; color:#fff; padding:.65rem; font-size:.9rem;"></select>
           </div>
         </div>
-        <button class="btn btn-green" onclick="assignPlayerToTeam()">Conferma Assegnazione</button>
+        <button class="btn btn-green" onclick="window.assignPlayerToTeam()">Conferma Assegnazione</button>
       </div>
 
       <div class="card">
@@ -308,7 +304,6 @@ tr:hover td{background:rgba(255,255,255,0.01)}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, onValue, set, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-// Configurazione Database
 const firebaseConfig = {
   databaseURL: "https://fantacazz-default-rtdb.europe-west1.firebasedatabase.app"
 };
@@ -316,16 +311,12 @@ const firebaseConfig = {
 const fapp = initializeApp(firebaseConfig);
 const db = getDatabase(fapp);
 
-// Conferma visiva immediata
 const syncStatusEl = document.getElementById('syncStatus');
 if(syncStatusEl) {
   syncStatusEl.innerHTML = "🟢 Connesso a Firebase";
   syncStatusEl.style.color = "var(--accent)";
 }
 
-// ══════════════════════════════════════════
-// STATO GLOBALE E COMPETIZIONE ATTIVA
-// ══════════════════════════════════════════
 window.CURRENT_COMPETITION = 'fantacazz';
 
 let TEAMS = [];
@@ -338,7 +329,6 @@ let adminPlayerFilter = '';
 let teamsCaricate = false;
 let giocatoriCaricati = false;
 
-// 1. FUNZIONE DINAMICA PER ASCOLTARE I DATI DELLA COMPETIZIONE SELEZIONATA
 function ascoltaDatiCompetizione(compId) {
   onValue(ref(db, `competitions/${compId}/status`), snap => {
     const statusData = snap.val() || {};
@@ -366,16 +356,12 @@ function ascoltaDatiCompetizione(compId) {
   });
 }
 
-// 2. GESTORE DEL CAMBIO COMPETIZIONE DALLA SIDEBAR
 window._handleAdminCompChange = function(newCompId) {
   window.CURRENT_COMPETITION = newCompId;
   toast(`Pannello Admin spostato su: ${newCompId.toUpperCase()}`, 'info');
   ascoltaDatiCompetizione(newCompId);
 };
 
-// ══════════════════════════════════════════
-// LOAD DATA GLOBALE
-// ══════════════════════════════════════════
 onValue(ref(db, 'teams'), snap => {
   const raw = snap.val() || {};
   TEAMS = Object.values(raw).sort((a,b) => b.pts - a.pts);
@@ -416,7 +402,6 @@ onValue(ref(db, 'votes'), snap => {
   }
 });
 
-// Funzione per mostrare le squadre pronte al calcolo nell'anteprima della tab
 function aggiornaAnteprimaSquadreCalendario() {
   const container = document.getElementById('genTeamsPreview');
   if(!container) return;
@@ -431,9 +416,6 @@ function aggiornaAnteprimaSquadreCalendario() {
   `).join('');
 }
 
-// ══════════════════════════════════════════
-// LOGICA PANNELLO ADMIN (FUNZIONI INTERNE)
-// ══════════════════════════════════════════
 function updateDashboard() {
   document.getElementById('adminGWNum').textContent = CURRENT_GW;
   document.getElementById('ds-gw').textContent = CURRENT_GW;
@@ -448,7 +430,7 @@ function renderTeamsTable() {
       <td><strong>${t.name}</strong></td>
       <td>${t.owner||'—'}</td>
       <td><span class="badge badge-green">${t.pts||0} pts</span></td>
-      <td><button class="btn btn-red" style="padding:.25rem .5rem;font-size:.75rem;width:auto" onclick="deleteTeam('${t.id}')">Elimina</button></td>
+      <td><button class="btn btn-red" style="padding:.25rem .5rem;font-size:.75rem;width:auto" onclick="window.deleteTeam('${t.id}')">Elimina</button></td>
     </tr>
   `).join('');
 }
@@ -462,7 +444,7 @@ window.addTeam = async function() {
   if(!id || !name) return toast("ID e Nome sono obbligatori!","err");
 
   await set(ref(db, 'teams/' + id), { id, name, owner, emoji, pts: 0, lastGW: 0, w: 0, d: 0, l: 0 });
-  toast("Squadra creria con successo!", "ok");
+  toast("Squadra creata con successo!", "ok");
   document.getElementById('tId').value='';
   document.getElementById('tName').value='';
   document.getElementById('tOwner').value='';
@@ -583,7 +565,7 @@ function renderMercatoTable() {
         <td>${p.club}</td>
         <td>${teamBadge}</td>
         <td>
-          ${p.teamId ? `<button class="btn btn-red" style="font-size:.7rem;padding:.25rem .5rem" onclick="releasePlayer('${p.id}')">Svincola</button>` : '—'}
+          ${p.teamId ? `<button class="btn btn-red" style="font-size:.7rem;padding:.25rem .5rem" onclick="window.releasePlayer('${p.id}')">Svincola</button>` : '—'}
         </td>
       </tr>
     `;
@@ -620,7 +602,7 @@ function renderRankAdmin() {
       <td><input type="number" id="rk-w-${t.id}" class="input-login" style="width:55px;margin-bottom:0;padding:.3rem" value="${t.w||0}"></td>
       <td><input type="number" id="rk-d-${t.id}" class="input-login" style="width:55px;margin-bottom:0;padding:.3rem" value="${t.d||0}"></td>
       <td><input type="number" id="rk-l-${t.id}" class="input-login" style="width:55px;margin-bottom:0;padding:.3rem" value="${t.l||0}"></td>
-      <td><button class="btn btn-green" style="font-size:.75rem;padding:.3rem .6rem;width:auto" onclick="saveRankRow('${t.id}')">Salva</button></td>
+      <td><button class="btn btn-green" style="font-size:.75rem;padding:.3rem .6rem;width:auto" onclick="window.saveRankRow('${t.id}')">Salva</button></td>
     </tr>
   `).join('');
 }
@@ -636,7 +618,6 @@ window.saveRankRow = async function(id){
   toast('Classifica di squadra aggiornata globalmente!', 'ok');
 };
 
-// FUNZIONE GLOBALE DI GENERAZIONE CALENDARIO (ALGORITMO DI BERGER)
 window.generateRandomCalendar = async function() {
   if (TEAMS.length < 2) {
     toast("Servono almeno 2 squadre per creare un calendario!", "err");
@@ -651,7 +632,7 @@ window.generateRandomCalendar = async function() {
   }
 
   let listaSquadre = TEAMS.map(t => t.id);
-  listaSquadre.sort(() => Math.random() - 0.5); // Rimescolamento iniziale casuale
+  listaSquadre.sort(() => Math.random() - 0.5); 
 
   if (listaSquadre.length % 2 !== 0) {
     listaSquadre.push("RIPOSO");
