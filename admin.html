@@ -274,7 +274,36 @@ tr:hover td{background:rgba(255,255,255,0.01)}
             Stai per generare il calendario per la competizione attiva selezionata nella sidebar.
           </span>
         </div>
-        <div id="sec-crea-competizioni" class="admin-sec" style="display:none">
+        
+
+        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+          <div style="flex: 1;">
+            <label class="label">Numero Giornate totali</label>
+            <input type="number" id="genTotalGws" class="input-login" value="33" min="1" max="38" style="margin-bottom:0; background: var(--bg3); border: 1px solid var(--border); color:#fff; padding:.5rem; border-radius:6px; width:100%;">
+          </div>
+          <div style="flex: 1;">
+            <label class="label">Tipo di Turno</label>
+            <select id="genRotationType" style="width:100%; background:var(--bg3); border:1px solid var(--border); border-radius:6px; color:#fff; padding:.6rem; font-size:.85rem;">
+              <option value="andata-ritorno">Andata e Ritorno continui</option>
+              <option value="solo-andata">Solo Andata (fino a esaurimento)</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn btn-green" onclick="window.generateRandomCalendar()">⚡ Genera & Salva su Firebase</button>
+      </div>
+
+      <div class="card">
+        <div class="label">Anteprima delle squadre che parteciperanno:</div>
+        <div id="genTeamsPreview" style="display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; font-size: .85rem; color: var(--text2);"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+<div id="sec-crea-competizioni" class="admin-sec" style="display:none">
           
   <div class="sec-title">🏆 Gestione & Creazione Competizioni</div>
   
@@ -316,34 +345,6 @@ tr:hover td{background:rgba(255,255,255,0.01)}
     </div>
   </div>
 </div>
-
-        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
-          <div style="flex: 1;">
-            <label class="label">Numero Giornate totali</label>
-            <input type="number" id="genTotalGws" class="input-login" value="33" min="1" max="38" style="margin-bottom:0; background: var(--bg3); border: 1px solid var(--border); color:#fff; padding:.5rem; border-radius:6px; width:100%;">
-          </div>
-          <div style="flex: 1;">
-            <label class="label">Tipo di Turno</label>
-            <select id="genRotationType" style="width:100%; background:var(--bg3); border:1px solid var(--border); border-radius:6px; color:#fff; padding:.6rem; font-size:.85rem;">
-              <option value="andata-ritorno">Andata e Ritorno continui</option>
-              <option value="solo-andata">Solo Andata (fino a esaurimento)</option>
-            </select>
-          </div>
-        </div>
-
-        <button class="btn btn-green" onclick="window.generateRandomCalendar()">⚡ Genera & Salva su Firebase</button>
-      </div>
-
-      <div class="card">
-        <div class="label">Anteprima delle squadre che parteciperanno:</div>
-        <div id="genTeamsPreview" style="display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; font-size: .85rem; color: var(--text2);"></div>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<div id="toast" class="toast"></div>
 
 
 <script type="module">
