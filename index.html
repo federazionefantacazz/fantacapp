@@ -61,20 +61,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
   left: 0;
   right: 0;
   height: calc(60px + env(safe-area-inset-bottom));
-  background: var(--card); /* <-- Diventa bianca se il tema ha le card bianche */
-  border-top: 1px solid rgba(0, 0, 0, 0.08); /* Un bordo leggero scuro per staccare dallo sfondo giallo */
+  background: var(--card); /* <-- Usa il colore dinamico della card (Bianco) */
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(0, 0, 0, 0.08); /* Bordo leggero per staccare dal giallo */
   display: flex;
   justify-content: space-around;
   padding-top: .5rem;
   padding-bottom: env(safe-area-inset-bottom);
   z-index: 999;
-  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.05); /* Un'ombra delicata verso l'alto */
 }
 
 .nav-btn {
   background: none;
   border: none;
-  color: var(--text2); /* <-- Prende il colore del testo secondario (grigio scuro) */
+  color: var(--text2); /* Colore grigio scuro per i bottoni spenti */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -86,8 +86,23 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
   width: 16%;
 }
 
+.nav-btn svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: all 0.2s;
+}
+
 .nav-btn.active {
-  color: var(--text); /* <-- Il bottone attivo diventa Nero come il testo principale delle card */
+  color: var(--text); /* <-- Il bottone della pagina attiva diventa Nero puro */
+}
+
+.nav-btn.active svg {
+  transform: translateY(-2px);
 }
 .page{display:none;padding:0 1rem}.page.active{display:block;animation:fadeIn 0.25s ease-out}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
