@@ -725,30 +725,34 @@ window.generateRandomCalendar = async function() {
   try {
     await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/matches`), calendarioCompleto);
     await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/status`), { currentGW: 1 });
-    toast(`🎯 Calendario generato per ${window.CURRENT_COMPETITION.toUpperCase()}!`, "ok");
-  } catch (error) {
-    console.error(error);
-    toast("Errore durante il salvataggio del calendario", "err");
+    toast(`🎯 Calendario generato per ${window.CURRENT_COMPETITION.toUpperCase()}!`, 'ok');
+  } catch (err) {
+    toast("Errore durante la generazione del calendario", "err");
   }
 };
-</script>
 
-<script>
-function showSec(id, btn) {
+// --- LOGICA DI NAVIGAZIONE TRA LE SEZIONI ---
+window.showSec = function(secId, btn) {
+  // Nasconde tutte le sezioni admin
   document.querySelectorAll('.admin-sec').forEach(s => s.style.display = 'none');
-  document.querySelectorAll('.snav').forEach(b => b.classList.remove('active'));
-  
-  const target = document.getElementById('sec-' + id);
+  // Mostra solo quella selezionata
+  const target = document.getElementById('sec-' + secId);
   if(target) target.style.display = 'block';
+  
+  // Gestione classe attiva sui pulsanti della sidebar
+  document.querySelectorAll('.snav').forEach(b => b.classList.remove('active'));
   if(btn) btn.classList.add('active');
-}
+};
 
-function toast(msg, type='ok') {
+// --- LOGICA UTILITY TOAST ---
+function toast(msg, type = 'info') {
   const t = document.getElementById('toast');
   if(!t) return;
-  t.textContent = msg; 
-  t.className = 'toast ' + type + ' show';
-  setTimeout(() => t.classList.remove('show'), 2600);
+  t.textContent = msg;
+  t.className = `toast show ${type}`;
+  setTimeout(() => {
+    t.classList.remove('show');
+  }, 3000);
 }
 </script>
 
