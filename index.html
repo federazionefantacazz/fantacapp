@@ -335,27 +335,29 @@ function resetThemeToDefault() {
   root.style.setProperty('--text', '#e2e8f0');
   root.style.setProperty('--text2', '#94a3b8');
 }
+// --- GESTIONE CAMBIO COMPETIZIONE GLOBALE (DALL'HEADER) ---
 window._handleCompetitionChange = function(newCompetitionId) {
-  // 1. Imposta il nuovo ID nella variabile globale
+  if (!newCompetitionId) return;
+
+  // 1. Aggiorna l'ID nello stato globale dell'app
   window.STATE.currentCompetition = newCompetitionId;
   
-  // 2. Lancia il toast di conferma
-  window.showToast(`Competizione: ${newCompetitionId.toUpperCase()}`, 'ok');
+  // 2. Notifica l'utente tramite toast grafico
+  window.showToast(`Competizione modificata in: ${newCompetitionId.toUpperCase()}`, 'ok');
   
-  // Svuota il selettore del calendario per evitare conflitti di giornate tra competizioni
+  // Resetta la selezione delle giornate nel calendario per evitare bug grafici cross-competizione
   const calSelect = document.getElementById('calGwSelect');
   if (calSelect) {
     calSelect.innerHTML = '';
     delete calSelect.dataset.currentComp;
   }
   
-  // 3. Chiama caricaDatiCompetizione per agganciare i nuovi listener Firebase della coppa/campionato
+  // 3. Esegui il distacco dei vecchi dati e aggancia i listener Firebase della nuova competizione
   caricaDatiCompetizione(newCompetitionId);
   
-  // 4. Esegue il refresh immediato dell'interfaccia grafica
+  // 4. Ri-renderizza l'interfaccia con i dati memorizzati nello stato locale
   refreshUI();
 };
-
 caricaDatiCompetizione(window.STATE.currentCompetition);
 
 onValue(ref(db, 'votes'), snap => { 
@@ -499,21 +501,21 @@ window.doTeamSelection = function() {
     bootApp();
   }
 };
-// Ascolta le competizioni create dall'admin e popola il select esistente nell'header
-onValue(ref(db, 'competitions_meta'), snap => {
+// Ascolta le competizioni create nel nodo unico di Firebase e popola il selettore dell'header
+onValue(ref(db, 'competitions'), snap => {
   const comps = snap.val() || {};
   const list = Object.values(comps);
   
-  const userSelect = document.getElementById('headerCompSelect');
-  if (userSelect) {
+  const headerSelect = document.getElementById('headerCompSelect');
+  if (headerSelect) {
     if (list.length === 0) {
-      // Se l'admin non ha ancora creato nulla, mantieni il default di base
-      userSelect.innerHTML = `<option value="fantacazz">🏆 Fantacazz (Campionato)</option>`;
+      // Caso base o di fallback se l'admin non ha ancora inserito nulla
+      headerSelect.innerHTML = `<option value="fantacazz">🏆 Fantacazz (Campionato)</option>`;
     } else {
-      // Genera le opzioni dinamicamente mantenendo evidenziata quella attiva nel STATE
-      userSelect.innerHTML = list.map(c => `
+      // Genera le opzioni prendendo i dati unificati (ID e Nome)
+      headerSelect.innerHTML = list.map(c => `
         <option value="${c.id}" ${window.STATE.currentCompetition === c.id ? 'selected' : ''}>
-          🏆 ${c.name}
+          🏆 ${c.name || c.id}
         </option>
       `).join('');
     }

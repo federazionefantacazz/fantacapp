@@ -1,12 +1,22 @@
 export const HomePage = {
-  renderHTML() {
+renderHTML() {
+    const state = window.STATE || {};
+    // Recupera i dati della competizione attiva dallo stato globale
+    const compId = state.currentCompetition || 'fantacazz';
+    const compData = (state.competitions && state.competitions[compId]) || {};
+    
+    // Controlla se la giornata è salvata dentro un sotto-oggetto status o direttamente
+    const currentGw = (compData.status && compData.status.currentGW) || compData.currentGw || 1;
+    const marketOpen = compData.marketOpen !== false;
+
     return `
       <div class="page" id="page-home" style="padding-top: 1.5rem;">
         
         <div class="app-header" style="margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; position: relative;">
-          <div style="width: 32px;"></div> <div class="logo" style="font-size: 2.4rem; letter-spacing: 2px;">FANTACAZZ</div>
-          <button onclick="window.doFirebaseLogout()" style="background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; -webkit-tap-highlight-color: transparent;" title="Disconnetti">
-            <svg viewBox="0 0 24 24" width="22" height="22" stroke="var(--accent3)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <div style="width: 32px;"></div>
+          <div class="logo" style="font-size: 2.4rem; letter-spacing: 2px;">FANTACAZZ</div>
+          <button onclick=\"window.doFirebaseLogout()\" style="background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; -webkit-tap-highlight-color: transparent;" title="Disconnetti">
+            <svg viewBox="0 0 24 24" width="22" height=\"22\" stroke="var(--accent3)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
               <polyline points="16 17 21 12 16 7"></polyline>
               <line x1="21" y1="12" x2="9" y2="12"></line>
@@ -14,37 +24,44 @@ export const HomePage = {
           </button>
         </div>
 
-        <div class="card" style="background: linear-gradient(135deg, var(--card), var(--bg3)); margin-bottom: 1rem; padding: 1.2rem;">
-          <div class="text2" id="home-team-title">LA TUA SQUADRA</div>
-          <div id="home-team-name" class:"text" style="font-size: 1.8rem; font-family: 'Bebas Neue'; line-height: 1.2; margin-bottom: .8rem;">-</div>
-          
-          <div style="display: flex; gap: 1rem; border-top: 1px solid rgba(255,255,255,0.08); padding-top: .8rem;">
-            <div style="flex: 1;">
-              <div class="label" style="font-size: .65rem;">Posizione</div>
-              <div id="home-team-pos" style="font-size: 1.4rem; font-family: 'DM Mono', monospace; font-weight: 600; color: var(--accent);">-</div>
+        <div class="grid-2" style="margin-bottom: 1.5rem;">
+          <div class="card stat-card" style="display: flex; align-items: center; gap: 1rem; padding: 1.2rem;">
+            <div style="font-size: 2rem;">📅</div>
+            <div>
+              <div style="font-size: 0.8rem; color: var(--text2); text-transform: uppercase; font-weight: 500;">Giornata</div>
+              <div style="font-size: 1.3rem; font-weight: 700; color: var(--accent2);">Giornata ${currentGw}</div>
             </div>
-            <div style="flex: 1; border-left: 1px solid rgba(255,255,255,0.08); padding-left: 1rem;">
-              <div class="label" style="font-size: .65rem;">Punti Totali</div>
-              <div id="home-team-pts" style="font-size: 1.4rem; font-family: 'DM Mono', monospace; font-weight: 600; color: var(--gold);">-</div>
+          </div>
+
+          <div class="card stat-card" style="display: flex; align-items: center; gap: 1rem; padding: 1.2rem;">
+            <div style="font-size: 2rem;">🛒</div>
+            <div>
+              <div style="font-size: 0.8rem; color: var(--text2); text-transform: uppercase; font-weight: 500;">Mercato</div>
+              <div style="font-size: 1.3rem; font-weight: 700; color: ${marketOpen ? 'var(--accent)' : 'var(--accent3)'};">
+                ${marketOpen ? 'APERTO' : 'CHIUSO'}
+              </div>
             </div>
           </div>
         </div>
 
-      <div class="card card-sm" style="margin-bottom: 1.2rem; padding: .8rem 1rem;">
-          <div class="label" style="margin-bottom: .4rem;">Seleziona Competizione</div>
-          <select id="home-competition-select" class="select-rose" style="background: var(--bg3); width:100%; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:.6rem; color:#fff;" onchange="window._handleCompetitionChange(this.value)">
-            <option value="fantacazz">🏆 Fantacazz (Campionato)</option>
-            <option value="coppa">🏆 Coppa Italia</option>
-          </select>
+        <div class="card" style="margin-bottom: 1.5rem; padding: 1.2rem;">
+          <h3 style="font-size: 1.1rem; margin-bottom: 1rem; font-family: 'Bebas Neue', sans-serif; letter-spacing: 1px; color: var(--text);">
+            ⚽ LIVE MATCHES
+          </h3>
+          <div id="home-live-matches">
+            <div style="color:var(--text3); font-size:.85rem; text-align:center; padding:1rem">Nessun match attivo al momento.</div>
+          </div>
         </div>
 
-        <div class="card" style="background: linear-gradient(135deg, var(--card), rgba(255,255,255,0.02)); margin-bottom: 1.5rem;">
-          <div class="label">Giornata Attuale</div>
-          <div id="home-gw" style="font-size: 2rem; font-family: 'Bebas Neue'; color: #fff">-</div>
+        <div class="card" style="padding: 1.2rem;">
+          <h3 style="font-size: 1.1rem; margin-bottom: 1rem; font-family: 'Bebas Neue', sans-serif; letter-spacing: 1px; color: var(--text);">
+            📈 VOTI LIVE DEL GIORNO
+          </h3>
+          <div id="home-live-votes">
+            <div style="color:var(--text3); font-size:.85rem; text-align:center; padding:1rem">Nessun voto live inserito.</div>
+          </div>
         </div>
 
-        <div class="sec">🔴 Voti Live GW</div>
-        <div id="live-votes" style="max-height: 300px; overflow-y: auto; padding-right: .2rem;"></div>
       </div>
     `;
   },

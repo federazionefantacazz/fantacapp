@@ -445,15 +445,25 @@ window.creaCompetizione = async function() {
     return;
   }
 
-  const metaPayload = { id, name, type };
-  if (type === 'campionato' || type === 'misto') metaPayload.gironi = gironi;
-  if (type === 'misto') metaPayload.qualificatiFaseFinale = qualificati;
+  // Costruiamo un unico oggetto con tutte le informazioni e i dati iniziali
+  const compPayload = { 
+    id, 
+    name, 
+    type,
+    status: { currentGW: 1 }, // Stato della giornata
+    marketOpen: true,         // Stato mercato (opzionale ma utile)
+    fixtures: {},             // Preparo i nodi vuoti per evitare errori in lettura
+    teams: {},
+    standings: {}
+  };
+
+  // Aggiungiamo i campi extra solo se servono
+  if (type === 'campionato' || type === 'misto') compPayload.gironi = gironi;
+  if (type === 'misto') compPayload.qualificatiFaseFinale = qualificati;
 
   try {
-    // Registra i metadati strutturali
-    await set(ref(db, `competitions_meta/${id}`), metaPayload);
-    // Imposta lo stato della giornata iniziale
-    await set(ref(db, `competitions/${id}/status`), { currentGW: 1 });
+    // 🔥 Salvataggio UNIFICATO: mettiamo tutto dentro competitions/ID
+    await set(ref(db, `competitions/${id}`), compPayload);
     
     toast(`Competizione "${name}" creata con successo!`, "ok");
     
@@ -466,7 +476,7 @@ window.creaCompetizione = async function() {
 };
 
 // Sincronizzazione Realtime dei metadati delle competizioni create
-onValue(ref(db, 'competitions_meta'), snap => {
+onValue(ref(db, 'competitions'), snap => {
   const comps = snap.val() || {};
   const list = Object.values(comps);
 
