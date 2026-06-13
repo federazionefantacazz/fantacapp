@@ -5,7 +5,8 @@ const ASSETS_TO_CACHE = [
   './admin.html',
   './manifest.json',
   './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icons/icon-512.png',
+  './icons/logo-federazione.jpg'
 ];
 
 // Installazione: salva i file statici nella cache
