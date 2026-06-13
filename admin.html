@@ -938,6 +938,14 @@ window.generateRandomCalendar = async function() {
     toast("Errore durante il salvataggio del calendario", "err");
   }
 };
+
+function toast(msg, type = "ok") {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.className = 'toast ' + type + ' show';
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
 </script>
 
 </body>
