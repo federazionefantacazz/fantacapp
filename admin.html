@@ -488,7 +488,7 @@ onValue(ref(db, 'competitions'), snap => {
     } else {
       adminSelect.innerHTML = list.map(c => `
         <option value="${c.id}" ${window.CURRENT_COMPETITION === c.id ? 'selected' : ''}>
-          🏆 ${c.name} (${c.type.toUpperCase()})
+          🏆 ${c.name || c.id}
         </option>
       `).join('');
     }
