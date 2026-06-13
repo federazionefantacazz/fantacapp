@@ -152,3 +152,47 @@ export const TeamsSection = {
 
       // Se l'utente ha selezionato un file immagine da Android, eseguiamo l'upload su ImgBB
       if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        // Chiama la logica condivisa nel file di integrazione esterno
+        finalLogoUrl = await uploadImageToImgBB(file);
+      }
+
+      if (this.isEditing) {
+        // MODIFICA: Aggiorna solo l'anagrafica preservando punti storici e record di gioco
+        await update(ref(this.db, 'teams/' + targetId), { name, owner, logo: finalLogoUrl, motto, desc });
+        window.toast("Squadra aggiornata con successo!", "ok");
+        this.cancelEditTeam();
+      } else {
+        // CREAZIONE: Salva una nuova squadra azzerando i parametri della classifica
+        await set(ref(this.db, 'teams/' + targetId), { 
+          id: targetId, name, owner, logo: finalLogoUrl, motto, desc,
+          pts: 0, lastGW: 0, w: 0, d: 0, l: 0 
+        });
+        window.toast("Squadra creata con successo!", "ok");
+        ['tName', 'tOwner', 'tLogoFile', 'tMotto', 'tDesc'].forEach(f => document.getElementById(f).value = '');
+      }
+    } catch (err) { 
+      window.toast(err.message || "Errore durante il salvataggio", "err"); 
+    } finally {
+      // Ripristina lo stato del bottone d'invio
+      btnSubmit.textContent = originalBtnText;
+      btnSubmit.disabled = false;
+    }
+  },
+
+  // 7. ELIMINAZIONE SQUADRA (Rimuove il nodo e resetta il form in caso di cancellazione concorrente)
+  async deleteTeam(id) {
+    if (confirm("Vuoi davvero eliminare questa squadra?")) {
+      try { 
+        await set(ref(this.db, 'teams/' + id), null); 
+        window.toast("Squadra eliminata.", "ok");
+        // Se elimini la stessa squadra che stavi modificando a schermo, pulisci il form
+        if (this.isEditing && this.editingId === id) {
+          this.cancelEditTeam();
+        }
+      } catch (err) { 
+        window.toast("Errore nell'eliminazione", "err"); 
+      }
+    }
+  }
+};
