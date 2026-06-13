@@ -1,9 +1,8 @@
-import { ref, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { ref, set, remove, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 let database = null;
 
 export const CompetizioniSection = {
-  // Metodo di inizializzazione chiamato da admin.html
   init(db) {
     database = db;
     this.registerGlobalActions();
@@ -15,6 +14,8 @@ export const CompetizioniSection = {
       <div class="sec-title">🏆 Gestione & Nuova Competizione</div>
       
       <div class="card" style="max-width: 600px;">
+        <div class="label" style="color: var(--accent); margin-bottom: 1rem; font-size: .85rem;">Crea una nuova competizione</div>
+        
         <label class="label">ID Competizione (es: serie-a-2024)</label>
         <input type="text" id="compId" class="input-login" placeholder="ID univoco senza spazi">
 
@@ -40,15 +41,73 @@ export const CompetizioniSection = {
 
         <button class="btn btn-green" onclick="window.creaCompetizione()">✨ Crea Competizione</button>
       </div>
+
+      <div class="card">
+        <div class="label" style="color: var(--accent); margin-bottom: 1rem; font-size: .85rem;">Competizioni Esistenti nell'App</div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Tipo</th>
+                <th>GW Attuale</th>
+                <th>Mercato</th>
+                <th style="text-align: right;">Azioni</th>
+              </tr>
+            </thead>
+            <tbody id="admin-competitions-list">
+              <tr>
+                <td colspan="6" style="text-align: center; color: var(--text3);">Caricamento competizioni...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>`;
   },
 
   render(state) {
-    // Lasciato pronto per futuri aggiornamenti di stato
+    const listContainer = document.getElementById('admin-competitions-list');
+    if (!listContainer) return;
+
+    const comps = state.competitions || [];
+    if (comps.length === 0) {
+      listContainer.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text3);">Nessuna competizione creata. Usa il modulo sopra per crearne una.</td></tr>`;
+      return;
+    }
+
+    listContainer.innerHTML = comps.map(c => {
+      const currentGW = (c.status && c.status.currentGW) ? c.status.currentGW : 1;
+      const marketOpen = c.marketOpen !== false; // Di default è true se non impostato
+      
+      return `
+        <tr>
+          <td style="font-family: 'DM Mono', monospace; font-size: .8rem; color: var(--accent2);">${c.id}</td>
+          <td style="font-weight: 500;">${c.name}</td>
+          <td style="text-transform: capitalize; font-size: .8rem;">${c.type}</td>
+          <td>
+            <div style="display: flex; align-items: center; gap: .5rem;">
+              <input type="number" value="${currentGW}" id="gw-input-${c.id}" style="width: 50px; background: var(--bg); border: 1px solid var(--border); color: #fff; padding: .2rem .4rem; border-radius: 4px; text-align: center;">
+              <button class="btn btn-blue" onclick="window.updateCompGW('${c.id}')" style="padding: .25rem .5rem; font-size: .75rem; width: auto;">Salva</button>
+            </div>
+          </td>
+          <td>
+            <button class="btn ${marketOpen ? 'btn-green' : 'btn-red'}" onclick="window.toggleCompMarket('${c.id}', ${marketOpen})" style="padding: .25rem .5rem; font-size: .75rem; width: auto; font-weight:500;">
+              ${marketOpen ? '🟢 Aperto' : '🔴 Chiuso'}
+            </button>
+          </td>
+          <td style="text-align: right;">
+            <button class="btn btn-red" onclick="window.eliminaCompetizione('${c.id}', '${c.name.replace(/'/g, "\\'")}')" style="padding: .35rem .6rem; font-size: .75rem; width: auto; display: inline-flex;">
+              🗑️ Elimina
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
   },
 
   registerGlobalActions() {
-    // Spostate le logiche globali dei form all'interno dell'ambiente del modulo
     window.toggleCompFields = function(type) {
       const fg = document.getElementById('fieldGironi');
       const fq = document.getElementById('fieldQualificati');
@@ -115,6 +174,42 @@ export const CompetizioniSection = {
         nameInput.value = '';
       } catch (err) { 
         window.toast("Errore durante la creazione", "err"); 
+      }
+    };
+
+    // Azione Rapida: Modifica Turno Corrente GW
+    window.updateCompGW = async function(compId) {
+      if (!database) return;
+      const gwVal = parseInt(document.getElementById(`gw-input-${compId}`).value) || 1;
+      try {
+        await update(ref(database, `competitions/${compId}/status`), { currentGW: gwVal });
+        window.toast(`GW salvata a ${gwVal} per ${compId.toUpperCase()}`, "ok");
+      } catch (err) {
+        window.toast("Errore durante il salvataggio della GW", "err");
+      }
+    };
+
+    // Azione Rapida: Apertura/Chiusura Mercato di una specifica competizione
+    window.toggleCompMarket = async function(compId, currentlyOpen) {
+      if (!database) return;
+      try {
+        await update(ref(database, `competitions/${compId}`), { marketOpen: !currentlyOpen });
+        window.toast(`Mercato della competizione aggiornato!`, "ok");
+      } catch (err) {
+        window.toast("Errore durante la modifica del mercato", "err");
+      }
+    };
+
+    // Azione: Elimina Competizione da Firebase
+    window.eliminaCompetizione = async function(compId, compName) {
+      if (!database) return;
+      if (confirm(`⚠️ SEI SICURO?\nEliminando la competizione "${compName}" rimuoverai per sempre tutti i suoi calendari, risultati e classifiche.`)) {
+        try {
+          await remove(ref(database, `competitions/${compId}`));
+          window.toast(`Competizione "${compName}" eliminata definitivamente`, "info");
+        } catch (err) {
+          window.toast("Errore durante l'eliminazione", "err");
+        }
       }
     };
 
