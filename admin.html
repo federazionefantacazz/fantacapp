@@ -114,7 +114,7 @@ tr:hover td{background:rgba(255,255,255,0.01)}
       <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>SofaScore Sync
     </button>
     <button class="snav" onclick="showSec('mercato',this)">
-        <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>Assegna Squadre
+      <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>Assegna Squadre
     </button>
     <button class="snav" onclick="showSec('classifica',this)">
       <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Classifica
@@ -131,225 +131,28 @@ tr:hover td{background:rgba(255,255,255,0.01)}
     </div>
   </div>
 
-  <div class="main-content">
-    
-    <div id="sec-dashboard" class="admin-sec">
-      <div class="sec-title">Dashboard Generale</div>
-      
-      <div class="card-grid">
-        <div class="stat-box">
-          <div class="label">Giornata Attiva</div>
-          <div class="num" id="adminGWNum">—</div>
-        </div>
-        <div class="stat-box">
-          <div class="label">Calciatori nel Database</div>
-          <div class="num" id="pCount">0</div>
-        </div>
-      </div>
-
-      <div class="card" style="max-width:400px">
-        <div class="label" style="margin-bottom:.5rem">Imposta Giornata Gioco (GW)</div>
-        <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:1rem">
-          <button class="btn btn-blue" style="width:50px;padding:.5rem" onclick="changeGW(-1)">-</button>
-          <div style="font-size:1.4rem;font-weight:600;min-width:60px;text-align:center;flex:1" id="ds-gw">1</div>
-          <button class="btn btn-blue" style="width:50px;padding:.5rem" onclick="changeGW(1)">+</button>
-        </div>
-        <button class="btn btn-green" onclick="saveGW()">Aggiorna GW</button>
-      </div>
-    </div>
-
-    <div id="sec-teams" class="admin-sec" style="display:none">
-      <div class="sec-title">Gestione Squadre</div>
-      <div class="card" style="max-width:500px">
-        <div class="label" style="margin-bottom:.5rem">Aggiungi Nuova Squadra</div>
-        <input type="text" id="tId" class="input-login" placeholder="ID Univoco (es: fc-napoli)">
-        <input type="text" id="tName" class="input-login" placeholder="Nome Fantasquadra">
-        <input type="text" id="tOwner" class="input-login" placeholder="Nome Presidente">
-        <input type="text" id="tEmoji" class="input-login" placeholder="Emoji (es: 🌋)" max="2">
-        <button class="btn btn-green" onclick="addTeam()">Crea Squadra</button>
-      </div>
-      
-      <div class="card">
-        <div class="label">Squadre Registrate</div>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr><th>Emoji</th><th>Nome</th><th>Presidente</th><th>Punti</th><th>Azioni</th></tr>
-            </thead>
-            <tbody id="teamsTableBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div id="sec-players" class="admin-sec" style="display:none">
-      <div class="sec-title">Database Calciatori</div>
-      <div class="card">
-        <div style="display:flex;gap:1rem;margin-bottom:1rem;align-items:center">
-          <input type="text" id="pSearch" class="input-login" placeholder="Cerca calciatore per nome..." style="margin-bottom:0;max-width:300px" oninput="window.filterPlayersAdmin(this.value)">
-          <div style="font-size:.85rem;color:var(--text2)" id="pFoundCount"></div>
-        </div>
-        <div class="table-wrapper" style="max-height:500px">
-          <table>
-            <thead>
-              <tr><th>Nome</th><th>Ruolo</th><th>Club</th><th>Valore</th></tr>
-            </thead>
-            <tbody id="playersTableBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div id="sec-votes" class="admin-sec" style="display:none">
-      <div class="sec-title">Voti Live Ricevuti <span id="gwBadge" class="badge badge-green">GW 1</span></div>
-      <div class="card">
-        <div class="label">Filtra per Ruolo o Cerca</div>
-        <div class="vote-grid" id="votesGridContainer"></div>
-      </div>
-    </div>
-
-    <div id="sec-sync" class="admin-sec" style="display:none">
-      <div class="sec-title">Sincronizzazione SofaScore</div>
-      <div class="card" style="max-width:500px">
-        <div class="label" style="margin-bottom:.5rem">ID Turno SofaScore (Unique Tournament ID)</div>
-        <input type="text" id="sofaTournId" class="input-login" value="53" placeholder="ID Campionato (es: 53 per Serie A)">
-        <input type="number" id="sofaGwNum" class="input-login" value="1" placeholder="Numero Giornata Reale">
-        <button class="btn btn-blue" onclick="syncSofaScoreVotes()">Avvia Sincronizzazione Voti</button>
-        <div id="syncLog" style="margin-top:1rem;font-size:.8rem;font-family:'DM Mono',monospace;color:var(--text2);max-height:150px;overflow-y:auto"></div>
-      </div>
-    </div>
-
-    <div id="sec-mercato" class="admin-sec" style="display:none">
-      <div class="sec-title">Assegnazione Calciatori & Mercato</div>
-      <div class="card" style="max-width:600px;">
-        <div class="label" style="margin-bottom:.5rem">Assegna un Calciatore Svincolato a una Squadra</div>
-        <div style="display:flex; gap:1rem; margin-bottom:1rem;">
-          <div style="flex:1;">
-            <label class="label">Seleziona Giocatore</label>
-            <select id="mPlayerSelect" style="width:100%; background:var(--bg3); border:1px solid var(--border); border-radius:6px; color:#fff; padding:.65rem; font-size:.9rem;"></select>
-          </div>
-          <div style="flex:1;">
-            <label class="label">Seleziona Squadra Destinataria</label>
-            <select id="mTeamSelect" style="width:100%; background:var(--bg3); border:1px solid var(--border); border-radius:6px; color:#fff; padding:.65rem; font-size:.9rem;"></select>
-          </div>
-        </div>
-        <button class="btn btn-green" onclick="window.assignPlayerToTeam()">Conferma Assegnazione</button>
-      </div>
-
-      <div class="card">
-        <div class="label">Storico Assegnazioni & Calciatori per Squadra</div>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr><th>Giocatore</th><th>Ruolo</th><th>Club</th><th>Squadra Fanta</th><th>Azioni</th></tr>
-            </thead>
-            <tbody id="mercatoTableBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div id="sec-classifica" class="admin-sec" style="display:none">
-      <div class="sec-title">Modifica Manuale Classifica Punti</div>
-      <div class="card">
-        <div class="label" style="margin-bottom:.5rem">Gestione Punteggi Globali (Punti Totali, Vittorie, Pareggi, Sconfitte)</div>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr><th>Squadra</th><th>Punti Totali</th><th>Punti Ultima GW</th><th>Vinte (W)</th><th>Nulle (D)</th><th>Perse (L)</th><th>Azioni</th></tr>
-            </thead>
-            <tbody id="rankAdminTableBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div id="sec-calendar-gen" class="admin-sec" style="display:none;">
-      <div class="sec-title">🗓️ Generatore Calendario Automatico</div>
-      
-      <div class="card" style="max-width: 600px;">
-        <div style="margin-bottom: 1rem; padding: .8rem; background: rgba(80, 227, 194, 0.1); border-left: 4px solid var(--accent); border-radius: 4px;">
-          <span style="font-size: .85rem; color: var(--text);">
-            Stai per generare il calendario per la competizione attiva selezionata nella sidebar.
-          </span>
-        </div>
-        
-
-        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
-          <div style="flex: 1;">
-            <label class="label">Numero Giornate totali</label>
-            <input type="number" id="genTotalGws" class="input-login" value="33" min="1" max="38" style="margin-bottom:0; background: var(--bg3); border: 1px solid var(--border); color:#fff; padding:.5rem; border-radius:6px; width:100%;">
-          </div>
-          <div style="flex: 1;">
-            <label class="label">Tipo di Turno</label>
-            <select id="genRotationType" style="width:100%; background:var(--bg3); border:1px solid var(--border); border-radius:6px; color:#fff; padding:.6rem; font-size:.85rem;">
-              <option value="andata-ritorno">Andata e Ritorno continui</option>
-              <option value="solo-andata">Solo Andata (fino a esaurimento)</option>
-            </select>
-          </div>
-        </div>
-
-        <button class="btn btn-green" onclick="window.generateRandomCalendar()">⚡ Genera & Salva su Firebase</button>
-      </div>
-
-      <div class="card">
-        <div class="label">Anteprima delle squadre che parteciperanno:</div>
-        <div id="genTeamsPreview" style="display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; font-size: .85rem; color: var(--text2);"></div>
-      </div>
-    </div>
-
+  <div class="main-content" id="admin-sections-container">
+    <!-- Le sezioni vengono iniettate qui da JS -->
   </div>
 </div>
 
 <div id="toast" class="toast"></div>
-<div id="sec-crea-competizioni" class="admin-sec" style="display:none">
-          
-  <div class="sec-title">🏆 Gestione & Creazione Competizioni</div>
-  
-  <div class="card" style="max-width:600px">
-    <div class="label" style="margin-bottom:.5rem">Crea Nuova Competizione</div>
-    
-    <input type="text" id="compId" class="input-login" placeholder="ID Univoco (es: championz-2026)">
-    <input type="text" id="compName" class="input-login" placeholder="Nome Visibile (es: Champions League)">
-    
-    <label class="label">Tipologia Torneo</label>
-    <select id="compType" class="input-login" onchange="window.toggleCompFields(this.value)">
-      <option value="campionato">Campionato classico (Girone all'italiana)</option>
-      <option value="eliminazione">Eliminazione Diretta (Coppa)</option>
-      <option value="misto">Misto (Campionato + Fase Finale a Eliminazione)</option>
-    </select>
-
-    <div id="fieldGironi" style="display:block;">
-      <label class="label">Numero di Gironi (Andata/Ritorno o ripetizioni)</label>
-      <input type="number" id="compGironi" class="input-login" value="2" min="1">
-    </div>
-
-    <div id="fieldQualificati" style="display:none;">
-      <label class="label">Squadre Qualificate alla Fase Finale (es: prime 4 della classifica)</label>
-      <input type="number" id="compQualificati" class="input-login" value="4" min="2">
-    </div>
-
-    <button class="btn btn-green" onclick="window.creaCompetizione()">⚡ Crea & Inizializza Competizione</button>
-  </div>
-
-  <div class="card">
-    <div class="label">Competizioni Attive nel Database</div>
-    <div class="table-wrapper">
-      <table>
-        <thead>
-          <tr><th>ID</th><th>Nome</th><th>Tipo</th><th>Dettagli Configurazione</th></tr>
-        </thead>
-        <tbody id="compTableBody"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, onValue, set, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
+import { DashboardSection }    from './js/admin/dashboard.js';
+import { TeamsSection }        from './js/admin/teams.js';
+import { PlayersSection }      from './js/admin/players.js';
+import { VotesSection }        from './js/admin/votes.js';
+import { SyncSection }         from './js/admin/sync.js';
+import { MercatoSection }      from './js/admin/mercato.js';
+import { ClassificaSection }   from './js/admin/classifica.js';
+import { CalendarioSection }   from './js/admin/calendario.js';
+import { CompetizioniSection } from './js/admin/competizioni.js';
+
+/* ─── Firebase ─────────────────────────────────────────────────────────── */
 const firebaseConfig = {
   apiKey: "AIzaSyA6-PybCz_csan8tcrOEfgP8v3WKg1SIWY",
   authDomain: "fantcapp.firebaseapp.com",
@@ -360,156 +163,82 @@ const firebaseConfig = {
   appId: "1:118817739792:web:2dc599ae4bfb8769222695",
   measurementId: "G-DR0TJDVR2R"
 };
-
 const fapp = initializeApp(firebaseConfig);
 const db = getDatabase(fapp);
 
-const syncStatusEl = document.getElementById('syncStatus');
-if(syncStatusEl) {
-  syncStatusEl.innerHTML = "🟢 Connesso a Firebase";
-  syncStatusEl.style.color = "var(--accent)";
-}
-// Funzione globale per cambiare sezione nella dashboard
-window.showSec = function(secId, btnElement) {
-  // 1. Nascondi tutte le sezioni admin
-  const sections = document.querySelectorAll('.admin-sec');
-  sections.forEach(sec => {
-    sec.style.display = 'none';
-  });
-
-  // 2. Mostra solo la sezione cliccata
-  const targetSec = document.getElementById('sec-' + secId);
-  if (targetSec) {
-    targetSec.style.display = 'block';
-  }
-
-  // 3. Rimuovi la classe 'active' da tutti i bottoni della sidebar
-  const buttons = document.querySelectorAll('.snav');
-  buttons.forEach(btn => {
-    btn.classList.remove('active');
-  });
-
-  // 4. Aggiungi la classe 'active' al bottone cliccato
-  if (btnElement) {
-    btnElement.classList.add('active');
-  }
-};
-window.CURRENT_COMPETITION = '';
-
+/* ─── Stato globale admin ───────────────────────────────────────────────── */
 let TEAMS = [];
 let PLAYERS = [];
 let VOTES = {};
-let MATCHES = {};    
-let CURRENT_GW = 1;  
-let adminPlayerFilter = '';
+let MATCHES = {};
+let CURRENT_GW = 1;
+let competitions = [];
 
 let teamsCaricate = false;
 let giocatoriCaricati = false;
 
-/* ==========================================================================
-   LOGICA DI GESTIONE & CREAZIONE NUOVE COMPETIZIONI
-   ========================================================================== */
+window.CURRENT_COMPETITION = '';
 
-// Cambia visibilità dei campi in base al tipo di torneo scelto
-window.toggleCompFields = function(type) {
-  const fg = document.getElementById('fieldGironi');
-  const fq = document.getElementById('fieldQualificati');
-  if(!fg || !fq) return;
-  
-  if (type === 'campionato') {
-    fg.style.display = 'block';
-    fq.style.display = 'none';
-  } else if (type === 'eliminazione') {
-    fg.style.display = 'none';
-    fq.style.display = 'none';
-  } else if (type === 'misto') {
-    fg.style.display = 'block';
-    fq.style.display = 'block';
-  }
+/* ─── Bootstrap UI: inietta HTML di tutte le sezioni ───────────────────── */
+const container = document.getElementById('admin-sections-container');
+container.innerHTML = [
+  DashboardSection,
+  TeamsSection,
+  PlayersSection,
+  VotesSection,
+  SyncSection,
+  MercatoSection,
+  ClassificaSection,
+  CalendarioSection,
+  CompetizioniSection,
+].map(s => s.renderHTML()).join('');
+
+/* ─── Status Firebase ───────────────────────────────────────────────────── */
+const syncStatusEl = document.getElementById('syncStatus');
+if (syncStatusEl) {
+  syncStatusEl.innerHTML = "🟢 Connesso a Firebase";
+  syncStatusEl.style.color = "var(--accent)";
+}
+
+/* ─── Helper: aggiorna tutte le sezioni con lo stato corrente ───────────── */
+function refreshAll() {
+  const state = { TEAMS, PLAYERS, VOTES, MATCHES, CURRENT_GW, competitions };
+  DashboardSection.render(state);
+  TeamsSection.render(state);
+  PlayersSection.render(state);
+  VotesSection.render(state);
+  SyncSection.render(state);
+  MercatoSection.render(state);
+  ClassificaSection.render(state);
+  CalendarioSection.render(state);
+  CompetizioniSection.render(state);
+}
+
+/* ─── Navigazione sidebar ───────────────────────────────────────────────── */
+window.showSec = function(secId, btnElement) {
+  document.querySelectorAll('.admin-sec').forEach(sec => sec.style.display = 'none');
+  const target = document.getElementById('sec-' + secId);
+  if (target) target.style.display = 'block';
+  document.querySelectorAll('.snav').forEach(btn => btn.classList.remove('active'));
+  if (btnElement) btnElement.classList.add('active');
 };
 
-// Crea e inizializza la competizione nel DB
-window.creaCompetizione = async function() {
-  const idInput = document.getElementById('compId');
-  const nameInput = document.getElementById('compName');
-  if(!idInput || !nameInput) return;
-
-  const id = idInput.value.trim().toLowerCase().replace(/\s+/g, '-');
-  const name = nameInput.value.trim();
-  const type = document.getElementById('compType').value;
-  const gironi = parseInt(document.getElementById('compGironi').value) || 1;
-  const qualificati = parseInt(document.getElementById('compQualificati').value) || 0;
-
-  if (!id || !name) {
-    toast("ID e Nome Competizione sono obbligatori!", "err");
-    return;
-  }
-
-  // Costruiamo un unico oggetto con tutte le informazioni e i dati iniziali
-  const compPayload = { 
-    id, 
-    name, 
-    type,
-    status: { currentGW: 1 }, // Stato della giornata
-    marketOpen: true,         // Stato mercato (opzionale ma utile)
-    fixtures: {},             // Preparo i nodi vuoti per evitare errori in lettura
-    teams: {},
-    standings: {}
-  };
-
-  // Aggiungiamo i campi extra solo se servono
-  if (type === 'campionato' || type === 'misto') compPayload.gironi = gironi;
-  if (type === 'misto') compPayload.qualificatiFaseFinale = qualificati;
-
-  try {
-    // 🔥 Salvataggio UNIFICATO: mettiamo tutto dentro competitions/ID
-    await set(ref(db, `competitions/${id}`), compPayload);
-    
-    toast(`Competizione "${name}" creata con successo!`, "ok");
-    
-    idInput.value = '';
-    nameInput.value = '';
-  } catch (err) {
-    console.error(err);
-    toast("Errore durante la creazione", "err");
-  }
-};
-
-/* ==========================================================================
-   LOGICA CORE COMPETIZIONI & SQUADRE (VERSIONE OTTIMIZZATA SENZA STATICHE)
-   ========================================================================== */
-
-// 1. Dichiariamo prima la funzione per ascoltare i dati della competizione attiva, evitando errori di hoisting
+/* ─── Gestione competizione attiva ──────────────────────────────────────── */
 function ascoltaDatiCompetizione(compId) {
   if (!compId) return;
-  
+
   onValue(ref(db, `competitions/${compId}/status`), snap => {
     const statusData = snap.val() || {};
     CURRENT_GW = statusData.currentGW || 1;
-    
-    const el1 = document.getElementById('adminGWNum');
-    const el2 = document.getElementById('gwBadge');
-    const el3 = document.getElementById('ds-gw');
-    
-    if (el1) el1.textContent = CURRENT_GW;
-    if (el2) el2.textContent = 'GW ' + CURRENT_GW;
-    if (el3) el3.textContent = CURRENT_GW;
-    
-    if (teamsCaricate && giocatoriCaricati) {
-      updateDashboard();
-      renderVoteGrid();
-    }
+    if (teamsCaricate && giocatoriCaricati) refreshAll();
   });
 
   onValue(ref(db, `competitions/${compId}/matches`), snap => {
     MATCHES = snap.val() || {};
-    if (teamsCaricate && giocatoriCaricati) {
-      updateDashboard(); 
-    }
+    if (teamsCaricate && giocatoriCaricati) refreshAll();
   });
 }
 
-// 2. Funzione globale per cambiare competizione attiva dalla sidebar
 window._handleAdminCompChange = function(newCompId) {
   if (!newCompId) return;
   window.CURRENT_COMPETITION = newCompId;
@@ -517,288 +246,97 @@ window._handleAdminCompChange = function(newCompId) {
   ascoltaDatiCompetizione(newCompId);
 };
 
-// 3. Listener Realtime per le competizioni create su Firebase
+/* ─── Listener Firebase ─────────────────────────────────────────────────── */
 onValue(ref(db, 'competitions'), snap => {
   const comps = snap.val() || {};
-  const list = Object.values(comps);
+  competitions = Object.values(comps);
 
-  // Aggiorna dinamicamente la select "Competizione Attiva" nella sidebar
   const adminSelect = document.getElementById('adminCompSelect');
   if (adminSelect) {
-    if (list.length === 0) {
+    if (competitions.length === 0) {
       adminSelect.innerHTML = `<option value="">⚠️ Nessuna competizione nel DB</option>`;
       window.CURRENT_COMPETITION = '';
     } else {
-      // Se non c'è ancora una competizione attiva selezionata (es: all'avvio), agganciamo la prima del DB
       if (!window.CURRENT_COMPETITION || !comps[window.CURRENT_COMPETITION]) {
-        window.CURRENT_COMPETITION = list[0].id;
+        window.CURRENT_COMPETITION = competitions[0].id;
         ascoltaDatiCompetizione(window.CURRENT_COMPETITION);
       }
-
-      adminSelect.innerHTML = list.map(c => `
+      adminSelect.innerHTML = competitions.map(c => `
         <option value="${c.id}" ${window.CURRENT_COMPETITION === c.id ? 'selected' : ''}>
           🏆 ${c.name || c.id}
         </option>
       `).join('');
     }
   }
-
-  // Aggiorna la tabella di riepilogo delle competizioni
-  const tbody = document.getElementById('compTableBody');
-  if (tbody) {
-    if (list.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text3)">Nessuna competizione configurata nel database. creane una qui sopra.</td></tr>';
-      return;
-    }
-    tbody.innerHTML = list.map(c => {
-      let dettagli = '—';
-      if (c.type === 'campionato') dettagli = `${c.gironi} Giri di calendario`;
-      if (c.type === 'misto') dettagli = `${c.gironi} Giri Classifica + Primi ${c.qualificatiFaseFinale} ai Playoff`;
-      if (c.type === 'eliminazione') dettagli = `Tabellone scontro diretto`;
-      
-      return `
-        <tr>
-          <td><code style="color:var(--accent)">${c.id}</code></td>
-          <td><strong>${c.name}</strong></td>
-          <td><span class="badge badge-blue">${c.type}</span></td>
-          <td>${dettagli}</td>
-        </tr>
-      `;
-    }).join('');
-  }
+  if (teamsCaricate && giocatoriCaricati) refreshAll();
 });
 
-// 4. Listener Realtime per i dati delle Squadre globali
 onValue(ref(db, 'teams'), snap => {
   const raw = snap.val() || {};
-  TEAMS = Object.values(raw).sort((a,b) => (b.pts || 0) - (a.pts || 0));
+  TEAMS = Object.values(raw).sort((a, b) => (b.pts || 0) - (a.pts || 0));
   teamsCaricate = true;
-  
-  if (teamsCaricate && giocatoriCaricati) {
-    updateDashboard(); 
-    renderTeamsTable(); 
-    renderRankAdmin();
-    populateMercatoSelects();
-    aggiornaAnteprimaSquadreCalendario();
-  }
+  if (teamsCaricate && giocatoriCaricati) refreshAll();
 });
 
-// 5. Listener Realtime per i dati dei Giocatori globali
 onValue(ref(db, 'players'), snap => {
   const raw = snap.val() || {};
   PLAYERS = Object.values(raw);
   giocatoriCaricati = true;
-  
-  const pCount = document.getElementById('pCount');
-  if (pCount) pCount.textContent = PLAYERS.length;
-  
-  // Se le strutture di base sono caricate ma la competizione attiva non ha ancora un listener attivo, lo inizializziamo
-  if (window.CURRENT_COMPETITION) {
-    ascoltaDatiCompetizione(window.CURRENT_COMPETITION);
-  }
-  
-  if (teamsCaricate && giocatoriCaricati) {
-    renderPlayersTable(); 
-    renderVoteGrid();
-    populateMercatoSelects();
-    updateDashboard();
-    aggiornaAnteprimaSquadreCalendario();
-  }
+  if (window.CURRENT_COMPETITION) ascoltaDatiCompetizione(window.CURRENT_COMPETITION);
+  if (teamsCaricate && giocatoriCaricati) refreshAll();
 });
 
-// 6. Listener Realtime per i Voti di giornata
 onValue(ref(db, 'votes'), snap => {
   VOTES = snap.val() || {};
-  if (teamsCaricate && giocatoriCaricati) {
-    renderVoteGrid();
-  }
+  if (teamsCaricate && giocatoriCaricati) refreshAll();
 });
 
+/* ─── Azioni globali (chiamate dall'HTML delle sezioni) ─────────────────── */
 
-function aggiornaAnteprimaSquadreCalendario() {
-  const container = document.getElementById('genTeamsPreview');
-  if(!container) return;
-  if(TEAMS.length === 0) {
-    container.innerHTML = "❌ Nessuna squadra trovata. Crea prima le squadre dal pannello.";
-    return;
+window.filterPlayersAdmin = function(val) {
+  PlayersSection.setFilter(val);
+  PlayersSection.render({ PLAYERS });
+};
+
+window.changeGW = function(val) {
+  CURRENT_GW = Math.max(1, CURRENT_GW + val);
+  DashboardSection.render({ CURRENT_GW });
+};
+
+window.saveGW = async function() {
+  try {
+    await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/status`), { currentGW: CURRENT_GW });
+    toast('Giornata GW' + CURRENT_GW + ' salvata per ' + window.CURRENT_COMPETITION.toUpperCase(), 'ok');
+  } catch (err) {
+    toast("Errore nel salvataggio della GW", "err");
   }
-  container.innerHTML = TEAMS.map(t => `
-    <span style="background:var(--bg3); border:1px solid var(--border); padding:.4rem .6rem; border-radius:6px; display:inline-block; margin: 2px;">
-      ${t.emoji || '⚽'} ${t.name}
-    </span>
-  `).join('');
-}
-
-function updateDashboard() {
-  const adminGWNum = document.getElementById('adminGWNum');
-  const dsGW = document.getElementById('ds-gw');
-  if (adminGWNum) adminGWNum.textContent = CURRENT_GW;
-  if (dsGW) dsGW.textContent = CURRENT_GW;
-}
-
-function renderTeamsTable() {
-  const tbody = document.getElementById('teamsTableBody');
-  if(!tbody) return;
-  tbody.innerHTML = TEAMS.map(t => `
-    <tr>
-      <td style="font-size:1.3rem">${t.emoji||'⚽'}</td>
-      <td><strong>${t.name}</strong></td>
-      <td>${t.owner||'—'}</td>
-      <td><span class="badge badge-green">${t.pts||0} pts</span></td>
-      <td><button class="btn btn-red" style="padding:.25rem .5rem;font-size:.75rem;width:auto" onclick="window.deleteTeam('${t.id}')">Elimina</button></td>
-    </tr>
-  `).join('');
-}
+};
 
 window.addTeam = async function() {
-  const id = document.getElementById('tId').value.trim();
-  const name = document.getElementById('tName').value.trim();
+  const id    = document.getElementById('tId').value.trim();
+  const name  = document.getElementById('tName').value.trim();
   const owner = document.getElementById('tOwner').value.trim();
   const emoji = document.getElementById('tEmoji').value.trim();
-
-  if(!id || !name) return toast("ID e Nome sono obbligatori!","err");
-
+  if (!id || !name) return toast("ID e Nome sono obbligatori!", "err");
   try {
     await set(ref(db, 'teams/' + id), { id, name, owner, emoji, pts: 0, lastGW: 0, w: 0, d: 0, l: 0 });
     toast("Squadra creata con successo!", "ok");
-    document.getElementById('tId').value='';
-    document.getElementById('tName').value='';
-    document.getElementById('tOwner').value='';
-    document.getElementById('tEmoji').value='';
+    ['tId','tName','tOwner','tEmoji'].forEach(f => document.getElementById(f).value = '');
   } catch (err) {
     toast("Errore durante la creazione", "err");
   }
 };
 
 window.deleteTeam = async function(id) {
-  if(confirm("Vuoi davvero eliminare questa squadra?")) {
+  if (confirm("Vuoi davvero eliminare questa squadra?")) {
     try {
       await set(ref(db, 'teams/' + id), null);
       toast("Squadra eliminata.", "ok");
-    } catch(err) {
+    } catch (err) {
       toast("Errore nell'eliminazione", "err");
     }
   }
 };
-
-function renderPlayersTable() {
-  const tbody = document.getElementById('playersTableBody');
-  if(!tbody) return;
-  
-  const f = adminPlayerFilter.toLowerCase();
-  const filtered = PLAYERS.filter(p => p.name && p.name.toLowerCase().includes(f));
-  
-  const pFoundCount = document.getElementById('pFoundCount');
-  if (pFoundCount) pFoundCount.textContent = `Trovati: ${filtered.length}`;
-
-  tbody.innerHTML = filtered.slice(0, 50).map(p => `
-    <tr>
-      <td><strong>${p.name}</strong></td>
-      <td><span class="badge ${p.role==='P'?'badge-gray':p.role==='D'?'badge-blue':p.role==='C'?'badge-green':'badge-red'}">${p.role}</span></td>
-      <td>${p.club||'Svincolato'}</td>
-      <td><strong>${p.value||'—'}</strong></td>
-    </tr>
-  `).join('');
-}
-
-window.filterPlayersAdmin = function(val) {
-  adminPlayerFilter = val;
-  renderPlayersTable();
-};
-
-function renderVoteGrid() {
-  const container = document.getElementById('votesGridContainer');
-  if(!container) return;
-  
-  const gVotes = VOTES[`gw${CURRENT_GW}`] || {};
-  const items = Object.entries(gVotes);
-
-  if(items.length === 0) {
-    container.innerHTML = '<div style="color:var(--text3);font-size:.85rem">Nessun voto caricato per questa GW.</div>';
-    return;
-  }
-
-  container.innerHTML = items.map(([pId, v]) => {
-    const p = PLAYERS.find(pl => pl.id === pId) || { name: pId };
-    return `
-      <div class="vote-item">
-        <span style="font-weight:600;font-size:.85rem">${p.name}</span>
-        <span class="score">${v}</span>
-      </div>
-    `;
-  }).join('');
-}
-
-window.changeGW = function(val) {
-  CURRENT_GW += val;
-  if(CURRENT_GW < 1) CURRENT_GW = 1;
-  const dsGW = document.getElementById('ds-gw');
-  if (dsGW) dsGW.textContent = CURRENT_GW;
-};
-
-window.saveGW = async function(){
-  try {
-    await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/status`), { currentGW: CURRENT_GW });
-    toast('Giornata GW'+CURRENT_GW+' salvata per ' + window.CURRENT_COMPETITION.toUpperCase(), 'ok');
-  } catch(err) {
-    toast("Errore nel salvataggio della GW", "err");
-  }
-};
-
-window.syncSofaScoreVotes = async function() {
-  const tId = document.getElementById('sofaTournId').value;
-  const gwNum = document.getElementById('sofaGwNum').value;
-  const log = document.getElementById('syncLog');
-
-  if (log) log.innerHTML = "Avvio sincronizzazione... Richiesta API in corso...<br>";
-
-  try {
-    const url = `https://api.sofascore.com/api/v1/unique-tournament/${tId}/season/52357/events`; 
-    if (log) log.innerHTML += `URL: ${url}<br>Simulazione completata. Integrazione con i tuoi moduli reali...<br>`;
-    toast("Sincronizzazione completata con successo!", "ok");
-  } catch(e) {
-    if (log) log.innerHTML += `Errore: ${e.message}<br>`;
-    toast("Errore durante il sync", "err");
-  }
-};
-
-function populateMercatoSelects() {
-  const pSelect = document.getElementById('mPlayerSelect');
-  const tSelect = document.getElementById('mTeamSelect');
-  if (!pSelect || !tSelect) return;
-
-  const svincolati = PLAYERS.filter(p => !p.teamId && p.name).sort((a,b) => a.name.localeCompare(b.name));
-  pSelect.innerHTML = svincolati.map(p => `<option value="${p.id}">${p.name} (${p.role} - ${p.club || 'Svincolato'})</option>`).join('');
-  tSelect.innerHTML = TEAMS.map(t => `<option value="${t.id}">${t.emoji || '⚽'} ${t.name}</option>`).join('');
-  
-  renderMercatoTable();
-}
-
-function renderMercatoTable() {
-  const tbody = document.getElementById('mercatoTableBody');
-  if (!tbody) return;
-
-  const sortedPlayers = [...PLAYERS].filter(p => p.name).sort((a, b) => a.name.localeCompare(b.name));
-
-  tbody.innerHTML = sortedPlayers.map(p => {
-    const fantaTeam = TEAMS.find(t => t.id === p.teamId);
-    const teamBadge = fantaTeam 
-      ? `<span class="badge badge-blue">${fantaTeam.emoji || '⚽'} ${fantaTeam.name}</span>`
-      : `<span class="badge badge-gray">❌ Svincolato</span>`;
-
-    return `
-      <tr>
-        <td><strong>${p.name}</strong></td>
-        <td><span class="badge ${p.role==='P'?'badge-gray':p.role==='D'?'badge-blue':p.role==='C'?'badge-green':'badge-red'}">${p.role}</span></td>
-        <td>${p.club||'Svincolato'}</td>
-        <td>${teamBadge}</td>
-        <td>
-          ${p.teamId ? `<button class="btn btn-red" style="font-size:.7rem;padding:.25rem .5rem; width:auto;" onclick="window.releasePlayer('${p.id}')">Svincola</button>` : '—'}
-        </td>
-      </tr>
-    `;
-  }).join('');
-}
 
 window.releasePlayer = async function(playerId) {
   const giocatore = PLAYERS.find(p => p.id === playerId);
@@ -807,7 +345,7 @@ window.releasePlayer = async function(playerId) {
     try {
       await update(ref(db, 'players/' + playerId), { teamId: null });
       toast(`${giocatore.name} svincolato.`, 'ok');
-    } catch(err) {
+    } catch (err) {
       toast("Errore durante lo svincolo", "err");
     }
   }
@@ -816,129 +354,124 @@ window.releasePlayer = async function(playerId) {
 window.assignPlayerToTeam = async function() {
   const pId = document.getElementById('mPlayerSelect').value;
   const tId = document.getElementById('mTeamSelect').value;
-
   if (!pId || !tId) return toast("Seleziona sia un giocatore che una squadra!", "err");
-
   try {
     await update(ref(db, 'players/' + pId), { teamId: tId });
     toast("Giocatore assegnato con successo!", "ok");
-  } catch(err) {
+  } catch (err) {
     toast("Errore durante l'assegnazione", "err");
   }
 };
 
-function renderRankAdmin() {
-  const tbody = document.getElementById('rankAdminTableBody');
-  if(!tbody) return;
-  tbody.innerHTML = TEAMS.map(t => `
-    <tr>
-      <td><strong>${t.emoji||'⚽'} ${t.name}</strong></td>
-      <td><input type="number" step="0.5" id="rk-pts-${t.id}" class="input-login" style="width:70px;margin-bottom:0;padding:.3rem" value="${t.pts||0}"></td>
-      <td><input type="number" step="0.5" id="rk-lgw-${t.id}" class="input-login" style="width:70px;margin-bottom:0;padding:.3rem" value="${t.lastGW||0}"></td>
-      <td><input type="number" id="rk-w-${t.id}" class="input-login" style="width:55px;margin-bottom:0;padding:.3rem" value="${t.w||0}"></td>
-      <td><input type="number" id="rk-d-${t.id}" class="input-login" style="width:55px;margin-bottom:0;padding:.3rem" value="${t.d||0}"></td>
-      <td><input type="number" id="rk-l-${t.id}" class="input-login" style="width:55px;margin-bottom:0;padding:.3rem" value="${t.l||0}"></td>
-      <td><button class="btn btn-green" style="font-size:.75rem;padding:.3rem .6rem;width:auto" onclick="window.saveRankRow('${t.id}')">Salva</button></td>
-    </tr>
-  `).join('');
-}
-
-window.saveRankRow = async function(id){
-  const pts = parseFloat(document.getElementById('rk-pts-'+id).value)||0;
-  const lgw = parseFloat(document.getElementById('rk-lgw-'+id).value)||0;
-  const w = parseInt(document.getElementById('rk-w-'+id).value)||0;
-  const d = parseInt(document.getElementById('rk-d-'+id).value)||0;
-  const l = parseInt(document.getElementById('rk-l-'+id).value)||0;
-  
+window.saveRankRow = async function(id) {
+  const pts = parseFloat(document.getElementById('rk-pts-' + id).value) || 0;
+  const lgw = parseFloat(document.getElementById('rk-lgw-' + id).value) || 0;
+  const w   = parseInt(document.getElementById('rk-w-' + id).value) || 0;
+  const d   = parseInt(document.getElementById('rk-d-' + id).value) || 0;
+  const l   = parseInt(document.getElementById('rk-l-' + id).value) || 0;
   try {
-    await update(ref(db,'teams/'+id),{pts,lastGW:lgw,w,d,l});
+    await update(ref(db, 'teams/' + id), { pts, lastGW: lgw, w, d, l });
     toast('Classifica di squadra aggiornata globalmente!', 'ok');
-  } catch (error) {
+  } catch (err) {
     toast('Errore nel salvataggio della classifica', 'err');
   }
 };
 
-window.generateRandomCalendar = async function() {
-  if (TEAMS.length < 2) {
-    toast("Servono almeno 2 squadre per creare un calendario!", "err");
-    return;
+window.syncSofaScoreVotes = async function() {
+  const tId  = document.getElementById('sofaTournId').value;
+  const gwNum = document.getElementById('sofaGwNum').value;
+  const log  = document.getElementById('syncLog');
+  if (log) log.innerHTML = "Avvio sincronizzazione... Richiesta API in corso...<br>";
+  try {
+    const url = `https://api.sofascore.com/api/v1/unique-tournament/${tId}/season/52357/events`;
+    if (log) log.innerHTML += `URL: ${url}<br>Simulazione completata. Integrazione con i tuoi moduli reali...<br>`;
+    toast("Sincronizzazione completata con successo!", "ok");
+  } catch (e) {
+    if (log) log.innerHTML += `Errore: ${e.message}<br>`;
+    toast("Errore durante il sync", "err");
   }
+};
+
+window.toggleCompFields = function(type) {
+  const fg = document.getElementById('fieldGironi');
+  const fq = document.getElementById('fieldQualificati');
+  if (!fg || !fq) return;
+  fg.style.display = (type === 'campionato' || type === 'misto') ? 'block' : 'none';
+  fq.style.display = (type === 'misto') ? 'block' : 'none';
+};
+
+window.creaCompetizione = async function() {
+  const idInput   = document.getElementById('compId');
+  const nameInput = document.getElementById('compName');
+  if (!idInput || !nameInput) return;
+
+  const id   = idInput.value.trim().toLowerCase().replace(/\s+/g, '-');
+  const name = nameInput.value.trim();
+  const type = document.getElementById('compType').value;
+  const gironi      = parseInt(document.getElementById('compGironi').value) || 1;
+  const qualificati = parseInt(document.getElementById('compQualificati').value) || 0;
+
+  if (!id || !name) return toast("ID e Nome Competizione sono obbligatori!", "err");
+
+  const compPayload = { id, name, type, status: { currentGW: 1 }, marketOpen: true, fixtures: {}, teams: {}, standings: {} };
+  if (type === 'campionato' || type === 'misto') compPayload.gironi = gironi;
+  if (type === 'misto') compPayload.qualificatiFaseFinale = qualificati;
+
+  try {
+    await set(ref(db, `competitions/${id}`), compPayload);
+    toast(`Competizione "${name}" creata con successo!`, "ok");
+    idInput.value = '';
+    nameInput.value = '';
+  } catch (err) {
+    toast("Errore durante la creazione", "err");
+  }
+};
+
+window.generateRandomCalendar = async function() {
+  if (TEAMS.length < 2) return toast("Servono almeno 2 squadre!", "err");
 
   const totalGwsRequested = parseInt(document.getElementById('genTotalGws').value) || 33;
   const rotationType = document.getElementById('genRotationType').value;
 
-  if(!confirm(`Vuoi sovrascrivere interamente il calendario di "${window.CURRENT_COMPETITION.toUpperCase()}" per generare ${totalGwsRequested} giornate?`)) {
-    return;
-  }
+  if (!confirm(`Vuoi sovrascrivere il calendario di "${window.CURRENT_COMPETITION.toUpperCase()}" con ${totalGwsRequested} giornate?`)) return;
 
-  let listaSquadre = TEAMS.map(t => t.id);
-  listaSquadre.sort(() => Math.random() - 0.5); 
+  let lista = TEAMS.map(t => t.id).sort(() => Math.random() - 0.5);
+  if (lista.length % 2 !== 0) lista.push("RIPOSO");
 
-  if (listaSquadre.length % 2 !== 0) {
-    listaSquadre.push("RIPOSO");
-  }
-
-  const numSquadre = listaSquadre.length;
+  const numSquadre = lista.length;
   const matchPerGiornata = numSquadre / 2;
   const turniUnici = numSquadre - 1;
-
   let calendarioCompleto = {};
 
   for (let g = 1; g <= totalGwsRequested; g++) {
     const gironeCorrente = Math.floor((g - 1) / turniUnici);
     const turnoNelGirone = (g - 1) % turniUnici;
-    const invertiCasaTrasferta = (rotationType === 'andata-ritorno' && gironeCorrente % 2 !== 0);
-
-    let matchDellaGiornata = {};
-    let matchIdContatore = 1;
+    const inverti = (rotationType === 'andata-ritorno' && gironeCorrente % 2 !== 0);
+    let matchGiornata = {};
+    let counter = 1;
 
     for (let m = 0; m < matchPerGiornata; m++) {
       let casaIdx = (turnoNelGirone + m) % (numSquadre - 1);
-      let trasfertaIdx = (numSquadre - 1 - m + turnoNelGirone) % (numSquadre - 1);
-
-      if (m === 0) {
-        trasfertaIdx = numSquadre - 1;
-      }
-
-      let idCasa = listaSquadre[casaIdx];
-      let idTrasferta = listaSquadre[trasfertaIdx];
-
-      if (idCasa === "RIPOSO" || idTrasferta === "RIPOSO") {
-        continue;
-      }
-
-      if (invertiCasaTrasferta) {
-        const temp = idCasa;
-        idCasa = idTrasferta;
-        idTrasferta = temp;
-      }
-
-      const matchKey = `m${matchIdContatore}`;
-      matchDellaGiornata[matchKey] = {
-        id: matchKey,
-        homeId: idCasa,
-        awayId: idTrasferta,
-        homeScore: null,
-        awayScore: null,
-        finished: false
-      };
-
-      matchIdContatore++;
+      let trasfIdx = m === 0 ? numSquadre - 1 : (numSquadre - 1 - m + turnoNelGirone) % (numSquadre - 1);
+      let idCasa = lista[casaIdx];
+      let idTrasf = lista[trasfIdx];
+      if (idCasa === "RIPOSO" || idTrasf === "RIPOSO") continue;
+      if (inverti) { const tmp = idCasa; idCasa = idTrasf; idTrasf = tmp; }
+      matchGiornata[`m${counter++}`] = { id: `m${counter - 1}`, homeId: idCasa, awayId: idTrasf, homeScore: null, awayScore: null, finished: false };
     }
-
-    calendarioCompleto[`gw${g}`] = matchDellaGiornata;
+    calendarioCompleto[`gw${g}`] = matchGiornata;
   }
 
   try {
     await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/matches`), calendarioCompleto);
     await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/status`), { currentGW: 1 });
     toast(`🎯 Calendario generato per ${window.CURRENT_COMPETITION.toUpperCase()}!`, "ok");
-  } catch (error) {
-    console.error(error);
+  } catch (err) {
     toast("Errore durante il salvataggio del calendario", "err");
   }
 };
 
+/* ─── Toast helper ──────────────────────────────────────────────────────── */
 function toast(msg, type = "ok") {
   const t = document.getElementById('toast');
   if (!t) return;
