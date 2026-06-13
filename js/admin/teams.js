@@ -56,33 +56,38 @@ export const TeamsSection = {
     </div>`;
   },
 
-  // 3. RENDERING DELLA TABELLA (Mostra l'anteprima del logo ImgBB, il motto e il tasto Modifica)
+  // 3. RENDERING DELLA TABELLA (Loghi ingranditi a 48px e centrati)
   render({ TEAMS }) {
     const tbody = document.getElementById('teamsTableBody');
     if (!tbody) return;
     tbody.innerHTML = TEAMS.map(t => {
-      // Escape dei caratteri speciali per evitare bug di sintassi JavaScript nei parametri onclick
-      const safeName = (t.name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-      const safeOwner = (t.owner || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-      const safeLogo = (t.logo || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-      const safeMotto = (t.motto || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-      const safeDesc = (t.desc || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      // FUNZIONE HELPER: Pulisce apici, virgolette e rimuove gli andate a capo (sostituiti con uno spazio)
+      const clean = (str) => (str || '')
+        .replace(/'/g, "\\'")
+        .replace(/"/g, '&quot;')
+        .replace(/\r?\n|\r/g, ' ');
 
-      // Se non c'è un logo internet, mostra uno scudetto grigio di default
+      const safeName = clean(t.name);
+      const safeOwner = clean(t.owner);
+      const safeLogo = clean(t.logo);
+      const safeMotto = clean(t.motto);
+      const safeDesc = clean(t.desc);
+
+      // Loghi modificati: portati da 32px a 48px con object-fit proporzionale
       const logoHtml = t.logo 
-        ? `<img src="${t.logo}" alt="Logo" style="width:32px; height:32px; object-fit:contain; border-radius:4px;">`
-        : `<div style="width:32px; height:32px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:.8rem; color:var(--text3)">🛡️</div>`;
+        ? `<img src="${t.logo}" alt="Logo" style="width:48px; height:48px; object-fit:contain; border-radius:6px; vertical-align:middle;">`
+        : `<div style="width:48px; height:48px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.5rem; color:var(--text3); vertical-align:middle;">🛡️</div>`;
 
       return `
       <tr>
-        <td>${logoHtml}</td>
-        <td>
+        <td style="width:60px; text-align:center;">${logoHtml}</td>
+        <td style="vertical-align:middle;">
           <strong>${t.name}</strong>
           ${t.motto ? `<br><small style="color:var(--text2); font-style:italic;">"${t.motto}"</small>` : ''}
         </td>
-        <td>${t.owner || '—'}</td>
-        <td><span class="badge badge-green">${t.pts || 0} pts</span></td>
-        <td>
+        <td style="vertical-align:middle;">${t.owner || '—'}</td>
+        <td style="vertical-align:middle;"><span class="badge badge-green">${t.pts || 0} pts</span></td>
+        <td style="vertical-align:middle;">
           <div style="display:flex; gap:.25rem;">
             <button class="btn btn-blue" style="padding:.25rem .5rem;font-size:.75rem;width:auto" onclick="window.prepareEditTeam('${t.id}', '${safeName}', '${safeOwner}', '${safeLogo}', '${safeMotto}', '${safeDesc}')">Modifica</button>
             <button class="btn btn-red" style="padding:.25rem .5rem;font-size:.75rem;width:auto" onclick="window.deleteTeam('${t.id}')">Elimina</button>
