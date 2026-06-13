@@ -1,4 +1,17 @@
+import { ref, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
 export const TeamsSection = {
+  // Riferimento al database che verrà passato dall'esterno
+  db: null,
+
+  init(databaseInstance) {
+    this.db = databaseInstance;
+    
+    // Esponiamo le funzioni globalmente su window per i trigger onclick dell'HTML
+    window.addTeam = () => this.addTeam();
+    window.deleteTeam = (id) => this.deleteTeam(id);
+  },
+
   renderHTML() {
     return `
     <div id="sec-teams" class="admin-sec" style="display:none">
@@ -38,5 +51,34 @@ export const TeamsSection = {
         <td><button class="btn btn-red" style="padding:.25rem .5rem;font-size:.75rem;width:auto" onclick="window.deleteTeam('${t.id}')">Elimina</button></td>
       </tr>
     `).join('');
+  },
+
+  /* ─── LOGICHE SPOSTATE QUI ─── */
+  async addTeam() {
+    const id = document.getElementById('tId').value.trim();
+    const name = document.getElementById('tName').value.trim();
+    const owner = document.getElementById('tOwner').value.trim();
+    const emoji = document.getElementById('tEmoji').value.trim();
+    
+    if (!id || !name) return window.toast("ID e Nome obbligatori!", "err");
+    
+    try {
+      await set(ref(this.db, 'teams/' + id), { id, name, owner, emoji, pts: 0, lastGW: 0, w: 0, d: 0, l: 0 });
+      window.toast("Squadra creata con successo!", "ok");
+      ['tId','tName','tOwner','tEmoji'].forEach(f => document.getElementById(f).value = '');
+    } catch (err) { 
+      window.toast("Errore durante la creazione", "err"); 
+    }
+  },
+
+  async deleteTeam(id) {
+    if (confirm("Vuoi davvero eliminare questa squadra?")) {
+      try { 
+        await set(ref(this.db, 'teams/' + id), null); 
+        window.toast("Squadra eliminata.", "ok"); 
+      } catch (err) { 
+        window.toast("Errore nell'eliminazione", "err"); 
+      }
+    }
   }
 };

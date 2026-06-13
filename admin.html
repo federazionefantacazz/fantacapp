@@ -290,6 +290,8 @@ const firebaseConfig = {
 };
 const fapp = initializeApp(firebaseConfig);
 const db = getDatabase(fapp);
+// Inizializza le logiche interne di TeamsSection passandogli il DB
+TeamsSection.init(db);
 
 /* ─── Stato globale ───────────────────────────────────────────────────── */
 let TEAMS = [];
@@ -377,24 +379,7 @@ window.saveGW = async function() {
     toast('Giornata GW' + CURRENT_GW + ' salvata per ' + window.CURRENT_COMPETITION.toUpperCase(), 'ok');
   } catch (err) { toast("Errore nel salvataggio della GW", "err"); }
 };
-window.addTeam = async function() {
-  const id = document.getElementById('tId').value.trim();
-  const name = document.getElementById('tName').value.trim();
-  const owner = document.getElementById('tOwner').value.trim();
-  const emoji = document.getElementById('tEmoji').value.trim();
-  if (!id || !name) return toast("ID e Nome obbligatori!", "err");
-  try {
-    await set(ref(db, 'teams/' + id), { id, name, owner, emoji, pts: 0, lastGW: 0, w: 0, d: 0, l: 0 });
-    toast("Squadra creata con successo!", "ok");
-    ['tId','tName','tOwner','tEmoji'].forEach(f => document.getElementById(f).value = '');
-  } catch (err) { toast("Errore durante la creazione", "err"); }
-};
-window.deleteTeam = async function(id) {
-  if (confirm("Vuoi davvero eliminare questa squadra?")) {
-    try { await set(ref(db, 'teams/' + id), null); toast("Squadra eliminata.", "ok"); } 
-    catch (err) { toast("Errore nell'eliminazione", "err"); }
-  }
-};
+
 window.releasePlayer = async function(playerId) {
   const giocatore = PLAYERS.find(p => p.id === playerId);
   if (!giocatore) return;
@@ -499,7 +484,7 @@ window.generateRandomCalendar = async function() {
 };
 
 /* ─── Toast Helper ──────────────────────────────────────────────────────── */
-function toast(msg, type = "ok") {
+window.toast = function(msg, type = "ok") {
   const t = document.getElementById('toast');
   if (!t) return;
   t.textContent = msg;
