@@ -223,7 +223,7 @@ window.STATE = {
   votes: {}, 
   status: {}, 
   matches: {}, 
-  currentCompetition: 'fantacazz',
+  currentCompetition: '',
   booted: false 
 };
 
@@ -244,27 +244,6 @@ onAuthStateChanged(auth, firebaseUser => {
 });
 
 function caricaDatiCompetizione(compId) {
-
-// [NUOVO] Sincronizzazione Realtime delle Competizioni Create
-	onValue(ref(db, 'competitions_meta'), snap => {
-	  const comps = snap.val() || {};
-	  const list = Object.values(comps);
-	  
-	  const userSelect = document.getElementById('userCompSelect');
-	  if (userSelect) {
-		if(list.length === 0) {
-		  // Fallback se il database non ha ancora metadati
-		  userSelect.innerHTML = `<option value="fantacazz">🏆 Fantacazz (Campionato)</option>`;
-		} else {
-		  // Popola il menu a tendina mantenendo selezionata quella attuale
-		  userSelect.innerHTML = list.map(c => `
-			<option value="${c.id}" ${window.STATE.currentCompetition === c.id ? 'selected' : ''}>
-			  🏆 ${c.name}
-			</option>
-		  `).join('');
-		}
-	  }
-	});
 
   onValue(ref(db, `competitions/${compId}/lineups`), snap => {
     if (!window.STATE.competitions) window.STATE.competitions = {};
@@ -506,20 +485,27 @@ window.doTeamSelection = function() {
     bootApp();
   }
 };
-// Ascolta le competizioni create nel nodo unico di Firebase e popola il selettore dell'header
+
+// Ascolta le competizioni create nel database e popola il selettore dell'header
 onValue(ref(db, 'competitions'), snap => {
   const comps = snap.val() || {};
   const list = Object.values(comps);
   
-  // 🔥 ESSENZIALE: Salva i dati nello stato globale!
   window.STATE.allCompetitions = list;
   
-  const headerSelect = document.getElementById('headerCompSelect');
-  if (headerSelect) {
+  const userSelect = document.getElementById('userCompSelect');
+  if (userSelect) {
     if (list.length === 0) {
-      headerSelect.innerHTML = `<option value="fantacazz">🏆 Fantacazz (Campionato)</option>`;
+      userSelect.innerHTML = `<option value="">⚠️ Nessun torneo nel DB</option>`;
+      window.STATE.currentCompetition = '';
     } else {
-      headerSelect.innerHTML = list.map(c => `
+      // Se non c'è una competizione attiva impostata nello STATO, seleziona la prima del DB
+      if (!window.STATE.currentCompetition || !comps[window.STATE.currentCompetition]) {
+        window.STATE.currentCompetition = list[0].id;
+        caricaDatiCompetizione(list[0].id);
+      }
+
+      userSelect.innerHTML = list.map(c => `
         <option value="${c.id}" ${window.STATE.currentCompetition === c.id ? 'selected' : ''}>
           🏆 ${c.name || c.id}
         </option>
@@ -527,7 +513,6 @@ onValue(ref(db, 'competitions'), snap => {
     }
   }
 
-  // 🔥 IMPORTANTE: Forza il ricalcolo di tutta la UI
   refreshUI();
 });
 
