@@ -20,137 +20,41 @@
   --text2: #a0aab5;    
   --text3: #626e7a;    
   --border: rgba(255,255,255,0.06);
-  --sidebar-width: 240px; /* Variabile comoda per gestire lo spazio desktop */
+  --sidebar-width: 240px;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
 
-/* LAYOUT DINAMICO (MOBILE FIRST) */
-.layout {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  width: 100%;
-}
+.layout { display: flex; flex-direction: column; min-height: 100vh; width: 100%; }
 
-/* HEADER MOBILE */
-.mobile-header {
-  display: flex;
-  flex-direction: column;
-  background: var(--bg2);
-  border-bottom: 1px solid var(--border);
-  padding: 1rem;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-.mobile-header .logo-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-.mobile-header .logo {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.8rem;
-}
-.mobile-header .logo span {
-  font-size: .75rem;
-  font-family: 'DM Sans', sans-serif;
-  color: var(--accent);
-  margin-left: 0.5rem;
-}
+.mobile-header { display: flex; flex-direction: column; background: var(--bg2); border-bottom: 1px solid var(--border); padding: 1rem; position: sticky; top: 0; z-index: 100; }
+.mobile-header .logo-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+.mobile-header .logo { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; }
+.mobile-header .logo span { font-size: .75rem; font-family: 'DM Sans', sans-serif; color: var(--accent); margin-left: 0.5rem; }
 
-/* SIDEBAR (Nativa per layout fluido su Desktop) */
-.sidebar {
-  display: none;
-  background: var(--bg2);
-  border-right: 1px solid var(--border);
-  padding: 1.5rem 0;
-  flex-direction: column;
-  gap: .2rem;
-  width: var(--sidebar-width);
-  height: 100vh;
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 101;
-}
+.sidebar { display: none; background: var(--bg2); border-right: 1px solid var(--border); padding: 1.5rem 0; flex-direction: column; gap: .2rem; width: var(--sidebar-width); height: 100vh; position: fixed; top: 0; left: 0; z-index: 101; }
 .sidebar .logo{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:1px;padding:0 1.5rem;margin-bottom:1.5rem;color:#fff;display:flex;flex-direction:column}
 .sidebar .logo span{font-size:.75rem;font-family:'DM Sans',sans-serif;color:var(--accent);letter-spacing:0;font-weight:600;text-transform:uppercase;margin-top:-4px}
 
-/* NAVIGATION LINKS / BUTTONS */
-.snav {
-  background: none;
-  border: none;
-  color: var(--text2);
-  padding: .8rem 1.5rem;
-  text-align: left;
-  font-size: .9rem;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  transition: all .2s;
-}
+.snav { background: none; border: none; color: var(--text2); padding: .8rem 1.5rem; text-align: left; font-size: .9rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: .75rem; transition: all .2s; }
 .snav:hover { background: rgba(255,255,255,0.03); color: #fff; }
-.snav.active {
-  background: rgba(80,227,194,0.08);
-  color: var(--accent);
-  font-weight: 600;
-  border-left: 3px solid var(--accent);
-}
+.snav.active { background: rgba(80,227,194,0.08); color: var(--accent); font-weight: 600; border-left: 3px solid var(--accent); }
 .snav svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 
 .sidebar-bottom { margin-top: auto; padding: 0 1.5rem; }
 .sync-status { font-size: .75rem; color: var(--text2); background: var(--bg3); padding: .5rem .75rem; border-radius: 6px; border: 1px solid var(--border); text-align: center; }
 
-/* BOTTOM NAV MOBILE */
-.bottom-nav {
-  display: flex;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: var(--bg2);
-  border-top: 1px solid var(--border);
-  z-index: 100;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
+.bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg2); border-top: 1px solid var(--border); z-index: 100; overflow-x: auto; scrollbar-width: none; }
 .bottom-nav::-webkit-scrollbar { display: none; }
-.bottom-nav .snav {
-  flex: 1;
-  min-width: 75px;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.6rem 0.5rem;
-  font-size: 0.7rem;
-  text-align: center;
-  border-left: none;
-}
-.bottom-nav .snav.active {
-  border-left: none;
-  border-top: 3px solid var(--accent);
-  background: rgba(80,227,194,0.04);
-}
+.bottom-nav .snav { flex: 1; min-width: 75px; flex-direction: column; justify-content: center; align-items: center; gap: 0.25rem; padding: 0.6rem 0.5rem; font-size: 0.7rem; text-align: center; border-left: none; }
+.bottom-nav .snav.active { border-left: none; border-top: 3px solid var(--accent); background: rgba(80,227,194,0.04); }
 .bottom-nav .snav svg { width: 20px; height: 20px; }
 
-/* MAIN CONTENT CONTAINER */
-.main-content {
-  padding: 1rem;
-  flex: 1;
-  width: 100%;
-  margin-bottom: 70px;
-}
+.main-content { padding: 1rem; flex: 1; width: 100%; margin-bottom: 70px; }
 .admin-sec { animation: fadeIn .25s ease-out; }
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 .sec-title { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 1px; margin-bottom: 1.25rem; color: #fff; }
 
-/* UTILS / CARDS / INPUTS */
 .card { background: var(--card); border-radius: 12px; padding: 1.25rem; border: 1px solid var(--border); margin-bottom: 1.25rem; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
 .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
 .stat-box { background: var(--bg3); border-radius: 8px; padding: .8rem 1rem; border: 1px solid var(--border); display: flex; flex-direction: column; gap: .25rem; }
@@ -166,41 +70,26 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .btn-red { background: var(--accent3); color: #fff; }
 .btn-red:hover { background: #ff5252; }
 
-/* TABLES OVERFLOW PROTECTION */
 .table-wrapper { overflow-x: auto; margin-top: .5rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg3); -webkit-overflow-scrolling: touch; }
 table { width: 100%; border-collapse: collapse; text-align: left; font-size: .85rem; min-width: 500px; }
 th { background: var(--card); color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: .7rem; letter-spacing: 0.5px; padding: .75rem 1rem; border-bottom: 1px solid var(--border); }
 td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
 
-/* VOTE GRID */
 .vote-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .5rem; margin-top: .5rem; }
 .vote-item { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: .6rem .8rem; display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; }
 
-/* TOAST */
 .toast { position: fixed; bottom: 5rem; right: 1rem; left: 1rem; padding: .75rem 1.25rem; border-radius: 6px; background: var(--card); border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 9999; font-size: .85rem; font-weight: 500; transform: translateY(100px); opacity: 0; transition: all .3s cubic-bezier(0.175, 0.885, 0.32, 1.275); text-align: center; }
 .toast.show { transform: translateY(0); opacity: 1; }
 .toast.ok { border-left: 4px solid var(--accent); }
 .toast.err { border-left: 4px solid var(--accent3); }
 .toast.info { border-left: 4px solid var(--accent2); }
 
-/* ─── MEDIA QUERY: DESKTOP (Riparata e Bilanciata) ─────────────────────── */
 @media (min-width: 992px) {
-  .layout { 
-    display: block; /* Sgancia il flex mobile che causava il bug a sinistra */
-    width: 100%;
-  }
+  .layout { display: block; width: 100%; }
   .mobile-header { display: none; }
   .sidebar { display: flex; }
   .bottom-nav { display: none; }
-  
-  /* Sposta a destra il contenuto e gli dà il 100% dello spazio rimanente */
-  .main-content { 
-    padding: 2rem; 
-    margin-bottom: 0; 
-    margin-left: var(--sidebar-width); 
-    width: calc(100% - var(--sidebar-width));
-  }
-  
+  .main-content { padding: 2rem; margin-bottom: 0; margin-left: var(--sidebar-width); width: calc(100% - var(--sidebar-width)); }
   .sec-title { font-size: 2.4rem; }
   .toast { left: auto; right: 1.5rem; bottom: 1.5rem; width: auto; max-width: 350px; text-align: left; }
   .card-grid { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; }
@@ -211,7 +100,6 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 <body>
 
 <div class="layout">
-  
   <div class="mobile-header">
     <div class="logo-row">
       <div class="logo">Fantacazz<span>Patron</span></div>
@@ -221,17 +109,13 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
   
   <div class="sidebar">
     <div class="logo">Fantacazz<span>Pannello Patron</span></div>
-
     <div class="nav-links-container"></div>
-
     <div class="sidebar-bottom">
       <div class="sync-status" id="syncStatus">⚪ Caricamento...</div>
     </div>
   </div>
 
-  <div class="main-content" id="admin-sections-container">
-    </div>
-
+  <div class="main-content" id="admin-sections-container"></div>
   <div class="bottom-nav" id="mobileBottomNav"></div>
 </div>
 
@@ -290,8 +174,10 @@ const firebaseConfig = {
 };
 const fapp = initializeApp(firebaseConfig);
 const db = getDatabase(fapp);
-// Inizializza le logiche interne di TeamsSection passandogli il DB
+
+// Inizializzazione moduli interni passandogli il DB
 TeamsSection.init(db);
+CompetizioniSection.init(db);
 
 /* ─── Stato globale ───────────────────────────────────────────────────── */
 let TEAMS = [];
@@ -341,7 +227,6 @@ window.showSec = function(secId) {
   });
 };
 
-// Assegna i click handler a tutti i bottoni generati dal template
 document.querySelectorAll('.snav').forEach(btn => {
   btn.addEventListener('click', function() {
     const targetSec = this.getAttribute('data-sec');
@@ -351,7 +236,6 @@ document.querySelectorAll('.snav').forEach(btn => {
 
 
 /* ─── Listener Firebase ─────────────────────────────────────────────────── */
-
 onValue(ref(db, 'teams'), snap => {
   const raw = snap.val() || {};
   TEAMS = Object.values(raw).sort((a, b) => (b.pts || 0) - (a.pts || 0));
@@ -371,7 +255,7 @@ onValue(ref(db, 'votes'), snap => {
   if (teamsCaricate && giocatoriCaricati) refreshAll();
 });
 
-/* ─── Azioni Globali Rimaste Inalterate per Logica ──────────────────────── */
+/* ─── Azioni Globali ────────────────────────────────────────────────────── */
 window.filterPlayersAdmin = function(val) { PlayersSection.setFilter(val); PlayersSection.render({ PLAYERS }); };
 window.saveGW = async function() {
   try {
@@ -423,72 +307,6 @@ window.syncSofaScoreVotes = async function() {
   }
 };
 
-window.toggleCompFields = function(type) {
-  const fg = document.getElementById('fieldGironi');
-  const fq = document.getElementById('fieldQualificati');
-  if (!fg || !fq) return;
-  // Nasconde i campi extra se selezioniamo il misto speciale, dato che è tutto automatizzato
-  fg.style.display = (type === 'campionato' || type === 'misto') ? 'block' : 'none';
-  fq.style.display = (type === 'misto') ? 'block' : 'none';
-};
-
-window.creaCompetizione = async function() {
-  const idInput   = document.getElementById('compId');
-  const nameInput = document.getElementById('compName');
-  if (!idInput || !nameInput) return;
-  
-  const id   = idInput.value.trim().toLowerCase().replace(/\s+/g, '-');
-  const name = nameInput.value.trim();
-  const type = document.getElementById('compType').value;
-  
-  if (!id || !name) return toast("ID e Nome Competizione sono obbligatori!", "err");
-  
-  // Payload base della competizione
-  let compPayload = { 
-    id, 
-    name, 
-    type, 
-    status: { currentGW: 1 }, 
-    marketOpen: true, 
-    fixtures: {}, 
-    teams: {}, 
-    standings: {} 
-  };
-  
-  // Applicazione delle regole in base al tipo selezionato
-  if (type === 'misto-speciale') {
-    compPayload.regolamento = {
-      fase1: { tipo: "campionato", giornate: 11, squadre: 12 },
-      qualificatiDirettiQuarti: 6,
-      playoff: {
-        posizioni: [7, 8, 9, 10],
-        accoppiamenti: [
-          { nome: "Playoff 1", casa: "pos_7", trasferta: "pos_10" },
-          { nome: "Playoff 2", casa: "pos_8", trasferta: "pos_9" }
-        ]
-      },
-      quartiTabellone: [
-        { match: "Q1", casa: "pos_1", trasferta: "vincitore_playoff_2" }, // 1° vs vincente peggiore
-        { match: "Q2", casa: "pos_2", trasferta: "vincitore_playoff_1" }, // 2° vs vincente migliore
-        { match: "Q3", casa: "pos_3", trasferta: "pos_6" },
-        { match: "Q4", casa: "pos_4", trasferta: "pos_5" }
-      ],
-      eliminate: [11, 12]
-    };
-  } else {
-    const gironi      = parseInt(document.getElementById('compGironi').value) || 1;
-    const qualificati = parseInt(document.getElementById('compQualificati').value) || 0;
-    if (type === 'campionato' || type === 'misto') compPayload.gironi = gironi;
-    if (type === 'misto') compPayload.qualificatiFaseFinale = qualificati;
-  }
-  
-  try {
-    await set(ref(db, `competitions/${id}`), compPayload);
-    toast(`Competizione "${name}" creata con successo con regole personalizzate!`, "ok");
-    idInput.value = ''; nameInput.value = '';
-  } catch (err) { toast("Errore durante la creazione", "err"); }
-};
-
 window.generateRandomCalendar = async function() {
   if (TEAMS.length < 2) return toast("Servono almeno 2 squadre!", "err");
   const totalGwsRequested = parseInt(document.getElementById('genTotalGws').value) || 33;
@@ -533,20 +351,8 @@ window.toast = function(msg, type = "ok") {
   setTimeout(() => t.classList.remove('show'), 2800);
 };
 
-// Injection dinamica dell'opzione speciale nel select (con un delay leggermente maggiore per sicurezza)
-setTimeout(() => {
-  const compTypeSelect = document.getElementById('compType');
-  if (compTypeSelect) {
-    // Evita duplicazioni controllando se esiste già
-    if (!compTypeSelect.querySelector('option[value="misto-speciale"]')) {
-      const newOpt = document.createElement('option');
-      newOpt.value = 'misto-speciale';
-      newOpt.textContent = 'Misto Speciale (12 Sq. - 11 GW + Playoff/Quarti)';
-      compTypeSelect.appendChild(newOpt);
-    }
-  }
-}, 800);
-
 // Avvio di default sulla prima sezione
 window.showSec('teams');
 </script>
+</body>
+</html>
