@@ -20,6 +20,7 @@
   --text2: #a0aab5;    
   --text3: #626e7a;    
   --border: rgba(255,255,255,0.06);
+  --sidebar-width: 240px; /* Variabile comoda per gestire lo spazio desktop */
 }
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
@@ -29,9 +30,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  width: 100%;
 }
 
-/* HEADER MOBILE (Invisibile su Desktop) */
+/* HEADER MOBILE */
 .mobile-header {
   display: flex;
   flex-direction: column;
@@ -65,10 +67,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   gap: 0.5rem;
   overflow-x: auto;
   padding-bottom: 4px;
-  scrollbar-width: none; /* Rimuove scrollbar Firefox */
+  scrollbar-width: none;
 }
 .comp-switcher-container::-webkit-scrollbar {
-  display: none; /* Rimuove scrollbar Chrome/Safari */
+  display: none;
 }
 .comp-pill {
   background: var(--bg3);
@@ -89,7 +91,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   font-weight: 600;
 }
 
-/* SIDEBAR (Solo Desktop) */
+/* SIDEBAR (Nativa per layout fluido su Desktop) */
 .sidebar {
   display: none;
   background: var(--bg2);
@@ -97,10 +99,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   padding: 1.5rem 0;
   flex-direction: column;
   gap: .2rem;
-  width: 240px;
+  width: var(--sidebar-width);
+  height: 100vh;
   position: fixed;
   top: 0;
-  bottom: 0;
   left: 0;
   z-index: 101;
 }
@@ -171,7 +173,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .main-content {
   padding: 1rem;
   flex: 1;
-  margin-bottom: 70px; /* Spazio per la bottom bar */
+  width: 100%;
+  margin-bottom: 70px;
 }
 .admin-sec { animation: fadeIn .25s ease-out; }
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
@@ -195,7 +198,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 /* TABLES OVERFLOW PROTECTION */
 .table-wrapper { overflow-x: auto; margin-top: .5rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg3); -webkit-overflow-scrolling: touch; }
-table { width: 100%; border-collapse: collapse; text-align: left; font-size: .85rem; min-width: 500px; /* Forza lo scroll fluido senza rompere i testi */ }
+table { width: 100%; border-collapse: collapse; text-align: left; font-size: .85rem; min-width: 500px; }
 th { background: var(--card); color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: .7rem; letter-spacing: 0.5px; padding: .75rem 1rem; border-bottom: 1px solid var(--border); }
 td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
 
@@ -210,13 +213,24 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 .toast.err { border-left: 4px solid var(--accent3); }
 .toast.info { border-left: 4px solid var(--accent2); }
 
-/* ─── MEDIA QUERY: DESKTOP ─────────────────────────────────────────────── */
+/* ─── MEDIA QUERY: DESKTOP (Riparata e Bilanciata) ─────────────────────── */
 @media (min-width: 992px) {
-  .layout { display: grid; grid-template-columns: 240px 1fr; }
+  .layout { 
+    display: block; /* Sgancia il flex mobile che causava il bug a sinistra */
+    width: 100%;
+  }
   .mobile-header { display: none; }
   .sidebar { display: flex; }
   .bottom-nav { display: none; }
-  .main-content { padding: 2rem; margin-bottom: 0; margin-left: 240px; }
+  
+  /* Sposta a destra il contenuto e gli dà il 100% dello spazio rimanente */
+  .main-content { 
+    padding: 2rem; 
+    margin-bottom: 0; 
+    margin-left: var(--sidebar-width); 
+    width: calc(100% - var(--sidebar-width));
+  }
+  
   .sec-title { font-size: 2.4rem; }
   .toast { left: auto; right: 1.5rem; bottom: 1.5rem; width: auto; max-width: 350px; text-align: left; }
   .card-grid { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; }
