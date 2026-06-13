@@ -1,10 +1,10 @@
 export const HomePage = {
 renderHTML() {
-    // Recuperiamo le competizioni dallo stato globale (popolato in index.html)
-    const allComps = (window.STATE && window.STATE.allCompetitions) ? window.STATE.allCompetitions : [];
+    // 1. Recupero dinamico dei dati dallo stato (popolato all'avvio in index.html)
+    const allComps = (window.STATE && window.STATE.competitions) ? Object.values(window.STATE.competitions) : [];
     const currentId = (window.STATE && window.STATE.currentCompetition) ? window.STATE.currentCompetition : 'fantacazz';
 
-    // Generiamo le opzioni in modo dinamico
+    // 2. Creazione delle opzioni basata sui dati reali presenti nel database
     const optionsHTML = allComps.map(c => `
       <option value="${c.id}" ${currentId === c.id ? 'selected' : ''}>
         🏆 ${c.name || c.id}
@@ -57,7 +57,7 @@ renderHTML() {
         <div id="live-votes" style="max-height: 300px; overflow-y: auto; padding-right: .2rem;"></div>
       </div>
     `;
-  },
+},
 
   render(STATE) {
     const gw = document.getElementById('home-gw');
