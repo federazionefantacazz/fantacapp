@@ -109,6 +109,14 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
   
   <div class="sidebar">
     <div class="logo">Fantacazz<span>Pannello Patron</span></div>
+    
+    <div style="padding: 0 1.5rem; margin-bottom: 1rem;">
+      <label class="label" style="color: var(--accent);">Competizione Attiva</label>
+      <select id="globalCompSelect" class="input-login" style="margin-bottom: 0; padding: .4rem .5rem; font-size: .8rem;" onchange="window.selectCompetition(this.value)">
+        <option value="">Caricamento...</option>
+      </select>
+    </div>
+
     <div class="nav-links-container"></div>
     <div class="sidebar-bottom">
       <div class="sync-status" id="syncStatus">⚪ Caricamento...</div>
@@ -175,9 +183,11 @@ const firebaseConfig = {
 const fapp = initializeApp(firebaseConfig);
 const db = getDatabase(fapp);
 
-// Inizializzazione moduli interni passandogli il DB
+// Inizializzazione moduli interni passandogli il DB con protezione di sicurezza
 TeamsSection.init(db);
-CompetizioniSection.init(db);
+if (CompetizioniSection && typeof CompetizioniSection.init === 'function') {
+  CompetizioniSection.init(db);
+}
 
 /* ─── Stato globale ───────────────────────────────────────────────────── */
 let TEAMS = [];
@@ -188,6 +198,9 @@ let CURRENT_GW = 1;
 let competitions = [];
 let teamsCaricate = false;
 let giocatoriCaricati = false;
+
+// Definizione di sicurezza per evitare l'errore "undefined"
+window.CURRENT_COMPETITION = ""; 
 
 /* ─── Generazione Navigazione Duale (Desktop / Mobile) ─────────────────── */
 const navTemplate = document.getElementById('nav-template').innerHTML;
@@ -209,7 +222,9 @@ if (syncStatusEl) {
 
 function refreshAll() {
   const state = { TEAMS, PLAYERS, VOTES, MATCHES, CURRENT_GW, competitions };
-  [TeamsSection, PlayersSection, VotesSection, SyncSection, MercatoSection, ClassificaSection, CalendarioSection, CompetizioniSection].forEach(s => s.render(state));
+  [TeamsSection, PlayersSection, VotesSection, SyncSection, MercatoSection, ClassificaSection, CalendarioSection, CompetizioniSection].forEach(s => {
+    if (s && typeof s.render === 'function') s.render(state);
+  });
 }
 
 /* ─── Navigazione Sincronizzata (Desktop + Mobile) ─────────────────────── */
@@ -234,8 +249,37 @@ document.querySelectorAll('.snav').forEach(btn => {
   });
 });
 
+/* ─── Gestione Selezione Competizione ─────────────────────────────────── */
+window.selectCompetition = function(compId) {
+  window.CURRENT_COMPETITION = compId;
+  const comp = competitions.find(c => c.id === compId);
+  if (comp && comp.status) {
+    CURRENT_GW = comp.status.currentGW || 1;
+  }
+  toast(`Competizione attiva impostata su: ${compId.toUpperCase()}`, "info");
+  refreshAll();
+};
 
 /* ─── Listener Firebase ─────────────────────────────────────────────────── */
+onValue(ref(db, 'competitions'), snap => {
+  const raw = snap.val() || {};
+  competitions = Object.values(raw);
+  
+  const selectEl = document.getElementById('globalCompSelect');
+  if (selectEl) {
+    if (competitions.length === 0) {
+      selectEl.innerHTML = '<option value="">Nessuna competizione creata</option>';
+    } else {
+      selectEl.innerHTML = competitions.map(c => `<option value="${c.id}" ${window.CURRENT_COMPETITION === c.id ? 'selected' : ''}>${c.name}</option>`).join('');
+      if (!window.CURRENT_COMPETITION && competitions.length > 0) {
+        window.CURRENT_COMPETITION = competitions[0].id;
+        if (competitions[0].status) CURRENT_GW = competitions[0].status.currentGW || 1;
+      }
+    }
+  }
+  // Fondamentale: invoca il refresh per disegnare la lista dei moduli compreso "CompetizioniSection"
+  refreshAll(); 
+});
 onValue(ref(db, 'teams'), snap => {
   const raw = snap.val() || {};
   TEAMS = Object.values(raw).sort((a, b) => (b.pts || 0) - (a.pts || 0));
@@ -258,6 +302,7 @@ onValue(ref(db, 'votes'), snap => {
 /* ─── Azioni Globali ────────────────────────────────────────────────────── */
 window.filterPlayersAdmin = function(val) { PlayersSection.setFilter(val); PlayersSection.render({ PLAYERS }); };
 window.saveGW = async function() {
+  if (!window.CURRENT_COMPETITION) return toast("Seleziona prima una competizione attiva!", "err");
   try {
     await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/status`), { currentGW: CURRENT_GW });
     toast('Giornata GW' + CURRENT_GW + ' salvata per ' + window.CURRENT_COMPETITION.toUpperCase(), 'ok');
@@ -308,6 +353,7 @@ window.syncSofaScoreVotes = async function() {
 };
 
 window.generateRandomCalendar = async function() {
+  if (!window.CURRENT_COMPETITION) return toast("Seleziona prima una competizione attiva dalla sidebar!", "err");
   if (TEAMS.length < 2) return toast("Servono almeno 2 squadre!", "err");
   const totalGwsRequested = parseInt(document.getElementById('genTotalGws').value) || 33;
   const rotationType = document.getElementById('genRotationType').value;
