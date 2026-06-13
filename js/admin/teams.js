@@ -21,7 +21,6 @@ export const TeamsSection = {
       <div class="sec-title">Gestione Squadre</div>
       <div class="card" style="max-width:500px">
         <div id="formTitle" class="label" style="margin-bottom:.5rem">Aggiungi Nuova Squadra</div>
-        <input type="text" id="tId" class="input-login" placeholder="ID Univoco (es: fc-napoli)">
         <input type="text" id="tName" class="input-login" placeholder="Nome Fantasquadra">
         <input type="text" id="tOwner" class="input-login" placeholder="Nome Presidente">
         <input type="text" id="tEmoji" class="input-login" placeholder="Emoji (es: 🌋)" max="2">
@@ -50,7 +49,6 @@ export const TeamsSection = {
     const tbody = document.getElementById('teamsTableBody');
     if (!tbody) return;
     tbody.innerHTML = TEAMS.map(t => {
-      // Escape dei caratteri per evitare problemi nel passaggio parametri della funzione inline onclick
       const safeName = (t.name || '').replace(/'/g, "\\'");
       const safeOwner = (t.owner || '').replace(/'/g, "\\'");
       const safeEmoji = (t.emoji || '').replace(/'/g, "\\'");
@@ -74,16 +72,12 @@ export const TeamsSection = {
 
   /* ─── LOGICHE ─── */
   
-  // 1. Prepara il form per la modifica popolando i campi
+  // Prepara il form per la modifica
   prepareEditTeam(id, name, owner, emoji) {
     this.isEditing = true;
     this.editingId = id;
 
-    document.getElementById('formTitle').textContent = "Modifica Squadra";
-    
-    const idInput = document.getElementById('tId');
-    idInput.value = id;
-    idInput.disabled = true; // L'ID univoco non deve essere modificato per non rompere i nodi Firebase
+    document.getElementById('formTitle').textContent = "Modifica Squadra (" + id + ")";
     
     document.getElementById('tName').value = name;
     document.getElementById('tOwner').value = owner;
@@ -93,16 +87,12 @@ export const TeamsSection = {
     document.getElementById('btnCancelEdit').style.display = "inline-flex";
   },
 
-  // 2. Annulla lo stato di modifica e resetta il form
+  // Annulla lo stato di modifica e resetta il form
   cancelEditTeam() {
     this.isEditing = false;
     this.editingId = null;
 
     document.getElementById('formTitle').textContent = "Aggiungi Nuova Squadra";
-    
-    const idInput = document.getElementById('tId');
-    idInput.value = '';
-    idInput.disabled = false;
     
     ['tName','tOwner','tEmoji'].forEach(f => document.getElementById(f).value = '');
     
@@ -110,39 +100,58 @@ export const TeamsSection = {
     document.getElementById('btnCancelEdit').style.display = "none";
   },
 
-  // 3. Gestisce sia la Creazione che la Modifica (In base al flag isEditing)
+  // Gestisce sia la Creazione che la Modifica
   async addTeam() {
-    const id = document.getElementById('tId').value.trim();
     const name = document.getElementById('tName').value.trim();
     const owner = document.getElementById('tOwner').value.trim();
     const emoji = document.getElementById('tEmoji').value.trim();
     
-    if (!id || !name) return window.toast("ID e Nome obbligatori!", "err");
+    if (!name) return window.toast("Il Nome della squadra è obbligatorio!", "err");
     
     try {
       if (this.isEditing) {
-        // MODIFICA: Usiamo update() per modificare solo i campi anagrafici senza azzerare i punti (pts, w, d, l, ecc.)
+        // MODIFICA: Aggiorna i dati usando l'editingId memorizzato
         await update(ref(this.db, 'teams/' + this.editingId), { name, owner, emoji });
         window.toast("Squadra aggiornata con successo!", "ok");
-        this.cancelEditTeam(); // Resetta il form
+        this.cancelEditTeam();
       } else {
-        // CREAZIONE: Usiamo set() per creare una nuova struttura da zero
-        await set(ref(this.db, 'teams/' + id), { id, name, owner, emoji, pts: 0, lastGW: 0, w: 0, d: 0, l: 0 });
-        window.toast("Squadra creata con successo!", "ok");
-        ['tId','tName','tOwner','tEmoji'].forEach(f => document.getElementById(f).value = '');
+        // CREAZIONE: Genera l'ID automaticamente partendo dal nome della squadra
+        // Esempio: "A.C. Milan" diventa "ac-milan"
+        const generatedId = name
+          .toLowerCase()
+          .replace(/[^a-z0-9 ]/g, '') // Rimuove caratteri speciali come punti, virgole, ecc.
+          .trim()
+          .replace(/\s+/g, '-');     // Sostituisce gli spazi con i trattini
+          
+        if (!generatedId) return window.toast("Nome non valido per generare un ID!", "err");
+
+        // Crea il nodo su Firebase con l'ID autogenerato
+        await set(ref(this.db, 'teams/' + generatedId), { 
+          id: generatedId, 
+          name, 
+          owner, 
+          emoji, 
+          pts: 0, 
+          lastGW: 0, 
+          w: 0, 
+          d: 0, 
+          l: 0 
+        });
+        
+        window.toast("Squadra creata con ID: " + generatedId, "ok");
+        ['tName','tOwner','tEmoji'].forEach(f => document.getElementById(f).value = '');
       }
     } catch (err) { 
       window.toast("Errore durante l'operazione", "err"); 
     }
   },
 
-  // 4. Elimina la squadra
+  // Elimina la squadra
   async deleteTeam(id) {
     if (confirm("Vuoi davvero eliminare questa squadra?")) {
       try { 
         await set(ref(this.db, 'teams/' + id), null); 
         window.toast("Squadra eliminata.", "ok");
-        // Se si elimina la squadra che si stava modificando, resetta il form
         if (this.isEditing && this.editingId === id) {
           this.cancelEditTeam();
         }
