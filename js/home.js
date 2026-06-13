@@ -1,10 +1,23 @@
 export const HomePage = {
-renderHTML() {
-    // 1. Recupero dinamico dei dati dallo stato (popolato all'avvio in index.html)
-    const allComps = (window.STATE && window.STATE.competitions) ? Object.values(window.STATE.competitions) : [];
-    const currentId = (window.STATE && window.STATE.currentCompetition) ? window.STATE.currentCompetition : 'fantacazz';
+  // Questo è il metodo che viene chiamato da refreshUI in index.html
+  render(STATE) {
+    const container = document.getElementById('page-home');
+    if (!container) return;
+    
+    // Inseriamo il contenuto renderizzato
+    container.innerHTML = this.renderHTML(STATE);
+    
+    // Qui puoi aggiungere eventuali listener o logiche post-render
+  },
 
-    // 2. Creazione delle opzioni basata sui dati reali presenti nel database
+  renderHTML(STATE) {
+    // Recuperiamo le competizioni da STATE.competitions (che arriva da Firebase)
+    // Se non ci sono dati, inizializziamo con un array vuoto
+    const compsData = STATE.competitions || {};
+    const allComps = Object.values(compsData);
+    const currentId = STATE.currentCompetition || 'fantacazz';
+
+    // Generiamo dinamicamente le opzioni
     const optionsHTML = allComps.map(c => `
       <option value="${c.id}" ${currentId === c.id ? 'selected' : ''}>
         🏆 ${c.name || c.id}
@@ -57,8 +70,8 @@ renderHTML() {
         <div id="live-votes" style="max-height: 300px; overflow-y: auto; padding-right: .2rem;"></div>
       </div>
     `;
-},
-
+  }
+};
   render(STATE) {
     const gw = document.getElementById('home-gw');
     const lv = document.getElementById('live-votes');
