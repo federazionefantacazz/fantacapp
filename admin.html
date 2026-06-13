@@ -277,9 +277,9 @@ onValue(ref(db, 'competitions'), snap => {
       }
     }
   }
-  refreshAll();
+  // Fondamentale: invoca il refresh per disegnare la lista dei moduli compreso "CompetizioniSection"
+  refreshAll(); 
 });
-
 onValue(ref(db, 'teams'), snap => {
   const raw = snap.val() || {};
   TEAMS = Object.values(raw).sort((a, b) => (b.pts || 0) - (a.pts || 0));
