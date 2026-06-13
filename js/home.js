@@ -15,8 +15,8 @@ export const HomePage = {
         </div>
 
         <div class="card" style="background: linear-gradient(135deg, var(--card), var(--bg3)); margin-bottom: 1rem; padding: 1.2rem;">
-          <div class="label" id="home-team-title">LA TUA SQUADRA</div>
-          <div id="home-team-name" style="font-size: 1.8rem; font-family: 'Bebas Neue'; color: #fff; line-height: 1.2; margin-bottom: .8rem;">-</div>
+          <div class="text2" id="home-team-title">LA TUA SQUADRA</div>
+          <div id="home-team-name" class:"text" style="font-size: 1.8rem; font-family: 'Bebas Neue'; line-height: 1.2; margin-bottom: .8rem;">-</div>
           
           <div style="display: flex; gap: 1rem; border-top: 1px solid rgba(255,255,255,0.08); padding-top: .8rem;">
             <div style="flex: 1;">
