@@ -3,7 +3,7 @@ import { ref, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-dat
 let database = null;
 
 export const CompetizioniSection = {
-  // Inizializza il modulo passando l'istanza del Database Firebase
+  // Metodo di inizializzazione chiamato da admin.html
   init(db) {
     database = db;
     this.registerGlobalActions();
@@ -44,11 +44,11 @@ export const CompetizioniSection = {
   },
 
   render(state) {
-    // Gestito dal refreshAll globale se necessario aggiornare elementi dinamici interni
+    // Lasciato pronto per futuri aggiornamenti di stato
   },
 
   registerGlobalActions() {
-    // Gestione visibilità campi condizionali nel form
+    // Spostate le logiche globali dei form all'interno dell'ambiente del modulo
     window.toggleCompFields = function(type) {
       const fg = document.getElementById('fieldGironi');
       const fq = document.getElementById('fieldQualificati');
@@ -58,9 +58,8 @@ export const CompetizioniSection = {
       fq.style.display = (type === 'misto') ? 'block' : 'none';
     };
 
-    // Logica di creazione della competizione su Firebase
     window.creaCompetizione = async function() {
-      if (!database) return console.error("Database non inizializzato in CompetizioniSection");
+      if (!database) return console.error("Database non inizializzato");
 
       const idInput   = document.getElementById('compId');
       const nameInput = document.getElementById('compName');
@@ -119,7 +118,7 @@ export const CompetizioniSection = {
       }
     };
 
-    // Injection opzione personalizzata Misto Speciale nel menu a tendina
+    // Iniezione dinamica opzione "Misto Speciale" nel selettore HTML
     setTimeout(() => {
       const compTypeSelect = document.getElementById('compType');
       if (compTypeSelect) {
@@ -130,6 +129,6 @@ export const CompetizioniSection = {
           compTypeSelect.appendChild(newOpt);
         }
       }
-    }, 800);
+    }, 500);
   }
 };
