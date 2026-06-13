@@ -1,20 +1,5 @@
 export const HomePage = {
 renderHTML() {
-    // PREPARAZIONE VARIABILI PER LA COMBOBOX
-    const allComps = (window.STATE && window.STATE.allCompetitions) ? window.STATE.allCompetitions : [];
-    const currentId = (window.STATE && window.STATE.currentCompetition) ? window.STATE.currentCompetition : 'fantacazz';
-    
-    let selectOptionsHTML = '';
-    if (allComps.length === 0) {
-      selectOptionsHTML = `<option value="fantacazz">🏆 Fantacazz (Campionato)</option>`;
-    } else {
-      selectOptionsHTML = allComps.map(c => `
-        <option value="${c.id}" ${currentId === c.id ? 'selected' : ''}>
-          🏆 ${c.name || c.id}
-        </option>
-      `).join('');
-    }
-
     return `
       <div class="page" id="page-home" style="padding-top: 1.5rem;">
         
@@ -45,12 +30,7 @@ renderHTML() {
           </div>
         </div>
 
-      <div class="card card-sm" style="margin-bottom: 1.2rem; padding: .8rem 1rem;">
-          <div class="label" style="margin-bottom: .4rem;">Seleziona Competizione</div>
-          <select id="home-competition-select" class="select-rose" style="background: var(--bg3); width:100%; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:.6rem; color:#fff;" onchange="window._handleCompetitionChange(this.value)">
-            ${selectOptionsHTML}
-          </select>
-        </div>
+     
 
         <div class="card" style="background: linear-gradient(135deg, var(--card), rgba(255,255,255,0.02)); margin-bottom: 1.5rem;">
           <div class="label">Giornata Attuale</div>
