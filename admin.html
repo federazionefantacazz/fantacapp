@@ -61,36 +61,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   margin-left: 0.5rem;
 }
 
-/* NUOVO COMP-SWITCHER (Pillole Orizzontali) */
-.comp-switcher-container {
-  display: flex;
-  gap: 0.5rem;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  scrollbar-width: none;
-}
-.comp-switcher-container::-webkit-scrollbar {
-  display: none;
-}
-.comp-pill {
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  color: var(--text2);
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.comp-pill.active {
-  background: rgba(80, 227, 194, 0.15);
-  border-color: var(--accent);
-  color: var(--accent);
-  font-weight: 600;
-}
-
 /* SIDEBAR (Nativa per layout fluido su Desktop) */
 .sidebar {
   display: none;
@@ -247,18 +217,10 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
       <div class="logo">Fantacazz<span>Patron</span></div>
       <div id="mobileSyncStatus" style="font-size: 0.7rem; color: var(--accent)">🟢 Connesso</div>
     </div>
-    <div class="comp-switcher-container" id="mobileCompSwitcher">
-      </div>
   </div>
   
   <div class="sidebar">
     <div class="logo">Fantacazz<span>Pannello Patron</span></div>
-    
-    <div style="padding: 0 1.5rem 1rem 1.5rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem;">
-      <label class="label">Competizioni</label>
-      <div class="comp-switcher-container" id="desktopCompSwitcher" style="flex-direction: column; overflow-x: visible;">
-        </div>
-    </div>
 
     <div class="nav-links-container"></div>
 
@@ -343,8 +305,6 @@ let competitions = [];
 let teamsCaricate = false;
 let giocatoriCaricati = false;
 
-window.CURRENT_COMPETITION = '';
-
 /* ─── Generazione Navigazione Duale (Desktop / Mobile) ─────────────────── */
 const navTemplate = document.getElementById('nav-template').innerHTML;
 document.querySelector('.sidebar .nav-links-container').innerHTML = navTemplate;
@@ -391,70 +351,8 @@ document.querySelectorAll('.snav').forEach(btn => {
   });
 });
 
-/* ─── Nuova Gestione Competizione Attiva (Switcher a Chip/Pillole) ────── */
-function ascoltaDatiCompetizione(compId) {
-  if (!compId) return;
-  onValue(ref(db, `competitions/${compId}/status`), snap => {
-    const statusData = snap.val() || {};
-    CURRENT_GW = statusData.currentGW || 1;
-    if (teamsCaricate && giocatoriCaricati) refreshAll();
-  });
-  onValue(ref(db, `competitions/${compId}/matches`), snap => {
-    MATCHES = snap.val() || {};
-    if (teamsCaricate && giocatoriCaricati) refreshAll();
-  });
-}
-
-window._handleAdminCompChange = function(newCompId) {
-  if (!newCompId) return;
-  window.CURRENT_COMPETITION = newCompId;
-  toast(`Pannello spostato su: ${newCompId.toUpperCase()}`, 'info');
-  
-  // Sincronizza lo stato grafico delle pillole attive su mobile e desktop
-  document.querySelectorAll('.comp-pill').forEach(pill => {
-    if(pill.getAttribute('data-id') === newCompId) {
-      pill.classList.add('active');
-    } else {
-      pill.classList.remove('active');
-    }
-  });
-  
-  ascoltaDatiCompetizione(newCompId);
-};
 
 /* ─── Listener Firebase ─────────────────────────────────────────────────── */
-onValue(ref(db, 'competitions'), snap => {
-  const comps = snap.val() || {};
-  competitions = Object.values(comps);
-
-  const mSwitcher = document.getElementById('mobileCompSwitcher');
-  const dSwitcher = document.getElementById('desktopCompSwitcher');
-
-  if (competitions.length === 0) {
-    const warning = `<div style="font-size:0.8rem; color:var(--accent3)">⚠️ Nessuna competizione</div>`;
-    if(mSwitcher) mSwitcher.innerHTML = warning;
-    if(dSwitcher) dSwitcher.innerHTML = warning;
-    window.CURRENT_COMPETITION = '';
-  } else {
-    if (!window.CURRENT_COMPETITION || !comps[window.CURRENT_COMPETITION]) {
-      window.CURRENT_COMPETITION = competitions[0].id;
-      ascoltaDatiCompetizione(window.CURRENT_COMPETITION);
-    }
-
-    // Genera l'HTML delle pillole per lo switch rapido
-    const pillsHTML = competitions.map(c => `
-      <div class="comp-pill ${window.CURRENT_COMPETITION === c.id ? 'active' : ''}" 
-           data-id="${c.id}" 
-           onclick="window._handleAdminCompChange('${c.id}')">
-        🏆 ${c.name || c.id}
-      </div>
-    `).join('');
-
-    if(mSwitcher) mSwitcher.innerHTML = pillsHTML;
-    if(dSwitcher) dSwitcher.innerHTML = pillsHTML;
-  }
-  if (teamsCaricate && giocatoriCaricati) refreshAll();
-});
 
 onValue(ref(db, 'teams'), snap => {
   const raw = snap.val() || {};
@@ -467,10 +365,9 @@ onValue(ref(db, 'players'), snap => {
   const raw = snap.val() || {};
   PLAYERS = Object.values(raw);
   giocatoriCaricati = true;
-  if (window.CURRENT_COMPETITION) ascoltaDatiCompetizione(window.CURRENT_COMPETITION);
   if (teamsCaricate && giocatoriCaricati) refreshAll();
 });
-
+  
 onValue(ref(db, 'votes'), snap => {
   VOTES = snap.val() || {};
   if (teamsCaricate && giocatoriCaricati) refreshAll();
