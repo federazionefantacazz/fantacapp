@@ -1,6 +1,7 @@
 export const HomePage = {
-  // 1. Metodo che genera lo scheletro HTML
-  renderHTML(STATE) {
+  // 1. Metodo che genera lo scheletro HTML (con controllo di sicurezza sullo STATE)
+  renderHTML(STATE = {}) {
+    // Usiamo una logica sicura: se STATE è vuoto, usiamo valori di default
     const allComps = STATE.allCompetitions || [];
     const currentId = STATE.currentCompetition || 'fantacazz';
 
@@ -58,12 +59,12 @@ export const HomePage = {
     `;
   },
 
-  // 2. Metodo che popola i dati e aggiorna la UI
-  render(STATE) {
+  // 2. Metodo per popolare i dati (aggiunto controllo STATE)
+  render(STATE = {}) {
     const container = document.getElementById('page-home');
     if (!container) return;
 
-    // Se il container non ha già il contenuto, lo renderizziamo
+    // Se il container è vuoto, inizializzalo
     if (container.innerHTML === "") {
         container.innerHTML = this.renderHTML(STATE);
     }
@@ -91,31 +92,25 @@ export const HomePage = {
         const posizioneReale = STATE.teams.indexOf(miaSquadraDati) + 1;
         teamPosEl.textContent = `${posizioneReale}° Posto`;
         teamPtsEl.textContent = typeof miaSquadraDati.pts === 'number' ? miaSquadraDati.pts.toFixed(1) : (miaSquadraDati.pts || 0);
-      } else {
-        teamPosEl.textContent = "N/A";
-        teamPtsEl.textContent = "--";
       }
     }
 
     const vArr = Object.entries(STATE.votes || {});
-    if (vArr.length === 0) {
-      lv.innerHTML = `<div style="color:var(--text3);font-size:.85rem;text-align:center;padding:1rem">Nessun voto live inserito.</div>`;
-    } else {
-      lv.innerHTML = vArr.map(([pid, val]) => {
-        const p = STATE.players.find(x => x.id === pid) || { name: pid, role: 'C', club: '' };
-        let customStyle = 'padding: .2rem .5rem; border-radius: 6px; font-weight: bold; font-family: "DM Mono", monospace; ';
-        if (val >= 7) customStyle += 'background: rgba(80, 227, 194, 0.15); color: var(--accent);';
-        else if (val < 5.5) customStyle += 'background: rgba(255, 107, 107, 0.15); color: var(--accent3);';
-        else customStyle += 'background: rgba(255, 255, 255, 0.08); color: var(--text);';
+    if (vArr.length > 0) {
+        lv.innerHTML = vArr.map(([pid, val]) => {
+            const p = (STATE.players || []).find(x => x.id === pid) || { name: pid, role: 'C', club: '' };
+            let customStyle = 'padding: .2rem .5rem; border-radius: 6px; font-weight: bold; font-family: "DM Mono", monospace; ';
+            if (val >= 7) customStyle += 'background: rgba(80, 227, 194, 0.15); color: var(--accent);';
+            else if (val < 5.5) customStyle += 'background: rgba(255, 107, 107, 0.15); color: var(--accent3);';
+            else customStyle += 'background: rgba(255, 255, 255, 0.08); color: var(--text);';
 
-        return `
-          <div class="pcard">
-            <div class="rbadge r${p.role}">${p.role}</div>
-            <div class="pi"><div class="pn">${p.name}</div><div class="pm">${p.club}</div></div>
-            <div class="pr"><span style="${customStyle}">${val.toFixed(1)}</span></div>
-          </div>
-        `;
-      }).join('');
+            return `
+            <div class="pcard">
+                <div class="rbadge r${p.role}">${p.role}</div>
+                <div class="pi"><div class="pn">${p.name}</div><div class="pm">${p.club}</div></div>
+                <div class="pr"><span style="${customStyle}">${val.toFixed(1)}</span></div>
+            </div>`;
+        }).join('');
     }
   }
 };
