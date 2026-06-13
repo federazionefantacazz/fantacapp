@@ -14,10 +14,10 @@ export const CompetizioniSection = {
       <div class="sec-title">🏆 Gestione & Nuova Competizione</div>
       
       <div class="card" style="max-width: 600px;">
-        <div class="label" style="color: var(--accent); margin-bottom: 1rem; font-size: .85rem;">Crea una nuova competizione</div>
+        <div id="form-comp-title" class="label" style="color: var(--accent); margin-bottom: 1rem; font-size: .85rem;">Crea una nuova competizione</div>
         
-        <label class="label">ID Competizione (es: serie-a-2024)</label>
-        <input type="text" id="compId" class="input-login" placeholder="ID univoco senza spazi">
+        <label class="label">ID Competizione (Inmodificabile in fase di modifica)</label>
+        <input type="text" id="compId" class="input-login" placeholder="ID univoco senza spazi (es: serie-a-2026)">
 
         <label class="label">Nome Competizione (es: Serie A Tim)</label>
         <input type="text" id="compName" class="input-login" placeholder="Nome visibile">
@@ -39,7 +39,10 @@ export const CompetizioniSection = {
           <input type="number" id="compQualificati" class="input-login" value="2" min="1">
         </div>
 
-        <button class="btn btn-green" onclick="window.creaCompetizione()">✨ Crea Competizione</button>
+        <div style="display: flex; gap: 1rem;">
+          <button id="btn-submit-comp" class="btn btn-green" onclick="window.creaCompetizione()">✨ Crea Competizione</button>
+          <button id="btn-cancel-edit-comp" class="btn btn-red" onclick="window.annullaModificaComp()" style="display: none; width: auto;">Annulla</button>
+        </div>
       </div>
 
       <div class="card">
@@ -79,8 +82,13 @@ export const CompetizioniSection = {
 
     listContainer.innerHTML = comps.map(c => {
       const currentGW = (c.status && c.status.currentGW) ? c.status.currentGW : 1;
-      const marketOpen = c.marketOpen !== false; // Di default è true se non impostato
+      const marketOpen = c.marketOpen !== false;
+      const safeName = c.name.replace(/'/g, "\\'");
       
+      // Estraiamo i parametri per passarli in sicurezza alla funzione di modifica
+      const gironi = c.gironi || 1;
+      const qualificati = c.qualificatiFaseFinale || 0;
+
       return `
         <tr>
           <td style="font-family: 'DM Mono', monospace; font-size: .8rem; color: var(--accent2);">${c.id}</td>
@@ -98,9 +106,14 @@ export const CompetizioniSection = {
             </button>
           </td>
           <td style="text-align: right;">
-            <button class="btn btn-red" onclick="window.eliminaCompetizione('${c.id}', '${c.name.replace(/'/g, "\\'")}')" style="padding: .35rem .6rem; font-size: .75rem; width: auto; display: inline-flex;">
-              🗑️ Elimina
-            </button>
+            <div style="display: inline-flex; gap: .4rem;">
+              <button class="btn btn-blue" onclick="window.caricaCompetizioneNelForm('${c.id}', '${safeName}', '${c.type}', ${gironi}, ${qualificati})" style="padding: .35rem .6rem; font-size: .75rem; width: auto;">
+                ✏️ Modifica
+              </button>
+              <button class="btn btn-red" onclick="window.eliminaCompetizione('${c.id}', '${safeName}')" style="padding: .35rem .6rem; font-size: .75rem; width: auto;">
+                🗑️ Elimina
+              </button>
+            </div>
           </td>
         </tr>
       `;
@@ -117,6 +130,57 @@ export const CompetizioniSection = {
       fq.style.display = (type === 'misto') ? 'block' : 'none';
     };
 
+    // Riempie il form in alto con i dati della riga selezionata
+    window.caricaCompetizioneNelForm = function(id, name, type, gironi, qualificati) {
+      const idInput = document.getElementById('compId');
+      const nameInput = document.getElementById('compName');
+      const typeSelect = document.getElementById('compType');
+      const gironiInput = document.getElementById('compGironi');
+      const qualifInput = document.getElementById('compQualificati');
+      
+      if(!idInput || !nameInput || !typeSelect) return;
+
+      // Compiliamo i campi
+      idInput.value = id;
+      idInput.disabled = true; // Impediamo di cambiare l'ID per non rompere i nodi Firebase esistenti
+      nameInput.value = name;
+      typeSelect.value = type;
+      if (gironiInput) gironiInput.value = gironi;
+      if (qualifInput) qualifInput.value = qualificati;
+
+      window.toggleCompFields(type);
+
+      // Cambiamo i testi dell'interfaccia per mostrare che siamo in modalità "Modifica"
+      document.getElementById('form-comp-title').innerText = `Modifica della Competizione: ${id.toUpperCase()}`;
+      const btnSubmit = document.getElementById('btn-submit-comp');
+      btnSubmit.innerText = "💾 Salva Modifiche";
+      btnSubmit.className = "btn btn-blue";
+      
+      document.getElementById('btn-cancel-edit-comp').style.display = "inline-flex";
+      
+      // Scorriamo dolcemente la pagina verso il form in alto
+      document.getElementById('sec-crea-competizioni').scrollIntoView({ behavior: 'smooth' });
+    };
+
+    // Ripristina il form allo stato originale ("Crea")
+    window.annullaModificaComp = function() {
+      const idInput = document.getElementById('compId');
+      if (idInput) { idInput.value = ''; idInput.disabled = false; }
+      if (document.getElementById('compName')) document.getElementById('compName').value = '';
+      if (document.getElementById('compType')) document.getElementById('compType').value = 'campionato';
+      if (document.getElementById('compGironi')) document.getElementById('compGironi').value = '1';
+      if (document.getElementById('compQualificati')) document.getElementById('compQualificati').value = '2';
+      
+      window.toggleCompFields('campionato');
+
+      document.getElementById('form-comp-title').innerText = "Crea una nuova competizione";
+      const btnSubmit = document.getElementById('btn-submit-comp');
+      btnSubmit.innerText = "✨ Crea Competizione";
+      btnSubmit.className = "btn btn-green";
+      
+      document.getElementById('btn-cancel-edit-comp').style.display = "none";
+    };
+
     window.creaCompetizione = async function() {
       if (!database) return console.error("Database non inizializzato");
 
@@ -130,16 +194,18 @@ export const CompetizioniSection = {
       
       if (!id || !name) return window.toast("ID e Nome Competizione sono obbligatori!", "err");
       
+      // Usiamo update invece di set per evitare di cancellare i nodi figli (es: matches, teams) se stiamo aggiornando
       let compPayload = { 
         id, 
         name, 
-        type, 
-        status: { currentGW: 1 }, 
-        marketOpen: true, 
-        fixtures: {}, 
-        teams: {}, 
-        standings: {} 
+        type
       };
+      
+      // Se è un inserimento ex-novo (id non disabilitato), aggiungiamo i campi di default
+      if (!idInput.disabled) {
+        compPayload.status = { currentGW: 1 };
+        compPayload.marketOpen = true;
+      }
       
       if (type === 'misto-speciale') {
         compPayload.regolamento = {
@@ -168,16 +234,14 @@ export const CompetizioniSection = {
       }
       
       try {
-        await set(ref(database, `competitions/${id}`), compPayload);
-        window.toast(`Competizione "${name}" creata con successo!`, "ok");
-        idInput.value = ''; 
-        nameInput.value = '';
+        await update(ref(database, `competitions/${id}`), compPayload);
+        window.toast(`Competizione salvata/aggiornata con successo!`, "ok");
+        window.annullaModificaComp(); // Svuota il form e lo rimette in modalità creazione
       } catch (err) { 
-        window.toast("Errore durante la creazione", "err"); 
+        window.toast("Errore durante il salvataggio", "err"); 
       }
     };
 
-    // Azione Rapida: Modifica Turno Corrente GW
     window.updateCompGW = async function(compId) {
       if (!database) return;
       const gwVal = parseInt(document.getElementById(`gw-input-${compId}`).value) || 1;
@@ -189,7 +253,6 @@ export const CompetizioniSection = {
       }
     };
 
-    // Azione Rapida: Apertura/Chiusura Mercato di una specifica competizione
     window.toggleCompMarket = async function(compId, currentlyOpen) {
       if (!database) return;
       try {
@@ -200,20 +263,19 @@ export const CompetizioniSection = {
       }
     };
 
-    // Azione: Elimina Competizione da Firebase
     window.eliminaCompetizione = async function(compId, compName) {
       if (!database) return;
       if (confirm(`⚠️ SEI SICURO?\nEliminando la competizione "${compName}" rimuoverai per sempre tutti i suoi calendari, risultati e classifiche.`)) {
         try {
           await remove(ref(database, `competitions/${compId}`));
           window.toast(`Competizione "${compName}" eliminata definitivamente`, "info");
+          window.annullaModificaComp();
         } catch (err) {
           window.toast("Errore durante l'eliminazione", "err");
         }
       }
     };
 
-    // Iniezione dinamica opzione "Misto Speciale" nel selettore HTML
     setTimeout(() => {
       const compTypeSelect = document.getElementById('compType');
       if (compTypeSelect) {
