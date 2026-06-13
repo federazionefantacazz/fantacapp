@@ -475,7 +475,49 @@ window.creaCompetizione = async function() {
   }
 };
 
-// Sincronizzazione Realtime delle competizioni create su Firebase (NO STATICHE)
+/* ==========================================================================
+   LOGICA CORE COMPETIZIONI & SQUADRE (VERSIONE OTTIMIZZATA SENZA STATICHE)
+   ========================================================================== */
+
+// 1. Dichiariamo prima la funzione per ascoltare i dati della competizione attiva, evitando errori di hoisting
+function ascoltaDatiCompetizione(compId) {
+  if (!compId) return;
+  
+  onValue(ref(db, `competitions/${compId}/status`), snap => {
+    const statusData = snap.val() || {};
+    CURRENT_GW = statusData.currentGW || 1;
+    
+    const el1 = document.getElementById('adminGWNum');
+    const el2 = document.getElementById('gwBadge');
+    const el3 = document.getElementById('ds-gw');
+    
+    if (el1) el1.textContent = CURRENT_GW;
+    if (el2) el2.textContent = 'GW ' + CURRENT_GW;
+    if (el3) el3.textContent = CURRENT_GW;
+    
+    if (teamsCaricate && giocatoriCaricati) {
+      updateDashboard();
+      renderVoteGrid();
+    }
+  });
+
+  onValue(ref(db, `competitions/${compId}/matches`), snap => {
+    MATCHES = snap.val() || {};
+    if (teamsCaricate && giocatoriCaricati) {
+      updateDashboard(); 
+    }
+  });
+}
+
+// 2. Funzione globale per cambiare competizione attiva dalla sidebar
+window._handleAdminCompChange = function(newCompId) {
+  if (!newCompId) return;
+  window.CURRENT_COMPETITION = newCompId;
+  toast(`Pannello Admin spostato su: ${newCompId.toUpperCase()}`, 'info');
+  ascoltaDatiCompetizione(newCompId);
+};
+
+// 3. Listener Realtime per le competizioni create su Firebase
 onValue(ref(db, 'competitions'), snap => {
   const comps = snap.val() || {};
   const list = Object.values(comps);
@@ -487,7 +529,7 @@ onValue(ref(db, 'competitions'), snap => {
       adminSelect.innerHTML = `<option value="">⚠️ Nessuna competizione nel DB</option>`;
       window.CURRENT_COMPETITION = '';
     } else {
-      // Se non c'è ancora una competizione attiva selezionata, prendiamo la prima del DB
+      // Se non c'è ancora una competizione attiva selezionata (es: all'avvio), agganciamo la prima del DB
       if (!window.CURRENT_COMPETITION || !comps[window.CURRENT_COMPETITION]) {
         window.CURRENT_COMPETITION = list[0].id;
         ascoltaDatiCompetizione(window.CURRENT_COMPETITION);
@@ -526,43 +568,7 @@ onValue(ref(db, 'competitions'), snap => {
   }
 });
 
-/* ==========================================================================
-   LOGICA CORE COMPETIZIONI & SQUADRE
-   ========================================================================== */
-
-function ascoltaDatiCompetizione(compId) {
-  onValue(ref(db, `competitions/${compId}/status`), snap => {
-    const statusData = snap.val() || {};
-    CURRENT_GW = statusData.currentGW || 1;
-    
-    const el1 = document.getElementById('adminGWNum');
-    const el2 = document.getElementById('gwBadge');
-    const el3 = document.getElementById('ds-gw');
-    
-    if (el1) el1.textContent = CURRENT_GW;
-    if (el2) el2.textContent = 'GW ' + CURRENT_GW;
-    if (el3) el3.textContent = CURRENT_GW;
-    
-    if (teamsCaricate && giocatoriCaricati) {
-      updateDashboard();
-      renderVoteGrid();
-    }
-  });
-
-  onValue(ref(db, `competitions/${compId}/matches`), snap => {
-    MATCHES = snap.val() || {};
-    if (teamsCaricate && giocatoriCaricati) {
-      updateDashboard(); 
-    }
-  });
-}
-
-window._handleAdminCompChange = function(newCompId) {
-  window.CURRENT_COMPETITION = newCompId;
-  toast(`Pannello Admin spostato su: ${newCompId.toUpperCase()}`, 'info');
-  ascoltaDatiCompetizione(newCompId);
-};
-
+// 4. Listener Realtime per i dati delle Squadre globali
 onValue(ref(db, 'teams'), snap => {
   const raw = snap.val() || {};
   TEAMS = Object.values(raw).sort((a,b) => (b.pts || 0) - (a.pts || 0));
@@ -577,6 +583,7 @@ onValue(ref(db, 'teams'), snap => {
   }
 });
 
+// 5. Listener Realtime per i dati dei Giocatori globali
 onValue(ref(db, 'players'), snap => {
   const raw = snap.val() || {};
   PLAYERS = Object.values(raw);
@@ -585,7 +592,10 @@ onValue(ref(db, 'players'), snap => {
   const pCount = document.getElementById('pCount');
   if (pCount) pCount.textContent = PLAYERS.length;
   
-  ascoltaDatiCompetizione(window.CURRENT_COMPETITION);
+  // Se le strutture di base sono caricate ma la competizione attiva non ha ancora un listener attivo, lo inizializziamo
+  if (window.CURRENT_COMPETITION) {
+    ascoltaDatiCompetizione(window.CURRENT_COMPETITION);
+  }
   
   if (teamsCaricate && giocatoriCaricati) {
     renderPlayersTable(); 
@@ -596,12 +606,14 @@ onValue(ref(db, 'players'), snap => {
   }
 });
 
+// 6. Listener Realtime per i Voti di giornata
 onValue(ref(db, 'votes'), snap => {
   VOTES = snap.val() || {};
   if (teamsCaricate && giocatoriCaricati) {
     renderVoteGrid();
   }
 });
+
 
 function aggiornaAnteprimaSquadreCalendario() {
   const container = document.getElementById('genTeamsPreview');
