@@ -116,7 +116,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
 
 <div id="app">
   <div id="app-header" style="display:none; padding: .8rem 1rem; background: var(--card); border-bottom: 1px solid rgba(255,255,255,0.05); align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1000;">
+    
+  <div style="display: flex; align-items: center; gap: .5rem;">
+    <img src="icons/logo-federazione.jpg" alt="Logo" style="height: 28px; width: auto; object-fit: contain;">
     <div class="logo" style="font-size: 1.4rem; margin: 0;">FANTACAZZ</div>
+  </div>
+	
     <select id="userCompSelect" class="select-rose" style="width: auto; padding: .4rem .6rem; margin: 0; font-weight: 500;" onchange="window._handleCompetitionChange(this.value)">
       <option value="fantacazz">🏆 Caricamento...</option>
     </select>
