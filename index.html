@@ -437,9 +437,21 @@ window.doFirebaseLogout = function() {
 // POPOLA LA TENDINA DELLE SQUADRE FANTA
 function populateLoginDropdown() {
   if (window.STATE.booted) return;
-  if (!auth.currentUser) return; 
+  const currentUser = auth.currentUser;
+  if (!currentUser) return; 
 
-  // Auto-Login se l'utente ha una squadra già registrata localmente nel browser
+  // 1. AUTO-LOGIN TRAMITE FIREBASE (Multi-proprietario / Multi-dispositivo)
+  // Cerca se esiste una squadra che ha questo UID tra i suoi proprietari
+  const myTeamFromDB = window.STATE.teams.find(t => t.owners && t.owners[currentUser.uid]);
+  
+  if (myTeamFromDB) {
+    window.STATE.user = myTeamFromDB;
+    localStorage.setItem('fantaUser', myTeamFromDB.id); // Aggiorna il browser
+    bootApp();
+    return;
+  }
+
+  // 2. AUTO-LOGIN VECCHIO TRAMITE LOCALSTORAGE (Fallback)
   const savedUserId = localStorage.getItem('fantaUser');
   if (savedUserId && window.STATE.teams.length > 0) {
     const loggedInUser = window.STATE.teams.find(t => t.id === savedUserId);
@@ -450,12 +462,13 @@ function populateLoginDropdown() {
     }
   }
 
+  // 3. MOSTRA IL MENU A TENDINA (Se l'utente non è ancora associato a nulla)
   const select = document.getElementById('loginSelect');
   if (!select) return;
 
   select.innerHTML = '<option value="">Scegli la tua squadra...</option>' + 
     window.STATE.teams.map(t => `
-      <option value="${t.id}">${t.emoji || '⚽'} ${t.name} (${t.owner})</option>
+      <option value="${t.id}">${t.emoji || '⚽'} ${t.name} (${t.owner || 'Nessun proprietario'})</option>
     `).join('');
 }
 
@@ -472,6 +485,15 @@ window.doTeamSelection = function() {
   
   const found = window.STATE.teams.find(t => t.id === id);
   if(found) {
+    // 1. Recupera l'utente Firebase attualmente loggato
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      // 2. Salva l'UID dell'utente nella lista 'owners' della squadra
+      // Firebase creerà/aggiornerà un percorso tipo: teams/squadra1/owners/UID123 = true
+      window._saveNode(`teams/${id}/owners/${currentUser.uid}`, true);
+    }
+
+    // 3. Completa il login e avvia l'app
     window.STATE.user = found;
     localStorage.setItem('fantaUser', id);
     bootApp();
