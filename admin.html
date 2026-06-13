@@ -94,8 +94,7 @@ tr:hover td{background:rgba(255,255,255,0.01)}
     <div style="padding: 0 1rem 1rem 1rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem;">
       <label style="font-size: .7rem; color: var(--text2); text-transform: uppercase; font-weight: 600; display: block; margin-bottom: .4rem;">Competizione Attiva</label>
       <select id="adminCompSelect" style="width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; color: #fff; padding: .5rem; font-size: .85rem;" onchange="window._handleAdminCompChange(this.value)">
-        <option value="fantacazz">🏆 Fantacazz (Campionato)</option>
-        <option value="coppa">🏆 Coppa Italia</option>
+        <option value="">Caricamento competizioni...</option>
       </select>
     </div>
 
@@ -395,7 +394,7 @@ window.showSec = function(secId, btnElement) {
     btnElement.classList.add('active');
   }
 };
-window.CURRENT_COMPETITION = 'fantacazz';
+window.CURRENT_COMPETITION = '';
 
 let TEAMS = [];
 let PLAYERS = [];
@@ -476,7 +475,7 @@ window.creaCompetizione = async function() {
   }
 };
 
-// Sincronizzazione Realtime dei metadati delle competizioni create
+// Sincronizzazione Realtime delle competizioni create su Firebase (NO STATICHE)
 onValue(ref(db, 'competitions'), snap => {
   const comps = snap.val() || {};
   const list = Object.values(comps);
@@ -484,9 +483,16 @@ onValue(ref(db, 'competitions'), snap => {
   // Aggiorna dinamicamente la select "Competizione Attiva" nella sidebar
   const adminSelect = document.getElementById('adminCompSelect');
   if (adminSelect) {
-    if(list.length === 0) {
-      adminSelect.innerHTML = `<option value="fantacazz">🏆 Fantacazz (Campionato)</option>`;
+    if (list.length === 0) {
+      adminSelect.innerHTML = `<option value="">⚠️ Nessuna competizione nel DB</option>`;
+      window.CURRENT_COMPETITION = '';
     } else {
+      // Se non c'è ancora una competizione attiva selezionata, prendiamo la prima del DB
+      if (!window.CURRENT_COMPETITION || !comps[window.CURRENT_COMPETITION]) {
+        window.CURRENT_COMPETITION = list[0].id;
+        ascoltaDatiCompetizione(window.CURRENT_COMPETITION);
+      }
+
       adminSelect.innerHTML = list.map(c => `
         <option value="${c.id}" ${window.CURRENT_COMPETITION === c.id ? 'selected' : ''}>
           🏆 ${c.name || c.id}
@@ -498,8 +504,8 @@ onValue(ref(db, 'competitions'), snap => {
   // Aggiorna la tabella di riepilogo delle competizioni
   const tbody = document.getElementById('compTableBody');
   if (tbody) {
-    if(list.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text3)">Nessuna competizione configurata nel database.</td></tr>';
+    if (list.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text3)">Nessuna competizione configurata nel database. creane una qui sopra.</td></tr>';
       return;
     }
     tbody.innerHTML = list.map(c => {
