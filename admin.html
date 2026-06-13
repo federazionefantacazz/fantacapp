@@ -426,25 +426,99 @@ window.toggleCompFields = function(type) {
   const fg = document.getElementById('fieldGironi');
   const fq = document.getElementById('fieldQualificati');
   if (!fg || !fq) return;
+  // Nasconde i campi extra se selezioniamo il misto speciale, dato che è tutto automatizzato
   fg.style.display = (type === 'campionato' || type === 'misto') ? 'block' : 'none';
   fq.style.display = (type === 'misto') ? 'block' : 'none';
 };
+
 window.creaCompetizione = async function() {
   const idInput   = document.getElementById('compId');
   const nameInput = document.getElementById('compName');
   if (!idInput || !nameInput) return;
+  
   const id   = idInput.value.trim().toLowerCase().replace(/\s+/g, '-');
   const name = nameInput.value.trim();
   const type = document.getElementById('compType').value;
-  const gironi      = parseInt(document.getElementById('compGironi').value) || 1;
-  const qualificati = parseInt(document.getElementById('compQualificati').value) || 0;
+  
   if (!id || !name) return toast("ID e Nome Competizione sono obbligatori!", "err");
-  const compPayload = { id, name, type, status: { currentGW: 1 }, marketOpen: true, fixtures: {}, teams: {}, standings: {} };
-  if (type === 'campionato' || type === 'misto') compPayload.gironi = gironi;
-  if (type === 'misto') compPayload.qualificatiFaseFinale = qualificati;
+  
+  // Payload base della competizione
+  let compPayload = { 
+    id, 
+    name, 
+    type, 
+    status: { currentGW: 1 }, 
+    marketOpen: true, 
+    fixtures: {}, 
+    teams: {}, 
+    standings: {} 
+  };
+  
+  // Applicazione delle regole in base al tipo selezionato
+  if (type === 'misto-speciale') {
+    compPayload.regolamento = {
+      fase1: { tipo: "campionato", giornate: 11, squadre: 12 },
+      qualificatiDirettiQuarti: 6,
+      playoff: {
+        posizioni: [7, 8, 9, 10],
+        accoppiamenti: [
+          { nome: "Playoff 1", casa: "pos_7", trasferta: "pos_10" },
+          { nome: "Playoff 2", casa: "pos_8", trasferta: "pos_9" }
+        ]
+      },
+      quartiTabellone: [
+        { match: "Q1", casa: "pos_1", trasferta: "vincitore_playoff_2" }, // 1° vs peggior vincente playoff
+        { match: "Q2", casa: "pos_2", trasferta: "vincitore_playoff_1" }, // 2° vs miglior vincente playoff
+        { match: "Q3", casa: "pos_3", trasferta: "pos_6" },
+        { match: "Q4", casa: "pos_4", trasferta: "pos_5" }
+      ],
+      eliminate: [11, 12]
+    };
+  } else {
+    const gironi      = parseInt(document.getElementById('compGironi').value) || 1;
+    const qualificati = parseInt(document.getElementById('compQualificati').value) || 0;
+    if (type === 'campionato' || type === 'misto') compPayload.gironi = gironi;
+    if (type === 'misto') compPayload.qualificatiFaseFinale = qualificati;
+  }
+  
   try {
     await set(ref(db, `competitions/${id}`), compPayload);
     toast(`Competizione "${name}" creata con successo!`, "ok");
+    idInput.value = ''; nameInput.value = '';
+  } catch (err) { toast("Errore durante la creazione", "err"); }
+};
+  
+  // Applicazione delle regole in base al tipo selezionato
+  if (type === 'misto-speciale') {
+    compPayload.regolamento = {
+      fase1: { tipo: "campionato", giornate: 11, squadre: 12 },
+      qualificatiDirettiQuarti: 6,
+      playoff: {
+        posizioni: [7, 8, 9, 10],
+        accoppiamenti: [
+          { nome: "Playoff 1", casa: "pos_7", trasferta: "pos_10" },
+          { nome: "Playoff 2", casa: "pos_8", trasferta: "pos_9" }
+        ]
+      },
+      quartiTabellone: [
+        { match: "Q1", casa: "pos_1", trasferta: "vincitore_playoff_2" },
+        { match: "Q2", casa: "pos_2", trasferta: "vincitore_playoff_1" },
+        { match: "Q3", casa: "pos_3", trasferta: "pos_6" },
+        { match: "Q4", casa: "pos_4", trasferta: "pos_5" }
+      ],
+      eliminate: [11, 12]
+    };
+  } else {
+    // Logica standard precedente
+    const gironi      = parseInt(document.getElementById('compGironi').value) || 1;
+    const qualificati = parseInt(document.getElementById('compQualificati').value) || 0;
+    if (type === 'campionato' || type === 'misto') compPayload.gironi = gironi;
+    if (type === 'misto') compPayload.qualificatiFaseFinale = qualificati;
+  }
+  
+  try {
+    await set(ref(db, `competitions/${id}`), compPayload);
+    toast(`Competizione "${name}" creata con successo con regole personalizzate!`, "ok");
     idInput.value = ''; nameInput.value = '';
   } catch (err) { toast("Errore durante la creazione", "err"); }
 };
@@ -491,7 +565,15 @@ window.toast = function(msg, type = "ok") {
   t.className = 'toast ' + type + ' show';
   setTimeout(() => t.classList.remove('show'), 2800);
 }
-
+setTimeout(() => {
+  const compTypeSelect = document.getElementById('compType');
+  if (compTypeSelect) {
+    const newOpt = document.createElement('option');
+    newOpt.value = 'misto-speciale';
+    newOpt.textContent = 'Misto Speciale (12 Sq. - 11 GW + Playoff/Quarti)';
+    compTypeSelect.appendChild(newOpt);
+  }
+}, 500);
 // Avvio di default sulla prima sezione
 window.showSec('teams');
 </script>
