@@ -511,13 +511,14 @@ onValue(ref(db, 'competitions'), snap => {
   const comps = snap.val() || {};
   const list = Object.values(comps);
   
+  // 🔥 ESSENZIALE: Salva i dati nello stato globale!
+  window.STATE.allCompetitions = list;
+  
   const headerSelect = document.getElementById('headerCompSelect');
   if (headerSelect) {
     if (list.length === 0) {
-      // Caso base o di fallback se l'admin non ha ancora inserito nulla
       headerSelect.innerHTML = `<option value="fantacazz">🏆 Fantacazz (Campionato)</option>`;
     } else {
-      // Genera le opzioni prendendo i dati unificati (ID e Nome)
       headerSelect.innerHTML = list.map(c => `
         <option value="${c.id}" ${window.STATE.currentCompetition === c.id ? 'selected' : ''}>
           🏆 ${c.name || c.id}
@@ -525,8 +526,10 @@ onValue(ref(db, 'competitions'), snap => {
       `).join('');
     }
   }
-});
 
+  // 🔥 IMPORTANTE: Forza il ricalcolo di tutta la UI
+  refreshUI();
+});
 
 
 function bootApp() {

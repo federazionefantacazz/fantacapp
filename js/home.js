@@ -10,20 +10,31 @@ export const HomePage = {
     // Qui puoi aggiungere eventuali listener o logiche post-render
   },
 
+  export const HomePage = {
+  // Metodo chiamato da refreshUI() in index.html
+  render(STATE) {
+    const container = document.getElementById('page-home');
+    if (!container) return;
+    
+    // Inseriamo il contenuto dinamico
+    container.innerHTML = this.renderHTML(STATE);
+  },
+
   renderHTML(STATE) {
-    // Recuperiamo le competizioni da STATE.competitions (che arriva da Firebase)
-    // Se non ci sono dati, inizializziamo con un array vuoto
-    const compsData = STATE.competitions || {};
-    const allComps = Object.values(compsData);
+    // 1. Recupero dati dallo stato globale
+    const allComps = STATE.allCompetitions || [];
     const currentId = STATE.currentCompetition || 'fantacazz';
 
-    // Generiamo dinamicamente le opzioni
-    const optionsHTML = allComps.map(c => `
-      <option value="${c.id}" ${currentId === c.id ? 'selected' : ''}>
-        🏆 ${c.name || c.id}
-      </option>
-    `).join('');
+    // 2. Generazione dinamica delle opzioni
+    const optionsHTML = allComps.length > 0 
+      ? allComps.map(c => `
+          <option value="${c.id}" ${currentId === c.id ? 'selected' : ''}>
+            🏆 ${c.name || c.id}
+          </option>
+        `).join('')
+      : `<option value="fantacazz">🏆 Fantacazz (Campionato)</option>`;
 
+    // 3. Template HTML
     return `
       <div class="page" id="page-home" style="padding-top: 1.5rem;">
         
