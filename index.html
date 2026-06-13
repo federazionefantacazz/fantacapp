@@ -115,6 +115,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
 <body>
 
 <div id="app">
+  <div id="app-header" style="display:none; padding: .8rem 1rem; background: var(--card); border-bottom: 1px solid rgba(255,255,255,0.05); align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1000;">
+    <div class="logo" style="font-size: 1.4rem; margin: 0;">FANTACAZZ</div>
+    <select id="userCompSelect" class="select-rose" style="width: auto; padding: .4rem .6rem; margin: 0; font-weight: 500;" onchange="window._handleCompetitionChange(this.value)">
+      <option value="fantacazz">🏆 Caricamento...</option>
+    </select>
+  </div>
   <div id="page-login" style="padding:3rem 1.5rem; text-align:center; max-width:400px; margin:40px auto 0;">
     <div class="logo" style="font-size:3rem; margin-bottom:2rem;">FANTACAZZ</div>
     
@@ -234,6 +240,27 @@ onAuthStateChanged(auth, firebaseUser => {
 
 function caricaDatiCompetizione(compId) {
 
+// [NUOVO] Sincronizzazione Realtime delle Competizioni Create
+	onValue(ref(db, 'competitions_meta'), snap => {
+	  const comps = snap.val() || {};
+	  const list = Object.values(comps);
+	  
+	  const userSelect = document.getElementById('userCompSelect');
+	  if (userSelect) {
+		if(list.length === 0) {
+		  // Fallback se il database non ha ancora metadati
+		  userSelect.innerHTML = `<option value="fantacazz">🏆 Fantacazz (Campionato)</option>`;
+		} else {
+		  // Popola il menu a tendina mantenendo selezionata quella attuale
+		  userSelect.innerHTML = list.map(c => `
+			<option value="${c.id}" ${window.STATE.currentCompetition === c.id ? 'selected' : ''}>
+			  🏆 ${c.name}
+			</option>
+		  `).join('');
+		}
+	  }
+	});
+
   onValue(ref(db, `competitions/${compId}/lineups`), snap => {
     if (!window.STATE.competitions) window.STATE.competitions = {};
     if (!window.STATE.competitions[compId]) window.STATE.competitions[compId] = {};
@@ -293,6 +320,7 @@ function caricaDatiCompetizione(compId) {
     refreshUI();
   });
 }
+
 function resetThemeToDefault() {
   const root = document.documentElement;
   root.style.setProperty('--bg', '#1a1e24');
@@ -458,6 +486,9 @@ function bootApp() {
 
   document.getElementById('page-login').style.display = 'none';
   document.getElementById('nav').style.display = 'flex';
+  
+  const header = document.getElementById('app-header');
+  if (header) header.style.display = 'flex';
   
   window.goPage('home', document.querySelector('.nav-btn'));
   refreshUI();
