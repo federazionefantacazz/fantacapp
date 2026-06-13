@@ -236,10 +236,7 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 </div>
 
 <div id="nav-template" style="display:none;">
-  <button class="snav active" data-sec="dashboard">
-    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard
-  </button>
-  <button class="snav" data-sec="teams">
+  <button class="snav active" data-sec="teams">
     <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>Squadre
   </button>
   <button class="snav" data-sec="players">
@@ -271,7 +268,6 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, onValue, set, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-import { DashboardSection }    from './js/admin/dashboard.js';
 import { TeamsSection }        from './js/admin/teams.js';
 import { PlayersSection }      from './js/admin/players.js';
 import { VotesSection }        from './js/admin/votes.js';
@@ -313,7 +309,7 @@ document.getElementById('mobileBottomNav').innerHTML = navTemplate;
 /* ─── Bootstrap UI Sezioni ────────────────────────────────────────────── */
 const container = document.getElementById('admin-sections-container');
 container.innerHTML = [
-  DashboardSection, TeamsSection, PlayersSection, VotesSection,
+  TeamsSection, PlayersSection, VotesSection,
   SyncSection, MercatoSection, ClassificaSection, CalendarioSection, CompetizioniSection
 ].map(s => s.renderHTML()).join('');
 
@@ -325,7 +321,7 @@ if (syncStatusEl) {
 
 function refreshAll() {
   const state = { TEAMS, PLAYERS, VOTES, MATCHES, CURRENT_GW, competitions };
-  [DashboardSection, TeamsSection, PlayersSection, VotesSection, SyncSection, MercatoSection, ClassificaSection, CalendarioSection, CompetizioniSection].forEach(s => s.render(state));
+  [TeamsSection, PlayersSection, VotesSection, SyncSection, MercatoSection, ClassificaSection, CalendarioSection, CompetizioniSection].forEach(s => s.render(state));
 }
 
 /* ─── Navigazione Sincronizzata (Desktop + Mobile) ─────────────────────── */
@@ -375,7 +371,6 @@ onValue(ref(db, 'votes'), snap => {
 
 /* ─── Azioni Globali Rimaste Inalterate per Logica ──────────────────────── */
 window.filterPlayersAdmin = function(val) { PlayersSection.setFilter(val); PlayersSection.render({ PLAYERS }); };
-window.changeGW = function(val) { CURRENT_GW = Math.max(1, CURRENT_GW + val); DashboardSection.render({ CURRENT_GW }); };
 window.saveGW = async function() {
   try {
     await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/status`), { currentGW: CURRENT_GW });
@@ -513,7 +508,7 @@ function toast(msg, type = "ok") {
 }
 
 // Avvio di default sulla prima sezione
-window.showSec('dashboard');
+window.showSec('teams');
 </script>
 </body>
 </html>
