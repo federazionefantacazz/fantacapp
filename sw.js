@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-v1.0.1'; // Incrementa questo numero ogni volta che fai modifiche ai file .js o .html
+const CACHE_NAME = 'fantacapp-pwa-v1.0.2'; // Incrementa questo numero ogni volta che fai modifiche ai file .js o .html
 
 // 1. Array pulito: includiamo solo l'app utente per tenerla fulminea ed evitare blocchi sull'admin
 const ASSETS_TO_CACHE = [
