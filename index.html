@@ -110,6 +110,21 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.ok{border-color:var(--accent);color:var(--accent)}
 .toast.err{border-color:var(--accent3);color:var(--accent3)}
+
+/*Bugfix Pezzuto*/
+html, body {
+  /* Blocca lo scrolling elastico della pagina su iOS */
+  overscroll-behavior: none; 
+  
+  /* Impedisce il rimbalzo ma permette lo scorrimento normale dentro i box */
+  overflow: hidden; 
+}
+
+/* Applica lo scorrimento solo nei contenitori interni che ne hanno bisogno */
+#dynamic-pages-container, .page {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* Rende lo scorrimento fluido su iPhone */
+}
 </style>
 </head>
 <body>
@@ -591,6 +606,14 @@ if ('serviceWorker' in navigator) {
       .catch(err => console.error('Errore SW', err));
   });
 }
+
+// Blocca il movimento di trascinamento dell'intera pagina su iOS
+document.addEventListener('touchmove', function (event) {
+  // Se l'utente trascina la pagina ma non si trova dentro un box scorrevole, blocca il movimento
+  if (event.target.tagName === 'BODY' || event.target.tagName === 'HTML' || event.target.id === 'app-header') {
+    event.preventDefault();
+  }
+}, { passive: false });
 </script>
 </body>
 </html>
