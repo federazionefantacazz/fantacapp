@@ -39,53 +39,48 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-tap-highlight-color:transparent}
 
-/* CONFIGURAZIONE STRUTTURA BLOCCHETTO FISSO PER EMULARE APP NATIVA SU IOS */
+/* STRUTTURA APP GUSCIO BLOCCATO OVERALL */
 html, body {
-  overscroll-behavior: none; 
-  overflow: hidden;
-  height: 100%;
-  width: 100%;
-  position: fixed;
+  overscroll-behavior: none !important; 
+  overflow: hidden !important;
+  height: 100% !important;
+  width: 100% !important;
+  position: fixed !important;
+  top: 0; left: 0;
   font-family:'DM Sans',sans-serif;
   background:var(--bg);
   color:var(--text);
 }
 
 #app {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  width: 100%;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  width: 100% !important;
+  overflow: hidden !important;
 }
 
 #app-header {
   flex-shrink: 0;
-  height: 60px;
 }
 
-/* IL CONTENITORE PRENDE TUTTO LO SPAZIO RIMASTO TRA HEADER E NAVBAR */
+/* L'UNICO CONTENITORE CHE DEVE FARE SCORRERE I CONTENUTI SU IOS */
 #dynamic-pages-container {
-  flex: 1;
-  overflow: hidden;
-  position: relative;
-  width: 100%;
+  flex: 1 !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important; /* Forza il motore inerziale di Safari */
+  position: relative !important;
+  width: 100% !important;
+  padding: 0.5rem 1rem calc(80px + env(safe-area-inset-bottom)) 1rem !important;
 }
 
-/* OGNI PAGINA DIVENTA UN'AREA SCORREVOLE FLUIDA E INDIPENDENTE */
+/* LE PAGINE INTERNE DIVENTANO SEMPLICI BLOCCHI CONTENUTI */
 .page {
   display: none;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 0.5rem 1rem 80px 1rem; /* Padding inferiore generoso per evitare che i contenuti finiscano sotto la navbar */
-  overflow-y: scroll !important;
-  -webkit-overflow-scrolling: touch; /* Abilita lo scorrimento fluidissimo nativo Apple */
+  width: 100%;
 }
-
 .page.active {
-  display: block;
+  display: block !important;
   animation: fadeIn 0.25s ease-out;
 }
 
@@ -178,7 +173,7 @@ html, body {
     </select>
   </div>
 
-  <div id="page-login" style="padding:3rem 1.5rem; text-align:center; max-width:400px; margin:40px auto 0; overflow-y: auto; height: 100%;">
+  <div id="page-login" style="padding:3rem 1.5rem; text-align:center; max-width:400px; margin:40px auto 0; overflow-y: auto;">
     <div class="logo" style="font-size:3rem; margin-bottom:2rem;">FANTACAZZ</div>
     
     <div class="card" id="box-firebase-login">
@@ -210,7 +205,7 @@ html, body {
     </div>
   </div>
 
-  <div id="dynamic-pages-container"></div>
+  <div id="dynamic-pages-container" style="display: none;"></div>
 </div>
 
 <nav id="nav" style="display:none">
@@ -515,6 +510,7 @@ function bootApp() {
 
   const container = document.getElementById('dynamic-pages-container');
   if (container) {
+    container.style.display = 'block'; // Mostra il box contenitore delle pagine
     container.innerHTML = `
       ${HomePage.renderHTML()}
       ${CalendarioPage.renderHTML()}
@@ -551,9 +547,12 @@ window.goPage = function(name, btn) {
   const target = document.getElementById('page-'+name);
   if(target) {
     target.classList.add('active');
-    target.scrollTop = 0; // Riporta la pagina in cima ad ogni cambio tab
   }
   if(btn) btn.classList.add('active');
+  
+  // Riporta il container principale in cima ad ogni cambio tab
+  const container = document.getElementById('dynamic-pages-container');
+  if(container) container.scrollTop = 0;
 };
 
 window.showToast = function(msg, type='ok') {
@@ -572,8 +571,6 @@ if ('serviceWorker' in navigator) {
       .catch(err => console.error('Errore SW', err));
   });
 }
-
-// RIMOSSI GLI INTERCETTORI TOUCHMOVE SUL NASCERE CHE GENERAVANO CONFLITTI SU IOS
 </script>
 </body>
 </html>
