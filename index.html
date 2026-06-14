@@ -15,70 +15,88 @@
 <title>Fantacazz</title>
 <style>
 :root {
-  --bg: #1a1e24;       /* Sfondo principale (Ardesia scura) */
-  --bg2: #22272f;      /* Sfondo secondario / Sidebar admin */
-  --bg3: #2b323c;      /* Sfondo degli input e menu a tendina */
-  --card: #282e37;     /* Colore delle schede/card (Grigio Cemento Scuro) */
-  --card2: #333a46;    /* Righe dei giocatori e sub-box (Grigio Cemento Medio) */
-  
-  /* COLORI DI ACCENTO CRISTALLINI E METALLICI */
-  --accent: #50e3c2;   /* Accento principale: Verde menta glaciale (attivi/live) */
-  --accent2: #64748b;  /* Accento secondario: Grigio Acciaio per bottoni secondari e dettagli barra */
-  --accent3: #ff6b6b;  /* Colore degli errori / svincoli (Rosso corallo desaturato) */
-  --gold: #f5a623;     /* Colore dei crediti / prezzi (Oro ambrato) */
-  
-  /* TESTI */
-  --text: #e2e8f0;     /* Testo principale chiaro (Grigio ghiaccio) */
-  --text2: #94a3b8;    /* Testo secondario ed etichette (Grigio cemento chiaro) */
-  --text3: #475569;    /* Testo disattivato o dettagli minori */
+  --bg: #1a1e24;       /* Sfondo principale */
+  --bg2: #22272f;      /* Sfondo secondario */
+  --bg3: #2b323c;      /* Sfondo input */
+  --card: #282e37;     /* Colore schede */
+  --card2: #333a46;    /* Righe sub-box */
+  --accent: #50e3c2;   /* Verde menta glaciale */
+  --accent2: #64748b;  /* Grigio Acciaio */
+  --accent3: #ff6b6b;  /* Rosso corallo */
+  --gold: #f5a623;     /* Oro ambrato */
+  --text: #e2e8f0;     /* Testo chiaro */
+  --text2: #94a3b8;    /* Testo secondario */
+  --text3: #475569;    
 }
 .field-player select {
   -webkit-appearance: none;
   appearance: none;
   text-align: center;
 }
-*{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-tap-highlight-color:transparent}
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
 
-/* STRUTTURA APP GUSCIO BLOCCATO OVERALL - FIX IOS */
-html, body {
-  overscroll-behavior-y: none; /* Blocca il rimbalzo PWA senza rompere lo scroll interno */
-  overflow: hidden;
-  height: 100%;
+/* ==========================================================================
+   STRUTTURA STRUTTURALE UNIFICATA - FIX DEF_IOS
+   ========================================================================== */
+html {
+  height: -webkit-fill-available;
   width: 100%;
-  position: relative; /* Sostituito fixed con relative per evitare bug di coordinate su Safari */
-  font-family:'DM Sans',sans-serif;
-  background:var(--bg);
-  color:var(--text);
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  overscroll-behavior-y: none; 
+  overflow: hidden;
+  height: 100vh;
+  height: -webkit-fill-available;
+  width: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 #app {
-  display: flex;
-  flex-direction: column;
-  height: 100vh; /* Forza l'altezza reale dello viewport */
-  height: -webkit-fill-available; /* Fix cruciale per Safari iOS */
-  width: 100%;
-  overflow: hidden;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  width: 100% !important;
+  overflow: hidden !important;
+  position: relative;
+  padding-top: env(safe-area-inset-top, 0px); 
+  box-sizing: border-box;
 }
 
 #app-header {
   flex-shrink: 0;
 }
 
-/* IL CONTENITORE DYNAMIC-PAGES ORA SCORRE CORRETTAMENTE */
+/* CONTENITORI CON SCROLL ISOLATO */
 #dynamic-pages-container {
-  flex: 1 1 auto;
-  overflow-y: scroll; /* Forza la presenza dell'asse di scorrimento */
-  -webkit-overflow-scrolling: touch; /* Inerzia iOS */
-  width: 100%;
-  padding: 0.5rem 1rem calc(80px + env(safe-area-inset-bottom)) 1rem;
+  flex: 1 1 0% !important;
+  min-height: 0;
+  overflow-y: scroll !important;
+  -webkit-overflow-scrolling: touch !important;
+  width: 100% !important;
+  padding: 0.5rem 1rem calc(75px + env(safe-area-inset-bottom, 16px)) 1rem !important;
   box-sizing: border-box;
 }
 
-/* ASSICURA SCROLL ANCHE NELLA PAGINA DI LOGIN SE I CAMPI SONO TROPPI O APRE LA TASTIERA */
 #page-login {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  flex: 1 1 0% !important;
+  min-height: 0;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
   width: 100%;
   padding: 3rem 1.5rem;
   text-align: center;
@@ -96,6 +114,7 @@ html, body {
   animation: fadeIn 0.25s ease-out;
 }
 
+/* ELEMENTI GRAFICI GLOBALI */
 .logo{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:1px;background:linear-gradient(45deg, #fff, var(--text2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .sec{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:0.5px;color:var(--text);margin-bottom:.8rem;display:flex;align-items:center;gap:.4rem}
 .card{background:var(--card);border:1px solid rgba(255,255,255,0.05);border-radius:16px;padding:1rem;margin-bottom:1rem;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
