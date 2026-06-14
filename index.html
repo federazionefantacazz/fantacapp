@@ -243,6 +243,17 @@ onAuthStateChanged(auth, firebaseUser => {
   }
 });
 
+
+function globalPreloadLogos(teams) {
+  if (!teams || !Array.isArray(teams)) return;
+  teams.forEach(team => {
+    if (team.logo) {
+      const img = new Image();
+      img.src = team.logo;
+    }
+  });
+}
+
 function caricaDatiCompetizione(compId) {
 
   onValue(ref(db, `competitions/${compId}/lineups`), snap => {
@@ -293,6 +304,9 @@ function caricaDatiCompetizione(compId) {
     const raw = snap.val() || {};
     window.STATE.teams = Object.values(raw).sort((a,b) => b.pts - a.pts);
     
+    // --> AGGIUNGI QUESTA RIGA QUI:
+    globalPreloadLogos(window.STATE.teams);
+
     if (window.STATE.user) {
       const foundCurrentTeam = window.STATE.teams.find(t => t.id === window.STATE.user.id);
       if (foundCurrentTeam) {
@@ -454,7 +468,7 @@ function populateLoginDropdown() {
 
   select.innerHTML = '<option value="">Scegli la tua squadra...</option>' + 
     window.STATE.teams.map(t => `
-      <option value="${t.id}">${t.emoji || '⚽'} ${t.name} (${t.owner || 'Nessun proprietario'})</option>
+      <option value="${t.id}">🛡️ ${t.name} (${t.owner || 'Nessun proprietario'})</option>
     `).join('');
 }
 

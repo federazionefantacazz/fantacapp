@@ -1,34 +1,44 @@
-const CACHE_NAME = 'fantalega-pwa-v2.22.6'; // Ho messo v2 per forzare l'aggiornamento
+const CACHE_NAME = 'fantacapp-pwa-v1.0.1'; // Incrementa questo numero ogni volta che fai modifiche ai file .js o .html
+
+// 1. Array pulito: includiamo solo l'app utente per tenerla fulminea ed evitare blocchi sull'admin
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  './admin.html',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  './icons/logo-federazione.jpg'
+  './icons/logo-federazione.jpg',
+  
+  // Servizi e Pagine Utente
+  './js/services/integrationImgBB.js',
+  './js/calendario.js',
+  './js/formazione.js',
+  './js/home.js',
+  './js/mercato.js',
+  './js/rose.js',
+  './js/stats.js'
 ];
 
-// Installazione: salva i file statici nella cache
+// Installazione: salva i file statici nella cache locale
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Cache aperta');
+        console.log('Cache PWA inizializzata correttamente');
         return cache.addAll(ASSETS_TO_CACHE);
       })
   );
   self.skipWaiting();
 });
 
-// Attivazione: pulisce le cache vecchie se cambi la versione (CACHE_NAME)
+// Attivazione: fa tabula rasa delle vecchie cache quando aggiorni la versione
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            console.log('Cache vecchia eliminata:', cacheName);
+            console.log('Vecchia cache rimossa:', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -38,16 +48,31 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Fetch: prova a prendere la risorsa dalla rete, se fallisce (offline) usa la cache
+// Fetch: Gestione intelligente della rete e della cache
 self.addEventListener('fetch', event => {
-  // Ignora le richieste verso Firebase (i dati real-time non vanno cachati qui)
-  if (event.request.url.includes('firebasedatabase.app') || event.request.url.includes('googleapis.com')) {
-    return;
+  const url = event.request.url;
+
+  // SICUREZZA: Non toccare MAI le chiamate a Firebase, l'autenticazione o le API esterne di ImgBB
+  if (
+    url.includes('firebasedatabase.app') || 
+    url.includes('googleapis.com') || 
+    url.includes('imgbb.com') || 
+    url.includes('i.ibb.co') || // Server dove risiedono fisicamente le immagini di ImgBB
+    url.includes('admin.html') || // Lascia che i file admin si carichino sempre da internet in tempo reale
+    url.includes('/js/admin/')
+  ) {
+    return; // Passa direttamente alla rete senza salvare in cache
   }
 
+  // STRATEGIA INTERGARA: Cache-First per i file locali inseriti nell'array (Massima velocità)
   event.respondWith(
-    fetch(event.request).catch(() => {
-      return caches.match(event.request);
+    caches.match(event.request).then(cachedResponse => {
+      if (cachedResponse) {
+        return cachedResponse; // Se il file JS/HTML è in cache, dallo istantaneamente
+      }
+      
+      // Se non è in cache (es. una nuova icona o risorsa non tracciata), scaricala da internet
+      return fetch(event.request);
     })
   );
 });
