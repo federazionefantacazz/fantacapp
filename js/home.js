@@ -28,7 +28,12 @@ export const HomePage = {
 
         <div class="card" style="background: linear-gradient(135deg, var(--card), var(--bg3)); margin-bottom: 1rem; padding: 1.2rem;">
           <div class="text2" id="home-team-title">LA TUA SQUADRA</div>
-          <div id="home-team-name" style="font-size: 1.8rem; font-family: 'Bebas Neue'; line-height: 1.2; margin-bottom: .8rem;">-</div>
+          
+          <div style="display: flex; align-items: center; gap: .8rem; margin-top: .4rem; margin-bottom: .8rem;">
+            <div id="home-team-logo-container"></div>
+            <div id="home-team-name" style="font-size: 1.8rem; font-family: 'Bebas Neue'; line-height: 1.2; padding-top: 2px;">-</div>
+          </div>
+          
           <div style="display: flex; gap: 1rem; border-top: 1px solid rgba(255,255,255,0.08); padding-top: .8rem;">
             <div style="flex: 1;">
               <div class="label" style="font-size: .65rem;">Posizione</div>
@@ -72,6 +77,7 @@ export const HomePage = {
     const gw = document.getElementById('home-gw');
     const lv = document.getElementById('live-votes');
     const compSelect = document.getElementById('home-competition-select');
+    const teamLogoContainer = document.getElementById('home-team-logo-container');
     const teamNameEl = document.getElementById('home-team-name');
     const teamPosEl = document.getElementById('home-team-pos');
     const teamPtsEl = document.getElementById('home-team-pts');
@@ -85,13 +91,25 @@ export const HomePage = {
     gw.textContent = `GIORNATA ${STATE.status?.currentGW || 1}`;
 
     if (STATE.user && STATE.teams && STATE.teams.length > 0) {
-      teamNameEl.textContent = `${STATE.user.emoji || '⚽'} ${STATE.user.name.toUpperCase()}`;
+      // Imposta il nome della squadra ricavato dall'utente loggato
+      teamNameEl.textContent = STATE.user.name.toUpperCase();
+      
       const miaSquadraDati = STATE.teams.find(t => t.id === STATE.user.id);
       
       if (miaSquadraDati) {
+        // AGGIORNATO: Rendering dinamico del Logo ImgBB (40px) o dello scudetto sostitutivo se assente
+        if (teamLogoContainer) {
+          teamLogoContainer.innerHTML = miaSquadraDati.logo 
+            ? `<img src="${miaSquadraDati.logo}" alt="Logo" style="width:40px; height:40px; object-fit:contain; border-radius:6px; display:block;">`
+            : `<div style="width:40px; height:40px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3)">🛡️</div>`;
+        }
+
         const posizioneReale = STATE.teams.indexOf(miaSquadraDati) + 1;
         teamPosEl.textContent = `${posizioneReale}° Posto`;
         teamPtsEl.textContent = typeof miaSquadraDati.pts === 'number' ? miaSquadraDati.pts.toFixed(1) : (miaSquadraDati.pts || 0);
+      } else {
+        // Fallback di sicurezza se la squadra dell'utente non è censita nell'array delle squadre
+        if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:40px; height:40px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3)">🛡️</div>`;
       }
     }
 
