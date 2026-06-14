@@ -607,10 +607,37 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Blocca il movimento di trascinamento dell'intera pagina su iOS
+// GESTIONE SCROLL INTELLIGENTE PER IOS (Niente rimbalzi, ma pagine interne scorrevoli)
+let touchStartY = 0;
+
+document.addEventListener('touchstart', function (event) {
+  // Memorizza dove l'utente ha poggiato il dito inizialmente
+  touchStartY = event.touches[0].clientY;
+}, { passive: true });
+
 document.addEventListener('touchmove', function (event) {
-  // Se l'utente trascina la pagina ma non si trova dentro un box scorrevole, blocca il movimento
-  if (event.target.tagName === 'BODY' || event.target.tagName === 'HTML' || event.target.id === 'app-header') {
+  // Trova la pagina attiva corrente (es. #page-home, #page-calendario, ecc.)
+  const activePage = document.querySelector('.page.active');
+  
+  // Se non c'è una pagina attiva o se tocchi elementi fissi come header o nav, blocca totalmente
+  if (!activePage || event.target.id === 'app-header' || event.target.closest('#app-header') || event.target.id === 'nav' || event.target.closest('#nav')) {
+    event.preventDefault();
+    return;
+  }
+
+  // Se stai scorrendo dentro la pagina interna attiva, facciamo un controllo di sicurezza sui bordi
+  const scrollTop = activePage.scrollTop;
+  const totalScroll = activePage.scrollHeight;
+  const currentScroll = scrollTop + activePage.offsetHeight;
+  const touchCurrentY = event.touches[0].clientY;
+  const direction = touchStartY - touchCurrentY; // > 0 significa che scorre verso il basso, < 0 verso l'alto
+
+  // 1. Impedisci di trascinare verso l'alto se sei già in cima (evita il rimbalzo superiore)
+  if (scrollTop === 0 && direction < 0) {
+    event.preventDefault();
+  }
+  // 2. Impedisci di trascinare verso il basso se sei già alla fine (evita il rimbalzo inferiore)
+  else if (currentScroll >= totalScroll && direction > 0) {
     event.preventDefault();
   }
 }, { passive: false });
