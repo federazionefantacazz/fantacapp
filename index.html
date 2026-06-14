@@ -39,48 +39,60 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-tap-highlight-color:transparent}
 
-/* STRUTTURA APP GUSCIO BLOCCATO OVERALL */
+/* STRUTTURA APP GUSCIO BLOCCATO OVERALL - FIX IOS */
 html, body {
-  overscroll-behavior: none !important; 
-  overflow: hidden !important;
-  height: 100% !important;
-  width: 100% !important;
-  position: fixed !important;
-  top: 0; left: 0;
+  overscroll-behavior-y: none; /* Blocca il rimbalzo PWA senza rompere lo scroll interno */
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+  position: relative; /* Sostituito fixed con relative per evitare bug di coordinate su Safari */
   font-family:'DM Sans',sans-serif;
   background:var(--bg);
   color:var(--text);
 }
 
 #app {
-  display: flex !important;
-  flex-direction: column !important;
-  height: 100% !important;
-  width: 100% !important;
-  overflow: hidden !important;
+  display: flex;
+  flex-direction: column;
+  height: 100vh; /* Forza l'altezza reale dello viewport */
+  height: -webkit-fill-available; /* Fix cruciale per Safari iOS */
+  width: 100%;
+  overflow: hidden;
 }
 
 #app-header {
   flex-shrink: 0;
 }
 
-/* L'UNICO CONTENITORE CHE DEVE FARE SCORRERE I CONTENUTI SU IOS */
+/* IL CONTENITORE DYNAMIC-PAGES ORA SCORRE CORRETTAMENTE */
 #dynamic-pages-container {
-  flex: 1 !important;
-  overflow-y: auto !important;
-  -webkit-overflow-scrolling: touch !important; /* Forza il motore inerziale di Safari */
-  position: relative !important;
-  width: 100% !important;
-  padding: 0.5rem 1rem calc(80px + env(safe-area-inset-bottom)) 1rem !important;
+  flex: 1 1 auto;
+  overflow-y: scroll; /* Forza la presenza dell'asse di scorrimento */
+  -webkit-overflow-scrolling: touch; /* Inerzia iOS */
+  width: 100%;
+  padding: 0.5rem 1rem calc(80px + env(safe-area-inset-bottom)) 1rem;
+  box-sizing: border-box;
 }
 
-/* LE PAGINE INTERNE DIVENTANO SEMPLICI BLOCCHI CONTENUTI */
+/* ASSICURA SCROLL ANCHE NELLA PAGINA DI LOGIN SE I CAMPI SONO TROPPI O APRE LA TASTIERA */
+#page-login {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+/* LE PAGINE INTERNE */
 .page {
   display: none;
   width: 100%;
 }
 .page.active {
-  display: block !important;
+  display: block;
   animation: fadeIn 0.25s ease-out;
 }
 
@@ -173,7 +185,7 @@ html, body {
     </select>
   </div>
 
-  <div id="page-login" style="padding:3rem 1.5rem; text-align:center; max-width:400px; margin:40px auto 0; overflow-y: auto;">
+  <div id="page-login">
     <div class="logo" style="font-size:3rem; margin-bottom:2rem;">FANTACAZZ</div>
     
     <div class="card" id="box-firebase-login">
@@ -510,7 +522,7 @@ function bootApp() {
 
   const container = document.getElementById('dynamic-pages-container');
   if (container) {
-    container.style.display = 'block'; // Mostra il box contenitore delle pagine
+    container.style.display = 'block'; 
     container.innerHTML = `
       ${HomePage.renderHTML()}
       ${CalendarioPage.renderHTML()}
@@ -550,7 +562,6 @@ window.goPage = function(name, btn) {
   }
   if(btn) btn.classList.add('active');
   
-  // Riporta il container principale in cima ad ogni cambio tab
   const container = document.getElementById('dynamic-pages-container');
   if(container) container.scrollTop = 0;
 };
