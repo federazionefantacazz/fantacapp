@@ -1,154 +1,3 @@
-<!DOCTYPE html>
-<html lang="it">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<title>Fantacazz — Patron</title>
-<style>
-:root {
-  --bg: #1a1e24;       
-  --bg2: #22272f;      
-  --bg3: #2b323c;      
-  --card: #282e37;     
-  --card2: #333a46;    
-  --accent: #50e3c2;   
-  --accent2: #4a90e2;  
-  --accent3: #ff6b6b;  
-  --gold: #f5a623;     
-  --text: #f5f6f7;     
-  --text2: #a0aab5;    
-  --text3: #626e7a;    
-  --border: rgba(255,255,255,0.06);
-  --sidebar-width: 240px;
-}
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
-
-.layout { display: flex; flex-direction: column; min-height: 100vh; width: 100%; }
-
-.mobile-header { display: flex; flex-direction: column; background: var(--bg2); border-bottom: 1px solid var(--border); padding: 1rem; position: sticky; top: 0; z-index: 100; }
-.mobile-header .logo-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
-.mobile-header .logo { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; }
-.mobile-header .logo span { font-size: .75rem; font-family: 'DM Sans', sans-serif; color: var(--accent); margin-left: 0.5rem; }
-
-.sidebar { display: none; background: var(--bg2); border-right: 1px solid var(--border); padding: 1.5rem 0; flex-direction: column; gap: .2rem; width: var(--sidebar-width); height: 100vh; position: fixed; top: 0; left: 0; z-index: 101; }
-.sidebar .logo{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:1px;padding:0 1.5rem;margin-bottom:1.5rem;color:#fff;display:flex;flex-direction:column}
-.sidebar .logo span{font-size:.75rem;font-family:'DM Sans',sans-serif;color:var(--accent);letter-spacing:0;font-weight:600;text-transform:uppercase;margin-top:-4px}
-
-.snav { background: none; border: none; color: var(--text2); padding: .8rem 1.5rem; text-align: left; font-size: .9rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: .75rem; transition: all .2s; }
-.snav:hover { background: rgba(255,255,255,0.03); color: #fff; }
-.snav.active { background: rgba(80,227,194,0.08); color: var(--accent); font-weight: 600; border-left: 3px solid var(--accent); }
-.snav svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
-
-.sidebar-bottom { margin-top: auto; padding: 0 1.5rem; }
-.sync-status { font-size: .75rem; color: var(--text2); background: var(--bg3); padding: .5rem .75rem; border-radius: 6px; border: 1px solid var(--border); text-align: center; }
-
-.bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg2); border-top: 1px solid var(--border); z-index: 100; overflow-x: auto; scrollbar-width: none; }
-.bottom-nav::-webkit-scrollbar { display: none; }
-.bottom-nav .snav { flex: 1; min-width: 75px; flex-direction: column; justify-content: center; align-items: center; gap: 0.25rem; padding: 0.6rem 0.5rem; font-size: 0.7rem; text-align: center; border-left: none; }
-.bottom-nav .snav.active { border-left: none; border-top: 3px solid var(--accent); background: rgba(80,227,194,0.04); }
-.bottom-nav .snav svg { width: 20px; height: 20px; }
-
-.main-content { padding: 1rem; flex: 1; width: 100%; margin-bottom: 70px; }
-.admin-sec { animation: fadeIn .25s ease-out; }
-@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-.sec-title { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 1px; margin-bottom: 1.25rem; color: #fff; }
-
-.card { background: var(--card); border-radius: 12px; padding: 1.25rem; border: 1px solid var(--border); margin-bottom: 1.25rem; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
-.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
-.stat-box { background: var(--bg3); border-radius: 8px; padding: .8rem 1rem; border: 1px solid var(--border); display: flex; flex-direction: column; gap: .25rem; }
-.stat-box .num { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; color: var(--accent); }
-.label { font-size: .72rem; color: var(--text2); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-bottom: .3rem; }
-.input-login { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; color: #fff; padding: .65rem .75rem; font-size: .9rem; margin-bottom: 1rem; transition: border-color .2s; }
-.input-login:focus { outline: none; border-color: var(--accent); }
-.btn { width: 100%; padding: .7rem 1rem; border-radius: 6px; border: none; font-weight: 600; font-size: .9rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: .5rem; transition: all .2s; text-decoration: none; }
-.btn-green { background: var(--accent); color: #0a0f1e; }
-.btn-green:hover { background: #3cd6b4; }
-.btn-blue { background: var(--accent2); color: #fff; }
-.btn-blue:hover { background: #357abd; }
-.btn-red { background: var(--accent3); color: #fff; }
-.btn-red:hover { background: #ff5252; }
-
-.table-wrapper { overflow-x: auto; margin-top: .5rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg3); -webkit-overflow-scrolling: touch; }
-table { width: 100%; border-collapse: collapse; text-align: left; font-size: .85rem; min-width: 500px; }
-th { background: var(--card); color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: .7rem; letter-spacing: 0.5px; padding: .75rem 1rem; border-bottom: 1px solid var(--border); }
-td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
-
-.vote-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .5rem; margin-top: .5rem; }
-.vote-item { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: .6rem .8rem; display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; }
-
-.toast { position: fixed; bottom: 5rem; right: 1rem; left: 1rem; padding: .75rem 1.25rem; border-radius: 6px; background: var(--card); border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 9999; font-size: .85rem; font-weight: 500; transform: translateY(100px); opacity: 0; transition: all .3s cubic-bezier(0.175, 0.885, 0.32, 1.275); text-align: center; }
-.toast.show { transform: translateY(0); opacity: 1; }
-.toast.ok { border-left: 4px solid var(--accent); }
-.toast.err { border-left: 4px solid var(--accent3); }
-.toast.info { border-left: 4px solid var(--accent2); }
-
-@media (min-width: 992px) {
-  .layout { display: block; width: 100%; }
-  .mobile-header { display: none; }
-  .sidebar { display: flex; }
-  .bottom-nav { display: none; }
-  .main-content { padding: 2rem; margin-bottom: 0; margin-left: var(--sidebar-width); width: calc(100% - var(--sidebar-width)); }
-  .sec-title { font-size: 2.4rem; }
-  .toast { left: auto; right: 1.5rem; bottom: 1.5rem; width: auto; max-width: 350px; text-align: left; }
-  .card-grid { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; }
-  .vote-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .75rem; }
-}
-</style>
-</head>
-<body>
-
-<div class="layout">
-  <div class="mobile-header">
-    <div class="logo-row">
-      <div class="logo">Fantacazz<span>Patron</span></div>
-      <div id="mobileSyncStatus" style="font-size: 0.7rem; color: var(--accent)">🟢 Connesso</div>
-    </div>
-  </div>
-  
-  <div class="sidebar">
-    <div class="logo">Fantacazz<span>Pannello Patron</span></div>
-    
-    <div class="nav-links-container"></div>
-    <div class="sidebar-bottom">
-      <div class="sync-status" id="syncStatus">⚪ Caricamento...</div>
-    </div>
-  </div>
-
-  <div class="main-content" id="admin-sections-container"></div>
-  <div class="bottom-nav" id="mobileBottomNav"></div>
-</div>
-
-<div id="nav-template" style="display:none;">
-  <button class="snav active" data-sec="teams">
-    <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>Squadre
-  </button>
-  <button class="snav" data-sec="players">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>Giocatori
-  </button>
-  <button class="snav" data-sec="votes">
-    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Voti GW
-  </button>
-  <button class="snav" data-sec="sync">
-    <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>Sync
-  </button>
-  <button class="snav" data-sec="mercato">
-    <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>Mercato
-  </button>
-  <button class="snav" data-sec="classifica">
-    <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Classifica
-  </button>
-  <button class="snav" data-sec="calendar-gen">
-    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Calendario
-  </button>
-  <button class="snav" data-sec="crea-competizioni">
-    <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Nuova
-  </button>
-</div>
-
-<div id="toast" class="toast"></div>
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, onValue, set, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
@@ -176,8 +25,14 @@ const firebaseConfig = {
 const fapp = initializeApp(firebaseConfig);
 const db = getDatabase(fapp);
 
-// Inizializzazione moduli interni passandogli il DB con protezione di sicurezza
+// Rendiamo fapp accessibile globalmente come fallback di sicurezza per i moduli interni
+window.fapp = fapp;
+
+// Inizializzazione dei moduli interni passandogli l'istanza del DB
 TeamsSection.init(db);
+if (CalendarioSection && typeof CalendarioSection.init === 'function') {
+  CalendarioSection.init(db);
+}
 if (CompetizioniSection && typeof CompetizioniSection.init === 'function') {
   CompetizioniSection.init(db);
 }
@@ -192,7 +47,6 @@ let competitions = [];
 let teamsCaricate = false;
 let giocatoriCaricati = false;
 
-// Definizione di sicurezza per evitare l'errore "undefined"
 window.CURRENT_COMPETITION = ""; 
 
 /* ─── Generazione Navigazione Duale (Desktop / Mobile) ─────────────────── */
@@ -285,7 +139,7 @@ onValue(ref(db, 'votes'), snap => {
   if (teamsCaricate && giocatoriCaricati) refreshAll();
 });
 
-/* ─── Azioni Globali ────────────────────────────────────────────────────── */
+/* ─── Azioni Globali rimanenti ───────────────────────────────────────────── */
 window.filterPlayersAdmin = function(val) { PlayersSection.setFilter(val); PlayersSection.render({ PLAYERS }); };
 window.saveGW = async function() {
   if (!window.CURRENT_COMPETITION) return toast("Seleziona prima una competizione attiva!", "err");
@@ -338,42 +192,6 @@ window.syncSofaScoreVotes = async function() {
   }
 };
 
-window.generateRandomCalendar = async function() {
-  if (!window.CURRENT_COMPETITION) return toast("Seleziona prima una competizione attiva dalla sidebar!", "err");
-  if (TEAMS.length < 2) return toast("Servono almeno 2 squadre!", "err");
-  const totalGwsRequested = parseInt(document.getElementById('genTotalGws').value) || 33;
-  const rotationType = document.getElementById('genRotationType').value;
-  if (!confirm(`Vuoi sovrascrivere il calendario di "${window.CURRENT_COMPETITION.toUpperCase()}" con ${totalGwsRequested} giornate?`)) return;
-  let lista = TEAMS.map(t => t.id).sort(() => Math.random() - 0.5);
-  if (lista.length % 2 !== 0) lista.push("RIPOSO");
-  const numSquadre = lista.length;
-  const matchPerGiornata = numSquadre / 2;
-  const turniUnici = numSquadre - 1;
-  let calendarioCompleto = {};
-  for (let g = 1; g <= totalGwsRequested; g++) {
-    const gironeCorrente = Math.floor((g - 1) / turniUnici);
-    const turnoNelGirone = (g - 1) % turniUnici;
-    const inverti = (rotationType === 'andata-ritorno' && gironeCorrente % 2 !== 0);
-    let matchGiornata = {};
-    let counter = 1;
-    for (let m = 0; m < matchPerGiornata; m++) {
-      let casaIdx = (turnoNelGirone + m) % (numSquadre - 1);
-      let trasfIdx = m === 0 ? numSquadre - 1 : (numSquadre - 1 - m + turnoNelGirone) % (numSquadre - 1);
-      let idCasa = lista[casaIdx];
-      let idTrasf = lista[trasfIdx];
-      if (idCasa === "RIPOSO" || idTrasf === "RIPOSO") continue;
-      if (inverti) { const tmp = idCasa; idCasa = idTrasf; idTrasf = tmp; }
-      matchGiornata[`m${counter++}`] = { id: `m${counter - 1}`, homeId: idCasa, awayId: idTrasf, homeScore: null, awayScore: null, finished: false };
-    }
-    calendarioCompleto[`gw${g}`] = matchGiornata;
-  }
-  try {
-    await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/matches`), calendarioCompleto);
-    await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/status`), { currentGW: 1 });
-    toast(`🎯 Calendario generato per ${window.CURRENT_COMPETITION.toUpperCase()}!`, "ok");
-  } catch (err) { toast("Errore durante il salvataggio del calendario", "err"); }
-};
-
 /* ─── Toast Helper ──────────────────────────────────────────────────────── */
 window.toast = function(msg, type = "ok") {
   const t = document.getElementById('toast');
@@ -386,5 +204,3 @@ window.toast = function(msg, type = "ok") {
 // Avvio di default sulla prima sezione
 window.showSec('teams');
 </script>
-</body>
-</html>
