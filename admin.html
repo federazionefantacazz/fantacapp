@@ -110,13 +110,6 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
   <div class="sidebar">
     <div class="logo">Fantacazz<span>Pannello Patron</span></div>
     
-    <div style="padding: 0 1.5rem; margin-bottom: 1rem;">
-      <label class="label" style="color: var(--accent);">Competizione Attiva</label>
-      <select id="globalCompSelect" class="input-login" style="margin-bottom: 0; padding: .4rem .5rem; font-size: .8rem;" onchange="window.selectCompetition(this.value)">
-        <option value="">Caricamento...</option>
-      </select>
-    </div>
-
     <div class="nav-links-container"></div>
     <div class="sidebar-bottom">
       <div class="sync-status" id="syncStatus">⚪ Caricamento...</div>
@@ -265,21 +258,14 @@ onValue(ref(db, 'competitions'), snap => {
   const raw = snap.val() || {};
   competitions = Object.values(raw);
   
-  const selectEl = document.getElementById('globalCompSelect');
-  if (selectEl) {
-    if (competitions.length === 0) {
-      selectEl.innerHTML = '<option value="">Nessuna competizione creata</option>';
-    } else {
-      selectEl.innerHTML = competitions.map(c => `<option value="${c.id}" ${window.CURRENT_COMPETITION === c.id ? 'selected' : ''}>${c.name}</option>`).join('');
-      if (!window.CURRENT_COMPETITION && competitions.length > 0) {
-        window.CURRENT_COMPETITION = competitions[0].id;
-        if (competitions[0].status) CURRENT_GW = competitions[0].status.currentGW || 1;
-      }
-    }
+  if (!window.CURRENT_COMPETITION && competitions.length > 0) {
+    window.CURRENT_COMPETITION = competitions[0].id;
+    if (competitions[0].status) CURRENT_GW = competitions[0].status.currentGW || 1;
   }
-  // Fondamentale: invoca il refresh per disegnare la lista dei moduli compreso "CompetizioniSection"
+  
   refreshAll(); 
 });
+
 onValue(ref(db, 'teams'), snap => {
   const raw = snap.val() || {};
   TEAMS = Object.values(raw).sort((a, b) => (b.pts || 0) - (a.pts || 0));
