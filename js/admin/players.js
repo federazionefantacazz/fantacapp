@@ -1,5 +1,43 @@
+import { ref, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
 export const PlayersSection = {
   _filter: '',
+  _db: null,
+
+  // Inizializza il modulo passando l'istanza del database Firebase
+  init(db) {
+    this._db = db;
+    
+    // Espone i metodi necessari alla UI globale
+    window.filterPlayersAdmin = (val) => {
+      this.setFilter(val);
+      // Esegue un re-render istantaneo del modulo passando i dati correnti memorizzati globalmente
+      if (window.PLAYERS) {
+        this.render({ PLAYERS: window.PLAYERS });
+      }
+    };
+
+    window.releasePlayer = async (playerId) => {
+      if (!window.PLAYERS) return;
+      const giocatore = window.PLAYERS.find(p => p.id === playerId);
+      if (!giocatore) return;
+      
+      if (confirm(`Vuoi svincolare ${giocatore.name}?`)) {
+        try {
+          if (!this._db) throw new Error("Database non inizializzato nel modulo Players");
+          await update(ref(this._db, 'players/' + playerId), { teamId: null });
+          if (typeof window.toast === 'function') {
+            window.toast(`${giocatore.name} svincolato.`, 'ok');
+          }
+        } catch (err) {
+          if (typeof window.toast === 'function') {
+            window.toast("Errore durante lo svincolo", "err");
+          }
+          console.error(err);
+        }
+      }
+    };
+  },
 
   renderHTML() {
     return `
@@ -13,7 +51,7 @@ export const PlayersSection = {
         <div class="table-wrapper" style="max-height:500px">
           <table>
             <thead>
-              <tr><th>Nome</th><th>Ruolo</th><th>Club</th><th>Valore</th></tr>
+              <tr><th>Nome</th><th>Ruolo</th><th>Club</th><th>Valore</th><th>Azioni</th></tr>
             </thead>
             <tbody id="playersTableBody"></tbody>
           </table>
@@ -41,6 +79,9 @@ export const PlayersSection = {
         <td><span class="badge ${p.role === 'P' ? 'badge-gray' : p.role === 'D' ? 'badge-blue' : p.role === 'C' ? 'badge-green' : 'badge-red'}">${p.role}</span></td>
         <td>${p.club || 'Svincolato'}</td>
         <td><strong>${p.value || '—'}</strong></td>
+        <td>
+          <button class="btn btn-red" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; width: auto;" onclick="window.releasePlayer('${p.id}')">Svincola</button>
+        </td>
       </tr>
     `).join('');
   },
