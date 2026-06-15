@@ -70,6 +70,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .btn-red { background: var(--accent3); color: #fff; }
 .btn-red:hover { background: #ff5252; }
 
+/* Stili badge per i ruoli calciatori */
+.badge { display: inline-block; padding: .2rem .5rem; border-radius: 4px; font-size: .75rem; font-weight: 600; color: #fff; text-align: center; }
+.badge-gray { background: #626e7a; }
+.badge-blue { background: var(--accent2); }
+.badge-green { background: var(--accent); color: #0a0f1e; }
+.badge-red { background: var(--accent3); }
+
 .table-wrapper { overflow-x: auto; margin-top: .5rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg3); -webkit-overflow-scrolling: touch; }
 table { width: 100%; border-collapse: collapse; text-align: left; font-size: .85rem; min-width: 500px; }
 th { background: var(--card); color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: .7rem; letter-spacing: 0.5px; padding: .75rem 1rem; border-bottom: 1px solid var(--border); }
@@ -176,11 +183,12 @@ const firebaseConfig = {
 const fapp = initializeApp(firebaseConfig);
 const db = getDatabase(fapp);
 
-// Esponiamo l'istanza globale per i moduli interni che richiedono un fallback
 window.fapp = fapp;
 
 // Inizializzazione moduli interni accoppiati
 TeamsSection.init(db);
+PlayersSection.init(db); // <--- Inizializzato qui il modulo Players con l'istanza DB
+
 if (CalendarioSection && typeof CalendarioSection.init === 'function') {
   CalendarioSection.init(db);
 }
@@ -190,7 +198,7 @@ if (CompetizioniSection && typeof CompetizioniSection.init === 'function') {
 
 /* ─── Stato globale applicativo ────────────────────────────────────────── */
 let TEAMS = [];
-let PLAYERS = [];
+window.PLAYERS = []; // Esposto sull'oggetto window per sincronizzarsi con il filtro interno al file JS
 let VOTES = {};
 let MATCHES = {};
 let CURRENT_GW = 1;
@@ -219,7 +227,7 @@ if (syncStatusEl) {
 }
 
 function refreshAll() {
-  const state = { TEAMS, PLAYERS, VOTES, MATCHES, CURRENT_GW, competitions };
+  const state = { TEAMS, PLAYERS: window.PLAYERS, VOTES, MATCHES, CURRENT_GW, competitions };
   [TeamsSection, PlayersSection, VotesSection, SyncSection, MercatoSection, ClassificaSection, CalendarioSection, CompetizioniSection].forEach(s => {
     if (s && typeof s.render === 'function') s.render(state);
   });
@@ -280,7 +288,7 @@ onValue(ref(db, 'teams'), snap => {
 
 onValue(ref(db, 'players'), snap => {
   const raw = snap.val() || {};
-  PLAYERS = Object.values(raw);
+  window.PLAYERS = Object.values(raw);
   giocatoriCaricati = true;
   if (teamsCaricate && giocatoriCaricati) refreshAll();
 });
@@ -291,28 +299,12 @@ onValue(ref(db, 'votes'), snap => {
 });
 
 /* ─── Callback ed Azioni Globali ────────────────────────────────────────── */
-window.filterPlayersAdmin = function(val) { 
-  PlayersSection.setFilter(val); 
-  PlayersSection.render({ PLAYERS }); 
-};
-
 window.saveGW = async function() {
   if (!window.CURRENT_COMPETITION) return toast("Seleziona prima una competizione attiva!", "err");
   try {
     await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/status`), { currentGW: CURRENT_GW });
     toast('Giornata GW' + CURRENT_GW + ' salvata per ' + window.CURRENT_COMPETITION.toUpperCase(), 'ok');
   } catch (err) { toast("Errore nel salvataggio della GW", "err"); }
-};
-
-window.releasePlayer = async function(playerId) {
-  const giocatore = PLAYERS.find(p => p.id === playerId);
-  if (!giocatore) return;
-  if (confirm(`Vuoi svincolare ${giocatore.name}?`)) {
-    try { 
-      await update(ref(db, 'players/' + playerId), { teamId: null }); 
-      toast(`${giocatore.name} svincolato.`, 'ok'); 
-    } catch (err) { toast("Errore durante lo svincolo", "err"); }
-  }
 };
 
 window.assignPlayerToTeam = async function() {
