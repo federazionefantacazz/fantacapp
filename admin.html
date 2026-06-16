@@ -184,7 +184,8 @@ window.fapp = fapp;
 // Inizializzazione moduli interni accoppiati
 TeamsSection.init(db);
 PlayersSection.init(db); // <--- Inizializzato qui il modulo Players con l'istanza DB
-
+VotesSection.init(db);
+  
 if (CalendarioSection && typeof CalendarioSection.init === 'function') {
   CalendarioSection.init(db);
 }
@@ -195,7 +196,6 @@ if (CompetizioniSection && typeof CompetizioniSection.init === 'function') {
 /* ─── Stato globale applicativo ────────────────────────────────────────── */
 let TEAMS = [];
 window.PLAYERS = []; // Esposto sull'oggetto window per sincronizzarsi con il filtro interno al file JS
-let VOTES = {};
 let MATCHES = {};
 let CURRENT_GW = 1;
 let competitions = [];
@@ -223,7 +223,7 @@ if (syncStatusEl) {
 }
 
 function refreshAll() {
-  const state = { TEAMS, PLAYERS: window.PLAYERS, VOTES, MATCHES, CURRENT_GW, competitions };
+  const state = { TEAMS, PLAYERS: window.PLAYERS, MATCHES, CURRENT_GW, competitions };
   [TeamsSection, PlayersSection, VotesSection, MercatoSection, ClassificaSection, CalendarioSection, CompetizioniSection].forEach(s => {
     if (s && typeof s.render === 'function') s.render(state);
   });
@@ -286,11 +286,6 @@ onValue(ref(db, 'players'), snap => {
   const raw = snap.val() || {};
   window.PLAYERS = Object.values(raw);
   giocatoriCaricati = true;
-  if (teamsCaricate && giocatoriCaricati) refreshAll();
-});
-  
-onValue(ref(db, 'votes'), snap => {
-  VOTES = snap.val() || {};
   if (teamsCaricate && giocatoriCaricati) refreshAll();
 });
 
