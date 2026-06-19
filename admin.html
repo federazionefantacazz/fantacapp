@@ -145,7 +145,10 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
     <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Calendario
   </button>
   <button class="snav" data-sec="crea-competizioni">
-    <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Nuova
+    <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Competizioni
+  </button>
+  <button class="snav" data-sec="themes">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 18a6 6 0 1 0 0-12v12z"/></svg>Temi
   </button>
 </div>
 
@@ -163,6 +166,7 @@ import { MercatoSection }      from './js/admin/mercato.js';
 import { ClassificaSection }   from './js/admin/classifica.js';
 import { CalendarioSection }   from './js/admin/calendario.js';
 import { CompetizioniSection } from './js/admin/competizioni.js';
+import { ThemesSection } from './js/admin/themes.js';
 
 /* ─── Firebase ─────────────────────────────────────────────────────────── */
 const firebaseConfig = {
@@ -230,6 +234,7 @@ function initAdminApp() {
   PlayersSection.init(db); 
   VotesSection.init(db);
   MercatoSection.init(db);
+  ThemesSection.init(db);
     
   if (CalendarioSection && typeof CalendarioSection.init === 'function') {
     CalendarioSection.init(db);
@@ -245,7 +250,7 @@ function initAdminApp() {
   const container = document.getElementById('admin-sections-container');
   container.innerHTML = [
     TeamsSection, PlayersSection, VotesSection,
-    MercatoSection, ClassificaSection, CalendarioSection, CompetizioniSection
+    MercatoSection, ClassificaSection, CalendarioSection, CompetizioniSection, ThemesSection
   ].map(s => s.renderHTML()).join('');
 
   const syncStatusEl = document.getElementById('syncStatus');
