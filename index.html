@@ -297,11 +297,29 @@ onAuthStateChanged(auth, firebaseUser => {
 
 function globalPreloadLogos(teams) {
   if (!teams || !Array.isArray(teams)) return;
-  teams.forEach(team => {
-    if (team.logo) {
+
+  // Filtriamo solo i team che hanno un logo valido ed evitiamo duplicati
+  const urls = [...new Set(teams.map(t => t.logo).filter(Boolean))];
+
+  // Precarichiamo le immagini in modo sequenziale o con un minimo di gestione dell'errore
+  urls.forEach((url, index) => {
+    // Usiamo setTimeout per scaglionare le richieste di pochi millisecondi
+    // ed evitare il blocco per rate-limiting (HTTP/2 Protocol Error)
+    setTimeout(() => {
       const img = new Image();
-      img.src = team.logo;
-    }
+      
+      // Cruciale per evitare blocchi CORS/HTTP2 su server di terze parti come ImgBB
+      img.crossOrigin = "anonymous"; 
+      
+      img.onload = () => console.log(`✓ Logo precaricato con successo: ${url.substring(0, 40)}...`);
+      
+      img.onerror = (e) => {
+        // Intercettiamo l'errore per non farlo stampare come Uncaught in console
+        console.warn(`⚠️ Impossibile precaricare il logo: ${url}. Il server potrebbe bloccare l'hotlinking.`);
+      };
+      
+      img.src = url;
+    }, index * 100); // 100ms di ritardo tra un logo e l'altro
   });
 }
 
