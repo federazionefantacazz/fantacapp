@@ -25,7 +25,7 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
 
-.layout { display: flex; flex-direction: column; min-height: 100vh; width: 100%; }
+.layout { display: none; flex-direction: column; min-height: 100vh; width: 100%; }
 
 .mobile-header { display: flex; flex-direction: column; background: var(--bg2); border-bottom: 1px solid var(--border); padding: 1rem; position: sticky; top: 0; z-index: 100; }
 .mobile-header .logo-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
@@ -51,7 +51,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .bottom-nav .snav svg { width: 20px; height: 20px; }
 
 .main-content { padding: 1rem; flex: 1; width: 100%; margin-bottom: 70px; }
-.admin-sec { animation: fadeIn .25s ease-out; }
+.admin-sec { animation: fadeIn .25s ease-out; display: none; }
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 .sec-title { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 1px; margin-bottom: 1.25rem; color: #fff; }
 
@@ -70,7 +70,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .btn-red { background: var(--accent3); color: #fff; }
 .btn-red:hover { background: #ff5252; }
 
-/* Stili badge per i ruoli calciatori */
 .badge { display: inline-block; padding: .2rem .5rem; border-radius: 4px; font-size: .75rem; font-weight: 600; color: #fff; text-align: center; }
 .badge-gray { background: #626e7a; }
 .badge-blue { background: var(--accent2); }
@@ -92,7 +91,7 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 .toast.info { border-left: 4px solid var(--accent2); }
 
 @media (min-width: 992px) {
-  .layout { display: block; width: 100%; }
+  .layout { width: 100%; }
   .mobile-header { display: none; }
   .sidebar { display: flex; }
   .bottom-nav { display: none; }
@@ -156,6 +155,7 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, onValue, set, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 import { TeamsSection }        from './js/admin/teams.js';
 import { PlayersSection }      from './js/admin/players.js';
@@ -178,11 +178,12 @@ const firebaseConfig = {
 };
 const fapp = initializeApp(firebaseConfig);
 const db = getDatabase(fapp);
+const auth = getAuth(fapp);
 
 window.fapp = fapp;
 
-// Variabile locale che conterrà la password inserita dall'utente
-let ADMIN_PASSWORD = "";
+// INSERISCI QUI LA TUA EMAIL AMMINISTRATORE
+const ADMIN_EMAIL = "IL_TUO_INDIRIZZO_EMAIL@ESEMPIO.COM";
 
 /* ─── Stato globale applicativo ────────────────────────────────────────── */
 let TEAMS = [];
@@ -195,17 +196,33 @@ let giocatoriCaricati = false;
 
 window.CURRENT_COMPETITION = ""; 
 
-/* ─── Controllo Accesso con Password ───────────────────────────────────── */
-function chiediPasswordAdmin() {
-  const pass = prompt("Inserisci la Password di Amministrazione per sbloccare il pannello:");
-  if (pass) {
-    ADMIN_PASSWORD = pass;
-    // Avvia l'app (se la password è sbagliata, te ne accorgerai quando provi a salvare perché Firebase darà errore)
+/* ─── Intercettatore Stato Autenticazione ──────────────────────────────── */
+onAuthStateChanged(auth, (user) => {
+  if (user && user.email === ADMIN_EMAIL) {
     document.querySelector('.layout').style.display = 'flex';
     initAdminApp();
   } else {
-    alert("Accesso negato. Inserisci la password per gestire il Fantacalcio.");
-    chiediPasswordAdmin();
+    document.querySelector('.layout').style.display = 'none';
+    eseguiLoginAdmin();
+  }
+});
+
+function eseguiLoginAdmin() {
+  const email = prompt("Area Riservata Patron.\nInserisci l'email di amministrazione:");
+  const password = prompt("Inserisci la password di amministrazione:");
+  
+  if (email && password) {
+    signInWithEmailAndPassword(auth, email, password)
+      .then(() => {
+        toast("Autenticato come Patron con successo!", "ok");
+      })
+      .catch(err => {
+        alert("Credenziali errate o utente non autorizzato.");
+        eseguiLoginAdmin();
+      });
+  } else {
+    alert("Identificazione obbligatoria per accedere al pannello.");
+    window.location.reload();
   }
 }
 
@@ -233,13 +250,11 @@ function initAdminApp() {
 
   const syncStatusEl = document.getElementById('syncStatus');
   if (syncStatusEl) {
-    syncStatusEl.innerHTML = "🟢 Connesso a Firebase";
+    syncStatusEl.innerHTML = "🟢 Connesso in sicurezza";
     syncStatusEl.style.color = "var(--accent)";
   }
 
-  // Avvia l'ascolto dei dati
   startFirebaseSubscriptions();
-  
   window.showSec('teams');
 }
 
@@ -289,10 +304,12 @@ function startFirebaseSubscriptions() {
   onValue(ref(db, 'competitions'), snap => {
     const raw = snap.val() || {};
     competitions = Object.values(raw);
+    
     if (!window.CURRENT_COMPETITION && competitions.length > 0) {
       window.CURRENT_COMPETITION = competitions[0].id;
       if (competitions[0].status) CURRENT_GW = competitions[0].status.currentGW || 1;
     }
+    
     refreshAll(); 
   });
 
@@ -311,14 +328,13 @@ function startFirebaseSubscriptions() {
   });
 }
 
-/* ─── Callback ed Azioni Globali (Modificate per passare la password) ─── */
+/* ─── Callback ed Azioni Globali ────────────────────────────────────────── */
 window.saveGW = async function() {
   if (!window.CURRENT_COMPETITION) return toast("Seleziona prima una competizione attiva!", "err");
   try {
-    // Passiamo la password come parametro di query string nell'URL di Firebase tramite il nodo fittizio ?auth=
-    await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/status?auth=${ADMIN_PASSWORD}`), { currentGW: CURRENT_GW });
+    await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/status`), { currentGW: CURRENT_GW });
     toast('Giornata GW' + CURRENT_GW + ' salvata per ' + window.CURRENT_COMPETITION.toUpperCase(), 'ok');
-  } catch (err) { toast("Errore: Password errata o non autorizzata!", "err"); }
+  } catch (err) { toast("Errore nel salvataggio della GW", "err"); }
 };
 
 window.assignPlayerToTeam = async function() {
@@ -326,9 +342,9 @@ window.assignPlayerToTeam = async function() {
   const tId = document.getElementById('mTeamSelect').value;
   if (!pId || !tId) return toast("Seleziona sia un giocatore che una squadra!", "err");
   try {
-    await update(ref(db, `players/${pId}?auth=${ADMIN_PASSWORD}`), { teamId: tId });
+    await update(ref(db, 'players/' + pId), { teamId: tId });
     toast("Giocatore assegnato con successo!", "ok");
-  } catch (err) { toast("Errore: Password errata o non autorizzata!", "err"); }
+  } catch (err) { toast("Errore durante l'assegnazione", "err"); }
 };
 
 window.saveRankRow = async function(id) {
@@ -338,9 +354,9 @@ window.saveRankRow = async function(id) {
   const d   = parseInt(document.getElementById('rk-d-' + id).value) || 0;
   const l   = parseInt(document.getElementById('rk-l-' + id).value) || 0;
   try {
-    await update(ref(db, `teams/${id}?auth=${ADMIN_PASSWORD}`), { pts, lastGW: lgw, w, d, l });
+    await update(ref(db, 'teams/' + id), { pts, lastGW: lgw, w, d, l });
     toast('Classifica di squadra aggiornata globalmente!', 'ok');
-  } catch (err) { toast("Errore: Password errata o non autorizzata!", "err"); }
+  } catch (err) { toast('Errore nel salvataggio della classifica', 'err'); }
 };
 
 /* ─── Toast System Notification Helper ──────────────────────────────────── */
@@ -351,9 +367,6 @@ window.toast = function(msg, type = "ok") {
   t.className = 'toast ' + type + ' show';
   setTimeout(() => t.classList.remove('show'), 2800);
 };
-
-// Esecuzione immediata del blocco di sicurezza all'avvio
-chiediPasswordAdmin();
 </script>
 </body>
 </html>
