@@ -162,7 +162,7 @@ body {
   font-size: .58rem !important;
   font-weight: 500;
   cursor: pointer;
-  width: 16%;
+  width: 20%; /* Ri-adattata la larghezza dei pulsanti per riempire lo spazio (5 elementi invece di 6) */
 }
 
 .nav-btn svg {
@@ -255,9 +255,6 @@ body {
   <button class="nav-btn" onclick="goPage('rose',this)">
     <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Rose
   </button>
-  <button class="nav-btn" onclick="goPage('stats',this)">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>Stats
-  </button>
 </nav>
 
 <div id="toast" class="toast"></div>
@@ -272,7 +269,7 @@ import { CalendarioPage } from './js/calendario.js';
 import { FormazionePage } from './js/formazione.js';
 import { MercatoPage } from './js/mercato.js';
 import { RosePage } from './js/rose.js';
-import { StatsPage } from './js/stats.js';
+// Rimosso l'import di StatsPage
 
 const firebaseConfig = {
   apiKey: "AIzaSyA6-PybCz_csan8tcrOEfgP8v3WKg1SIWY",
@@ -548,8 +545,7 @@ function bootApp() {
       ${FormazionePage.renderHTML()}
       ${MercatoPage.renderHTML()}
       ${RosePage.renderHTML()}
-      ${StatsPage.renderHTML()}
-    `;
+    `; // Rimosso StatsPage.renderHTML()
   }
 
   document.getElementById('page-login').style.display = 'none';
@@ -569,7 +565,7 @@ function refreshUI() {
   FormazionePage.render(window.STATE);
   MercatoPage.render(window.STATE);
   RosePage.render(window.STATE, window.STATE.user.id);
-  StatsPage.render(window.STATE);
+  // Rimosso StatsPage.render()
 }
 
 window.goPage = function(name, btn) {
