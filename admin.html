@@ -181,7 +181,7 @@ const auth = getAuth(fapp);
 
 window.fapp = fapp;
 
-// INSERISCI QUI LA TUA EMAIL AMMINISTRATORE
+// Email amministratore impostata correttamente
 const ADMIN_EMAIL = "carminedemarzo@outlook.it";
 
 /* ─── Stato globale applicativo ────────────────────────────────────────── */
@@ -229,7 +229,7 @@ function initAdminApp() {
   TeamsSection.init(db);
   PlayersSection.init(db); 
   VotesSection.init(db);
-  MercatoSection.init(db); // Inizializziamo il modulo mercato passando l'istanza db
+  MercatoSection.init(db);
     
   if (CalendarioSection && typeof CalendarioSection.init === 'function') {
     CalendarioSection.init(db);
