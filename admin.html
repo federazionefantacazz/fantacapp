@@ -115,7 +115,6 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
   
   <div class="sidebar">
     <div class="logo">Fantacazz<span>Pannello Patron</span></div>
-    
     <div class="nav-links-container"></div>
     <div class="sidebar-bottom">
       <div class="sync-status" id="syncStatus">⚪ Caricamento...</div>
@@ -230,6 +229,7 @@ function initAdminApp() {
   TeamsSection.init(db);
   PlayersSection.init(db); 
   VotesSection.init(db);
+  MercatoSection.init(db); // Inizializziamo il modulo mercato passando l'istanza db
     
   if (CalendarioSection && typeof CalendarioSection.init === 'function') {
     CalendarioSection.init(db);
@@ -328,23 +328,13 @@ function startFirebaseSubscriptions() {
   });
 }
 
-/* ─── Callback ed Azioni Globali ────────────────────────────────────────── */
+/* ─── Callback ed Azioni Globali Rimaste ───────────────────────────────── */
 window.saveGW = async function() {
   if (!window.CURRENT_COMPETITION) return toast("Seleziona prima una competizione attiva!", "err");
   try {
     await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/status`), { currentGW: CURRENT_GW });
     toast('Giornata GW' + CURRENT_GW + ' salvata per ' + window.CURRENT_COMPETITION.toUpperCase(), 'ok');
   } catch (err) { toast("Errore nel salvataggio della GW", "err"); }
-};
-
-window.assignPlayerToTeam = async function() {
-  const pId = document.getElementById('mPlayerSelect').value;
-  const tId = document.getElementById('mTeamSelect').value;
-  if (!pId || !tId) return toast("Seleziona sia un giocatore che una squadra!", "err");
-  try {
-    await update(ref(db, 'players/' + pId), { teamId: tId });
-    toast("Giocatore assegnato con successo!", "ok");
-  } catch (err) { toast("Errore durante l'assegnazione", "err"); }
 };
 
 window.saveRankRow = async function(id) {
