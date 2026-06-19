@@ -1,4 +1,17 @@
+import { ref, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
 export const MercatoSection = {
+  db: null,
+
+  // Memorizziamo l'istanza del database all'inizializzazione del modulo
+  init(databaseInstance) {
+    this.db = databaseInstance;
+
+    // Esponiamo i metodi globali richiesti dagli attributi onclick dell'HTML
+    window.assignPlayerToTeam = () => this.assignPlayerToTeam();
+    window.releasePlayer = (playerId) => this.releasePlayer(playerId);
+  },
+
   renderHTML() {
     return `
     <div id="sec-mercato" class="admin-sec" style="display:none">
@@ -73,5 +86,32 @@ export const MercatoSection = {
         </tr>
       `;
     }).join('');
+  },
+
+  /* ─── Logiche di Scrittura Database Spostate Qui Interno ─── */
+  async assignPlayerToTeam() {
+    const pId = document.getElementById('mPlayerSelect').value;
+    const tId = document.getElementById('mTeamSelect').value;
+    if (!pId || !tId) return window.toast("Seleziona sia un giocatore che una squadra!", "err");
+    
+    try {
+      await update(ref(this.db, 'players/' + pId), { teamId: tId });
+      window.toast("Giocatore assegnato con successo!", "ok");
+    } catch (err) { 
+      window.toast("Errore durante l'assegnazione", "err"); 
+    }
+  },
+
+  async releasePlayer(playerId) {
+    if (!playerId) return;
+    if (!confirm("Sei sicuro di voler svincolare questo giocatore?")) return;
+
+    try {
+      // Impostiamo il teamId a stringa vuota (o null) per renderlo svincolato
+      await update(ref(this.db, 'players/' + playerId), { teamId: "" });
+      window.toast("Giocatore svincolato con successo!", "ok");
+    } catch (err) { 
+      window.toast("Errore durante lo svincolo", "err"); 
+    }
   }
 };
