@@ -277,6 +277,8 @@ window.STATE = {
   status: {}, 
   matches: {}, 
   currentCompetition: '',
+  // FIX: Inizializziamo competitions come un Array provvisto del metodo .find() richiesto dai moduli esterni
+  competitions: [], 
   booted: false 
 };
 
@@ -304,10 +306,12 @@ function globalPreloadLogos(teams) {
 }
 
 function caricaDatiCompetizione(compId) {
+  if (!compId) return;
+  
   onValue(ref(db, `competitions/${compId}/lineups`), snap => {
-    if (!window.STATE.competitions) window.STATE.competitions = {};
-    if (!window.STATE.competitions[compId]) window.STATE.competitions[compId] = {};
-    window.STATE.competitions[compId].lineups = snap.val() || {};
+    // Gestione interna sicura delle formazioni della competizione corrente
+    if (!window.STATE._currentCompData) window.STATE._currentCompData = {};
+    window.STATE._currentCompData.lineups = snap.val() || {};
     refreshUI();
   });
   
@@ -385,7 +389,6 @@ window._handleCompetitionChange = function(newCompetitionId) {
   caricaDatiCompetizione(newCompetitionId);
   refreshUI();
 };
-caricaDatiCompetizione(window.STATE.currentCompetition);
 
 onValue(ref(db, 'votes'), snap => { 
   window.STATE.votes = snap.val() || {}; 
@@ -497,6 +500,9 @@ window.doTeamSelection = function() {
 onValue(ref(db, 'competitions'), snap => {
   const comps = snap.val() || {};
   const list = Object.values(comps);
+  
+  // FIX: popoliamo l'array corretto atteso da calendario.js e dagli altri moduli
+  window.STATE.competitions = list;
   window.STATE.allCompetitions = list;
   
   const userSelect = document.getElementById('userCompSelect');
