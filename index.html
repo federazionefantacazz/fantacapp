@@ -123,7 +123,7 @@ body {
 .rbadge{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;flex-shrink:0}
 .rP{background:#4a5568}.rD{background:#0077ff}.rC{background:#00e5a0;color:#0a0f1e}.rA{background:#ff4757}
 .pi{flex:1;min-width:0}
-.pn覆{font-size:.9rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.pn{font-size:.9rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
 .pm{font-size:.72rem;color:var(--text2)}
 .pr{text-align:right;flex-shrink:0}.price{font-size:.9rem;font-weight:600;font-family:'DM Mono',monospace;color:var(--gold)}.pavg{font-size:.68rem;color:var(--text2)}
 .btn{background:var(--accent2);color:#fff;border:none;padding:.7rem 1.2rem;border-radius:10px;font-size:.85rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;transition:all 0.2s;width:100%}
@@ -260,31 +260,14 @@ body {
 <div id="toast" class="toast"></div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+// Connessione ed autenticazione delegate al file config condiviso
+import { db, auth, ref, onValue, set, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from './js/firebase-config.js';
 
 import { HomePage } from './js/home.js';
 import { CalendarioPage } from './js/calendario.js';
 import { FormazionePage } from './js/formazione.js';
 import { MercatoPage } from './js/mercato.js';
-import { TeamsPage } from './js/teams.js'; 
-// Rimossa definitivamente la riga di RosePage o StatsPage non più necessarie
-
-const firebaseConfig = {
-  apiKey: "AIzaSyA6-PybCz_csan8tcrOEfgP8v3WKg1SIWY",
-  authDomain: "fantcapp.firebaseapp.com",
-  databaseURL: "https://fantcapp-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "fantcapp",
-  storageBucket: "fantcapp.firebasestorage.app",
-  messagingSenderId: "118817739792",
-  appId: "1:118817739792:web:2dc599ae4bfb8769222695",
-  measurementId: "G-DR0TJDVR2R"
-};
-
-const fapp = initializeApp(firebaseConfig);
-const db = getDatabase(fapp);
-const auth = getAuth(fapp);
+import { TeamsPage } from './js/teams.js';
 
 window.STATE = { 
   user: null, 
@@ -568,7 +551,6 @@ function refreshUI() {
 }
 
 window.goPage = function(name, btn) {
-  // Reset di eventuali sotto-viste di dettaglio aperte prima di cambiare pagina
   if (name === 'teams' && typeof TeamsPage.backToTeamsList === 'function') {
     TeamsPage.backToTeamsList();
   }
