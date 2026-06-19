@@ -181,21 +181,12 @@ const db = getDatabase(fapp);
 
 window.fapp = fapp;
 
-// Inizializzazione moduli interni accoppiati
-TeamsSection.init(db);
-PlayersSection.init(db); // <--- Inizializzato qui il modulo Players con l'istanza DB
-VotesSection.init(db);
-  
-if (CalendarioSection && typeof CalendarioSection.init === 'function') {
-  CalendarioSection.init(db);
-}
-if (CompetizioniSection && typeof CompetizioniSection.init === 'function') {
-  CompetizioniSection.init(db);
-}
+// Variabile locale che conterrà la password inserita dall'utente
+let ADMIN_PASSWORD = "";
 
 /* ─── Stato globale applicativo ────────────────────────────────────────── */
 let TEAMS = [];
-window.PLAYERS = []; // Esposto sull'oggetto window per sincronizzarsi con il filtro interno al file JS
+window.PLAYERS = []; 
 let MATCHES = {};
 let CURRENT_GW = 1;
 let competitions = [];
@@ -204,22 +195,52 @@ let giocatoriCaricati = false;
 
 window.CURRENT_COMPETITION = ""; 
 
-/* ─── Generazione Navigazione Duale (Desktop / Mobile) ─────────────────── */
-const navTemplate = document.getElementById('nav-template').innerHTML;
-document.querySelector('.sidebar .nav-links-container').innerHTML = navTemplate;
-document.getElementById('mobileBottomNav').innerHTML = navTemplate;
+/* ─── Controllo Accesso con Password ───────────────────────────────────── */
+function chiediPasswordAdmin() {
+  const pass = prompt("Inserisci la Password di Amministrazione per sbloccare il pannello:");
+  if (pass) {
+    ADMIN_PASSWORD = pass;
+    // Avvia l'app (se la password è sbagliata, te ne accorgerai quando provi a salvare perché Firebase darà errore)
+    document.querySelector('.layout').style.display = 'flex';
+    initAdminApp();
+  } else {
+    alert("Accesso negato. Inserisci la password per gestire il Fantacalcio.");
+    chiediPasswordAdmin();
+  }
+}
 
-/* ─── Iniezione Strutturale dei Moduli UI ──────────────────────────────── */
-const container = document.getElementById('admin-sections-container');
-container.innerHTML = [
-  TeamsSection, PlayersSection, VotesSection,
-  MercatoSection, ClassificaSection, CalendarioSection, CompetizioniSection
-].map(s => s.renderHTML()).join('');
+function initAdminApp() {
+  TeamsSection.init(db);
+  PlayersSection.init(db); 
+  VotesSection.init(db);
+    
+  if (CalendarioSection && typeof CalendarioSection.init === 'function') {
+    CalendarioSection.init(db);
+  }
+  if (CompetizioniSection && typeof CompetizioniSection.init === 'function') {
+    CompetizioniSection.init(db);
+  }
 
-const syncStatusEl = document.getElementById('syncStatus');
-if (syncStatusEl) {
-  syncStatusEl.innerHTML = "🟢 Connesso a Firebase";
-  syncStatusEl.style.color = "var(--accent)";
+  const navTemplate = document.getElementById('nav-template').innerHTML;
+  document.querySelector('.sidebar .nav-links-container').innerHTML = navTemplate;
+  document.getElementById('mobileBottomNav').innerHTML = navTemplate;
+
+  const container = document.getElementById('admin-sections-container');
+  container.innerHTML = [
+    TeamsSection, PlayersSection, VotesSection,
+    MercatoSection, ClassificaSection, CalendarioSection, CompetizioniSection
+  ].map(s => s.renderHTML()).join('');
+
+  const syncStatusEl = document.getElementById('syncStatus');
+  if (syncStatusEl) {
+    syncStatusEl.innerHTML = "🟢 Connesso a Firebase";
+    syncStatusEl.style.color = "var(--accent)";
+  }
+
+  // Avvia l'ascolto dei dati
+  startFirebaseSubscriptions();
+  
+  window.showSec('teams');
 }
 
 function refreshAll() {
@@ -244,11 +265,12 @@ window.showSec = function(secId) {
   });
 };
 
-document.querySelectorAll('.snav').forEach(btn => {
-  btn.addEventListener('click', function() {
-    const targetSec = this.getAttribute('data-sec');
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.snav');
+  if (btn) {
+    const targetSec = btn.getAttribute('data-sec');
     window.showSec(targetSec);
-  });
+  }
 });
 
 /* ─── Modifica della Competizione Attiva ───────────────────────────────── */
@@ -263,39 +285,40 @@ window.selectCompetition = function(compId) {
 };
 
 /* ─── Sottoscrizioni Real-time ai nodi Firebase ────────────────────────── */
-onValue(ref(db, 'competitions'), snap => {
-  const raw = snap.val() || {};
-  competitions = Object.values(raw);
-  
-  if (!window.CURRENT_COMPETITION && competitions.length > 0) {
-    window.CURRENT_COMPETITION = competitions[0].id;
-    if (competitions[0].status) CURRENT_GW = competitions[0].status.currentGW || 1;
-  }
-  
-  refreshAll(); 
-});
+function startFirebaseSubscriptions() {
+  onValue(ref(db, 'competitions'), snap => {
+    const raw = snap.val() || {};
+    competitions = Object.values(raw);
+    if (!window.CURRENT_COMPETITION && competitions.length > 0) {
+      window.CURRENT_COMPETITION = competitions[0].id;
+      if (competitions[0].status) CURRENT_GW = competitions[0].status.currentGW || 1;
+    }
+    refreshAll(); 
+  });
 
-onValue(ref(db, 'teams'), snap => {
-  const raw = snap.val() || {};
-  TEAMS = Object.values(raw).sort((a, b) => (b.pts || 0) - (a.pts || 0));
-  teamsCaricate = true;
-  if (teamsCaricate && giocatoriCaricati) refreshAll();
-});
+  onValue(ref(db, 'teams'), snap => {
+    const raw = snap.val() || {};
+    TEAMS = Object.values(raw).sort((a, b) => (b.pts || 0) - (a.pts || 0));
+    teamsCaricate = true;
+    if (teamsCaricate && giocatoriCaricati) refreshAll();
+  });
 
-onValue(ref(db, 'players'), snap => {
-  const raw = snap.val() || {};
-  window.PLAYERS = Object.values(raw);
-  giocatoriCaricati = true;
-  if (teamsCaricate && giocatoriCaricati) refreshAll();
-});
+  onValue(ref(db, 'players'), snap => {
+    const raw = snap.val() || {};
+    window.PLAYERS = Object.values(raw);
+    giocatoriCaricati = true;
+    if (teamsCaricate && giocatoriCaricati) refreshAll();
+  });
+}
 
-/* ─── Callback ed Azioni Globali ────────────────────────────────────────── */
+/* ─── Callback ed Azioni Globali (Modificate per passare la password) ─── */
 window.saveGW = async function() {
   if (!window.CURRENT_COMPETITION) return toast("Seleziona prima una competizione attiva!", "err");
   try {
-    await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/status`), { currentGW: CURRENT_GW });
+    // Passiamo la password come parametro di query string nell'URL di Firebase tramite il nodo fittizio ?auth=
+    await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/status?auth=${ADMIN_PASSWORD}`), { currentGW: CURRENT_GW });
     toast('Giornata GW' + CURRENT_GW + ' salvata per ' + window.CURRENT_COMPETITION.toUpperCase(), 'ok');
-  } catch (err) { toast("Errore nel salvataggio della GW", "err"); }
+  } catch (err) { toast("Errore: Password errata o non autorizzata!", "err"); }
 };
 
 window.assignPlayerToTeam = async function() {
@@ -303,9 +326,9 @@ window.assignPlayerToTeam = async function() {
   const tId = document.getElementById('mTeamSelect').value;
   if (!pId || !tId) return toast("Seleziona sia un giocatore che una squadra!", "err");
   try {
-    await update(ref(db, 'players/' + pId), { teamId: tId });
+    await update(ref(db, `players/${pId}?auth=${ADMIN_PASSWORD}`), { teamId: tId });
     toast("Giocatore assegnato con successo!", "ok");
-  } catch (err) { toast("Errore durante l'assegnazione", "err"); }
+  } catch (err) { toast("Errore: Password errata o non autorizzata!", "err"); }
 };
 
 window.saveRankRow = async function(id) {
@@ -315,9 +338,9 @@ window.saveRankRow = async function(id) {
   const d   = parseInt(document.getElementById('rk-d-' + id).value) || 0;
   const l   = parseInt(document.getElementById('rk-l-' + id).value) || 0;
   try {
-    await update(ref(db, 'teams/' + id), { pts, lastGW: lgw, w, d, l });
+    await update(ref(db, `teams/${id}?auth=${ADMIN_PASSWORD}`), { pts, lastGW: lgw, w, d, l });
     toast('Classifica di squadra aggiornata globalmente!', 'ok');
-  } catch (err) { toast('Errore nel salvataggio della classifica', 'err'); }
+  } catch (err) { toast("Errore: Password errata o non autorizzata!", "err"); }
 };
 
 /* ─── Toast System Notification Helper ──────────────────────────────────── */
@@ -329,8 +352,8 @@ window.toast = function(msg, type = "ok") {
   setTimeout(() => t.classList.remove('show'), 2800);
 };
 
-// Punto di ingresso dell'applicazione (mostra la scheda squadre)
-window.showSec('teams');
+// Esecuzione immediata del blocco di sicurezza all'avvio
+chiediPasswordAdmin();
 </script>
 </body>
 </html>
