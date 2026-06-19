@@ -252,6 +252,8 @@ body {
   <button class="nav-btn" onclick="goPage('mercato',this)">
     <svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 001.95-1.55L23 6H6"/></svg>Mercato
   </button>
+  <button class="nav-btn" onclick="goPage('rose',this)">
+    <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Rose
   <button class="nav-btn" onclick="goPage('teams',this)">
     <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Squadre
   </button>
@@ -267,6 +269,7 @@ import { HomePage } from './js/home.js';
 import { CalendarioPage } from './js/calendario.js';
 import { FormazionePage } from './js/formazione.js';
 import { MercatoPage } from './js/mercato.js';
+import { RosePage } from './js/rose.js';
 import { TeamsPage } from './js/teams.js';
 
 window.STATE = { 
@@ -551,6 +554,7 @@ function bootApp() {
       ${CalendarioPage.renderHTML()}
       ${FormazionePage.renderHTML()}
       ${MercatoPage.renderHTML()}
+      ${RosePage.renderHTML()}
       ${TeamsPage.renderHTML()}
     `; 
   }
@@ -571,6 +575,7 @@ function refreshUI() {
   CalendarioPage.render(window.STATE);
   FormazionePage.render(window.STATE);
   MercatoPage.render(window.STATE);
+  RosePage.render(window.STATE, window.STATE.user.id);
   TeamsPage.render(window.STATE);
 }
 
