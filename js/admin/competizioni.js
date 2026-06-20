@@ -38,6 +38,14 @@ export const CompetizioniSection = {
           <label class="label">Squadre Qualificate per Girone alla Fase Finale</label>
           <input type="number" id="compQualificati" class="input-login" value="2" min="1">
         </div>
+		
+		<div id="fieldSquadre">
+		 <label class="label">Numero Squadre</label>
+		 <input type="number" id="compNumSquadre" class="input-login" value="10" min="2">
+  
+		 <label class="label">Elenco Squadre (separati da virgola)</label>
+		 <textarea id="compTeamsList" class="input-login" placeholder="Squadra A, Squadra B, Squadra C..." style="height: 80px;"></textarea>
+		</div>
 
         <div style="display: flex; gap: 1rem;">
           <button id="btn-submit-comp" class="btn btn-green" onclick="window.creaCompetizione()">✨ Crea Competizione</button>
@@ -137,7 +145,11 @@ export const CompetizioniSection = {
       const typeSelect = document.getElementById('compType');
       const gironiInput = document.getElementById('compGironi');
       const qualifInput = document.getElementById('compQualificati');
-      
+      const numSquadreInput = document.getElementById('compNumSquadre');
+	  const teamsInput = document.getElementById('compTeamsList');
+  
+      if (numSquadreInput) numSquadreInput.value = numSquadre || 10;
+      if (teamsInput) teamsInput.value = teamsArray ? teamsArray.join(', ') : '';
       if(!idInput || !nameInput || !typeSelect) return;
 
       // Compiliamo i campi
@@ -170,6 +182,9 @@ export const CompetizioniSection = {
       if (document.getElementById('compType')) document.getElementById('compType').value = 'campionato';
       if (document.getElementById('compGironi')) document.getElementById('compGironi').value = '1';
       if (document.getElementById('compQualificati')) document.getElementById('compQualificati').value = '2';
+	  if (document.getElementById('compNumSquadre')) document.getElementById('compNumSquadre').value = '10';
+	  if (document.getElementById('compTeamsList')) document.getElementById('compTeamsList').value = '';
+	  // ...
       
       window.toggleCompFields('campionato');
 
@@ -193,12 +208,18 @@ export const CompetizioniSection = {
       const type = document.getElementById('compType').value;
       
       if (!id || !name) return window.toast("ID e Nome Competizione sono obbligatori!", "err");
+	  const numSquadre = parseInt(document.getElementById('compNumSquadre').value) || 0;
+	  const teamsRaw = document.getElementById('compTeamsList').value;
+      // Trasformiamo la stringa in un array pulito
+      const teams = teamsRaw.split(',').map(s => s.trim()).filter(s => s !== "");
       
       // Usiamo update invece di set per evitare di cancellare i nodi figli (es: matches, teams) se stiamo aggiornando
       let compPayload = { 
         id, 
         name, 
         type
+		numSquadre,
+		teams
       };
       
       // Se è un inserimento ex-novo (id non disabilitato), aggiungiamo i campi di default
