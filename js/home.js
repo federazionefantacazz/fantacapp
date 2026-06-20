@@ -1,18 +1,6 @@
 export const HomePage = {
-  // 1. Metodo che genera lo scheletro HTML (con controllo di sicurezza sullo STATE)
+  // 1. Metodo che genera lo scheletro HTML (senza la select competizione)
   renderHTML(STATE = {}) {
-    // Usiamo una logica sicura: se STATE è vuoto, usiamo valori di default
-    const allComps = STATE.allCompetitions || [];
-    const currentId = STATE.currentCompetition || 'fantacazz';
-
-    const optionsHTML = allComps.length > 0 
-      ? allComps.map(c => `
-          <option value="${c.id}" ${currentId === c.id ? 'selected' : ''}>
-            🏆 ${c.name || c.id}
-          </option>
-        `).join('')
-      : `<option value="fantacazz">🏆 Fantacazz (Campionato)</option>`;
-
     return `
       <div class="page" id="page-home" style="padding-top: 1.5rem;">
         <div class="app-header" style="margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; position: relative;">
@@ -46,13 +34,6 @@ export const HomePage = {
           </div>
         </div>
 
-        <div class="card card-sm" style="margin-bottom: 1.2rem; padding: .8rem 1rem;">
-          <div class="label" style="margin-bottom: .4rem;">Seleziona Competizione</div>
-          <select id="home-competition-select" class="select-rose" style="background: var(--bg3); width:100%; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:.6rem; color:#fff;" onchange="window._handleCompetitionChange(this.value)">
-            ${optionsHTML}
-          </select>
-        </div>
-
         <div class="card" style="background: linear-gradient(135deg, var(--card), rgba(255,255,255,0.02)); margin-bottom: 1.5rem;">
           <div class="label">Giornata Attuale</div>
           <div id="home-gw" style="font-size: 2rem; font-family: 'Bebas Neue'; color: #fff">-</div>
@@ -64,7 +45,7 @@ export const HomePage = {
     `;
   },
 
-  // 2. Metodo per popolare i dati (aggiunto controllo STATE)
+  // 2. Metodo per popolare i dati aggiornato
   render(STATE = {}) {
     const container = document.getElementById('page-home');
     if (!container) return;
@@ -76,7 +57,6 @@ export const HomePage = {
 
     const gw = document.getElementById('home-gw');
     const lv = document.getElementById('live-votes');
-    const compSelect = document.getElementById('home-competition-select');
     const teamLogoContainer = document.getElementById('home-team-logo-container');
     const teamNameEl = document.getElementById('home-team-name');
     const teamPosEl = document.getElementById('home-team-pos');
@@ -84,20 +64,14 @@ export const HomePage = {
     
     if (!gw) return;
 
-    if (compSelect && STATE.currentCompetition) {
-      compSelect.value = STATE.currentCompetition;
-    }
-
     gw.textContent = `GIORNATA ${STATE.status?.currentGW || 1}`;
 
     if (STATE.user && STATE.teams && STATE.teams.length > 0) {
-      // Imposta il nome della squadra ricavato dall'utente loggato
       teamNameEl.textContent = STATE.user.name.toUpperCase();
       
       const miaSquadraDati = STATE.teams.find(t => t.id === STATE.user.id);
       
       if (miaSquadraDati) {
-        // AGGIORNATO: Rendering dinamico del Logo ImgBB (40px) o dello scudetto sostitutivo se assente
         if (teamLogoContainer) {
           teamLogoContainer.innerHTML = miaSquadraDati.logo 
             ? `<img src="${miaSquadraDati.logo}" alt="Logo" style="width:40px; height:40px; object-fit:contain; border-radius:6px; display:block;">`
@@ -108,7 +82,6 @@ export const HomePage = {
         teamPosEl.textContent = `${posizioneReale}° Posto`;
         teamPtsEl.textContent = typeof miaSquadraDati.pts === 'number' ? miaSquadraDati.pts.toFixed(1) : (miaSquadraDati.pts || 0);
       } else {
-        // Fallback di sicurezza se la squadra dell'utente non è censita nell'array delle squadre
         if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:40px; height:40px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3)">🛡️</div>`;
       }
     }
@@ -129,6 +102,8 @@ export const HomePage = {
                 <div class="pr"><span style="${customStyle}">${val.toFixed(1)}</span></div>
             </div>`;
         }).join('');
+    } else {
+        lv.innerHTML = `<div style="text-align:center; padding:1.5rem; color:var(--text2); font-size:.85rem;">Nessun voto live disponibile al momento.</div>`;
     }
   }
 };
