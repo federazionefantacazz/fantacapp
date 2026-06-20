@@ -89,17 +89,25 @@ export const CalendarioPage = {
       }
 
       container.innerHTML = turnMatches.map(match => {
-        const teamHome = (STATE.teams || []).find(t => t.id === match.homeId) || { name: match.homeId, emoji: '🛡️' };
-        const teamAway = (STATE.teams || []).find(t => t.id === match.awayId) || { name: match.awayId, emoji: '🛡️' };
+        const teamHome = (STATE.teams || []).find(t => t.id === match.homeId) || { name: match.homeId, logo: null };
+        const teamAway = (STATE.teams || []).find(t => t.id === match.awayId) || { name: match.awayId, logo: null };
         
-        // --- FIX COMPLETO DEI PUNTEGGI UNDEFINED O TRATTINI ---
+        // --- BLOCCO LOGHI DINAMICI COME NELLA HOME ---
+        const logoHomeHTML = teamHome.logo 
+          ? `<img src="${teamHome.logo}" alt="Logo ${teamHome.name}" style="width:32px; height:32px; object-fit:contain; border-radius:4px; flex-shrink:0;">`
+          : `<div style="width:32px; height:32px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:1rem; color:var(--text3); flex-shrink:0;">🛡️</div>`;
+
+        const logoAwayHTML = teamAway.logo 
+          ? `<img src="${teamAway.logo}" alt="Logo ${teamAway.name}" style="width:32px; height:32px; object-fit:contain; border-radius:4px; flex-shrink:0;">`
+          : `<div style="width:32px; height:32px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:1rem; color:var(--text3); flex-shrink:0;">🛡️</div>`;
+        // ---------------------------------------------
+        
         // Controlliamo se la partita è finita o se i punteggi inseriti sono validi (inclusi gli zeri)
         const hasHomeScore = match.homeScore !== undefined && match.homeScore !== null && match.homeScore !== '';
         const hasAwayScore = match.awayScore !== undefined && match.awayScore !== null && match.awayScore !== '';
         
         const scoreHome = (match.finished || hasHomeScore) ? match.homeScore : '-';
         const scoreAway = (match.finished || hasAwayScore) ? match.awayScore : '-';
-        // -----------------------------------------------------
         
         const gironeLabel = match.grid || match.girone ? `
           <div style="font-size: .65rem; color: var(--gold); font-weight: bold; text-transform: uppercase; margin-bottom: .2rem; letter-spacing: 0.5px;">
@@ -110,19 +118,23 @@ export const CalendarioPage = {
           <div class="pcard" style="padding:1rem; display:flex; flex-direction:column; justify-content:center; gap:0.2rem;">
             ${gironeLabel}
             <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
-              <div style="width:40%; display:flex; align-items:center; gap:.5rem;">
-                <span style="font-size:1.2rem;">${teamHome.emoji || '🛡️'}</span>
+              
+              <div style="width:40%; display:flex; align-items:center; gap:.5rem; min-width:0;">
+                ${logoHomeHTML}
                 <div style="font-size:.85rem; font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${teamHome.name}</div>
               </div>
-              <div style="width:20%; text-align:center;">
-                <div style="font-family:'DM Mono',monospace; font-size:1.1rem; font-weight:600; background:var(--bg3); padding:.2rem .6rem; border-radius:6px; letter-spacing:2px; color:#fff;">
+              
+              <div style="width:20%; text-align:center; flex-shrink:0;">
+                <div style="font-family:'DM Mono',monospace; font-size:1.1rem; font-weight:600; background:var(--bg3); padding:.2rem .4rem; border-radius:6px; letter-spacing:1px; color:#fff;">
                   ${scoreHome}:${scoreAway}
                 </div>
               </div>
-              <div style="width:40%; display:flex; align-items:center; justify-content:flex-end; gap:.5rem; text-align:right;">
+              
+              <div style="width:40%; display:flex; align-items:center; justify-content:flex-end; gap:.5rem; text-align:right; min-width:0;">
                 <div style="font-size:.85rem; font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${teamAway.name}</div>
-                <span style="font-size:1.2rem;">${teamAway.emoji || '🛡️'}</span>
+                ${logoAwayHTML}
               </div>
+              
             </div>
           </div>
         `;
