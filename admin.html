@@ -260,7 +260,15 @@ function initAdminApp() {
 }
 
 function refreshAll() {
-  const state = { TEAMS, PLAYERS: window.PLAYERS, MATCHES, CURRENT_GW, CURRENT_REAL_GW, competitions };
+  // CORREZIONE: Passiamo sia TEAMS (per CompetizioniSection) che l'eventuale fallback ordinato se richiesto
+  const state = { 
+    TEAMS: TEAMS, 
+    PLAYERS: window.PLAYERS, 
+    MATCHES, 
+    CURRENT_GW, 
+    CURRENT_REAL_GW, 
+    competitions 
+  };
   
   // Renderizzazione sicura e condizionale elemento per elemento
   if (DashboardSection && typeof DashboardSection.render === 'function') DashboardSection.render(state);
@@ -317,7 +325,7 @@ function startFirebaseSubscriptions() {
 
   onValue(ref(db, 'competitions'), snap => {
     const raw = snap.val() || {};
-    competitions = Object.values(raw);
+    competitions = Object.keys(raw).map(key => ({ id: key, ...raw[key] }));
     
     if (!window.CURRENT_COMPETITION && competitions.length > 0) {
       window.CURRENT_COMPETITION = competitions[0].id;
@@ -327,16 +335,27 @@ function startFirebaseSubscriptions() {
     refreshAll(); 
   });
 
+  // CORREZIONE: Mappatura con ritenzione della chiave ID originale di Firebase per le squadre
   onValue(ref(db, 'teams'), snap => {
     const raw = snap.val() || {};
-    TEAMS = Object.values(raw).sort((a, b) => (b.pts || 0) - (a.pts || 0));
+    
+    TEAMS = Object.keys(raw).map(key => {
+      return typeof raw[key] === 'object' 
+        ? { id: key, ...raw[key] }
+        : { id: key, name: raw[key] };
+    });
+
+    // Mantiene l'ordinamento classico per punti nella classifica generale se necessario
+    TEAMS.sort((a, b) => (b.pts || 0) - (a.pts || 0));
+    
+    window.TEAMS = TEAMS; 
     teamsCaricate = true;
     if (teamsCaricate && giocatoriCaricati) refreshAll();
   });
 
   onValue(ref(db, 'players'), snap => {
     const raw = snap.val() || {};
-    window.PLAYERS = Object.values(raw);
+    window.PLAYERS = Object.keys(raw).map(key => ({ id: key, ...raw[key] }));
     giocatoriCaricati = true;
     if (teamsCaricate && giocatoriCaricati) refreshAll();
   });
