@@ -114,7 +114,7 @@ export const TeamsPage = {
     this.drawRosa(teamId, STATE);
 
     listView.style.display = 'none';
-    detailView.style.style.display = 'block';
+    detailView.style.display = 'block';
 
     const pageContainer = document.getElementById('dynamic-pages-container');
     if (pageContainer) pageContainer.scrollTop = 0;
