@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Fantacazz">
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link class="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -190,6 +190,7 @@ body {
 .toast.ok{border-color:var(--accent);color:var(--accent)}
 .toast.err{border-color:var(--accent3);color:var(--accent3)}
 </style>
+<style id="dynamic-theme"></style>
 </head>
 <body>
 
@@ -254,8 +255,9 @@ body {
   </button>
   <button class="nav-btn" onclick="goPage('rose',this)">
     <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Rose
+  </button>
   <button class="nav-btn" onclick="goPage('teams',this)">
-    <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Squadre
+    <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0-9 9v7a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-7a9 9 0 0 0-9-9zm0 4a2 2 0 1 1-2 2 2 2 0 0 1 2-2zm-4 9a4 4 0 0 1 8 0z"></path></svg>Squadre
   </button>
 </nav>
 
@@ -280,10 +282,13 @@ window.STATE = {
   status: {}, 
   matches: {}, 
   currentCompetition: '',
-  // FIX: Inizializziamo competitions come un Array provvisto del metodo .find() richiesto dai moduli esterni
+  currentPage: 'home', // Tracciamento della pagina attiva nello stato globale
   competitions: [], 
   booted: false 
 };
+
+// Cache interna statica per evitare il precaricamento ripetuto delle stesse immagini
+const preloadedLogos = new Set();
 
 onAuthStateChanged(auth, firebaseUser => {
   if (firebaseUser) {
@@ -301,35 +306,33 @@ onAuthStateChanged(auth, firebaseUser => {
 function globalPreloadLogos(teams) {
   if (!teams || !Array.isArray(teams)) return;
 
-  // Filtriamo solo i team che hanno un logo valido ed evitiamo duplicati
   const urls = [...new Set(teams.map(t => t.logo).filter(Boolean))];
 
-  // Precarichiamo le immagini in modo sequenziale o con un minimo di gestione dell'errore
   urls.forEach((url, index) => {
-    // Usiamo setTimeout per scaglionare le richieste di pochi millisecondi
-    // ed evitare il blocco per rate-limiting (HTTP/2 Protocol Error)
+    // Se l'URL è già memorizzato nella cache persistente, saltiamo il download
+    if (preloadedLogos.has(url)) return;
+
     setTimeout(() => {
       const img = new Image();
-      
-      // Cruciale per evitare blocchi CORS/HTTP2 su server di terze parti come ImgBB
       img.crossOrigin = "anonymous"; 
       
-      img.onload = () => console.log(`✓ Logo precaricato con successo: ${url.substring(0, 40)}...`);
+      img.onload = () => {
+        preloadedLogos.add(url);
+        console.log(`✓ Logo precaricato: ${url.substring(0, 30)}...`);
+      };
       
-      img.onerror = (e) => {
-        // Intercettiamo l'errore per non farlo stampare come Uncaught in console
-        console.warn(`⚠️ Impossibile precaricare il logo: ${url}. Il server potrebbe bloccare l'hotlinking.`);
+      img.onerror = () => {
+        console.warn(`⚠️ Impossibile precaricare il logo: ${url}`);
       };
       
       img.src = url;
-    }, index * 100); // 100ms di ritardo tra un logo e l'altro
+    }, index * 60); // 60ms stabili ed ottimizzati con la cache attiva
   });
 }
 
 function caricaDatiCompetizione(compId) {
   if (!compId) return;
   
-  // FIX SVUOTAMENTO: Elimina i vecchi dati rimasti appesi nello stato locale
   window.STATE.matches = {};
   window.STATE.status = { currentGW: 1 };
   
@@ -344,23 +347,29 @@ function caricaDatiCompetizione(compId) {
     refreshUI(); 
   });
 
+  // Ottimizzazione del Tema mediante blocco di testo unico (Atomic CSS injection)
   onValue(ref(db, `competitions/${compId}/theme`), snap => {
     const theme = snap.val();
-    if (theme) {
-      const root = document.documentElement;
-      if (theme.bg) root.style.setProperty('--bg', theme.bg);
-      if (theme.bg2) root.style.setProperty('--bg2', theme.bg2);
-      if (theme.bg3) root.style.setProperty('--bg3', theme.bg3);
-      if (theme.card) root.style.setProperty('--card', theme.card);
-      if (theme.card2) root.style.setProperty('--card2', theme.card2);
-      if (theme.accent) root.style.setProperty('--accent', theme.accent);
-      if (theme.accent2) root.style.setProperty('--accent2', theme.accent2);
-      if (theme.accent3) root.style.setProperty('--accent3', theme.accent3);
-      if (theme.gold) root.style.setProperty('--gold', theme.gold);
-      if (theme.text) root.style.setProperty('--text', theme.text);
-      if (theme.text2) root.style.setProperty('--text2', theme.text2);
-    } else {
-      resetThemeToDefault();
+    const styleTag = document.getElementById('dynamic-theme');
+    
+    if (theme && styleTag) {
+      styleTag.innerHTML = `
+        :root {
+          ${theme.bg ? `--bg: ${theme.bg};` : ''}
+          ${theme.bg2 ? `--bg2: ${theme.bg2};` : ''}
+          ${theme.bg3 ? `--bg3: ${theme.bg3};` : ''}
+          ${theme.card ? `--card: ${theme.card};` : ''}
+          ${theme.card2 ? `--card2: ${theme.card2};` : ''}
+          ${theme.accent ? `--accent: ${theme.accent};` : ''}
+          ${theme.accent2 ? `--accent2: ${theme.accent2};` : ''}
+          ${theme.accent3 ? `--accent3: ${theme.accent3};` : ''}
+          ${theme.gold ? `--gold: ${theme.gold};` : ''}
+          ${theme.text ? `--text: ${theme.text};` : ''}
+          ${theme.text2 ? `--text2: ${theme.text2};` : ''}
+        }
+      `;
+    } else if (styleTag) {
+      styleTag.innerHTML = ''; // Ritorna istantaneamente alle variabili CSS del foglio statico
     }
   });
 
@@ -383,21 +392,6 @@ function caricaDatiCompetizione(compId) {
     populateLoginDropdown();
     refreshUI();
   });
-}
-
-function resetThemeToDefault() {
-  const root = document.documentElement;
-  root.style.setProperty('--bg', '#1a1e24');
-  root.style.setProperty('--bg2', '#22272f');
-  root.style.setProperty('--bg3', '#2b323c');
-  root.style.setProperty('--card', '#282e37');
-  root.style.setProperty('--card2', '#333a46');
-  root.style.setProperty('--accent', '#50e3c2');
-  root.style.setProperty('--accent2', '#64748b');
-  root.style.setProperty('--accent3', '#ff6b6b');
-  root.style.setProperty('--gold', '#f5a623');
-  root.style.setProperty('--text', '#e2e8f0');
-  root.style.setProperty('--text2', '#94a3b8');
 }
 
 window._handleCompetitionChange = function(newCompetitionId) {
@@ -497,6 +491,10 @@ function populateLoginDropdown() {
 
   const select = document.getElementById('loginSelect');
   if (!select) return;
+  
+  // Ottimizzazione: Non rigeneriamo l'HTML se il selettore contiene già le opzioni dei team
+  if (select.children.length > 1) return;
+
   select.innerHTML = '<option value="">Scegli la tua squadra...</option>' + 
     window.STATE.teams.map(t => `<option value="${t.id}">🛡️ ${t.name} (${t.owner || 'Nessun proprietario'})</option>`).join('');
 }
@@ -525,7 +523,6 @@ onValue(ref(db, 'competitions'), snap => {
   const comps = snap.val() || {};
   const list = Object.values(comps);
   
-  // FIX: popoliamo l'array corretto atteso da calendario.js e dagli altri moduli
   window.STATE.competitions = list;
   window.STATE.allCompetitions = list;
   
@@ -569,17 +566,19 @@ function bootApp() {
   if (header) header.style.display = 'flex';
   
   window.goPage('home', document.querySelector('.nav-btn'));
-  refreshUI();
 }
 
+// Lazy UI Refresh: esegue il rendering solo per il modulo attualmente visibile a schermo
 function refreshUI() {
   if (!window.STATE.booted || !window.STATE.user || !document.getElementById('page-home')) return;
-  HomePage.render(window.STATE);
-  CalendarioPage.render(window.STATE);
-  FormazionePage.render(window.STATE);
-  MercatoPage.render(window.STATE);
-  RosePage.render(window.STATE, window.STATE.user.id);
-  TeamsPage.render(window.STATE);
+
+  const current = window.STATE.currentPage;
+  if (current === 'home') HomePage.render(window.STATE);
+  else if (current === 'calendario') CalendarioPage.render(window.STATE);
+  else if (current === 'formazione') FormazionePage.render(window.STATE);
+  else if (current === 'mercato') MercatoPage.render(window.STATE);
+  else if (current === 'rose') RosePage.render(window.STATE, window.STATE.user.id);
+  else if (current === 'teams') TeamsPage.render(window.STATE);
 }
 
 window.goPage = function(name, btn) {
@@ -587,9 +586,10 @@ window.goPage = function(name, btn) {
     TeamsPage.backToTeamsList();
   }
 
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  const target = document.getElementById('page-'+name);
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  
+  const target = document.getElementById('page-' + name);
   if(target) {
     target.classList.add('active');
   }
@@ -597,6 +597,10 @@ window.goPage = function(name, btn) {
   
   const container = document.getElementById('dynamic-pages-container');
   if(container) container.scrollTop = 0;
+
+  // Cambia la pagina attiva nello stato ed effettua il render dedicato immediato
+  window.STATE.currentPage = name;
+  refreshUI();
 };
 
 window.showToast = function(msg, type='ok') {
