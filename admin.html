@@ -112,7 +112,7 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
       <div id="mobileSyncStatus" style="font-size: 0.7rem; color: var(--accent)">🟢 Connesso</div>
     </div>
   </div>
-  
+   
   <div class="sidebar">
     <div class="logo">Fantacazz<span>Pannello Patron</span></div>
     <div class="nav-links-container"></div>
@@ -126,7 +126,10 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 </div>
 
 <div id="nav-template" style="display:none;">
-  <button class="snav active" data-sec="teams">
+  <button class="snav active" data-sec="dashboard">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Dashboard
+  </button>
+  <button class="snav" data-sec="teams">
     <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>Squadre
   </button>
   <button class="snav" data-sec="players">
@@ -159,6 +162,7 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 import { db, auth, ref, onValue, set, update, onAuthStateChanged, signInWithEmailAndPassword } from './js/firebase-config.js';
 
 // Importazione di tutti i sottomoduli amministrativi
+import { DashboardSection }     from './js/admin/dashboard.js';
 import { TeamsSection }        from './js/admin/teams.js';
 import { PlayersSection }       from './js/admin/players.js';
 import { VotesSection }         from './js/admin/votes.js';
@@ -176,6 +180,7 @@ let TEAMS = [];
 window.PLAYERS = []; 
 let MATCHES = {};
 let CURRENT_GW = 1;
+let CURRENT_REAL_GW = 0; 
 let competitions = [];
 let teamsCaricate = false;
 let giocatoriCaricati = false;
@@ -214,6 +219,7 @@ function eseguiLoginAdmin() {
 
 function initAdminApp() {
   // Inizializzazione sicura di ogni modulo passando il db centralizzato
+  if (DashboardSection && typeof DashboardSection.init === 'function') DashboardSection.init(db);
   if (TeamsSection && typeof TeamsSection.init === 'function') TeamsSection.init(db);
   if (PlayersSection && typeof PlayersSection.init === 'function') PlayersSection.init(db); 
   if (VotesSection && typeof VotesSection.init === 'function') VotesSection.init(db);
@@ -231,6 +237,7 @@ function initAdminApp() {
   const container = document.getElementById('admin-sections-container');
   if (container) {
     container.innerHTML = `
+      ${typeof DashboardSection.renderHTML === 'function' ? DashboardSection.renderHTML() : ''}
       ${typeof TeamsSection.renderHTML === 'function' ? TeamsSection.renderHTML() : ''}
       ${typeof PlayersSection.renderHTML === 'function' ? PlayersSection.renderHTML() : ''}
       ${typeof VotesSection.renderHTML === 'function' ? VotesSection.renderHTML() : ''}
@@ -249,13 +256,14 @@ function initAdminApp() {
   }
 
   startFirebaseSubscriptions();
-  window.showSec('teams');
+  window.showSec('dashboard');
 }
 
 function refreshAll() {
-  const state = { TEAMS, PLAYERS: window.PLAYERS, MATCHES, CURRENT_GW, competitions };
+  const state = { TEAMS, PLAYERS: window.PLAYERS, MATCHES, CURRENT_GW, CURRENT_REAL_GW, competitions };
   
   // Renderizzazione sicura e condizionale elemento per elemento
+  if (DashboardSection && typeof DashboardSection.render === 'function') DashboardSection.render(state);
   if (TeamsSection && typeof TeamsSection.render === 'function') TeamsSection.render(state);
   if (PlayersSection && typeof PlayersSection.render === 'function') PlayersSection.render(state);
   if (VotesSection && typeof VotesSection.render === 'function') VotesSection.render(state);
@@ -302,6 +310,11 @@ window.selectCompetition = function(compId) {
 
 /* ─── Sottoscrizioni Real-time ai nodi Firebase ────────────────────────── */
 function startFirebaseSubscriptions() {
+  onValue(ref(db, 'status/currentRealGW'), snap => {
+    CURRENT_REAL_GW = snap.val() !== null ? parseInt(snap.val()) : 0;
+    refreshAll(); 
+  });
+
   onValue(ref(db, 'competitions'), snap => {
     const raw = snap.val() || {};
     competitions = Object.values(raw);
@@ -330,6 +343,20 @@ function startFirebaseSubscriptions() {
 }
 
 /* ─── Callback ed Azioni Globali Rimaste ───────────────────────────────── */
+window.changeRealGW = async function(newGw) {
+  const gwNumber = parseInt(newGw);
+  try {
+    await set(ref(db, 'status/currentRealGW'), gwNumber);
+    if (gwNumber === 0) {
+      window.toast("Stato impostato su: Prima del Campionato (GW 0)", "info");
+    } else {
+      window.toast(`Giornata reale Serie A impostata alla numero: ${gwNumber}`, "ok");
+    }
+  } catch (err) {
+    window.toast("Errore nel salvataggio della giornata reale", "err");
+  }
+};
+
 window.saveGW = async function() {
   if (!window.CURRENT_COMPETITION) return toast("Seleziona prima una competizione attiva!", "err");
   try {
