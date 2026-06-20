@@ -207,8 +207,8 @@ input:focus, select:focus, textarea:focus{border-color:var(--accent)}
 // Connessione delegata interamente al file di configurazione centralizzato
 import { db, auth, ref, onValue, set, update, onAuthStateChanged, signInWithEmailAndPassword, signOut } from './js/firebase-config.js';
 
-import { MercatoSection } from './js/mercato.js';
-import { PlayersSection } from './js/players.js';
+import { MercatoSection } from './js/admin/mercato.js';
+import { PlayersSection } from './js/admin/players.js';
 import { ThemesSection } from './js/admin/themes.js';
 
 window.CURRENT_COMPETITION = '';
