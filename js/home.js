@@ -6,7 +6,7 @@ export const HomePage = {
         <div class="app-header" style="margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; position: relative;">
           <div style="width: 32px;"></div> <div class="logo" style="font-size: 2.4rem; letter-spacing: 2px;">FANTACAZZ</div>
           <button onclick="window.doFirebaseLogout()" style="background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; -webkit-tap-highlight-color: transparent;" title="Disconnetti">
-            <svg viewBox="0 0 24 24" width="22" height="22" stroke="var(--accent3)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <svg viewBox="0 0 24 24" width="22" height="22" stroke="var(--accent3)" stroke-width="2.5" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
               <polyline points="16 17 21 12 16 7"></polyline>
               <line x1="21" y1="12" x2="9" y2="12"></line>
@@ -14,96 +14,169 @@ export const HomePage = {
           </button>
         </div>
 
-        <div class="card" style="background: linear-gradient(135deg, var(--card), var(--bg3)); margin-bottom: 1rem; padding: 1.2rem;">
-          <div class="text2" id="home-team-title">LA TUA SQUADRA</div>
-          
-          <div style="display: flex; align-items: center; gap: .8rem; margin-top: .4rem; margin-bottom: .8rem;">
-            <div id="home-team-logo-container"></div>
-            <div id="home-team-name" style="font-size: 1.8rem; font-family: 'Bebas Neue'; line-height: 1.2; padding-top: 2px;">-</div>
-          </div>
-          
-          <div style="display: flex; gap: 1rem; border-top: 1px solid rgba(255,255,255,0.08); padding-top: .8rem;">
-            <div style="flex: 1;">
-              <div class="label" style="font-size: .65rem;">Posizione</div>
-              <div id="home-team-pos" style="font-size: 1.4rem; font-family: 'DM Mono', monospace; font-weight: 600; color: var(--accent);">-</div>
+        <div id="home-status-banner" style="margin-bottom: 1.2rem;"></div>
+
+        <div class="card" style="margin-bottom: 1.2rem; background: linear-gradient(135deg, var(--card) 0%, rgba(80,227,194,0.04) 100%);">
+          <div style="display:flex; align-items:center; gap:.8rem;">
+            <div id="userTeamLogo" style="flex-shrink:0;"></div>
+            <div style="flex:1; min-width:0;">
+              <div class="label" style="margin:0;">La mia squadra</div>
+              <h3 id="homeTeamName" style="font-family:'Bebas Neue',sans-serif; font-size:1.6rem; letter-spacing:0.5px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:-2px;">Caricamento...</h3>
+              <p id="homeTeamOwner" style="font-size:.78rem; color:var(--text2); margin-top:-2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">...</p>
             </div>
-            <div style="flex: 1; border-left: 1px solid rgba(255,255,255,0.08); padding-left: 1rem;">
-              <div class="label" style="font-size: .65rem;">Punti Totali</div>
-              <div id="home-team-pts" style="font-size: 1.4rem; font-family: 'DM Mono', monospace; font-weight: 600; color: var(--gold);">-</div>
+            <div id="homeTeamPts" style="font-family:'Bebas Neue',sans-serif; font-size:2.2rem; color:var(--accent); line-height:1; padding-left:.5rem; text-align:right;">0.0</div>
+          </div>
+        </div>
+
+        <div class="card" style="padding:1rem 1.25rem; margin-bottom:1.5rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div class="label" style="margin:0;">Lega e Competizione attiva</div>
+              <div id="homeActiveCompName" style="font-size:1rem; font-weight:600; color:#fff; margin-top:.1rem;">Nessuna</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="label" style="margin:0;">Giornata di Lega</div>
+              <div id="homeActiveCompGw" style="font-family:'DM Mono',monospace; font-size:1.1rem; font-weight:600; color:var(--gold); margin-top:.1rem;">GW --</div>
             </div>
           </div>
         </div>
 
-        <div class="card" style="background: linear-gradient(135deg, var(--card), rgba(255,255,255,0.02)); margin-bottom: 1.5rem;">
-          <div class="label">Giornata Attuale</div>
-          <div id="home-gw" style="font-size: 2rem; font-family: 'Bebas Neue'; color: #fff">-</div>
+        <div class="sec" style="margin-bottom:.6rem;">🎯 Prossimo Turno</div>
+        <div id="homeNextMatch" style="margin-bottom:1.5rem;">
+          <div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Nessun match programmato.</div>
         </div>
 
-        <div class="sec">🔴 Voti Live GW</div>
-        <div id="live-votes" style="max-height: 300px; overflow-y: auto; padding-right: .2rem;"></div>
+        <div class="sec" style="margin-bottom:.6rem;">🗞️ Ultimi Voti Rilasciati</div>
+        <div class="scroll-voti" id="homeLastVotes">
+          <div style="text-align:center; color:var(--text3); padding:1.5rem; font-size:.85rem; width:100%;">Nessun voto inserito.</div>
+        </div>
       </div>
     `;
   },
 
-  // 2. Metodo per popolare i dati aggiornato
-  render(STATE = {}) {
-    const container = document.getElementById('page-home');
-    if (!container) return;
+  // 2. Metodo di rendering dei dati dinamici dello stato
+  render(STATE) {
+    const banner = document.getElementById('home-status-banner');
+    const tn = document.getElementById('homeTeamName');
+    const to = document.getElementById('homeTeamOwner');
+    const tp = document.getElementById('homeTeamPts');
+    const tl = document.getElementById('homeActiveCompName');
+    const tg = document.getElementById('homeActiveCompGw');
+    const nm = document.getElementById('homeNextMatch');
+    const lv = document.getElementById('homeLastVotes');
+    const teamLogoContainer = document.getElementById('userTeamLogo');
 
-    // Se il container è vuoto, inizializzalo
-    if (container.innerHTML === "") {
-        container.innerHTML = this.renderHTML(STATE);
+    // 🟢 AGGIORNAMENTO BANNER GIORNATA REALE
+    if (banner) {
+      const realGw = STATE.currentRealGW !== undefined ? STATE.currentRealGW : 0;
+      if (realGw === 0) {
+        banner.innerHTML = `
+          <div class="card card-sm" style="border-left: 4px solid var(--accent2); background: rgba(74, 144, 226, 0.05); padding: .75rem 1rem; margin-bottom: 0;">
+            <div style="display: flex; align-items: center; gap: .6rem;">
+              <span style="font-size: 1.2rem; line-height: 1;">⏳</span>
+              <div>
+                <div style="font-size: .85rem; font-weight: 600; color: #fff;">Pre-Campionato Attivo</div>
+                <div style="font-size: .75rem; color: var(--text2); margin-top: 1px;">Le liste sono aperte. Prepara la rosa prima della 1ª Giornata!</div>
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        banner.innerHTML = `
+          <div class="card card-sm" style="border-left: 4px solid var(--accent); background: rgba(80, 227, 194, 0.05); padding: .75rem 1rem; margin-bottom: 0;">
+            <div style="display: flex; align-items: center; gap: .6rem;">
+              <span style="font-size: 1.2rem; line-height: 1;">⚽</span>
+              <div>
+                <div style="font-size: .85rem; font-weight: 600; color: #fff;">Campionato Live — Serie A</div>
+                <div style="font-size: .75rem; color: var(--text2); margin-top: 1px;">Siamo attualmente alla <strong style="color: var(--accent);">${realGw}ª Giornata</strong> reale.</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
     }
 
-    const gw = document.getElementById('home-gw');
-    const lv = document.getElementById('live-votes');
-    const teamLogoContainer = document.getElementById('home-team-logo-container');
-    const teamNameEl = document.getElementById('home-team-name');
-    const teamPosEl = document.getElementById('home-team-pos');
-    const teamPtsEl = document.getElementById('home-team-pts');
-    
-    if (!gw) return;
+    if (!STATE.user) return;
+    const myTeam = (STATE.teams || []).find(t => t.id === STATE.user.id);
 
-    gw.textContent = `GIORNATA ${STATE.status?.currentGW || 1}`;
-
-    if (STATE.user && STATE.teams && STATE.teams.length > 0) {
-      teamNameEl.textContent = STATE.user.name.toUpperCase();
+    if (myTeam) {
+      if (tn) tn.textContent = myTeam.name || "Senza Nome";
+      if (to) to.textContent = `Patron: ${myTeam.owner || "Sconosciuto"}`;
+      if (tp) tp.textContent = (myTeam.pts !== undefined) ? myTeam.pts.toFixed(1) : "0.0";
       
-      const miaSquadraDati = STATE.teams.find(t => t.id === STATE.user.id);
-      
-      if (miaSquadraDati) {
-        if (teamLogoContainer) {
-          teamLogoContainer.innerHTML = miaSquadraDati.logo 
-            ? `<img src="${miaSquadraDati.logo}" alt="Logo" style="width:40px; height:40px; object-fit:contain; border-radius:6px; display:block;">`
-            : `<div style="width:40px; height:40px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3)">🛡️</div>`;
+      if (teamLogoContainer) {
+        if (myTeam.logo) {
+          teamLogoContainer.innerHTML = `<img src="${myTeam.logo}" style="width:44px; height:44px; object-fit:contain; border-radius:6px; background:var(--bg3); padding:2px;" onerror="this.src=''; this.innerHTML='🛡️';" alt="Logo">`;
+        } else {
+          teamLogoContainer.innerHTML = `<div style="width:44px; height:44px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.3rem; color:var(--text3)">${myTeam.emoji || '🛡️'}</div>`;
         }
-
-        const posizioneReale = STATE.teams.indexOf(miaSquadraDati) + 1;
-        teamPosEl.textContent = `${posizioneReale}° Posto`;
-        teamPtsEl.textContent = typeof miaSquadraDati.pts === 'number' ? miaSquadraDati.pts.toFixed(1) : (miaSquadraDati.pts || 0);
-      } else {
-        if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:40px; height:40px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3)">🛡️</div>`;
       }
+    } else {
+      if (tn) tn.textContent = "Spettatore";
+      if (to) to.textContent = STATE.user.email;
+      if (tp) tp.textContent = "0.0";
+      if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:44px; height:44px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.3rem; color:var(--text3)">👁️</div>`;
+    }
+
+    const comp = (STATE.competitions || []).find(c => c.id === STATE.activeCompetitionId);
+    if (comp) {
+      if (tl) tl.textContent = comp.name || comp.id.toUpperCase();
+      if (tg) tg.textContent = comp.status ? `GW ${comp.status.currentGW || 1}` : "GW 1";
+      
+      const currentGwNum = comp.status ? (comp.status.currentGW || 1) : 1;
+      const allMatches = STATE.matches || {};
+      const gwMatches = allMatches[currentGwNum] || [];
+      const myMatch = gwMatches.find(m => m.homeId === STATE.user.id || m.awayId === STATE.user.id);
+
+      if (myMatch) {
+        const tHome = (STATE.teams || []).find(t => t.id === myMatch.homeId) || { name: myMatch.homeId, emoji: '🏠' };
+        const tAway = (STATE.teams || []).find(t => t.id === myMatch.awayId) || { name: myMatch.awayId, emoji: '🚀' };
+        
+        if (nm) {
+          nm.innerHTML = `
+            <div class="card card-sm" style="background:var(--bg2); border:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; text-align:center; padding:1rem 1.25rem;">
+              <div style="flex:1; text-align:right; min-width:0;">
+                <div style="font-size:1.1rem; margin-bottom:.1rem;">${tHome.emoji || '⚽'}</div>
+                <div style="font-size:.85rem; font-weight:600; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tHome.name}</div>
+              </div>
+              <div style="font-family:'Bebas Neue',sans-serif; font-size:1.4rem; color:var(--text3); padding:0 1.25rem; letter-spacing:1px;">VS</div>
+              <div style="flex:1; text-align:left; min-width:0;">
+                <div style="font-size:1.1rem; margin-bottom:.1rem;">${tAway.emoji || '⚽'}</div>
+                <div style="font-size:.85rem; font-weight:600; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tAway.name}</div>
+              </div>
+            </div>
+          `;
+        }
+      } else {
+        if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Riposo o nessun match trovato per questa GW.</div>`;
+      }
+    } else {
+      if (tl) tl.textContent = "Nessuna";
+      if (tg) tg.textContent = "GW --";
+      if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Seleziona una competizione dal menu in alto.</div>`;
     }
 
     const vArr = Object.entries(STATE.votes || {});
     if (vArr.length > 0) {
+      if (lv) {
         lv.innerHTML = vArr.map(([pid, val]) => {
-            const p = (STATE.players || []).find(x => x.id === pid) || { name: pid, role: 'C', club: '' };
-            let customStyle = 'padding: .2rem .5rem; border-radius: 6px; font-weight: bold; font-family: "DM Mono", monospace; ';
-            if (val >= 7) customStyle += 'background: rgba(80, 227, 194, 0.15); color: var(--accent);';
-            else if (val < 5.5) customStyle += 'background: rgba(255, 107, 107, 0.15); color: var(--accent3);';
-            else customStyle += 'background: rgba(255, 255, 255, 0.08); color: var(--text);';
+          const p = (STATE.players || []).find(x => x.id === pid) || { name: pid, role: 'C', club: '' };
+          let customStyle = 'padding: .2rem .5rem; border-radius: 6px; font-weight: bold; font-family: "DM Mono", monospace; ';
+          if (val >= 7) customStyle += 'background: rgba(80, 227, 194, 0.15); color: var(--accent);';
+          else if (val < 5.5) customStyle += 'background: rgba(255, 107, 107, 0.15); color: var(--accent3);';
+          else customStyle += 'background: rgba(255, 255, 255, 0.08); color: var(--text);';
 
-            return `
+          return `
             <div class="pcard">
-                <div class="rbadge r${p.role}">${p.role}</div>
-                <div class="pi"><div class="pn">${p.name}</div><div class="pm">${p.club}</div></div>
-                <div class="pr"><span style="${customStyle}">${val.toFixed(1)}</span></div>
-            </div>`;
+              <div class="rbadge r${p.role}">${p.role}</div>
+              <div class="pname">${p.name} <span class="pclub">${p.club}</span></div>
+              <div style="${customStyle}">${val.toFixed(1)}</div>
+            </div>
+          `;
         }).join('');
+      }
     } else {
-        lv.innerHTML = `<div style="text-align:center; padding:1.5rem; color:var(--text2); font-size:.85rem;">Nessun voto live disponibile al momento.</div>`;
+      if (lv) lv.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1.5rem; font-size:.85rem; width:100%;">Nessun voto rilasciato al momento.</div>`;
     }
   }
 };
