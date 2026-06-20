@@ -71,18 +71,17 @@ export const CompetizioniSection = {
     </div>`;
   },
 
-  // Popola la lista delle checkbox
-  populateTeamsList(selectedIds = []) {
+  // Popola la lista delle checkbox accettando l'array delle squadre e i check correnti
+  populateTeamsList(allTeams = [], selectedIds = []) {
     const container = document.getElementById('compTeamsCheckboxList');
     if (!container) return;
 
-    const teams = window.TEAMS || []; 
-    if (teams.length === 0) {
+    if (!allTeams || allTeams.length === 0) {
       container.innerHTML = "<div style='color:var(--text3)'>Nessuna squadra disponibile nel DB.</div>";
       return;
     }
 
-    container.innerHTML = teams.map(t => `
+    container.innerHTML = allTeams.map(t => `
       <label style="display:flex; align-items:center; gap: 8px; margin-bottom: 5px; cursor: pointer; font-size: 0.85rem;">
         <input type="checkbox" name="teamSelect" value="${t.id}" ${selectedIds.includes(t.id) ? 'checked' : ''}>
         ${t.name}
@@ -94,8 +93,20 @@ export const CompetizioniSection = {
     const listContainer = document.getElementById('admin-competitions-list');
     if (!listContainer) return;
 
-    // Aggiorniamo la lista checkbox se siamo nella pagina
-    this.populateTeamsList();
+    // Recupera le squadre dallo stato, o usa window.TEAMS come fallback secondario
+    const allTeams = state.teams || window.TEAMS || [];
+    
+    // Controlla se siamo in modalità modifica guardando lo stato del pulsante "Annulla"
+    const isEditing = document.getElementById('btn-cancel-edit-comp')?.style.display === "inline-flex";
+    
+    if (!isEditing) {
+      // Se non siamo in modifica, svuota o resetta i check
+      this.populateTeamsList(allTeams, []);
+    } else {
+      // Se siamo in modifica, recupera i check attuali salvandoli al volo prima del re-render
+      const checkedBoxes = Array.from(document.querySelectorAll('input[name="teamSelect"]:checked')).map(cb => cb.value);
+      this.populateTeamsList(allTeams, checkedBoxes);
+    }
 
     const comps = state.competitions || [];
     listContainer.innerHTML = comps.map(c => `
@@ -128,7 +139,8 @@ export const CompetizioniSection = {
       document.getElementById('compQualificati').value = qualificati;
       
       const selectedIds = teamsString ? teamsString.split(',') : [];
-      this.populateTeamsList(selectedIds);
+      const allTeams = window.TEAMS || []; // Usa le squadre globali per il caricamento istantaneo nel form
+      this.populateTeamsList(allTeams, selectedIds);
       
       window.toggleCompFields(type);
       document.getElementById('btn-submit-comp').innerText = "💾 Salva Modifiche";
@@ -139,7 +151,10 @@ export const CompetizioniSection = {
       document.getElementById('compId').disabled = false;
       document.getElementById('compId').value = '';
       document.getElementById('compName').value = '';
-      this.populateTeamsList([]);
+      
+      const allTeams = window.TEAMS || [];
+      this.populateTeamsList(allTeams, []);
+      
       document.getElementById('btn-submit-comp').innerText = "✨ Crea Competizione";
       document.getElementById('btn-cancel-edit-comp').style.display = "none";
     };
