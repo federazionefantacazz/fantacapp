@@ -61,11 +61,11 @@ export const CalendarioPage = {
         return `<option value="${gwKey}">Giornata ${num}</option>`;
       }).join('');
 
-      // FIX: Imposta la giornata attiva dell'admin SOLO al primo avvio della competizione
+      // Imposta la giornata attiva dell'admin o dello status della competizione
       const activeGW = STATE.status?.currentGW || (currentCompData?.status?.currentGW) || 1;
       select.value = `gw${activeGW}`;
-    } else if (previousUserSelection) {
-      // Altrimenti mantieni la giornata che l'utente stava guardando un secondo fa
+    } else if (previousUserSelection && select.querySelector(`option[value="${previousUserSelection}"]`)) {
+      // Altrimenti mantieni la giornata che l'utente stava guardando
       select.value = previousUserSelection;
     }
 
@@ -92,8 +92,14 @@ export const CalendarioPage = {
         const teamHome = (STATE.teams || []).find(t => t.id === match.homeId) || { name: match.homeId, emoji: '🛡️' };
         const teamAway = (STATE.teams || []).find(t => t.id === match.awayId) || { name: match.awayId, emoji: '🛡️' };
         
-        const scoreHome = match.finished || match.homeScore !== null ? match.homeScore : '-';
-        const scoreAway = match.finished || match.awayScore !== null ? match.awayScore : '-';
+        // --- FIX COMPLETO DEI PUNTEGGI UNDEFINED O TRATTINI ---
+        // Controlliamo se la partita è finita o se i punteggi inseriti sono validi (inclusi gli zeri)
+        const hasHomeScore = match.homeScore !== undefined && match.homeScore !== null && match.homeScore !== '';
+        const hasAwayScore = match.awayScore !== undefined && match.awayScore !== null && match.awayScore !== '';
+        
+        const scoreHome = (match.finished || hasHomeScore) ? match.homeScore : '-';
+        const scoreAway = (match.finished || hasAwayScore) ? match.awayScore : '-';
+        // -----------------------------------------------------
         
         const gironeLabel = match.grid || match.girone ? `
           <div style="font-size: .65rem; color: var(--gold); font-weight: bold; text-transform: uppercase; margin-bottom: .2rem; letter-spacing: 0.5px;">
