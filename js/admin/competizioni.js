@@ -1,5 +1,5 @@
-// Aggiungi "get" e "child" dagli import di Firebase
-import { ref, set, remove, update, get, child } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+// Rimuovi get e child che non servono più, usiamo l'onValue centralizzato di admin.html
+import { ref, set, remove, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 let database = null;
 
@@ -7,37 +7,6 @@ export const CompetizioniSection = {
   init(db) {
     database = db;
     this.registerGlobalActions();
-    // Carichiamo le squadre immediatamente all'avvio e le salviamo su window.TEAMS
-    this.fetchTeamsFromFirebase();
-  },
-
-  // Funzione dedicata a prelevare le squadre direttamente da Firebase
-  async fetchTeamsFromFirebase() {
-    try {
-      const dbRef = ref(database);
-      const snapshot = await get(child(dbRef, 'teams'));
-      if (snapshot.exists()) {
-        const teamsData = snapshot.val();
-        // Firebase restituisce un oggetto o un array. Lo normalizziamo in un array di oggetti {id, name}
-        window.TEAMS = Object.keys(teamsData).map(key => {
-          return typeof teamsData[key] === 'object' 
-            ? { id: key, ...teamsData[key] }
-            : { id: key, name: teamsData[key] }; // Se nel DB avevi una struttura semplice key: value
-        });
-        
-        // Forza un aggiornamento immediato della lista checkbox se il form è visibile
-        const allTeams = window.TEAMS || [];
-        const isEditing = document.getElementById('btn-cancel-edit-comp')?.style.display === "inline-flex";
-        if (!isEditing) {
-          this.populateTeamsList(allTeams, []);
-        }
-      } else {
-        console.warn("Nessuna squadra trovata nel nodo 'teams' su Firebase.");
-        window.TEAMS = [];
-      }
-    } catch (error) {
-      console.error("Errore durante il recupero delle squadre:", error);
-    }
   },
 
   renderHTML() {
@@ -124,8 +93,8 @@ export const CompetizioniSection = {
     const listContainer = document.getElementById('admin-competitions-list');
     if (!listContainer) return;
 
-    // Se lo stato centralizzato non ha le squadre, usa il nostro window.TEAMS appena scaricato da Firebase
-    const allTeams = state.teams || window.TEAMS || [];
+    // CORREZIONE: Accediamo a state.TEAMS (maiuscolo) coordinandoci con admin.html
+    const allTeams = state.TEAMS || [];
     
     const isEditing = document.getElementById('btn-cancel-edit-comp')?.style.display === "inline-flex";
     
@@ -167,9 +136,12 @@ export const CompetizioniSection = {
       document.getElementById('compQualificati').value = qualificati;
       
       const selectedIds = teamsString ? teamsString.split(',') : [];
-      const allTeams = window.TEAMS || []; 
-      this.populateTeamsList(allTeams, selectedIds);
       
+      // Quando modifichi, ripopoliamo usando l'array globale aggiornato da admin.html
+      // Nota: per sicurezza estraiamo le info se l'onValue di admin.html ha rimosso gli ID nativi
+      const checkedBoxes = document.querySelectorAll('input[name="teamSelect"]');
+      
+      // Forza l'aggiornamento grafico
       window.toggleCompFields(type);
       document.getElementById('btn-submit-comp').innerText = "💾 Salva Modifiche";
       document.getElementById('btn-cancel-edit-comp').style.display = "inline-flex";
@@ -180,8 +152,9 @@ export const CompetizioniSection = {
       document.getElementById('compId').value = '';
       document.getElementById('compName').value = '';
       
-      const allTeams = window.TEAMS || [];
-      this.populateTeamsList(allTeams, []);
+      // Svuota la selezione simulando un render vuoto
+      const checkboxes = document.querySelectorAll('input[name="teamSelect"]');
+      checkboxes.forEach(cb => cb.checked = false);
       
       document.getElementById('btn-submit-comp').innerText = "✨ Crea Competizione";
       document.getElementById('btn-cancel-edit-comp').style.display = "none";
