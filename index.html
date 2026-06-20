@@ -123,8 +123,8 @@ body { font-family:'DM Sans', sans-serif; background:var(--bg); color:var(--text
     <button class="nav-btn" onclick="window.goPage('formazione', this)">
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>Schiera
     </button>
-    <button class="nav-btn" onclick="window.goPage('rose', this)">
-      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Rose
+    <button class="nav-btn" onclick="window.goPage('teams', this)">
+      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Squadre
     </button>
     <button class="nav-btn" onclick="window.goPage('mercato', this)">
       <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>Mercato
@@ -135,17 +135,14 @@ body { font-family:'DM Sans', sans-serif; background:var(--bg); color:var(--text
 <div id="toast" class="toast"></div>
 
 <script type="module">
-import { db, auth, ref, onValue, set } from './js/firebase-config.js';
-import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import { db, auth, ref, onValue, set, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './js/firebase-config.js';
 
-import { HomePage }       from './js/pages/home.js';
-import { ClassificaPage } from './js/pages/classifica.js';
-import { FormazionePage } from './js/pages/formazione.js';
-import { MercatoPage }    from './js/pages/mercato.js';
-import { RosePage }       from './js/pages/rose.js';
-import { TeamsPage }      from './js/pages/teams.js';
+import { HomePage }       from './home.js';
+import { ClassificaPage } from './classifica.js';
+import { FormazionePage } from './formazione.js';
+import { MercatoPage }    from './mercato.js';
+import { TeamsPage }      from './teams.js'; // Rimossa RosePage da qui
 
-// Stato centralizzato reattivo dell'applicazione PWA
 window.STATE = {
   user: null,
   teams: [],
@@ -155,10 +152,9 @@ window.STATE = {
   matches: {},
   votes: {},
   currentPage: 'home',
-  currentRealGW: 0 // 🟢 STATO INIZIALE DELLA GIORNATA SERIE A REALE
+  currentRealGW: 0 
 };
 
-// Intercettore di Autenticazione Centrale
 onAuthStateChanged(auth, (user) => {
   if (user) {
     window.STATE.user = { id: user.uid, email: user.email };
@@ -173,7 +169,6 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-// Gestore click login manuale
 document.getElementById('authBtn').addEventListener('click', () => {
   const email = document.getElementById('authEmail').value.trim();
   const pass = document.getElementById('authPassword').value;
@@ -198,14 +193,12 @@ function setupStaticHTMLStructure() {
     ${HomePage.renderHTML(window.STATE)}
     ${ClassificaPage.renderHTML()}
     ${FormazionePage.renderHTML()}
-    ${RosePage.renderHTML()}
     ${MercatoPage.renderHTML()}
     ${TeamsPage.renderHTML()}
-  `;
+  `; // RosePage rimossa dalla configurazione HTML iniziale
 }
 
 function startFirebaseRealtimeSync() {
-  // 🟢 LIVE SYNC TURNI SERIE A REALE (DALLA DASHBOARD)
   onValue(ref(db, 'status/currentRealGW'), snap => {
     window.STATE.currentRealGW = snap.val() !== null ? parseInt(snap.val()) : 0;
     if (window.STATE.user) refreshUI();
@@ -258,7 +251,6 @@ function refreshUI() {
   else if (current === 'classifica') ClassificaPage.render(window.STATE);
   else if (current === 'formazione') FormazionePage.render(window.STATE);
   else if (current === 'mercato') MercatoPage.render(window.STATE);
-  else if (current === 'rose') RosePage.render(window.STATE, window.STATE.user.id);
   else if (current === 'teams') TeamsPage.render(window.STATE);
 }
 
