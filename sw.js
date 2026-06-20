@@ -15,8 +15,10 @@ const ASSETS_TO_CACHE = [
   './js/formazione.js',
   './js/home.js',
   './js/mercato.js',
+  './js/firebase-config.js',
   './js/rose.js',
-  './js/stats.js'
+  './js/teams.js'
+  
 ];
 
 // Installazione: salva i file statici nella cache locale (Bypassando i file mancanti)
