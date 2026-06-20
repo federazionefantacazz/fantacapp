@@ -217,7 +217,7 @@ export const CompetizioniSection = {
       let compPayload = { 
         id, 
         name, 
-        type
+        type,
 		numSquadre,
 		teams
       };
