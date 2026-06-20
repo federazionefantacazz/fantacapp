@@ -15,16 +15,27 @@ export const CalendarioPage = {
     `;
   },
 
+  // Funzione di supporto interna al modulo
+  _selectedCompName(comp) {
+    if (!comp || !comp.name) return "CAMPIONATO";
+    return comp.name.toUpperCase();
+  },
+
   render(STATE) {
     const select = document.getElementById('calGwSelect');
     const container = document.getElementById('calendarMatchesContainer');
     const titleEl = document.getElementById('calGwTitle');
     if (!select || !container) return;
 
+    // Salva il valore precedentemente selezionato dall'utente prima del re-render per non perderlo
+    const previousUserSelection = select.value;
+
     // Recuperiamo la competizione corrente dallo stato globale
     const currentCompId = STATE.currentCompetition;
     const currentCompData = STATE.competitions ? STATE.competitions.find(c => c.id === currentCompId) : null;
-    const matchesNode = currentCompData ? currentCompData.matches : null;
+    
+    // Prendi i match dallo STATE globale popolato da index.html
+    const matchesNode = STATE.matches || (currentCompData ? currentCompData.matches : null);
 
     if (!matchesNode || Object.keys(matchesNode).length === 0) {
       select.innerHTML = '<option value="">Nessun turno disponibile</option>';
@@ -36,11 +47,12 @@ export const CalendarioPage = {
       return;
     }
 
-    // Ricostruiamo le opzioni del select in base alle giornate reali trovate in Firebase
+    // Ordina le giornate reali (gw1, gw2, ecc.)
     const giornateEstraibili = Object.keys(matchesNode).sort((a, b) => {
       return parseInt(a.replace('gw', '')) - parseInt(b.replace('gw', ''));
     });
 
+    // Aggiorna il menu a tendina solo se cambia la competizione o il numero totale di giornate nel DB
     if (select.dataset.currentComp !== currentCompId || select.options.length !== giornateEstraibili.length) {
       select.dataset.currentComp = currentCompId;
       
@@ -49,12 +61,15 @@ export const CalendarioPage = {
         return `<option value="${gwKey}">Giornata ${num}</option>`;
       }).join('');
 
-      // Ci posizioniamo sulla giornata attiva impostata dall'admin
-      const activeGW = currentCompData.status?.currentGW || 1;
+      // FIX: Imposta la giornata attiva dell'admin SOLO al primo avvio della competizione
+      const activeGW = STATE.status?.currentGW || (currentCompData?.status?.currentGW) || 1;
       select.value = `gw${activeGW}`;
+    } else if (previousUserSelection) {
+      // Altrimenti mantieni la giornata che l'utente stava guardando un secondo fa
+      select.value = previousUserSelection;
     }
 
-    // Funzione interna di disegno del turno selezionato
+    // Funzione che disegna i match a schermo
     const drawSelectedTurn = () => {
       const selectedGW = select.value;
       if (!selectedGW || !matchesNode[selectedGW]) {
@@ -63,7 +78,7 @@ export const CalendarioPage = {
       }
 
       if (titleEl) {
-        titleEl.textContent = `${selectedCompName(currentCompData)} — TURNO ${selectedGW.replace('gw', '')}`;
+        titleEl.textContent = `${this._selectedCompName(currentCompData)} — TURNO ${selectedGW.replace('gw', '')}`;
       }
 
       const turnMatches = Object.values(matchesNode[selectedGW]);
@@ -74,16 +89,15 @@ export const CalendarioPage = {
       }
 
       container.innerHTML = turnMatches.map(match => {
-        const teamHome = (STATE.teams || []).find(t => t.id === match.homeId) || { name: match.homeId, emoji: '🏠' };
-        const teamAway = (STATE.teams || []).find(t => t.id === match.awayId) || { name: match.awayId, emoji: '🚌' };
+        const teamHome = (STATE.teams || []).find(t => t.id === match.homeId) || { name: match.homeId, emoji: '🛡️' };
+        const teamAway = (STATE.teams || []).find(t => t.id === match.awayId) || { name: match.awayId, emoji: '🛡️' };
         
         const scoreHome = match.finished || match.homeScore !== null ? match.homeScore : '-';
         const scoreAway = match.finished || match.awayScore !== null ? match.awayScore : '-';
         
-        // Se il match ha un girone di appartenenza (competizione mista), stampiamo il badge dedicato
-        const gironeLabel = match.girone ? `
+        const gironeLabel = match.grid || match.girone ? `
           <div style="font-size: .65rem; color: var(--gold); font-weight: bold; text-transform: uppercase; margin-bottom: .2rem; letter-spacing: 0.5px;">
-            📍 ${match.girone}
+            📍 ${match.grid || match.girone}
           </div>` : '';
 
         return `
@@ -109,15 +123,7 @@ export const CalendarioPage = {
       }).join('');
     };
 
-    // Colleghiamo l'evento onchange se non ancora presente
     select.onchange = () => drawSelectedTurn();
-    
-    // Disegniamo subito
     drawSelectedTurn();
   }
 };
-
-function selectedCompName(comp) {
-  if (!comp) return "CAMPIONATO";
-  return comp.name.toUpperCase();
-}
