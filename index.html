@@ -329,8 +329,11 @@ function globalPreloadLogos(teams) {
 function caricaDatiCompetizione(compId) {
   if (!compId) return;
   
+  // FIX SVUOTAMENTO: Elimina i vecchi dati rimasti appesi nello stato locale
+  window.STATE.matches = {};
+  window.STATE.status = { currentGW: 1 };
+  
   onValue(ref(db, `competitions/${compId}/lineups`), snap => {
-    // Gestione interna sicura delle formazioni della competizione corrente
     if (!window.STATE._currentCompData) window.STATE._currentCompData = {};
     window.STATE._currentCompData.lineups = snap.val() || {};
     refreshUI();
