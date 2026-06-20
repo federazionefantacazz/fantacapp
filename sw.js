@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-v1.0.2'; // Incrementa questo numero ogni volta che fai modifiche ai file .js o .html
+const CACHE_NAME = 'fantacapp-pwa-v1.0.3'; // Incrementa questo numero ogni volta che fai modifiche ai file .js o .html
 
 // 1. Array pulito: includiamo solo l'app utente per tenerla fulminea ed evitare blocchi sull'admin
 const ASSETS_TO_CACHE = [
@@ -19,13 +19,22 @@ const ASSETS_TO_CACHE = [
   './js/stats.js'
 ];
 
-// Installazione: salva i file statici nella cache locale
+// Installazione: salva i file statici nella cache locale (Bypassando i file mancanti)
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Cache PWA inizializzata correttamente');
-        return cache.addAll(ASSETS_TO_CACHE);
+        console.log('Inizializzazione cache PWA avanzata...');
+        
+        // Modifica robusta: scarica i file uno ad uno. 
+        // Se un file fallisce, viene segnalato in console ma non blocca l'app!
+        return Promise.all(
+          ASSETS_TO_CACHE.map(url => {
+            return cache.add(url).catch(err => {
+              console.error(`⚠️ Impossibile inserire in cache (File mancante o errato): ${url}`, err);
+            });
+          })
+        );
       })
   );
   self.skipWaiting();
