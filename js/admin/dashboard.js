@@ -1,12 +1,16 @@
+import { ref, get, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+// Importazione del servizio live condiviso
+import { CalcoloMatchService } from "../services/calcoloMatch.js";
+
 export const DashboardSection = {
   db: null,
+  _competitions: [],
 
-  // Inizializza il modulo salvando il riferimento a Firebase DB
   init(database) {
     this.db = database;
+    this.registerGlobalActions();
   },
 
-  // Genera la struttura HTML della pagina
   renderHTML() {
     return `
       <div id="sec-dashboard" class="admin-sec" style="display:block;">
@@ -17,36 +21,50 @@ export const DashboardSection = {
             Stato Campionato & Giornata Reale (Serie A)
           </div>
           <p style="font-size: .85rem; color: var(--text2); margin-bottom: 1rem;">
-            Seleziona la giornata corrente del campionato reale. Imposta su "Prima del Campionato" se la stagione non è ancora iniziata.
+            Seleziona la giornata corrente del campionato reale.
           </p>
           
           <div style="display: flex; flex-direction: column; gap: .4rem;">
             <label class="label" for="realGwSelect">Giornata Attiva:</label>
             <select id="realGwSelect" class="input-login" style="margin: 0; padding: .75rem;" onchange="window.changeRealGW(this.value)">
-              </select>
+            </select>
           </div>
-          
-          <div id="dashboard-status-badge" style="margin-top: 1rem; font-size: .85rem; font-weight: 500;">
-            </div>
+          <div id="dashboard-status-badge" style="margin-top: 1rem; font-size: .85rem; font-weight: 500;"></div>
         </div>
 
-        <div class="card" style="max-width: 500px; opacity: 0.6;">
-          <div class="label">Pannello di Controllo Rapido</div>
-          <p style="font-size: .8rem; color: var(--text2);">
-            Altre impostazioni rapide verranno integrate qui.
+        <!-- CALCOLATORE COMPATTO IN DASHBOARD -->
+        <div class="card" style="max-width: 500px;">
+          <div class="label" style="color: var(--accent); margin-bottom: .6rem; font-size: .85rem;">
+            🧮 Calcolatore Risultati Giornata (Salvataggio Master)
+          </div>
+          <p style="font-size: .8rem; color: var(--text2); margin-bottom: 1rem;">
+            Elabora e salva i fantavoti ufficiali su Firebase utilizzando il motore di calcolo live condiviso.
           </p>
+          
+          <div style="display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1rem;">
+            <div>
+              <label class="label">Competizione Target:</label>
+              <select id="calcCompSelect" class="input-login" style="margin:0; padding: .65rem;">
+                <option value="">Caricamento competizioni...</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">Giornata di Gioco (GW):</label>
+              <input type="number" id="calcGwInput" class="input-login" style="margin:0; padding: .65rem;" value="1" min="1">
+            </div>
+          </div>
+          
+          <button class="btn btn-green" onclick="window.eseguiCalcoloPunteggi()">⚡ Salva Punteggi Ufficiali</button>
         </div>
       </div>
     `;
   },
 
-  // Gestisce il popolamento e lo stato attuale dei selettori
   render(state) {
-    const selectEl = document.getElementById('realGwSelect');
-    if (!selectEl) return;
+    this._competitions = state.competitions || [];
 
-    // Se il select è vuoto, lo popola da 0 a 38
-    if (selectEl.options.length === 0) {
+    const selectEl = document.getElementById('realGwSelect');
+    if (selectEl && selectEl.options.length === 0) {
       let optionsHtml = `<option value="0">⏳ Giornata 0 (Prima del Campionato)</option>`;
       for (let i = 1; i <= 38; i++) {
         optionsHtml += `<option value="${i}">⚽ Giornata ${i}</option>`;
@@ -54,18 +72,83 @@ export const DashboardSection = {
       selectEl.innerHTML = optionsHtml;
     }
 
-    // Imposta il valore corrente preso dallo stato globale di Firebase
-    const currentRealGw = state.CURRENT_REAL_GW !== undefined ? state.CURRENT_REAL_GW : 0;
-    selectEl.value = currentRealGw;
+    if (selectEl) selectEl.value = state.CURRENT_REAL_GW !== undefined ? state.CURRENT_REAL_GW : 0;
 
-    // Aggiorna il badge visivo di testo
     const badgeEl = document.getElementById('dashboard-status-badge');
     if (badgeEl) {
-      if (currentRealGw === 0) {
-        badgeEl.innerHTML = `<span class="badge badge-blue">Pre-Campionato attivo</span>`;
+      const currentRealGw = state.CURRENT_REAL_GW !== undefined ? state.CURRENT_REAL_GW : 0;
+      badgeEl.innerHTML = currentRealGw === 0 
+        ? `<span class="badge badge-blue">Pre-Campionato attivo</span>` 
+        : `<span class="badge badge-green">Campionato in corso: ${currentRealGw}ª Giornata</span>`;
+    }
+
+    const calcCompSelect = document.getElementById('calcCompSelect');
+    if (calcCompSelect) {
+      if (this._competitions.length === 0) {
+        calcCompSelect.innerHTML = '<option value="">Nessuna competizione trovata</option>';
       } else {
-        badgeEl.innerHTML = `<span class="badge badge-green">Campionato in corso: ${currentRealGw}ª Giornata</span>`;
+        const currentSelection = window.CURRENT_COMPETITION || (this._competitions[0]?.id || "");
+        calcCompSelect.innerHTML = this._competitions.map(c => `
+          <option value="${c.id}" ${currentSelection === c.id ? 'selected' : ''}>🏆 ${c.name}</option>
+        `).join('');
       }
     }
+    
+    const currentComp = this._competitions.find(c => c.id === window.CURRENT_COMPETITION);
+    const calcGwInput = document.getElementById('calcGwInput');
+    if (currentComp && calcGwInput && !calcGwInput.dataset.userEdited) {
+      calcGwInput.value = currentComp.status?.currentGW || 1;
+    }
+  },
+
+  registerGlobalActions() {
+    document.addEventListener('input', (e) => {
+      if (e.target.id === 'calcGwInput') e.target.dataset.userEdited = "true";
+    });
+
+    window.eseguiCalcoloPunteggi = async () => {
+      if (!this.db) return console.error("Database non inizializzato");
+
+      const compId = document.getElementById('calcCompSelect')?.value;
+      const gwNum = document.getElementById('calcGwInput')?.value;
+      if (!compId || !gwNum) return window.toast("Competizione e Giornata obbligatorie!", "err");
+
+      const gwId = `gw${gwNum}`;
+
+      try {
+        window.toast("Esecuzione calcolo con motore live...", "info");
+
+        const votesSnap = await get(ref(this.db, `votes/${gwId}`));
+        if (!votesSnap.exists()) {
+          return window.toast(`Nessun voto inserito per la giornata ${gwId.toUpperCase()}!`, "err");
+        }
+
+        const votiGiocatori = votesSnap.val();
+        const updates = {};
+        let conteggioCalcolati = 0;
+
+        Object.keys(votiGiocatori).forEach(playerId => {
+          const datiVoto = votiGiocatori[playerId];
+          
+          if (datiVoto && datiVoto.voto !== undefined) {
+            // UTILIZZO DEL SERVIZIO LIVE CONDIVISO
+            const fantavotoFinale = CalcoloMatchService.calcolaFantavoto(datiVoto);
+            
+            updates[`votes/${gwId}/${playerId}/fantavoto`] = fantavotoFinale;
+            conteggioCalcolati++;
+          }
+        });
+
+        if (conteggioCalcolati > 0) {
+          await update(ref(this.db), updates);
+          window.toast(`🎯 Salvati con successo ${conteggioCalcolati} fantavoti per ${gwId.toUpperCase()}!`, "ok");
+        } else {
+          window.toast("Nessun voto calcolabile.", "err");
+        }
+      } catch (err) {
+        console.error(err);
+        window.toast("Errore critico durante il salvataggio", "err");
+      }
+    };
   }
 };
