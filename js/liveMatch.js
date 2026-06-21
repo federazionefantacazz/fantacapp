@@ -22,7 +22,6 @@ export const LiveMatchModule = {
     if (!container) return;
 
     // Mostra il blocco e inserisce un caricamento iniziale
-    container.style.display = 'block';
     container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Sincronizzazione dati live in corso...</p>`;
     
     const gwId = `gw${gwNum}`;
@@ -66,6 +65,16 @@ export const LiveMatchModule = {
   },
 
   /**
+   * Ferma l'ascoltatore real-time quando si esce dalla pagina
+   */
+  stopLiveTracking() {
+    if (this.activeListener) {
+      this.activeListener();
+      this.activeListener = null;
+    }
+  },
+
+  /**
    * Costruisce l'interfaccia grafica calcolando live i bonus/malus
    */
   renderLiveScreen(container, titolari, panchina, voti, players, gwNum) {
@@ -75,7 +84,7 @@ export const LiveMatchModule = {
       const pInfo = players[id] || { name: `Giocatore (${id})`, role: "-" };
       const pVoto = voti[id] || { voto: null };
       
-      let badgeRuolo = `<span class="badge-ruolo">${pInfo.role}</span>`;
+      let badgeRuolo = `<span class="rbadge r${pInfo.role}">${pInfo.role}</span>`;
       let stringaVoto = `<span style="color:var(--text3);">S.V.</span>`;
       let stringaFantavoto = `-`;
       let iconeBonus = [];
@@ -102,7 +111,7 @@ export const LiveMatchModule = {
             <div style="display: flex; align-items: center; gap: .6rem; flex: 2;">
               ${badgeRuolo}
               <div>
-                <div style="font-weight: 500; font-size: .9rem;">${pInfo.name}</div>
+                <div style="font-weight: 500; font-size: .9rem; color: var(--text);">${pInfo.name}</div>
                 <div style="font-size: .75rem; color: var(--accent); margin-top: .1rem;">${iconeBonus.join(' ')}</div>
               </div>
             </div>
@@ -127,56 +136,34 @@ export const LiveMatchModule = {
       htmlPanchina += res.html;
     });
 
-    // Iniezione del blocco visivo finale nell'applicazione
+    // Iniezione del blocco visivo finale nell'applicazione senza interruzioni sintattiche
     container.innerHTML = `
       <div class="card" style="max-width: 600px; margin: 1rem auto;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; border-bottom: 1px solid var(--border); padding-bottom: .6rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: .6rem;">
           <div>
             <h3 style="margin: 0; color: var(--accent); font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; letter-spacing: 0.5px;">🔴 LIVE MATCH</h3>
             <span style="font-size: .75rem; color: var(--text2);">Punteggio Formazione - Giornata ${gwNum}</span>
           </div>
-          <span class="badge" style="background: var(--accent3); color: #fff; font-size: .7rem; padding: .25rem .5rem; font-weight: 600; border-radius: 4px;">LIVE</span>
+          <div style="text-align: right;">
+            <span class="badge" style="background: var(--accent3); color: #fff; font-size: .7rem; padding: .25rem .5rem; font-weight: 600; border-radius: 4px; display: inline-block; margin-bottom: .2rem;">LIVE</span>
+            <div style="font-size: 1.2rem; font-weight: bold; color: var(--gold); font-family: 'DM Mono', monospace;">TOT: ${sommaTitolari}</div>
+          </div>
         </div>
 
         <div style="margin-bottom: 1.5rem;">
           <div class="label" style="font-size: .75rem; color: var(--text2); margin-bottom: .4rem;">🛡️ TITOLARI</div>
           <div style="background: rgba(0,0,0,0.15); border-radius: 6px; padding: 0 .4rem;">
-            ${htmlTitolari || '<p style="padding:1rem; color:var(--text3); font-size:.85rem;">Nessun titolare schierato</p>'}
+            ${htmlTitolari}
           </div>
         </div>
 
-        <div style="margin-bottom: 1.5rem;">
-          <div class="label" style="font-size: .75rem; color: var(--text3); margin-bottom: .4rem;">🪑 PANCHINA</div>
-          <div style="background: rgba(0,0,0,0.1); border-radius: 6px; padding: 0 .4rem; opacity: 0.7;">
-            ${htmlPanchina || '<p style="padding:1rem; color:var(--text3); font-size:.85rem;">Panchina vuota</p>'}
-          </div>
-        </div>
-
-        <div style="background: var(--bg3); padding: .85rem 1rem; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border);">
-          <div>
-            <span style="font-size: .85rem; font-weight: 500; color: var(--text);">Totale Parziale</span>
-            <div style="font-size: .7rem; color: var(--text2);">(Cambi e modificatori esclusi)</div>
-          </div>
-          <div style="font-size: 1.8rem; font-weight: bold; color: var(--accent); font-family: 'DM Mono', monospace;">
-            ${sommaTitolari.toFixed(1)}
+        <div>
+          <div class="label" style="font-size: .75rem; color: var(--text2); margin-bottom: .4rem;">🪑 PANCHINA</div>
+          <div style="background: rgba(0,0,0,0.15); border-radius: 6px; padding: 0 .4rem;">
+            ${htmlPanchina}
           </div>
         </div>
       </div>
     `;
-  },
-
-  /**
-   * Spegne l'ascolto e svuota/nasconde l'interfaccia utente
-   */
-  stopLiveTracking() {
-    if (this.activeListener) {
-      this.activeListener(); // Stacca il listener real-time di Firebase
-      this.activeListener = null;
-    }
-    const container = document.getElementById('live-match-container');
-    if (container) {
-      container.style.display = 'none';
-      container.innerHTML = "";
-    }
   }
 };
