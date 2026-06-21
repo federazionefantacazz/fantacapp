@@ -149,19 +149,24 @@ export const FormazionePage = {
     const modSelect = document.getElementById('f-modulo');
     if (!modSelect) return;
 
-    const currentGw = STATE.status?.currentGW || 1;
+    const gwReale = STATE.giornataRealeCorrente || STATE.status?.currentGW || 1;
     const userId = STATE.user.id;
     const compId = STATE.currentCompetition;
     
-    // RADAR: Cerca la formazione provando tutti i percorsi possibili nel database
+    // TRADUZIONE: Identifichiamo la giornata corretta della competizione partendo dalla giornata reale
+    const compData = STATE.competitions?.find ? STATE.competitions.find(c => c.id === compId) : null;
+    const associazioni = compData ? (compData.associazioniGwReali || {}) : {};
+    const entry = Object.entries(associazioni).find(([k, v]) => String(v).trim() === String(gwReale).trim());
+    const gwCompetizione = entry ? entry[0] : `gw${gwReale}`;
+
+    // Cerca la formazione salvata usando la corretta giornata della competizione tradotta
     let savedLineup = null;
-    
-    if (STATE.competitions?.[compId]?.lineups?.[`gw${currentGw}`]?.[userId]) {
-      savedLineup = STATE.competitions[compId].lineups[`gw${currentGw}`][userId];
-    } else if (STATE.lineups?.[`gw${currentGw}`]?.[userId]) {
-      savedLineup = STATE.lineups[`gw${currentGw}`][userId];
-    } else if (STATE.lineups?.[compId]?.[`gw${currentGw}`]?.[userId]) {
-      savedLineup = STATE.lineups[compId][`gw${currentGw}`][userId];
+    if (compData && compData.lineups?.[gwCompetizione]?.[userId]) {
+      savedLineup = compData.lineups[gwCompetizione][userId];
+    } else if (STATE.competitions?.[compId]?.lineups?.[gwCompetizione]?.[userId]) {
+      savedLineup = STATE.competitions[compId].lineups[gwCompetizione][userId];
+    } else if (STATE.lineups?.[gwCompetizione]?.[userId]) {
+      savedLineup = STATE.lineups[gwCompetizione][userId];
     }
 
     // Se troviamo la formazione e l'utente non ha cambiato modulo a mano, caricalo
@@ -201,9 +206,6 @@ export const FormazionePage = {
     ];
 
     const rowPositions = { 'A': 20, 'C': 45, 'D': 70, 'P': 90 };
-    
-    // Indice globale per scorrere i giocatori salvati in ordine di ruolo (P -> D -> C -> A)
-    let savedIndex = 0;
 
     ruoli.forEach(reparto => {
       const y = rowPositions[reparto.role];
@@ -221,15 +223,12 @@ export const FormazionePage = {
         let preselectedText = "Scegli";
         let isSelected = false;
 
-        // Cerchiamo se tra i giocatori salvati ce n'è uno valido per questo ruolo specifico
         if (savedIds && savedIds.length > 0) {
-          // Filtriamo i savedIds per trovare quelli che appartengono a questo ruolo
           const ruoloSavedIds = savedIds.filter(id => {
             const p = rosa.find(player => player.id === id);
             return p && p.role === reparto.role;
           });
           
-          // Se ne troviamo uno corrispondente al sotto-indice corrente del ciclo i, lo usiamo
           if (ruoloSavedIds[i - 1]) {
             preselectedId = ruoloSavedIds[i - 1];
             const pObj = rosa.find(p => p.id === preselectedId);
@@ -353,7 +352,7 @@ export const FormazionePage = {
   },
 
   async save(STATE) {
-    const currentGw = STATE.status?.currentGW || 1;
+    const gwReale = STATE.giornataRealeCorrente || STATE.status?.currentGW || 1;
     const modulo = document.getElementById('f-modulo').value;
     
     const titS = document.querySelectorAll('#titolari-field-slots select');
@@ -370,8 +369,17 @@ export const FormazionePage = {
       return; 
     }
     
+    const compId = STATE.currentCompetition;
+    const compData = STATE.competitions?.find ? STATE.competitions.find(c => c.id === compId) : null;
+    const associazioni = compData ? (compData.associazioniGwReali || {}) : {};
+    
+    // TRADUZIONE: Calcoliamo la chiave corretta di destinazione della competizione (es. gw1) partendo dalla giornata reale (es. 8)
+    const entry = Object.entries(associazioni).find(([k, v]) => String(v).trim() === String(gwReale).trim());
+    const gwCompetizione = entry ? entry[0] : `gw${gwReale}`;
+
     try {
-      const path = `competitions/${STATE.currentCompetition}/lineups/gw${currentGw}/${STATE.user.id}`;
+      // Salviamo nel nodo corretto tradotto
+      const path = `competitions/${compId}/lineups/${gwCompetizione}/${STATE.user.id}`;
       const dataToSave = {
         teamId: STATE.user.id, 
         modulo, 
@@ -382,13 +390,15 @@ export const FormazionePage = {
 
       await window._saveNode(path, dataToSave);
 
-      // Aggiorniamo al volo anche lo STATE locale per riflettere subito il salvataggio senza ricaricare l'app
-      if(!STATE.competitions) STATE.competitions = {};
-      if(!STATE.competitions[STATE.currentCompetition]) STATE.competitions[STATE.currentCompetition] = {};
-      if(!STATE.competitions[STATE.currentCompetition].lineups) STATE.competitions[STATE.currentCompetition].lineups = {};
-      if(!STATE.competitions[STATE.currentCompetition].lineups[`gw${currentGw}`]) STATE.competitions[STATE.currentCompetition].lineups[`gw${currentGw}`] = {};
-      
-      STATE.competitions[STATE.currentCompetition].lineups[`gw${currentGw}`][STATE.user.id] = dataToSave;
+      // Aggiorniamo al volo anche lo STATE locale usando la stessa struttura
+      if (STATE.competitions) {
+        const cIndex = STATE.competitions.findIndex ? STATE.competitions.findIndex(c => c.id === compId) : -1;
+        if (cIndex !== -1) {
+          if (!STATE.competitions[cIndex].lineups) STATE.competitions[cIndex].lineups = {};
+          if (!STATE.competitions[cIndex].lineups[gwCompetizione]) STATE.competitions[cIndex].lineups[gwCompetizione] = {};
+          STATE.competitions[cIndex].lineups[gwCompetizione][STATE.user.id] = dataToSave;
+        }
+      }
 
       window.showToast('Formazione salvata con successo!', 'ok');
     } catch(e) { 
