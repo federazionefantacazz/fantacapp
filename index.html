@@ -278,8 +278,7 @@ window.STATE = {
   status: {}, 
   matches: {}, 
   currentCompetition: '',
-  currentRealGW: 0, 
-  currentPage: 'home',
+  currentPage: 'home', // Tracciamento della pagina attiva nello stato globale
   competitions: [], 
   booted: false 
 };
@@ -413,15 +412,6 @@ onValue(ref(db, 'votes'), snap => {
 onValue(ref(db, 'players'), snap => {
   window.STATE.players = Object.values(snap.val() || {});
   refreshUI();
-});
-
-onValue(ref(db, 'status/currentRealGW'), snap => {
-  window.STATE.currentRealGW = snap.val() !== null ? parseInt(snap.val()) : 0;
-  
-  // Se l'app ha già caricato i dati essenziali, aggiorna l'interfaccia utente
-  if (window.STATE.user) {
-    refreshUI();
-  }
 });
 
 window.toggleAuthBoxes = function(target) {

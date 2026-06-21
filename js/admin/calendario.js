@@ -17,7 +17,7 @@ export const CalendarioSection = {
       <div class="card" style="max-width: 650px;">
         <div style="margin-bottom: 1rem; padding: .8rem; background: rgba(80, 227, 194, 0.1); border-left: 4px solid var(--accent); border-radius: 4px;">
           <span style="font-size: .85rem; color: var(--text);">
-            Il sistema rileverà automaticamente se la competizione scelta è un <strong>Campionato Standard</strong> o una <strong>Competizione Mista</strong> (generando in questo caso i calendari paralleli per i rispettivi gironi della sola fase a girone).
+            Il sistema rileva automaticamente la configurazione salvata su Firebase (squadre associate, numero di gironi e tipo di torneo). Genererà round-robin paralleli per i rispettivi gironi o a girone unico.
           </span>
         </div>
 
@@ -40,18 +40,6 @@ export const CalendarioSection = {
         <label class="label" style="color: var(--accent); margin-top: .5rem;">2. Parametri Strutturali</label>
         <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
           <div style="flex: 1;">
-            <label class="label">Numero Squadre Max</label>
-            <select id="genMaxTeamsCount" class="input-login" style="margin-bottom:0; background: var(--bg3); color:#fff; padding:.5rem; border-radius:6px; width:100%;">
-              <option value="4">4 Squadre</option>
-              <option value="6">6 Squadre</option>
-              <option value="8">8 Squadre</option>
-              <option value="10" selected>10 Squadre</option>
-              <option value="12">12 Squadre</option>
-              <option value="14">14 Squadre</option>
-              <option value="16">16 Squadre</option>
-            </select>
-          </div>
-          <div style="flex: 1;">
             <label class="label">Rotazione Incontri</label>
             <select id="genRotationType" class="input-login" style="margin-bottom:0; background: var(--bg3); color:#fff; padding:.5rem; border-radius:6px; width:100%;">
               <option value="solo-andata">Solo Andata</option>
@@ -65,7 +53,7 @@ export const CalendarioSection = {
       </div>
 
       <div class="card">
-        <div class="label">Squadre Attuali nel Database:</div>
+        <div class="label" id="genTeamsPreviewTitle">Squadre partecipanti rilevate per questa competizione:</div>
         <div id="genTeamsPreview" style="display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; font-size: .85rem; color: var(--text2);"></div>
       </div>
     </div>`;
@@ -75,18 +63,6 @@ export const CalendarioSection = {
     const { TEAMS, competitions } = state;
     this._currentTeams = TEAMS || [];
     this._currentCompetitions = competitions || [];
-
-    // Anteprima squadre
-    const container = document.getElementById('genTeamsPreview');
-    if (container) {
-      if (this._currentTeams.length === 0) {
-        container.innerHTML = '❌ Nessuna squadra globale trovata nel database.';
-      } else {
-        container.innerHTML = this._currentTeams.map(t => `
-          <span style="background:var(--bg2); padding:.4rem .6rem; border-radius:4px; border:1px solid var(--border); display:inline-flex; align-items:center;">🛡️ ${t.name}</span>
-        `).join('');
-      }
-    }
 
     // Popolamento tendina competizioni
     const compSelect = document.getElementById('calendarCompSelect');
@@ -111,22 +87,49 @@ export const CalendarioSection = {
   updateBadgeDinamici(compId) {
     const tBadge = document.getElementById('calTypeBadge');
     const gBadge = document.getElementById('calGironiCount');
+    const container = document.getElementById('genTeamsPreview');
+    const titleContainer = document.getElementById('genTeamsPreviewTitle');
     if (!tBadge || !gBadge) return;
 
     const comp = this._currentCompetitions.find(c => c.id === compId);
     if (!comp) {
       tBadge.textContent = "-";
       gBadge.textContent = "-";
+      if (container) container.innerHTML = '';
       return;
     }
 
-    if (comp.type === 'misto-speciale') {
-      tBadge.innerHTML = `<span style="color:var(--gold)">MISTA (Campionato + Coppa)</span>`;
-      const numGironi = comp.gironi ? Object.keys(comp.gironi).length : 3; // default 3 se non popolato
-      gBadge.textContent = `${numGironi} Gironi Interni`;
+    // 1. Rilevamento Tipo e Gironi in base ai dati reali di Firebase
+    if (comp.type === 'misto' || comp.type === 'misto-speciale') {
+      const gironiCount = comp.gironi || 1;
+      tBadge.innerHTML = `<span style="color:var(--gold)">MISTA (${comp.type === 'misto-speciale' ? 'Misto Speciale' : 'Gironi + F. Finale'})</span>`;
+      gBadge.textContent = `${gironiCount} Gironi`;
     } else {
       tBadge.innerHTML = `<span style="color:var(--accent2)">CAMPIONATO STANDARD</span>`;
       gBadge.textContent = "1 (Girone Unico)";
+    }
+
+    // 2. Rilevamento automatico delle sole squadre iscritte a QUESTA competizione
+    let compTeamsIds = [];
+    if (comp.teams) {
+      compTeamsIds = Array.isArray(comp.teams) ? comp.teams : Object.values(comp.teams);
+    }
+    compTeamsIds = compTeamsIds.filter(id => id !== null && id !== undefined).map(id => String(id));
+
+    if (titleContainer) {
+      titleContainer.innerHTML = `Squadre partecipanti rilevate per <strong>${comp.name.toUpperCase()}</strong> (${compTeamsIds.length}):`;
+    }
+
+    if (container) {
+      if (compTeamsIds.length === 0) {
+        container.innerHTML = '<span style="color:var(--accent3);">❌ Nessuna squadra associata a questa competizione. Modificala nella sezione Competizioni.</span>';
+      } else {
+        container.innerHTML = compTeamsIds.map(tId => {
+          const teamObj = this._currentTeams.find(t => String(t.id) === tId);
+          const teamName = teamObj ? teamObj.name : tId;
+          return `<span style="background:var(--bg2); padding:.4rem .6rem; border-radius:4px; border:1px solid var(--border); display:inline-flex; align-items:center;">🛡️ ${teamName}</span>`;
+        }).join('');
+      }
     }
   }
 };
@@ -150,36 +153,43 @@ window.generateRandomCalendar = async function() {
   const comp = CalendarioSection._currentCompetitions.find(c => c.id === targetCompId);
   if (!comp) return window.toast?.("Competizione non trovata!", "err");
 
-  const maxSquadreScelte = parseInt(document.getElementById('genMaxTeamsCount').value) || 12;
-  const rotationType = document.getElementById('genRotationType').value;
+  // Rilevamento automatico e nativo delle sole squadre iscritte a questa competizione
+  let squadreIscritte = [];
+  if (comp.teams) {
+    squadreIscritte = Array.isArray(comp.teams) ? comp.teams : Object.values(comp.teams);
+  }
+  squadreIscritte = squadreIscritte.filter(id => id !== null && id !== undefined).map(id => String(id));
 
-  // Filtriamo le squadre totali per il limite massimo scelto
-  let squadreDisponibili = [...CalendarioSection._currentTeams].slice(0, maxSquadreScelte).map(t => t.id);
-  if (squadreDisponibili.length < 2) {
-    return window.toast?.("Servono almeno 2 squadre aggregate!", "err");
+  if (squadreIscritte.length < 2) {
+    return window.toast?.("Servono almeno 2 squadre associate a questa competizione per generare il calendario!", "err");
   }
 
-  if (!confirm(`Vuoi generare il calendario della fase campionato per la competizione "${comp.name.toUpperCase()}"?`)) return;
+  const rotationType = document.getElementById('genRotationType').value;
+
+  if (!confirm(`Vuoi generare il calendario automatico per la competizione "${comp.name.toUpperCase()}" usando le sue ${squadreIscritte.length} squadre rilevate?`)) return;
 
   let calendarioCompleto = {};
-  
-  // ─── LOGICA 1: COMPETIZIONE MISTA ───────────────────────────────────────
-  if (comp.type === 'misto-speciale') {
-    // Determiniamo i gironi (da db o strutturati di default come A, B, C)
-    let gironiIds = comp.gironi ? Object.keys(comp.gironi) : ['gironeA', 'gironeB', 'gironeC'];
-    let numGironi = gironiIds.length;
+
+  // ─── LOGICA 1: COMPETIZIONE MISTA (O MISTO SPECIALE CON PIÙ GIRONI) ───────────────────
+  if ((comp.type === 'misto' || comp.type === 'misto-speciale') && parseInt(comp.gironi) > 1) {
+    const numGironi = parseInt(comp.gironi) || 2;
     
-    // Distribuiamo le squadre selezionate nei gironi in modo bilanciato
+    // Creiamo gli ID dinamici dei gironi (es: Girone 1, Girone 2...)
+    let gironiIds = [];
+    for (let idx = 1; idx <= numGironi; idx++) {
+      gironiIds.push(`Girone ${idx}`);
+    }
+
+    // Mescoliamo le squadre iscritte per una distribuzione randomica equa nei gironi
+    let squadreShuffle = [...squadreIscritte].sort(() => Math.random() - 0.5);
     let squadrePerGirone = {};
     gironiIds.forEach(gId => squadrePerGirone[gId] = []);
     
-    squadreDisponibili.sort(() => Math.random() - 0.5);
-    squadreDisponibili.forEach((teamId, index) => {
+    squadreShuffle.forEach((teamId, index) => {
       let targetGirone = gironiIds[index % numGironi];
       squadrePerGirone[targetGirone].push(teamId);
     });
 
-    // Calcoliamo i round-robin per ogni girone indipendentemente
     let agendeGironi = {};
     let maxGiornateFase = 0;
 
@@ -198,7 +208,8 @@ window.generateRandomCalendar = async function() {
 
       agendeGironi[gId] = {
         squadre: lista,
-        turniUnici: turniUnici
+        turniUnici: turniUnici,
+        giriMax: giri
       };
     });
 
@@ -215,14 +226,10 @@ window.generateRandomCalendar = async function() {
         
         const gironeCorrente = Math.floor((g - 1) / turniUnici);
         const turnoNelGirone = (g - 1) % turniUnici;
-        
-        // Inversione casa/trasferta al secondo giro
         const inverti = (gironeCorrente === 1 || gironeCorrente === 3); 
 
-        // Se la combinazione di giri di questo girone è inferiore alla giornata corrente, non produce match
-        if (g > turniUnici * (rotationType === 'solo-andata' ? 1 : rotationType === 'andata-ritorno' ? 2 : 3)) {
-          return;
-        }
+        // Se la giornata corrente supera la durata massima programmata per questo specifico girone, salta
+        if (g > turniUnici * agenda.giriMax) return;
 
         const matchPerGiornata = numSquadre / 2;
         for (let m = 0; m < matchPerGiornata; m++) {
@@ -238,24 +245,25 @@ window.generateRandomCalendar = async function() {
             const tmp = idCasa; idCasa = idTrasf; idTrasf = tmp;
           }
 
-          matchGiornata[`m${matchCounter++}`] = {
-            id: `m${matchCounter - 1}`,
-            girone: gId.toUpperCase().replace("GIRONE", "Girone "),
+          matchGiornata[`m${matchCounter}`] = {
+            id: `m${matchCounter}`,
+            girone: gId,
             homeId: idCasa,
             awayId: idTrasf,
             homeScore: null,
             awayScore: null,
             finished: false
           };
+          matchCounter++;
         }
       });
 
       calendarioCompleto[`gw${g}`] = matchGiornata;
     }
 
-  // ─── LOGICA 2: CAMPIONATO STANDARD ──────────────────────────────────────
+  // ─── LOGICA 2: CAMPIONATO STANDARD O MISTA A GIRONE UNICO ──────────────────────────
   } else {
-    let lista = [...squadreDisponibili].sort(() => Math.random() - 0.5);
+    let lista = [...squadreIscritte].sort(() => Math.random() - 0.5);
     if (lista.length % 2 !== 0) lista.push("RIPOSO");
 
     const numSquadre = lista.length;
@@ -287,26 +295,27 @@ window.generateRandomCalendar = async function() {
           const tmp = idCasa; idCasa = idTrasf; idTrasf = tmp; 
         }
 
-        matchGiornata[`m${counter++}`] = { 
-          id: `m${counter - 1}`, 
+        matchGiornata[`m${counter}`] = { 
+          id: `m${counter}`, 
           homeId: idCasa, 
           awayId: idTrasf, 
           homeScore: null, 
           awayScore: null, 
           finished: false 
         };
+        counter++;
       }
       calendarioCompleto[`gw${g}`] = matchGiornata;
     }
   }
 
-  // ─── SALVATAGGIO SU FIREBASE ───────────────────────────────────────────
+  // ─── SALVATAGGIO AUTOMATICO SU FIREBASE ───────────────────────────────────────────
   try {
     const database = CalendarioSection.db || getDatabase();
     await set(ref(database, `competitions/${targetCompId}/matches`), calendarioCompleto);
     await set(ref(database, `competitions/${targetCompId}/status`), { currentGW: 1 });
     
-    window.toast?.(`🎯 Calendario campionato salvato con successo per ${comp.name.toUpperCase()}!`, "ok");
+    window.toast?.(`🎯 Calendario campionato generato e salvato con successo per ${comp.name.toUpperCase()}!`, "ok");
   } catch (err) {
     console.error(err);
     window.toast?.("Errore durante il salvataggio su Firebase", "err");
