@@ -162,7 +162,7 @@ body {
   font-size: .58rem !important;
   font-weight: 500;
   cursor: pointer;
-  width: 20%;
+  width: 16.6% !important; /* Ottimizzato al 16.6% per ospitare simmetricamente 6 pulsanti */
 }
 
 .nav-btn svg {
@@ -247,6 +247,9 @@ body {
   <button class="nav-btn" onclick="goPage('calendario',this)">
     <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Calendario
   </button>
+  <button class="nav-btn" onclick="goPage('classifica',this)">
+    <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Classifica
+  </button>
   <button id="btn-nav-formazione" class="nav-btn" onclick="goPage('formazione',this)">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg><span>Formazione</span>
   </button>
@@ -269,8 +272,9 @@ import { CalendarioPage } from './js/calendario.js';
 import { FormazionePage } from './js/formazione.js';
 import { MercatoPage } from './js/mercato.js';
 import { TeamsPage } from './js/teams.js';
-// LOGICA E GRAFICA LIVE IMPORTATA DAL PERCORSO CORRETTO
 import { LiveMatchModule } from "./js/liveMatch.js";
+// NUOVO IMPORT MODULO CLASSIFICA
+import { ClassificaPage } from './js/classifica.js';
 
 window.STATE = { 
   user: null, 
@@ -280,12 +284,11 @@ window.STATE = {
   status: {}, 
   matches: {}, 
   currentCompetition: '',
-  currentPage: 'home', // Tracciamento della pagina attiva nello stato globale
+  currentPage: 'home', 
   competitions: [], 
   booted: false 
 };
 
-// Cache interna statica per evitare il precaricamento ripetuto delle stesse immagini
 const preloadedLogos = new Set();
 
 onAuthStateChanged(auth, firebaseUser => {
@@ -303,28 +306,21 @@ onAuthStateChanged(auth, firebaseUser => {
 
 function globalPreloadLogos(teams) {
   if (!teams || !Array.isArray(teams)) return;
-
   const urls = [...new Set(teams.map(t => t.logo).filter(Boolean))];
-
   urls.forEach((url, index) => {
-    // Se l'URL è già memorizzato nella cache persistente, saltiamo il download
     if (preloadedLogos.has(url)) return;
-
     setTimeout(() => {
       const img = new Image();
       img.crossOrigin = "anonymous"; 
-      
       img.onload = () => {
         preloadedLogos.add(url);
         console.log(`✓ Logo precaricato: ${url.substring(0, 30)}...`);
       };
-      
       img.onerror = () => {
         console.warn(`⚠️ Impossibile precaricare il logo: ${url}`);
       };
-      
       img.src = url;
-    }, index * 60); // 60ms stabili ed ottimizzati con la cache attiva
+    }, index * 60);
   });
 }
 
@@ -340,26 +336,20 @@ function caricaDatiCompetizione(compId) {
     refreshUI();
   });
   
-  // Ascolta lo status interno della competizione per ottenere la giornata corrente (currentGW)
   onValue(ref(db, `competitions/${compId}/status`), snap => { 
     window.STATE.status = snap.val() || { currentGW: 1 }; 
     refreshUI(); 
   });
 
-  // ASCOLTO DEL LIVE UNIFICATO DA LIVELLO ROOT ESTERNO (status/live)
   onValue(ref(db, 'status/live'), snap => {
-    const liveAttivo = !!snap.val(); // Converte in booleano true/false
+    const liveAttivo = !!snap.val();
     const gwCorrente = window.STATE.status?.currentGW || 1;
-    
-    // Innesca la sostituzione condizionale della pagina Formazione/Live
     gestisciSwitchLive(liveAttivo, gwCorrente);
   });
 
-  // Ottimizzazione del Tema mediante blocco di testo unico (Atomic CSS injection)
   onValue(ref(db, `competitions/${compId}/theme`), snap => {
     const theme = snap.val();
     const styleTag = document.getElementById('dynamic-theme');
-    
     if (theme && styleTag) {
       styleTag.innerHTML = `
         :root {
@@ -377,7 +367,7 @@ function caricaDatiCompetizione(compId) {
         }
       `;
     } else if (styleTag) {
-      styleTag.innerHTML = ''; // Ritorna istantaneamente alle variabili CSS del foglio statico
+      styleTag.innerHTML = '';
     }
   });
 
@@ -402,45 +392,28 @@ function caricaDatiCompetizione(compId) {
   });
 }
 
-/**
- * FUNZIONE GRAFICA CENTRALIZZATA NELL'INDEX:
- * Sostituisce FormazionePage con live-match-container e ne altera la Navbar
- */
 function gestisciSwitchLive(liveAttivo, gwNum) {
   const btnFormazione = document.getElementById('btn-nav-formazione');
-  const paginaFormazione = document.getElementById('page-formazione');
-  const paginaLive = document.getElementById('page-live');
-
   if (liveAttivo) {
-    // 1. Riorchestra la grafica della barra di navigazione
     if (btnFormazione) {
       btnFormazione.querySelector('span').textContent = "Live Match";
-      btnFormazione.style.color = "var(--accent3)"; // Gli diamo una sfumatura rossa indicando il live attivo
+      btnFormazione.style.color = "var(--accent3)";
       btnFormazione.setAttribute('onclick', "goPage('live', this)");
     }
-    
-    // 2. Se l'utente si trovava sulla pagina formazione, lo forziamo istantaneamente a saltare sul Live
     if (window.STATE.currentPage === 'formazione') {
       window.goPage('live', btnFormazione);
     }
-    
-    // 3. Comunica al modulo js/liveMatch.js di attivare i calcoli e mostrare l'HTML
     if (window.STATE.user) {
       LiveMatchModule.init(db, window.STATE.user.id);
       LiveMatchModule.startLiveTracking(gwNum);
     }
   } else {
-    // 1. Ripristina l'aspetto originario per compilare la formazione
     if (btnFormazione) {
       btnFormazione.querySelector('span').textContent = "Formazione";
       btnFormazione.style.color = "";
       btnFormazione.setAttribute('onclick', "goPage('formazione', this)");
     }
-    
-    // 2. Disattiva il tracciamento real-time dei voti
     LiveMatchModule.stopLiveTracking();
-    
-    // 3. Se l'utente era sul live spento, lo riportiamo alla formazione compilabile
     if (window.STATE.currentPage === 'live') {
       window.goPage('formazione', btnFormazione);
     }
@@ -544,8 +517,6 @@ function populateLoginDropdown() {
 
   const select = document.getElementById('loginSelect');
   if (!select) return;
-  
-  // Ottimizzazione: Non rigeneriamo l'HTML se il selettore contiene già le opzioni dei team
   if (select.children.length > 1) return;
 
   select.innerHTML = '<option value="">Scegli la tua squadra...</option>' + 
@@ -605,6 +576,7 @@ function bootApp() {
     container.innerHTML = `
       ${HomePage.renderHTML()}
       ${CalendarioPage.renderHTML()}
+      ${ClassificaPage.renderHTML()}
       ${FormazionePage.renderHTML()}
       ${MercatoPage.renderHTML()}
       ${TeamsPage.renderHTML()}
@@ -627,6 +599,7 @@ function refreshUI() {
   const current = window.STATE.currentPage;
   if (current === 'home') HomePage.render(window.STATE);
   else if (current === 'calendario') CalendarioPage.render(window.STATE);
+  else if (current === 'classifica') ClassificaPage.render(window.STATE);
   else if (current === 'formazione') FormazionePage.render(window.STATE);
   else if (current === 'mercato') MercatoPage.render(window.STATE);
   else if (current === 'teams') TeamsPage.render(window.STATE);
@@ -649,7 +622,6 @@ window.goPage = function(name, btn) {
   const container = document.getElementById('dynamic-pages-container');
   if(container) container.scrollTop = 0;
 
-  // Cambia la pagina attiva nello stato ed effettua il render dedicato immediato
   window.STATE.currentPage = name;
   refreshUI();
 };
