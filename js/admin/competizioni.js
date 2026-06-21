@@ -27,8 +27,8 @@ export const CompetizioniSection = {
         <label class="label">Nome Competizione (es: Serie A Tim)</label>
         <input type="text" id="compName" class="input-login" placeholder="Nome visibile">
 
-        <div class="label" style="font-size:.8rem; margin-top:.5rem; color:var(--text2)">Logo Competizione (Seleziona da Android)</div>
-        <input type="file" id="compLogoFile" name="compLogoFile" class="input-login" accept="image/png, image/jpeg, image/jpg" style="padding-top:.5rem;">
+        <div class="label" style="font-size:.8rem; margin-top:.5rem; color:var(--text2)">Logo Competizione (.jpg, .jpeg, .png)</div>
+        <input type="file" id="compLogoFile" name="compLogoFile" class="input-login" accept=".jpg, .jpeg, .png, .JPG, .JPEG, .PNG, image/jpeg, image/png" style="padding-top:.5rem;">
 
         <label class="label">Tipo Competizione</label>
         <select id="compType" class="input-login" onchange="window.toggleCompFields(this.value)">
@@ -268,8 +268,6 @@ export const CompetizioniSection = {
 
       const idInput = document.getElementById('compId');
       const nameInput = document.getElementById('compName');
-      
-      // Recuperiamo l'input file fresco dal DOM (potrebbe essere stato clonato)
       const fileInput = document.getElementById('compLogoFile');
       if (!idInput || !nameInput) return;
 
@@ -292,19 +290,32 @@ export const CompetizioniSection = {
       try {
         let finalLogoUrl = isEditingMode ? CompetizioniSection.currentLogoUrl : '';
 
-        // Lettura protetta dell'input file per sistemi Android
+        // BLOCCO NORMALIZZAZIONE FILE CONTRO IL 403 DI IMGBB SU ANDROID
         if (fileInput && fileInput.files && fileInput.files.length > 0) {
-          const file = fileInput.files[0];
-          if (file && file.size > 0) {
-            finalLogoUrl = await uploadImageToImgBB(file);
+          const originalFile = fileInput.files[0];
+          
+          if (originalFile && originalFile.size > 0) {
+            // Estraiamo l'estensione dal tipo MIME (es. image/png -> png)
+            const mimeType = originalFile.type || 'image/jpeg';
+            const extension = mimeType.split('/')[1] || 'jpg';
+            
+            // Ricostruiamo l'oggetto File per ripulire i finti percorsi sandbox di Android
+            const cleanFile = new File(
+              [originalFile], 
+              `logo-${id || 'comp'}.${extension}`, 
+              { type: mimeType }
+            );
+
+            console.log("Inviando file normalizzato a ImgBB:", cleanFile.name, cleanFile.type);
+            finalLogoUrl = await uploadImageToImgBB(cleanFile);
           }
         }
 
         // Configurazione del payload con voce 'logo' definita esplicitamente
         let compPayload = { 
-          id, 
-          name, 
-          type,
+          id: id, 
+          name: name, 
+          type: type,
           logo: finalLogoUrl || "", 
           teams: teams
         };
@@ -344,7 +355,7 @@ export const CompetizioniSection = {
         window.toast(`Competizione salvata/aggiornata con successo!`, "ok");
         window.annullaModificaComp();
       } catch (err) { 
-        console.error("Errore scrittura Firebase:", err);
+        console.error("Errore complessivo intercettato:", err);
         window.toast(err.message || "Errore durante il salvataggio dei dati", "err"); 
       } finally {
         btnSubmit.innerText = originalBtnText;
