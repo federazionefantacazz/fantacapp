@@ -289,8 +289,7 @@ window.STATE = {
 
 const preloadedLogos = new Set();
 
-// --- CORREZIONE CRUCIALE: LISTENER GLOBALE PER LE SQUADRE ---
-// Inizia subito l'ascolto della tabella 'teams' non appena l'applicazione viene caricata
+// --- LISTENER GLOBALE TEAMS AGGIORNATO ---
 onValue(ref(db, 'teams'), snap => {
   const raw = snap.val() || {};
   window.STATE.teams = Object.values(raw).sort((a,b) => b.pts - a.pts);
@@ -303,8 +302,9 @@ onValue(ref(db, 'teams'), snap => {
     }
   }
   
-  // Se l'utente si è appena autenticato ma è bloccato sulla select di login, la popola istantaneamente
-  if (!window.STATE.booted && auth.currentUser) {
+  // FIX CRUCIALE: Se l'app non è ancora avviata (siamo nel login), 
+  // forziamo il popolamento della tendina non appena i dati dei team arrivano!
+  if (!window.STATE.booted) {
     populateLoginDropdown();
   }
   
