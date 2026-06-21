@@ -355,7 +355,7 @@ function caricaDatiCompetizione(compId) {
   });
   
   // Ascolta la giornata reale corrente dal percorso globale del DB
-  onValue(ref(db, `status/currentRealGw`), snap => { 
+  onValue(ref(db, `status/currentRealGW`), snap => { 
     const val = snap.val();
     window.STATE.giornataRealeCorrente = val ? Number(val) : null; 
     refreshUI(); 
