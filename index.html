@@ -269,7 +269,6 @@ import { CalendarioPage } from './js/calendario.js';
 import { FormazionePage } from './js/formazione.js';
 import { MercatoPage } from './js/mercato.js';
 import { TeamsPage } from './js/teams.js';
-// LOGICA E GRAFICA LIVE IMPORTATA DAL PERCORSO CORRETTO
 import { LiveMatchModule } from "./js/liveMatch.js";
 
 window.STATE = { 
@@ -280,9 +279,10 @@ window.STATE = {
   status: {}, 
   matches: {}, 
   currentCompetition: '',
-  currentPage: 'home', // Tracciamento della pagina attiva nello stato globale
+  currentPage: 'home', 
   competitions: [], 
-  booted: false 
+  booted: false,
+  associazioniGwReali: {}
 };
 
 // Cache interna statica per evitare il precaricamento ripetuto delle stesse immagini
@@ -301,65 +301,79 @@ onAuthStateChanged(auth, firebaseUser => {
   }
 });
 
+// ==========================================
+// 🔴 LISTENER GLOBALE DELLO STATUS (FUORI DA TUTTO)
+// ==========================================
+onValue(ref(db, 'status'), snap => {
+  const status = snap.val() || { live: false, currentGWReale: 1 };
+  window.STATE.status = status; 
+  
+  const liveAttivo = !!status.live;
+  const gwReale = status.currentGWReale;
+  const compId = window.STATE.currentCompetition; 
+  const mapGw = window.STATE.associazioniGwReali || {};
+
+  // Gestione pulsante navbar
+  gestisciSwitchLive(liveAttivo);
+
+  // Innesco modulo LiveMatch
+  if (liveAttivo && compId && window.STATE.user) {
+    LiveMatchModule.init(db, window.STATE.user.id, compId);
+    LiveMatchModule.startLiveTracking(gwReale, mapGw);
+  } else {
+    LiveMatchModule.stopLiveTracking();
+  }
+  refreshUI();
+});
+
+// ==========================================
+
 function globalPreloadLogos(teams) {
   if (!teams || !Array.isArray(teams)) return;
-
   const urls = [...new Set(teams.map(t => t.logo).filter(Boolean))];
-
   urls.forEach((url, index) => {
-    // Se l'URL è già memorizzato nella cache persistente, saltiamo il download
     if (preloadedLogos.has(url)) return;
-
     setTimeout(() => {
       const img = new Image();
       img.crossOrigin = "anonymous"; 
-      
-      img.onload = () => {
-        preloadedLogos.add(url);
-        console.log(`✓ Logo precaricato: ${url.substring(0, 30)}...`);
-      };
-      
-      img.onerror = () => {
-        console.warn(`⚠️ Impossibile precaricare il logo: ${url}`);
-      };
-      
+      img.onload = () => { preloadedLogos.add(url); };
       img.src = url;
-    }, index * 60); // 60ms stabili ed ottimizzati con la cache attiva
+    }, index * 60);
   });
 }
 
 function caricaDatiCompetizione(compId) {
   if (!compId) return;
-  
+  window.STATE.currentCompetition = compId;
   window.STATE.matches = {};
-  window.STATE.status = { currentGW: 1 };
   
+  // Ascolta la mappa di conversione specifica della lega
+  onValue(ref(db, `competitions/${compId}/associazioniGwReali`), snap => {
+    window.STATE.associazioniGwReali = snap.val() || {};
+    // Se il live è attivo, aggiorna immediatamente
+    if (window.STATE.status?.live) {
+      LiveMatchModule.startLiveTracking(window.STATE.status.currentGWReale, window.STATE.associazioniGwReali);
+    }
+    refreshUI();
+  });
+  
+  // Lineups della competizione
   onValue(ref(db, `competitions/${compId}/lineups`), snap => {
     if (!window.STATE._currentCompData) window.STATE._currentCompData = {};
     window.STATE._currentCompData.lineups = snap.val() || {};
     refreshUI();
   });
   
-  // Ascolta lo status interno della competizione per ottenere la giornata corrente (currentGW)
+  // Status interno della competizione
   onValue(ref(db, `competitions/${compId}/status`), snap => { 
-    window.STATE.status = snap.val() || { currentGW: 1 }; 
+    window.STATE.status.comp = snap.val() || { currentGW: 1 }; 
     refreshUI(); 
   });
 
-  // ASCOLTO DEL LIVE UNIFICATO DA LIVELLO ROOT ESTERNO (status/live)
-  onValue(ref(db, 'status/live'), snap => {
-    const liveAttivo = !!snap.val(); // Converte in booleano true/false
-    const gwCorrente = window.STATE.status?.currentGW || 1;
-    
-    // Innesca la sostituzione condizionale della pagina Formazione/Live
-    gestisciSwitchLive(liveAttivo, gwCorrente);
-  });
-
-  // Ottimizzazione del Tema mediante blocco di testo unico (Atomic CSS injection)
+  // Tema della competizione
   onValue(ref(db, `competitions/${compId}/theme`), snap => {
     const theme = snap.val();
     const styleTag = document.getElementById('dynamic-theme');
-    
     if (theme && styleTag) {
       styleTag.innerHTML = `
         :root {
@@ -377,15 +391,17 @@ function caricaDatiCompetizione(compId) {
         }
       `;
     } else if (styleTag) {
-      styleTag.innerHTML = ''; // Ritorna istantaneamente alle variabili CSS del foglio statico
+      styleTag.innerHTML = '';
     }
   });
 
+  // Matches della competizione
   onValue(ref(db, `competitions/${compId}/matches`), snap => { 
     window.STATE.matches = snap.val() || {}; 
     refreshUI(); 
   });
 
+  // Squadre Globali (puoi tenerlo qui o spostarlo fuori, ma va bene così per ora)
   onValue(ref(db, 'teams'), snap => {
     const raw = snap.val() || {};
     window.STATE.teams = Object.values(raw).sort((a,b) => b.pts - a.pts);
@@ -402,45 +418,24 @@ function caricaDatiCompetizione(compId) {
   });
 }
 
-/**
- * FUNZIONE GRAFICA CENTRALIZZATA NELL'INDEX:
- * Sostituisce FormazionePage con live-match-container e ne altera la Navbar
- */
-function gestisciSwitchLive(liveAttivo, gwNum) {
+function gestisciSwitchLive(liveAttivo) {
   const btnFormazione = document.getElementById('btn-nav-formazione');
-  const paginaFormazione = document.getElementById('page-formazione');
-  const paginaLive = document.getElementById('page-live');
 
   if (liveAttivo) {
-    // 1. Riorchestra la grafica della barra di navigazione
     if (btnFormazione) {
       btnFormazione.querySelector('span').textContent = "Live Match";
-      btnFormazione.style.color = "var(--accent3)"; // Gli diamo una sfumatura rossa indicando il live attivo
+      btnFormazione.style.color = "var(--accent3)";
       btnFormazione.setAttribute('onclick', "goPage('live', this)");
     }
-    
-    // 2. Se l'utente si trovava sulla pagina formazione, lo forziamo istantaneamente a saltare sul Live
     if (window.STATE.currentPage === 'formazione') {
       window.goPage('live', btnFormazione);
     }
-    
-    // 3. Comunica al modulo js/liveMatch.js di attivare i calcoli e mostrare l'HTML
-    if (window.STATE.user) {
-      LiveMatchModule.init(db, window.STATE.user.id);
-      LiveMatchModule.startLiveTracking(gwNum);
-    }
   } else {
-    // 1. Ripristina l'aspetto originario per compilare la formazione
     if (btnFormazione) {
       btnFormazione.querySelector('span').textContent = "Formazione";
       btnFormazione.style.color = "";
       btnFormazione.setAttribute('onclick', "goPage('formazione', this)");
     }
-    
-    // 2. Disattiva il tracciamento real-time dei voti
-    LiveMatchModule.stopLiveTracking();
-    
-    // 3. Se l'utente era sul live spento, lo riportiamo alla formazione compilabile
     if (window.STATE.currentPage === 'live') {
       window.goPage('formazione', btnFormazione);
     }
@@ -544,8 +539,6 @@ function populateLoginDropdown() {
 
   const select = document.getElementById('loginSelect');
   if (!select) return;
-  
-  // Ottimizzazione: Non rigeneriamo l'HTML se il selettore contiene già le opzioni dei team
   if (select.children.length > 1) return;
 
   select.innerHTML = '<option value="">Scegli la tua squadra...</option>' + 
