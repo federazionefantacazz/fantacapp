@@ -1,5 +1,5 @@
 import { ref, onValue, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { CalcoloMatchService } from "./calcoloMatch.js";
+import { CalcoloMatchService } from "./services/calcoloMatch.js";
 
 export const LiveMatchModule = {
   db: null,
