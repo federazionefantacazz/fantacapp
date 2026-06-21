@@ -1,13 +1,18 @@
 import { ref, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+// IMPORTA IL SERVIZIO CENTRALIZZATO PER L'UPLOAD (Verifica che il percorso relativo sia corretto)
+import { uploadImageToImgBB } from "../services/integrationImgBB.js"; 
 
 let database = null;
 
 export const CompetizioniSection = {
+  currentLogoUrl: '',  // Tiene in memoria il vecchio logo se non viene cambiato in modifica
+
   init(db) {
     database = db;
     this.registerGlobalActions();
   },
 
+  // 1. INTERFACCIA GRAFICA DEL FORM (Aggiunto input di tipo file per il Logo Competizione)
   renderHTML() {
     return `
     <div id="sec-crea-competizioni" class="admin-sec" style="display:none;">
@@ -21,6 +26,9 @@ export const CompetizioniSection = {
 
         <label class="label">Nome Competizione (es: Serie A Tim)</label>
         <input type="text" id="compName" class="input-login" placeholder="Nome visibile">
+
+        <div class="label" style="font-size:.8rem; margin-top:.5rem; color:var(--text2)">Logo Competizione (Seleziona da Android)</div>
+        <input type="file" id="compLogoFile" class="input-login" accept="image/png, image/jpeg, image/jpg" style="padding-top:.5rem;">
 
         <label class="label">Tipo Competizione</label>
         <select id="compType" class="input-login" onchange="window.toggleCompFields(this.value)">
@@ -57,7 +65,7 @@ export const CompetizioniSection = {
           <table>
             <thead>
               <tr>
-                <th>ID</th>
+                <th>Logo</th> <th>ID</th>
                 <th>Nome</th>
                 <th>Tipo</th>
                 <th>GW Attuale</th>
@@ -67,7 +75,7 @@ export const CompetizioniSection = {
               </tr>
             </thead>
             <tbody id="admin-competitions-list">
-              <tr><td colspan="7" style="text-align: center;">Caricamento competizioni...</td></tr>
+              <tr><td colspan="8" style="text-align: center;">Caricamento competizioni...</td></tr>
             </tbody>
           </table>
         </div>
@@ -96,6 +104,7 @@ export const CompetizioniSection = {
     }).join('');
   },
 
+  // 2. RENDERING DELLA TABELLA (Aggiunta la visualizzazione del logo con gestione del fallback)
   render(state) {
     const listContainer = document.getElementById('admin-competitions-list');
     if (!listContainer) return;
@@ -109,7 +118,7 @@ export const CompetizioniSection = {
 
     const comps = state.competitions || [];
     if (comps.length === 0) {
-      listContainer.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text3);">Nessuna competizione creata. Usa il modulo sopra per crearne una.</td></tr>`;
+      listContainer.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text3);">Nessuna competizione creata. Usa il modulo sopra per crearne una.</td></tr>`;
       return;
     }
 
@@ -119,6 +128,7 @@ export const CompetizioniSection = {
       const safeName = c.name.replace(/'/g, "\\'");
       const gironi = c.gironi || 1;
       const qualificati = c.qualificatiFaseFinale || 0;
+      const safeLogo = c.logo ? c.logo.replace(/'/g, "\\'") : '';
 
       let teamsArray = [];
       if (c.teams) {
@@ -127,26 +137,32 @@ export const CompetizioniSection = {
       teamsArray = teamsArray.filter(t => t !== null && t !== undefined);
       const teamsString = teamsArray.join(',');
 
+      // Renderizzazione del Tag Logo (Simile a TeamsSection)
+      const logoHtml = c.logo 
+        ? `<img src="${c.logo}" alt="Logo" style="width:40px; height:40px; object-fit:contain; border-radius:6px; vertical-align:middle;">`
+        : `<div style="width:40px; height:40px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3); vertical-align:middle;">🏆</div>`;
+
       return `
         <tr>
-          <td style="font-family: 'DM Mono', monospace; font-size: .8rem; color: var(--accent2);">${c.id}</td>
-          <td style="font-weight: 500;">${c.name}</td>
-          <td style="text-transform: capitalize; font-size: .8rem;">${c.type}</td>
-          <td>
+          <td style="width:50px; text-align:center; vertical-align:middle;">${logoHtml}</td>
+          <td style="font-family: 'DM Mono', monospace; font-size: .8rem; color: var(--accent2); vertical-align:middle;">${c.id}</td>
+          <td style="font-weight: 500; vertical-align:middle;">${c.name}</td>
+          <td style="text-transform: capitalize; font-size: .8rem; vertical-align:middle;">${c.type}</td>
+          <td style="vertical-align:middle;">
             <div style="display: flex; align-items: center; gap: .5rem;">
               <input type="number" value="${currentGW}" id="gw-input-${c.id}" style="width: 50px; background: var(--bg); border: 1px solid var(--border); color: #fff; padding: .2rem .4rem; border-radius: 4px; text-align: center;">
               <button class="btn btn-blue" onclick="window.updateCompGW('${c.id}')" style="padding: .25rem .5rem; font-size: .75rem; width: auto;">Salva</button>
             </div>
           </td>
-          <td>
+          <td style="vertical-align:middle;">
             <button class="btn ${marketOpen ? 'btn-green' : 'btn-red'}" onclick="window.toggleCompMarket('${c.id}', ${marketOpen})" style="padding: .25rem .5rem; font-size: .75rem; width: auto; font-weight:500;">
               ${marketOpen ? '🟢 Aperto' : '🔴 Chiuso'}
             </button>
           </td>
-          <td><span class="badge ${teamsArray.length > 0 ? 'badge-green' : 'badge-red'}">${teamsArray.length} sq.</span></td>
-          <td style="text-align: right;">
+          <td style="vertical-align:middle;"><span class="badge ${teamsArray.length > 0 ? 'badge-green' : 'badge-red'}">${teamsArray.length} sq.</span></td>
+          <td style="text-align: right; vertical-align:middle;">
             <div style="display: inline-flex; gap: .4rem;">
-              <button class="btn btn-blue" onclick="window.caricaCompetizioneNelForm('${c.id}', '${safeName}', '${c.type}', ${gironi}, ${qualificati}, '${teamsString}')" style="padding: .35rem .6rem; font-size: .75rem; width: auto;">
+              <button class="btn btn-blue" onclick="window.caricaCompetizioneNelForm('${c.id}', '${safeName}', '${c.type}', ${gironi}, ${qualificati}, '${teamsString}', '${safeLogo}')" style="padding: .35rem .6rem; font-size: .75rem; width: auto;">
                 ✏️ Modifica
               </button>
               <button class="btn btn-red" onclick="window.eliminaCompetizione('${c.id}', '${safeName}')" style="padding: .35rem .6rem; font-size: .75rem; width: auto;">
@@ -169,11 +185,11 @@ export const CompetizioniSection = {
       fq.style.display = (type === 'misto') ? 'block' : 'none';
     };
 
-    window.caricaCompetizioneNelForm = (id, name, type, gironi, qualificati, teamsString) => {
+    // 3. STATO DI MODIFICA (Esteso per includere e mappare il parametro logo)
+    window.caricaCompetizioneNelForm = (id, name, type, gironi, qualificati, teamsString, logo) => {
       const idInput = document.getElementById('compId');
       if (!idInput) return;
 
-      // MODIFICA CRITICA: readOnly al posto di disabled per non svuotare il DOM
       idInput.value = id;
       idInput.readOnly = true;
       idInput.style.opacity = "0.6";
@@ -183,6 +199,10 @@ export const CompetizioniSection = {
       document.getElementById('compType').value = type;
       if (document.getElementById('compGironi')) document.getElementById('compGironi').value = gironi;
       if (document.getElementById('compQualificati')) document.getElementById('compQualificati').value = qualificati;
+
+      // Memorizza il logo attuale nel modulo
+      this.currentLogoUrl = (logo === 'undefined' || !logo) ? '' : logo;
+      document.getElementById('compLogoFile').value = ''; // Resetta il file input
 
       const selectedIds = teamsString ? teamsString.split(',').map(x => String(x.trim())) : [];
       const allTeams = window.TEAMS || []; 
@@ -199,6 +219,7 @@ export const CompetizioniSection = {
       document.getElementById('sec-crea-competizioni').scrollIntoView({ behavior: 'smooth' });
     };
 
+    // 4. ANNULLA MODIFICA (Svuota l'input del file e resetta la memoria del logo)
     window.annullaModificaComp = () => {
       const idInput = document.getElementById('compId');
       if (idInput) {
@@ -209,10 +230,13 @@ export const CompetizioniSection = {
       }
 
       if (document.getElementById('compName')) document.getElementById('compName').value = '';
+      if (document.getElementById('compLogoFile')) document.getElementById('compLogoFile').value = '';
       if (document.getElementById('compType')) document.getElementById('compType').value = 'campionato';
       if (document.getElementById('compGironi')) document.getElementById('compGironi').value = '1';
       if (document.getElementById('compQualificati')) document.getElementById('compQualificati').value = '2';
       
+      this.currentLogoUrl = '';
+
       const allTeams = window.TEAMS || [];
       this.populateTeamsList(allTeams, []);
       window.toggleCompFields('campionato');
@@ -224,13 +248,16 @@ export const CompetizioniSection = {
       document.getElementById('btn-cancel-edit-comp').style.display = "none";
     };
 
+    // 5. SALVATAGGIO LOGICO (Gestione asincrona del caricamento dell'immagine su ImgBB)
     window.creaCompetizione = async () => {
       if (!database) return console.error("Database non inizializzato");
 
       const idInput = document.getElementById('compId');
       const nameInput = document.getElementById('compName');
+      const fileInput = document.getElementById('compLogoFile');
       if (!idInput || !nameInput) return;
 
+      const isEditingMode = idInput.readOnly; // Riconosce la modalità se l'ID è bloccato
       const id = idInput.value.trim().toLowerCase().replace(/\s+/g, '-');
       const name = nameInput.value.trim();
       const type = document.getElementById('compType').value;
@@ -241,53 +268,72 @@ export const CompetizioniSection = {
       if (!id || !name) return window.toast("ID e Nome Competizione sono obbligatori!", "err");
       if (teams.length === 0) return window.toast("Seleziona almeno una squadra!", "err");
 
-      let compPayload = { 
-        id, 
-        name, 
-        type,
-        teams: teams
-      };
-
-      // Se stiamo creando da zero (non in modalità modifica), impostiamo i parametri di default
-      if (!idInput.readOnly) {
-        compPayload.status = { currentGW: 1 };
-        compPayload.marketOpen = true;
-      }
-
-      // INTEGRAZIONE: Gestione differenziata in base al tipo (Misto Speciale o standard)
-      if (type === 'misto-speciale') {
-        compPayload.regolamento = {
-          fase1: { tipo: "campionato", giornate: 11, squadre: 12 },
-          qualificatiDirettiQuarti: 6,
-          playoff: {
-            posizioni: [7, 8, 9, 10],
-            accoppiamenti: [
-              { nome: "Playoff 1", casa: "pos_7", trasferta: "pos_10" },
-              { nome: "Playoff 2", casa: "pos_8", trasferta: "pos_9" }
-            ]
-          },
-          quartiTabellone: [
-            { match: "Q1", casa: "pos_1", trasferta: "vincitore_playoff_2" },
-            { match: "Q2", casa: "pos_2", trasferta: "vincitore_playoff_1" },
-            { match: "Q3", casa: "pos_3", trasferta: "pos_6" },
-            { match: "Q4", casa: "pos_4", trasferta: "pos_5" }
-          ],
-          eliminate: [11, 12]
-        };
-      } else {
-        const gironi = parseInt(document.getElementById('compGironi').value) || 1;
-        const qualificati = parseInt(document.getElementById('compQualificati').value) || 0;
-        if (type === 'campionato' || type === 'misto') compPayload.gironi = gironi;
-        if (type === 'misto') compPayload.qualificatiFaseFinale = qualificati;
-      }
+      // Feedback visivo di caricamento sul pulsante d'invio
+      const btnSubmit = document.getElementById('btn-submit-comp');
+      const originalBtnText = btnSubmit.innerText;
+      btnSubmit.innerText = "⌛ Caricamento Immagine...";
+      btnSubmit.disabled = true;
 
       try {
+        // Logica di fallback o mantenimento del logo precedente
+        let finalLogoUrl = isEditingMode ? this.currentLogoUrl : '';
+
+        // Se l'utente ha selezionato una nuova immagine, esegui l'upload su ImgBB
+        if (fileInput && fileInput.files.length > 0) {
+          const file = fileInput.files[0];
+          finalLogoUrl = await uploadImageToImgBB(file);
+        }
+
+        let compPayload = { 
+          id, 
+          name, 
+          type,
+          logo: finalLogoUrl, // Salvataggio del link immagine nel payload
+          teams: teams
+        };
+
+        // Se stiamo creando da zero, impostiamo i parametri di default
+        if (!isEditingMode) {
+          compPayload.status = { currentGW: 1 };
+          compPayload.marketOpen = true;
+        }
+
+        if (type === 'misto-speciale') {
+          compPayload.regolamento = {
+            fase1: { tipo: "campionato", giornate: 11, squadre: 12 },
+            qualificatiDirettiQuarti: 6,
+            playoff: {
+              posizioni: [7, 8, 9, 10],
+              accoppiamenti: [
+                { nome: "Playoff 1", casa: "pos_7", trasferta: "pos_10" },
+                { nome: "Playoff 2", casa: "pos_8", trasferta: "pos_9" }
+              ]
+            },
+            quartiTabellone: [
+              { match: "Q1", casa: "pos_1", trasferta: "vincitore_playoff_2" },
+              { match: "Q2", casa: "pos_2", trasferta: "vincitore_playoff_1" },
+              { match: "Q3", casa: "pos_3", trasferta: "pos_6" },
+              { match: "Q4", casa: "pos_4", trasferta: "pos_5" }
+            ],
+            eliminate: [11, 12]
+          };
+        } else {
+          const gironi = parseInt(document.getElementById('compGironi').value) || 1;
+          const qualificati = parseInt(document.getElementById('compQualificati').value) || 0;
+          if (type === 'campionato' || type === 'misto') compPayload.gironi = gironi;
+          if (type === 'misto') compPayload.qualificatiFaseFinale = qualificati;
+        }
+
         await update(ref(database, `competitions/${id}`), compPayload);
         window.toast(`Competizione salvata/aggiornata con successo!`, "ok");
         window.annullaModificaComp();
       } catch (err) { 
         console.error("Errore scrittura Firebase:", err);
-        window.toast("Errore durante il salvataggio dei dati", "err"); 
+        window.toast(err.message || "Errore durante il salvataggio dei dati", "err"); 
+      } finally {
+        // Ripristino del bottone
+        btnSubmit.innerText = originalBtnText;
+        btnSubmit.disabled = false;
       }
     };
 
