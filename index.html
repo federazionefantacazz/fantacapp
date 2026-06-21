@@ -385,7 +385,12 @@ function caricaDatiCompetizione(compId) {
         window.STATE.user = foundCurrentTeam;
       }
     }
-    populateLoginDropdown();
+    
+    // CORREZIONE: Se l'app non è ancora avviata, popola o aggiorna la select appena arrivano le squadre
+    if (!window.STATE.booted) {
+      populateLoginDropdown();
+    }
+    
     refreshUI();
   });
 }
@@ -498,6 +503,9 @@ function populateLoginDropdown() {
   if (window.STATE.booted) return;
   const currentUser = auth.currentUser;
   if (!currentUser) return; 
+
+  // CORREZIONE: Se l'array delle squadre è ancora vuoto, usciamo temporaneamente e aspettiamo l'onValue di 'teams'
+  if (!window.STATE.teams || window.STATE.teams.length === 0) return;
 
   const myTeamFromDB = window.STATE.teams.find(t => t.owners && t.owners[currentUser.uid]);
   if (myTeamFromDB) {
