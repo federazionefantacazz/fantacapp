@@ -76,7 +76,7 @@ export const ClassificaPage = {
       contentDiv.innerHTML = this.renderTabellaClassica(compTeams, compId);
     } 
     
-    // 2) CASO TORNEO MISTO (CON INGRESSO DA strutturaGironi)
+    // 2) CASO TORNEO MISTO
     else if (compType === 'misto') {
       this.renderModoConTabellone(actionsDiv, contentDiv, compData, state, () => {
         let html = '<div id="view-dati-classifica">';
@@ -204,11 +204,9 @@ export const ClassificaPage = {
 
       const customStyle = rowStyleCallback ? rowStyleCallback(idx) : '';
 
-      // --- LOGHI DINAMICI AGGIORNATI CON LA STESSA LOGICA DEL CALENDARIO ---
       const logoHTML = t.logo 
         ? `<img src="${t.logo}" alt="Logo ${t.name}" style="width:32px; height:32px; object-fit:contain; border-radius:4px; flex-shrink:0;">`
         : `<div style="width:32px; height:32px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:1rem; color:var(--text3); flex-shrink:0;">🛡️</div>`;
-      // ---------------------------------------------------------------------
 
       html += `
         <tr style="border-bottom:1px solid var(--border); ${customStyle}">
@@ -271,8 +269,27 @@ export const ClassificaPage = {
         const teamHome = teamsGlobal.find(t => String(t.id) === m.homeId);
         const teamAway = teamsGlobal.find(t => String(t.id) === m.awayId);
         
-        const nameHome = m.homeId.startsWith("VINCENTE_") ? `✨ ${m.homeId.replace("VINCENTE_", "")}` : (teamHome ? teamHome.name : m.homeId);
-        const nameAway = m.awayId.startsWith("VINCENTE_") ? `✨ ${m.awayId.replace("VINCENTE_", "")}` : (teamAway ? teamAway.name : m.awayId);
+        const isHomePending = m.homeId.startsWith("VINCENTE_");
+        const isAwayPending = m.awayId.startsWith("VINCENTE_");
+
+        const nameHome = isHomePending ? `✨ ${m.homeId.replace("VINCENTE_", "")}` : (teamHome ? teamHome.name : m.homeId);
+        const nameAway = isAwayPending ? `✨ ${m.awayId.replace("VINCENTE_", "")}` : (teamAway ? teamAway.name : m.awayId);
+
+        // --- GESTIONE LOGHI DINAMICI SQUADRA IN CASA ---
+        let logoHomeHTML = `🏠`;
+        if (!isHomePending) {
+          logoHomeHTML = teamHome && teamHome.logo
+            ? `<img src="${teamHome.logo}" alt="" style="width:20px; height:20px; object-fit:contain; border-radius:2px; flex-shrink:0;">`
+            : `<span style="font-size:1rem; flex-shrink:0; width:20px; text-align:center;">🛡️</span>`;
+        }
+
+        // --- GESTIONE LOGHI DINAMICI SQUADRA IN TRASFERTA ---
+        let logoAwayHTML = `🚀`;
+        if (!isAwayPending) {
+          logoAwayHTML = teamAway && teamAway.logo
+            ? `<img src="${teamAway.logo}" alt="" style="width:20px; height:20px; object-fit:contain; border-radius:2px; flex-shrink:0;">`
+            : `<span style="font-size:1rem; flex-shrink:0; width:20px; text-align:center;">🛡️</span>`;
+        }
 
         return `
           <div style="background: var(--bg2); border: 1px solid var(--border); padding: .6rem; border-radius: 6px; font-size: .8rem; width: 200px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
@@ -280,11 +297,13 @@ export const ClassificaPage = {
               <span>🆔 ${m.id.toUpperCase()}</span>
               ${m.gironeProvenienza ? `<span style="color:var(--gold); margin-left:auto;">${m.gironeProvenienza}</span>` : ''}
             </div>
-            <div style="padding: 2px 0; color:#fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display:flex; justify-content:space-between;">
-              <span>🏠 ${nameHome}</span>
+            <div style="padding: 2px 0; color:#fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display:flex; align-items:center; gap:0.4rem;">
+              ${logoHomeHTML}
+              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${nameHome}</span>
             </div>
-            <div style="padding: 2px 0; color:var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display:flex; justify-content:space-between;">
-              <span>🚀 ${nameAway}</span>
+            <div style="padding: 2px 0; color:var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display:flex; align-items:center; gap:0.4rem;">
+              ${logoAwayHTML}
+              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${nameAway}</span>
             </div>
           </div>
         `;
