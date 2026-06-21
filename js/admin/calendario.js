@@ -4,6 +4,7 @@ export const CalendarioSection = {
   db: null,
   _currentTeams: [],
   _currentCompetitions: [],
+  _isEditingManually: false, // Stato per tracciare se siamo in modalità modifica manuale
 
   init(database) {
     this.db = database;
@@ -17,7 +18,7 @@ export const CalendarioSection = {
       <div class="card" style="max-width: 650px;">
         <div style="margin-bottom: 1rem; padding: .8rem; background: rgba(80, 227, 194, 0.1); border-left: 4px solid var(--accent); border-radius: 4px;">
           <span style="font-size: .85rem; color: var(--text);">
-            Il sistema rileva automaticamente la configurazione salvata su Firebase. Per i tornei a gironi, effettua prima il sorteggio delle squadre e poi genera il calendario dei match.
+            Il sistema rileva automaticamente la configurazione salvata su Firebase. Per i tornei a gironi, effettua il sorteggio automatico oppure modifica manualmente i gruppi prima di generare il calendario dei match.
           </span>
         </div>
 
@@ -46,8 +47,8 @@ export const CalendarioSection = {
           <div style="background: var(--bg2); padding: 1rem; border-radius: 6px; border: 1px solid var(--border);">
             <label class="label" style="color: var(--accent);">Rotazione Incontri Calendario</label>
             <select id="genRotationType" class="input-login" style="background: var(--bg3); color:#fff; padding:.5rem; border-radius:6px; width:100%; margin-bottom: 1rem;">
-              <option value="solo-andata">Solo Andata</option>
-              <option value="andata-ritorno" selected>Andata e Ritorno</option>
+              <option value="solo-andata" selected>Solo Andata</option>
+              <option value="andata-ritorno">Andata e Ritorno</option>
               <option value="tre-giri">Tre Giri (Andata/Ritorno/Andata)</option>
             </select>
             <button class="btn btn-green" style="width: 100%;" onclick="window.generateRandomCalendar()">⚡ Genera & Salva Calendario Match</button>
@@ -56,8 +57,12 @@ export const CalendarioSection = {
       </div>
 
       <div class="card" id="previewGironiCard" style="display: none;">
-        <div class="label" style="color: var(--gold); font-weight: 600;">🏆 Composizione Attuale dei Gironi</div>
-        <div id="gironiVisualContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: .5rem; margin-bottom: 1rem;">
+          <div class="label" style="color: var(--gold); font-weight: 600; margin-bottom: 0;">🏆 Composizione Attuale dei Gironi</div>
+          <div id="gironiActionButtons">
+            </div>
+        </div>
+        <div id="gironiVisualContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;"></div>
       </div>
 
       <div class="card">
@@ -99,6 +104,7 @@ export const CalendarioSection = {
     const drawContainer = document.getElementById('drawGironiContainer');
     const previewGironiCard = document.getElementById('previewGironiCard');
     const gironiVisualContainer = document.getElementById('gironiVisualContainer');
+    const btnContainer = document.getElementById('gironiActionButtons');
 
     if (!tBadge || !gBadge) return;
 
@@ -113,7 +119,6 @@ export const CalendarioSection = {
 
     const numGironiPrevisti = parseInt(comp.gironi) || 1;
 
-    // Rilevamento tipo e visualizzazione bottoni appropriati
     if ((comp.type === 'misto' || comp.type === 'misto-speciale') && numGironiPrevisti > 1) {
       tBadge.innerHTML = `<span style="color:var(--gold)">MISTA (${comp.type === 'misto-speciale' ? 'Misto Speciale' : 'Gironi + Fase Finale'})</span>`;
       gBadge.textContent = `${numGironiPrevisti} Gironi`;
@@ -122,9 +127,10 @@ export const CalendarioSection = {
       tBadge.innerHTML = `<span style="color:var(--accent2)">CAMPIONATO STANDARD</span>`;
       gBadge.textContent = "1 (Girone Unico)";
       if (drawContainer) drawContainer.style.display = "none";
+      this._isEditingManually = false;
     }
 
-    // Estrazione squadre partecipanti
+    // Estrazione squadre totali iscritte alla competizione
     let compTeamsIds = [];
     if (comp.teams) {
       compTeamsIds = Array.isArray(comp.teams) ? comp.teams : Object.values(comp.teams);
@@ -146,16 +152,55 @@ export const CalendarioSection = {
       }
     }
 
-    // Rendering visivo dei gironi se già sorteggiati precedentemente nel DB
+    // Rendering della struttura dei gironi (Lettura o Modifica Manuale)
     if (numGironiPrevisti > 1 && comp.strutturaGironi) {
-      if (previewGironiCard && gironiVisualContainer) {
+      if (previewGironiCard && gironiVisualContainer && btnContainer) {
         previewGironiCard.style.display = "block";
-        gironiVisualContainer.innerHTML = Object.keys(comp.strutturaGironi).map(gId => {
+
+        // Gestione dinamica dei bottoni sopra la griglia
+        if (this._isEditingManually) {
+          btnContainer.innerHTML = `
+            <button class="btn btn-green" style="padding: .3rem .75rem; font-size: .8rem;" onclick="window.salvaModificheGironiManuali()">💾 Salva Gruppi</button>
+            <button class="btn btn-red" style="padding: .3rem .75rem; font-size: .8rem; margin-left: .25rem;" onclick="window.annullaModificaManualeGironi()">Annulla</button>
+          `;
+        } else {
+          btnContainer.innerHTML = `
+            <button class="btn" style="background: var(--bg3); border:1px solid var(--border); padding: .3rem .75rem; font-size: .8rem; color:#fff;" onclick="window.attivaModificaManualeGironi()">✏️ Personalizza Manualmente</button>
+          `;
+        }
+
+        const gironiIds = Object.keys(comp.strutturaGironi);
+        
+        gironiVisualContainer.innerHTML = gironiIds.map(gId => {
           const elencoSquadreIds = comp.strutturaGironi[gId] || [];
-          const htmlSquadre = elencoSquadreIds.map(tId => {
-            const teamObj = this._currentTeams.find(t => String(t.id) === tId);
-            return `<div style="padding: .3rem .5rem; background: var(--bg3); margin-bottom: 4px; border-radius: 4px; font-size: .85rem; border: 1px solid var(--border);">🛡️ ${teamObj ? teamObj.name : tId}</div>`;
-          }).join('');
+
+          let htmlSquadre = "";
+
+          if (this._isEditingManually) {
+            // Se siamo in modalità di modifica, mostriamo dei selettori <select> con l'elenco delle sole squadre iscritte
+            for (let slotIdx = 0; slotIdx < elencoSquadreIds.length; slotIdx++) {
+              const currentSelectedId = elencoSquadreIds[slotIdx];
+              
+              const optionsHtml = compTeamsIds.map(tId => {
+                const teamObj = this._currentTeams.find(t => String(t.id) === tId);
+                return `<option value="${tId}" ${tId === currentSelectedId ? 'selected' : ''}>🛡️ ${teamObj ? teamObj.name : tId}</option>`;
+              }).join('');
+
+              htmlSquadre += `
+                <div style="margin-bottom: 6px;">
+                  <select class="input-login class-manual-team-slot" data-girone="${gId}" data-slot="${slotIdx}" style="background: var(--bg3); padding: .3rem; font-size: .85rem; width: 100%; border-radius: 4px; border: 1px solid var(--border); color:#fff; margin-bottom:0;">
+                    ${optionsHtml}
+                  </select>
+                </div>
+              `;
+            }
+          } else {
+            // Se siamo in sola visualizzazione standard
+            htmlSquadre = elencoSquadreIds.map(tId => {
+              const teamObj = this._currentTeams.find(t => String(t.id) === tId);
+              return `<div style="padding: .3rem .5rem; background: var(--bg3); margin-bottom: 4px; border-radius: 4px; font-size: .85rem; border: 1px solid var(--border);">🛡️ ${teamObj ? teamObj.name : tId}</div>`;
+            }).join('');
+          }
 
           return `
             <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: .75rem; border-radius: 6px;">
@@ -175,13 +220,65 @@ export const CalendarioSection = {
 
 window.changeCalendarTargetComp = function(compId) {
   window.CURRENT_COMPETITION = compId;
+  CalendarioSection._isEditingManually = false; // Reset dello stato alla variazione
   CalendarioSection.updateBadgeDinamici(compId);
   if (typeof window.toast === "function") {
     window.toast(`Configurazione orientata su: ${compId.toUpperCase()}`, "info");
   }
 };
 
-// NUOVA AZIONE: EFFETTUA IL SORTEGGIO RANDOMICO DEI GIRONI E LI SALVA
+window.attivaModificaManualeGironi = function() {
+  CalendarioSection._isEditingManually = true;
+  CalendarioSection.updateBadgeDinamici(window.CURRENT_COMPETITION);
+};
+
+window.annullaModificaManualeGironi = function() {
+  CalendarioSection._isEditingManually = false;
+  CalendarioSection.updateBadgeDinamici(window.CURRENT_COMPETITION);
+};
+
+// SALVATAGGIO DEI GIRONI MODIFICATI MANUALMENTE DALL'UTENTE
+window.salvaModificheGironiManuali = async function() {
+  const targetCompId = window.CURRENT_COMPETITION;
+  const comp = CalendarioSection._currentCompetitions.find(c => c.id === targetCompId);
+  if (!comp) return;
+
+  const selectors = document.querySelectorAll('.class-manual-team-slot');
+  let nuovaStruttura = JSON.parse(JSON.stringify(comp.strutturaGironi)); // Clona struttura vecchia
+
+  let allSelectedIds = [];
+
+  selectors.forEach(sel => {
+    const gironeKey = sel.getAttribute('data-girone');
+    const slotIndex = parseInt(sel.getAttribute('data-slot'));
+    const chosenValue = sel.value;
+
+    nuovaStruttura[gironeKey][slotIndex] = chosenValue;
+    allSelectedIds.push(chosenValue);
+  });
+
+  // Controlliamo se ci sono duplicati (ovvero se la stessa squadra è stata inserita più volte)
+  const haDuplicati = allSelectedIds.some((val, i) => allSelectedIds.indexOf(val) !== i);
+  if (haDuplicati) {
+    return window.toast?.("Errore: Ci sono squadre duplicate nei gironi! Ogni squadra può partecipare a un solo girone.", "err");
+  }
+
+  if (!confirm("Vuoi salvare la composizione manuale personalizzata di questi gruppi su Firebase?")) return;
+
+  try {
+    const database = CalendarioSection.db || getDatabase();
+    await update(ref(database, `competitions/${targetCompId}`), { strutturaGironi: nuovaStruttura });
+    window.toast?.("💾 Gironi personalizzati salvati con successo!", "ok");
+    
+    comp.strutturaGironi = nuovaStruttura;
+    CalendarioSection._isEditingManually = false;
+    CalendarioSection.updateBadgeDinamici(targetCompId);
+  } catch (err) {
+    console.error(err);
+    window.toast?.("Errore durante il salvataggio manuale dei gruppi", "err");
+  }
+};
+
 window.sorteggiaGironiCompetizione = async function() {
   const targetCompId = document.getElementById('calendarCompSelect')?.value || window.CURRENT_COMPETITION;
   if (!targetCompId) return window.toast?.("Seleziona una competizione!", "err");
@@ -201,7 +298,6 @@ window.sorteggiaGironiCompetizione = async function() {
 
   if (!confirm(`Sei sicuro di voler effettuare un nuovo sorteggio randomico delle squadre per i ${numGironi} gironi? Verrà sovrascritta la struttura attuale.`)) return;
 
-  // Algoritmo di mescolamento Fisher-Yates (Randomizzazione)
   let mixTeams = [...squadreIscritte].sort(() => Math.random() - 0.5);
   
   let strutturaGironi = {};
@@ -209,7 +305,6 @@ window.sorteggiaGironiCompetizione = async function() {
     strutturaGironi[`Girone ${idx}`] = [];
   }
 
-  // Distribuzione equa sequenziale nei gironi
   mixTeams.forEach((teamId, index) => {
     const targetGironeKey = `Girone ${(index % numGironi) + 1}`;
     strutturaGironi[targetGironeKey].push(teamId);
@@ -217,12 +312,11 @@ window.sorteggiaGironiCompetizione = async function() {
 
   try {
     const database = CalendarioSection.db || getDatabase();
-    // Salviamo la mappatura dei gironi direttamente dentro la competizione
     await update(ref(database, `competitions/${targetCompId}`), { strutturaGironi: strutturaGironi });
     window.toast?.("🎲 Sorteggio gironi effettuato e salvato con successo!", "ok");
     
-    // Aggiorniamo lo stato locale simulato o attendiamo il prossimo snapshot
     comp.strutturaGironi = strutturaGironi;
+    CalendarioSection._isEditingManually = false; // Forza l'uscita da eventuale editing aperto
     CalendarioSection.updateBadgeDinamici(targetCompId);
   } catch (err) {
     console.error(err);
@@ -244,10 +338,9 @@ window.generateRandomCalendar = async function() {
 
   const numGironiPrevisti = parseInt(comp.gironi) || 1;
 
-  // ─── LOGICA 1: GIRONI MULTIPLI (LEGGE LA STRUTTURA SORTEGGIATA) ───────────────────
   if ((comp.type === 'misto' || comp.type === 'misto-speciale') && numGironiPrevisti > 1) {
     if (!comp.strutturaGironi) {
-      return window.toast?.("Devi prima effettuare il sorteggio delle squadre premendo il tasto 'Effettua Sorteggio Gruppi'!", "err");
+      return window.toast?.("Devi prima effettuare il sorteggio o comporre i gruppi manualmente!", "err");
     }
 
     const gironiIds = Object.keys(comp.strutturaGironi);
@@ -259,7 +352,7 @@ window.generateRandomCalendar = async function() {
       if (lista.length % 2 !== 0) lista.push("RIPOSO");
       
       const n = lista.length;
-      const turniUnici = n - 1;
+      const turniUnici = n - 1; 
       let giri = 1;
       if (rotationType === 'andata-ritorno') giri = 2;
       if (rotationType === 'tre-giri') giri = 3;
@@ -270,7 +363,7 @@ window.generateRandomCalendar = async function() {
       agendeGironi[gId] = {
         squadre: lista,
         turniUnici: turniUnici,
-        giriMax: giri
+        giornateTotali: giornateTotaliGirone
       };
     });
 
@@ -280,15 +373,15 @@ window.generateRandomCalendar = async function() {
 
       gironiIds.forEach(gId => {
         const agenda = agendeGironi[gId];
+        if (g > agenda.giornateTotali) return; 
+
         const lista = agenda.squadre;
-        const turniUnici = agenda.turniUnici;
         const numSquadre = lista.length;
+        const turniUnici = agenda.turniUnici;
         
         const gironeCorrente = Math.floor((g - 1) / turniUnici);
         const turnoNelGirone = (g - 1) % turniUnici;
         const inverti = (gironeCorrente === 1 || gironeCorrente === 3); 
-
-        if (g > turniUnici * agenda.giriMax) return;
 
         const matchPerGiornata = numSquadre / 2;
         for (let m = 0; m < matchPerGiornata; m++) {
@@ -314,10 +407,11 @@ window.generateRandomCalendar = async function() {
         }
       });
 
-      calendarioCompleto[`gw${g}`] = matchGiornata;
+      if (Object.keys(matchGiornata).length > 0) {
+        calendarioCompleto[`gw${g}`] = matchGiornata;
+      }
     }
 
-  // ─── LOGICA 2: CAMPIONATO STANDARD O GIRONE UNICO ──────────────────────────
   } else {
     let squadreIscritte = [];
     if (comp.teams) {
@@ -377,7 +471,7 @@ window.generateRandomCalendar = async function() {
     const database = CalendarioSection.db || getDatabase();
     await set(ref(database, `competitions/${targetCompId}/matches`), calendarioCompleto);
     await set(ref(database, `competitions/${targetCompId}/status`), { currentGW: 1 });
-    window.toast?.(`🎯 Calendario campionato salvato con successo per ${comp.name.toUpperCase()}!`, "ok");
+    window.toast?.(`🎯 Calendario campionato salvato con successo per ${comp.name.toUpperCase()}! Rilevate esattamente ${Object.keys(calendarioCompleto).length} giornate.`, "ok");
   } catch (err) {
     console.error(err);
     window.toast?.("Errore durante il salvataggio su Firebase", "err");
