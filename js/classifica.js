@@ -45,7 +45,6 @@ export const ClassificaPage = {
       actionsDiv.style.display = 'none';
     }
 
-    // Gestore dello switch visivo per mostrare o nascondere il tabellone grafico dell'albero
     window._toggleVistaTabellone = (mostra) => {
       const btnTab = document.getElementById('btn-mostra-tabellone');
       const btnClas = document.getElementById('btn-mostra-classifica');
@@ -77,62 +76,57 @@ export const ClassificaPage = {
       contentDiv.innerHTML = this.renderTabellaClassica(compTeams, compId);
     } 
     
-    // 2) CASO TORNEO MISTO
+    // 2) CASO TORNEO MISTO (CON INPUT DA STRUTTURAGIRONI)
     else if (compType === 'misto') {
       this.renderModoConTabellone(actionsDiv, contentDiv, compData, state, () => {
         let html = '<div id="view-dati-classifica">';
         
-        if (compData.gironi) {
-          // 🔥 ESTRAZIONE FORZATA DELLE CHIAVI DI TESTO (Evita il bug dell'array ibrido di Firebase)
-          const gironiKeys = [];
-          for (let key in compData.gironi) {
-            if (key.startsWith('girone')) {
-              gironiKeys.push(key);
-            }
-          }
+        // Verifichiamo la presenza del nodo 'strutturagironi'
+        if (compData.strutturagironi) {
+          const gironiKeys = Object.keys(compData.strutturagironi);
           
           if (gironiKeys.length > 0) {
-            gironiKeys.sort().forEach(gironeKey => {
-              const gironeObj = compData.gironi[gironeKey];
-              if (!gironeObj) return;
+            gironiKeys.sort().forEach(gironeName => {
+              const squadreIdList = compData.strutturagironi[gironeName];
+              if (!squadreIdList) return;
 
               const listaSquadreGirone = [];
 
-              // Estrazione delle squadre collegate al girone corrente
-              if (gironeObj.teams) {
-                Object.keys(gironeObj.teams).forEach(teamId => {
+              // Iteriamo sull'oggetto/array dei team (0: team1, 1: team2...)
+              Object.keys(squadreIdList).forEach(idx => {
+                const teamId = squadreIdList[idx]; // Legge direttamente la stringa dell'ID (es. "team1")
+                if (teamId) {
                   const teamData = compTeams.find(t => String(t.id) === String(teamId));
                   if (teamData) {
                     listaSquadreGirone.push(teamData);
                   }
-                });
-              }
+                }
+              });
 
-              // Ordinamento interno al girone basato sui punti accumulati
+              // Ordinamento meritocratico in base ai punti della competizione corrente
               listaSquadreGirone.sort((a, b) => {
                 const ptsA = (a.competitions && a.competitions[compId]?.pts) !== undefined ? a.competitions[compId].pts : (a.pts || 0);
                 const ptsB = (b.competitions && b.competitions[compId]?.pts) !== undefined ? b.competitions[compId].pts : (b.pts || 0);
                 return ptsB - ptsA;
               });
 
-              const nomeVisualizzazione = gironeKey.replace('girone', 'GIRONE ').toUpperCase();
               const numQualificati = parseInt(compData.qualificatiFaseFinale) || 2;
 
-              html += `<div class="label" style="font-size:0.95rem; margin-top:1.5rem; color:var(--accent); font-weight:600; padding-left:0.5rem;">🏆 ${nomeVisualizzazione}</div>`;
+              html += `<div class="label" style="font-size:0.95rem; margin-top:1.5rem; color:var(--accent); font-weight:600; padding-left:0.5rem;">🏆 ${gironeName.toUpperCase()}</div>`;
               
               if (listaSquadreGirone.length > 0) {
                 html += this.renderTabellaClassica(listaSquadreGirone, compId, (index) => {
                   return index < numQualificati ? 'background: rgba(80,227,194,0.08); border-left: 4px solid var(--accent);' : '';
                 });
               } else {
-                html += `<div class="card" style="text-align:center; color:var(--text2); padding:1rem;">Nessuna squadra presente in questo girone.</div>`;
+                html += `<div class="card" style="text-align:center; color:var(--text2); padding:1rem;">Nessuna squadra trovata per questo girone.</div>`;
               }
             });
           } else {
-            html += `<div class="card" style="text-align:center; color:var(--text2); padding:2rem;">⚠️ Nessun girone valido (gironeA, gironeB...) trovato sotto il nodo gironi.</div>`;
+            html += `<div class="card" style="text-align:center; color:var(--text2); padding:2rem;">⚠️ Il nodo strutturagironi è vuoto.</div>`;
           }
         } else {
-          html += `<div class="card" style="text-align:center; color:var(--text2); padding:2rem;">⚠️ Nessun girone configurato su Firebase per questa competizione.</div>`;
+          html += `<div class="card" style="text-align:center; color:var(--text2); padding:2rem;">⚠️ Voce "strutturagironi" non configurata per questa competizione.</div>`;
         }
 
         html += '</div>';
