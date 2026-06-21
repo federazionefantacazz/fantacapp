@@ -247,8 +247,8 @@ body {
   <button class="nav-btn" onclick="goPage('calendario',this)">
     <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Calendario
   </button>
-  <button class="nav-btn" onclick="goPage('formazione',this)">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>Formazione
+  <button id="btn-nav-formazione" class="nav-btn" onclick="goPage('formazione',this)">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg><span>Formazione</span>
   </button>
   <button class="nav-btn" onclick="goPage('mercato',this)">
     <svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 001.95-1.55L23 6H6"/></svg>Mercato
@@ -269,6 +269,8 @@ import { CalendarioPage } from './js/calendario.js';
 import { FormazionePage } from './js/formazione.js';
 import { MercatoPage } from './js/mercato.js';
 import { TeamsPage } from './js/teams.js';
+// LOGICA E GRAFICA LIVE IMPORTATA DAL PERCORSO CORRETTO
+import { LiveMatchModule } from "./js/liveMatch.js";
 
 window.STATE = { 
   user: null, 
@@ -340,6 +342,10 @@ function caricaDatiCompetizione(compId) {
   
   onValue(ref(db, `competitions/${compId}/status`), snap => { 
     window.STATE.status = snap.val() || { currentGW: 1 }; 
+    
+    // RILEVAZIONE AUTOMATICA DELLO STATO LIVE ED INNESCO SWITCH NELL'INDEX
+    gestisciSwitchLive(!!window.STATE.status.live, window.STATE.status.currentGW || 1);
+    
     refreshUI(); 
   });
 
@@ -348,270 +354,4 @@ function caricaDatiCompetizione(compId) {
     const theme = snap.val();
     const styleTag = document.getElementById('dynamic-theme');
     
-    if (theme && styleTag) {
-      styleTag.innerHTML = `
-        :root {
-          ${theme.bg ? `--bg: ${theme.bg};` : ''}
-          ${theme.bg2 ? `--bg2: ${theme.bg2};` : ''}
-          ${theme.bg3 ? `--bg3: ${theme.bg3};` : ''}
-          ${theme.card ? `--card: ${theme.card};` : ''}
-          ${theme.card2 ? `--card2: ${theme.card2};` : ''}
-          ${theme.accent ? `--accent: ${theme.accent};` : ''}
-          ${theme.accent2 ? `--accent2: ${theme.accent2};` : ''}
-          ${theme.accent3 ? `--accent3: ${theme.accent3};` : ''}
-          ${theme.gold ? `--gold: ${theme.gold};` : ''}
-          ${theme.text ? `--text: ${theme.text};` : ''}
-          ${theme.text2 ? `--text2: ${theme.text2};` : ''}
-        }
-      `;
-    } else if (styleTag) {
-      styleTag.innerHTML = ''; // Ritorna istantaneamente alle variabili CSS del foglio statico
-    }
-  });
-
-  onValue(ref(db, `competitions/${compId}/matches`), snap => { 
-    window.STATE.matches = snap.val() || {}; 
-    refreshUI(); 
-  });
-
-  onValue(ref(db, 'teams'), snap => {
-    const raw = snap.val() || {};
-    window.STATE.teams = Object.values(raw).sort((a,b) => b.pts - a.pts);
-    globalPreloadLogos(window.STATE.teams);
-
-    if (window.STATE.user) {
-      const foundCurrentTeam = window.STATE.teams.find(t => t.id === window.STATE.user.id);
-      if (foundCurrentTeam) {
-        window.STATE.user = foundCurrentTeam;
-      }
-    }
-    populateLoginDropdown();
-    refreshUI();
-  });
-}
-
-window._handleCompetitionChange = function(newCompetitionId) {
-  if (!newCompetitionId) return;
-  window.STATE.currentCompetition = newCompetitionId;
-  window.showToast(`Competizione modificata in: ${newCompetitionId.toUpperCase()}`, 'ok');
-  
-  const calSelect = document.getElementById('calGwSelect');
-  if (calSelect) {
-    calSelect.innerHTML = '';
-    delete calSelect.dataset.currentComp;
-  }
-  caricaDatiCompetizione(newCompetitionId);
-  refreshUI();
-};
-
-onValue(ref(db, 'votes'), snap => { 
-  window.STATE.votes = snap.val() || {}; 
-  refreshUI(); 
-});
-
-onValue(ref(db, 'players'), snap => {
-  window.STATE.players = Object.values(snap.val() || {});
-  refreshUI();
-});
-
-window.toggleAuthBoxes = function(target) {
-  if (target === 'register') {
-    document.getElementById('box-firebase-login').style.display = 'none';
-    document.getElementById('box-firebase-register').style.display = 'block';
-  } else {
-    document.getElementById('box-firebase-login').style.display = 'block';
-    document.getElementById('box-firebase-register').style.display = 'none';
-  }
-};
-
-window.doFirebaseLogin = function() {
-  const email = document.getElementById('loginEmail').value;
-  const pass = document.getElementById('loginPassword').value;
-  if(!email || !pass) {
-    window.showToast('Inserisci email e password!', 'err');
-    return;
-  }
-  signInWithEmailAndPassword(auth, email, pass)
-    .then(() => { window.showToast('Accesso effettuato!', 'ok'); })
-    .catch(error => { window.showToast('Email o password errate!', 'err'); });
-};
-
-window.doFirebaseRegister = function() {
-  const email = document.getElementById('registerEmail').value;
-  const pass = document.getElementById('registerPassword').value;
-  if(!email || !pass) {
-    window.showToast('Riempi tutti i campi!', 'err');
-    return;
-  }
-  if(pass.length < 6) {
-    window.showToast('La password deve avere almeno 6 caratteri!', 'err');
-    return;
-  }
-  createUserWithEmailAndPassword(auth, email, pass)
-    .then(() => { window.showToast('Account creato con successo!', 'ok'); })
-    .catch(error => { window.showToast('Errore durante la registrazione!', 'err'); });
-};
-
-window.doFirebaseLogout = function() {
-  signOut(auth).then(() => {
-    localStorage.removeItem('fantaUser');
-    window.STATE.user = null;
-    window.STATE.booted = false;
-    window.showToast('Account disconnesso', 'ok');
-    setTimeout(() => location.reload(), 1000);
-  });
-};
-
-function populateLoginDropdown() {
-  if (window.STATE.booted) return;
-  const currentUser = auth.currentUser;
-  if (!currentUser) return; 
-
-  const myTeamFromDB = window.STATE.teams.find(t => t.owners && t.owners[currentUser.uid]);
-  if (myTeamFromDB) {
-    window.STATE.user = myTeamFromDB;
-    localStorage.setItem('fantaUser', myTeamFromDB.id);
-    bootApp();
-    return;
-  }
-
-  const savedUserId = localStorage.getItem('fantaUser');
-  if (savedUserId && window.STATE.teams.length > 0) {
-    const loggedInUser = window.STATE.teams.find(t => t.id === savedUserId);
-    if (loggedInUser) {
-      window.STATE.user = loggedInUser;
-      bootApp();
-      return;
-    }
-  }
-
-  const select = document.getElementById('loginSelect');
-  if (!select) return;
-  
-  // Ottimizzazione: Non rigeneriamo l'HTML se il selettore contiene già le opzioni dei team
-  if (select.children.length > 1) return;
-
-  select.innerHTML = '<option value="">Scegli la tua squadra...</option>' + 
-    window.STATE.teams.map(t => `<option value="${t.id}">🛡️ ${t.name} (${t.owner || 'Nessun proprietario'})</option>`).join('');
-}
-
-window.doTeamSelection = function() {
-  const select = document.getElementById('loginSelect');
-  if (!select) return;
-  const id = select.value;
-  if(!id) {
-    window.showToast('Seleziona una squadra valida!', 'err');
-    return;
-  }
-  const found = window.STATE.teams.find(t => t.id === id);
-  if(found) {
-    const currentUser = auth.currentUser;
-    if (currentUser) {
-      window._saveNode(`teams/${id}/owners/${currentUser.uid}`, true);
-    }
-    window.STATE.user = found;
-    localStorage.setItem('fantaUser', id);
-    bootApp();
-  }
-};
-
-onValue(ref(db, 'competitions'), snap => {
-  const comps = snap.val() || {};
-  const list = Object.values(comps);
-  
-  window.STATE.competitions = list;
-  window.STATE.allCompetitions = list;
-  
-  const userSelect = document.getElementById('userCompSelect');
-  if (userSelect) {
-    if (list.length === 0) {
-      userSelect.innerHTML = `<option value="">⚠️ Nessun torneo nel DB</option>`;
-      window.STATE.currentCompetition = '';
-    } else {
-      if (!window.STATE.currentCompetition || !comps[window.STATE.currentCompetition]) {
-        window.STATE.currentCompetition = list[0].id;
-        caricaDatiCompetizione(list[0].id);
-      }
-      userSelect.innerHTML = list.map(c => `<option value="${c.id}" ${window.STATE.currentCompetition === c.id ? 'selected' : ''}>🏆 ${c.name || c.id}</option>`).join('');
-    }
-  }
-  refreshUI();
-});
-
-function bootApp() {
-  if (window.STATE.booted) return;
-  window.STATE.booted = true;
-
-  const container = document.getElementById('dynamic-pages-container');
-  if (container) {
-    container.style.display = 'block'; 
-    container.innerHTML = `
-      ${HomePage.renderHTML()}
-      ${CalendarioPage.renderHTML()}
-      ${FormazionePage.renderHTML()}
-      ${MercatoPage.renderHTML()}
-      ${TeamsPage.renderHTML()}
-    `; // <--- Rimosso RosePage.renderHTML()
-  }
-
-  document.getElementById('page-login').style.display = 'none';
-  document.getElementById('nav').style.display = 'flex';
-
-  const header = document.getElementById('app-header');
-  if (header) header.style.display = 'flex';
-
-  window.goPage('home', document.querySelector('.nav-btn'));
-}
-
-function refreshUI() {
-  if (!window.STATE.booted || !window.STATE.user || !document.getElementById('page-home')) return;
-
-  const current = window.STATE.currentPage;
-  if (current === 'home') HomePage.render(window.STATE);
-  else if (current === 'calendario') CalendarioPage.render(window.STATE);
-  else if (current === 'formazione') FormazionePage.render(window.STATE);
-  else if (current === 'mercato') MercatoPage.render(window.STATE);
-  else if (current === 'teams') TeamsPage.render(window.STATE);
-}
-
-window.goPage = function(name, btn) {
-  if (name === 'teams' && typeof TeamsPage.backToTeamsList === 'function') {
-    TeamsPage.backToTeamsList();
-  }
-
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  
-  const target = document.getElementById('page-' + name);
-  if(target) {
-    target.classList.add('active');
-  }
-  if(btn) btn.classList.add('active');
-  
-  const container = document.getElementById('dynamic-pages-container');
-  if(container) container.scrollTop = 0;
-
-  // Cambia la pagina attiva nello stato ed effettua il render dedicato immediato
-  window.STATE.currentPage = name;
-  refreshUI();
-};
-
-window.showToast = function(msg, type='ok') {
-  const t = document.getElementById('toast');
-  if(!t) return;
-  t.textContent = msg; t.className = 'toast '+type+' show';
-  setTimeout(()=>t.classList.remove('show'),2600);
-};
-
-window._saveNode = (path, payload) => set(ref(db, path), payload);
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then(reg => console.log('SW registrato', reg))
-      .catch(err => console.error('Errore SW', err));
-  });
-}
-</script>
-</body>
-</html>
+    if (theme &&
