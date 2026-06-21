@@ -86,7 +86,15 @@ export const ClassificaPage = {
         
         // Separiamo le squadre in base al girone di appartenenza salvato su Firebase
         compTeams.forEach(t => {
-          const gironeId = (t.competitions && t.competitions[compId]?.girone) || t.girone || 'A';
+          let gironeId = 'A';
+          if (compData.teams && compData.teams[t.id] && compData.teams[t.id].girone) {
+            gironeId = compData.teams[t.id].girone;
+          } else if (t.competitions && t.competitions[compId] && t.competitions[compId].girone) {
+            gironeId = t.competitions[compId].girone;
+          } else if (t.girone) {
+            gironeId = t.girone;
+          }
+
           if (!gironiMap[gironeId]) gironiMap[gironeId] = [];
           gironiMap[gironeId].push(t);
         });
@@ -95,7 +103,7 @@ export const ClassificaPage = {
         let html = '<div id="view-dati-classifica">';
         
         Object.keys(gironiMap).sort().forEach(g => {
-          html += `<div class="label" style="font-size:0.95rem; margin-top:1.5rem; color:var(--accent); font-weight:600;">🏆 GIRONE ${g.toUpperCase()}</div>`;
+          html += `<div class="label" style="font-size:0.95rem; margin-top:1.5rem; color:var(--accent); font-weight:600; padding-left:0.5rem;">🏆 GIRONE ${g.toUpperCase()}</div>`;
           html += this.renderTabellaClassica(gironiMap[g], compId, (index) => {
             return index < numQualificati ? 'background: rgba(80,227,194,0.08); border-left: 4px solid var(--accent);' : '';
           });
