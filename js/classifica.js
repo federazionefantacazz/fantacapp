@@ -61,53 +61,70 @@ export const ClassificaPage = {
         if(viewClassifica) viewClassifica.style.display = 'block';
         if(viewTabellone) viewTabellone.style.display = 'none';
         if(btnTab) { btnTab.classList.remove('btn-green'); btnTab.classList.add('btn-outline'); }
-        if(btnClas) { btnClas.classList.add('btn-green'); btnClas.classList.remove('btn-outline'); }
+        if(btnClas) { btnClas.classList.add('btn-green'); btnClas.classList.add('btn-outline'); }
       }
     };
 
     let compTeams = state.teams ? [...state.teams] : [];
-    
-    // Ordinamento meritocratico basato sui punti accumulati nella competizione corrente
-    compTeams.sort((a, b) => {
-      const ptsA = (a.competitions && a.competitions[compId]?.pts) !== undefined ? a.competitions[compId].pts : (a.pts || 0);
-      const ptsB = (b.competitions && b.competitions[compId]?.pts) !== undefined ? b.competitions[compId].pts : (b.pts || 0);
-      return ptsB - ptsA;
-    });
 
     // 1) CASO CAMPIONATO STANDARD
     if (compType === 'campionato') {
+      compTeams.sort((a, b) => {
+        const ptsA = (a.competitions && a.competitions[compId]?.pts) !== undefined ? a.competitions[compId].pts : (a.pts || 0);
+        const ptsB = (b.competitions && b.competitions[compId]?.pts) !== undefined ? b.competitions[compId].pts : (b.pts || 0);
+        return ptsB - ptsA;
+      });
       contentDiv.innerHTML = this.renderTabellaClassica(compTeams, compId);
     } 
     
-    // 2) CASO TORNEO MISTO
+    // 2) CASO TORNEO MISTO (CON I TUOI GIRONI DA SCREENSHOT)
     else if (compType === 'misto') {
       this.renderModoConTabellone(actionsDiv, contentDiv, compData, state, () => {
-        const gironiMap = {};
-        
-        // Separiamo le squadre in base al girone di appartenenza salvato su Firebase
-        compTeams.forEach(t => {
-          let gironeId = 'A';
-          if (compData.teams && compData.teams[t.id] && compData.teams[t.id].girone) {
-            gironeId = compData.teams[t.id].girone;
-          } else if (t.competitions && t.competitions[compId] && t.competitions[compId].girone) {
-            gironeId = t.competitions[compId].girone;
-          } else if (t.girone) {
-            gironeId = t.girone;
-          }
-
-          if (!gironiMap[gironeId]) gironiMap[gironeId] = [];
-          gironiMap[gironeId].push(t);
-        });
-
-        const numQualificati = parseInt(compData.qualificatiFaseFinale) || 2;
         let html = '<div id="view-dati-classifica">';
         
-        Object.keys(gironiMap).sort().forEach(g => {
-          html += `<div class="label" style="font-size:0.95rem; margin-top:1.5rem; color:var(--accent); font-weight:600; padding-left:0.5rem;">🏆 GIRONE ${g.toUpperCase()}</div>`;
-          html += this.renderTabellaClassica(gironiMap[g], compId, (index) => {
-            return index < numQualificati ? 'background: rgba(80,227,194,0.08); border-left: 4px solid var(--accent);' : '';
+        // Controlliamo se esistono i gironi dentro la competizione
+        if (compData.gironi) {
+          // Cicliamo su ogni girone trovato nel database (es. gironeA, gironeB...)
+          Object.keys(compData.gironi).sort().forEach(gironeKey => {
+            const gironeObj = compData.gironi[gironeKey];
+            const listaSquadreGirone = [];
+
+            // Se il girone ha un nodo 'teams', estraiamo le squadre corrispondenti dallo state globale
+            if (gironeObj.teams) {
+              Object.keys(gironeObj.teams).forEach(teamId => {
+                const teamData = compTeams.find(t => String(t.id) === String(teamId));
+                if (teamData) {
+                  listaSquadreGirone.push(teamData);
+                }
+              });
+            }
+
+            // Ordiniamo le squadre di QUESTO specifico girone in base ai punti accumulati
+            listaSquadreGirone.sort((a, b) => {
+              const ptsA = (a.competitions && a.competitions[compId]?.pts) !== undefined ? a.competitions[compId].pts : (a.pts || 0);
+              const ptsB = (b.competitions && b.competitions[compId]?.pts) !== undefined ? b.competitions[compId].pts : (b.pts || 0);
+              return ptsB - ptsA;
+            });
+
+            // Nome pulito da mostrare nel titolo (es: gironeA diventa "GIRONE A")
+            const nomeVisualizzazione = gironeKey.replace('girone', 'GIRONE ').toUpperCase();
+
+            const numQualificati = parseInt(compData.qualificatiFaseFinale) || 2;
+
+            html += `<div class="label" style="font-size:0.95rem; margin-top:1.5rem; color:var(--accent); font-weight:600; padding-left:0.5rem;">🏆 ${nomeVisualizzazione}</div>`;
+            
+            if (listaSquadreGirone.length > 0) {
+              html += this.renderTabellaClassica(listaSquadreGirone, compId, (index) => {
+                return index < numQualificati ? 'background: rgba(80,227,194,0.08); border-left: 4px solid var(--accent);' : '';
+              });
+            } else {
+              html += `<div class="card" style="text-align:center; color:var(--text2); padding:1rem;">Nessuna squadra presente in questo girone.</div>`;
+            }
           });
-        });
+        } else {
+          html += `<div class="card" style="text-align:center; color:var(--text2); padding:2rem;">⚠️ Nessun girone trovato per questa competizione.</div>`;
+        }
+
         html += '</div>';
         return html;
       });
@@ -115,6 +132,12 @@ export const ClassificaPage = {
     
     // 3) CASO CAMPIONATO MISTO-SPECIALE (12 SQUADRE)
     else if (compType === 'misto-speciale') {
+      compTeams.sort((a, b) => {
+        const ptsA = (a.competitions && a.competitions[compId]?.pts) !== undefined ? a.competitions[compId].pts : (a.pts || 0);
+        const ptsB = (b.competitions && b.competitions[compId]?.pts) !== undefined ? b.competitions[compId].pts : (b.pts || 0);
+        return ptsB - ptsA;
+      });
+
       this.renderModoConTabellone(actionsDiv, contentDiv, compData, state, () => {
         let html = `
           <div id="view-dati-classifica">
@@ -153,7 +176,7 @@ export const ClassificaPage = {
 
   renderTabellaClassica(teamsList, compId, rowStyleCallback = null) {
     let html = `
-      <div class="card" style="padding:0; overflow:hidden; border:1px solid var(--border);">
+      <div class="card" style="padding:0; overflow:hidden; border:1px solid var(--border); margin-bottom: 1rem;">
         <div style="overflow-x:auto;">
           <table style="width:100%; border-collapse:collapse; font-size:0.85rem; min-width:420px;">
             <thead>
