@@ -1,4 +1,4 @@
-import { ref, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { ref, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 let database = null;
 
@@ -16,17 +16,18 @@ export const CompetizioniSection = {
       <div class="card" style="max-width: 600px;">
         <div id="form-comp-title" class="label" style="color: var(--accent); margin-bottom: 1rem; font-size: .85rem;">Crea una nuova competizione</div>
         
-        <label class="label">ID Competizione</label>
+        <label class="label">ID Competizione (Inmodificabile in fase di modifica)</label>
         <input type="text" id="compId" class="input-login" placeholder="ID univoco senza spazi (es: serie-a-2026)">
 
-        <label class="label">Nome Competizione</label>
+        <label class="label">Nome Competizione (es: Serie A Tim)</label>
         <input type="text" id="compName" class="input-login" placeholder="Nome visibile">
 
         <label class="label">Tipo Competizione</label>
         <select id="compType" class="input-login" onchange="window.toggleCompFields(this.value)">
-          <option value="campionato">Campionato Standard</option>
+          <option value="campionato">Campionato Standard (Girone Unico)</option>
           <option value="misto">Fase a Gironi + Fase Finale</option>
-          <option value="diretta">Scontri Diretti / Coppa</option>
+          <option value="misto-speciale">Misto Speciale (12 Sq. - 11 GW + Playoff/Quarti)</option>
+          <option value="diretta">Scontri Direct / Coppa</option>
         </select>
 
         <div id="fieldGironi" style="display:block;">
@@ -35,7 +36,7 @@ export const CompetizioniSection = {
         </div>
 
         <div id="fieldQualificati" style="display:none;">
-          <label class="label">Squadre Qualificate per Girone</label>
+          <label class="label">Squadre Qualificate per Girone alla Fase Finale</label>
           <input type="number" id="compQualificati" class="input-login" value="2" min="1">
         </div>
 
@@ -51,19 +52,22 @@ export const CompetizioniSection = {
       </div>
 
       <div class="card">
-        <div class="label" style="color: var(--accent); margin-bottom: 1rem; font-size: .85rem;">Competizioni Esistenti</div>
+        <div class="label" style="color: var(--accent); margin-bottom: 1rem; font-size: .85rem;">Competizioni Esistenti nell'App</div>
         <div class="table-wrapper">
           <table>
             <thead>
               <tr>
                 <th>ID</th>
                 <th>Nome</th>
+                <th>Tipo</th>
+                <th>GW Attuale</th>
+                <th>Mercato</th>
                 <th>Squadre</th>
                 <th style="text-align: right;">Azioni</th>
               </tr>
             </thead>
             <tbody id="admin-competitions-list">
-              <tr><td colspan="4" style="text-align: center;">Caricamento...</td></tr>
+              <tr><td colspan="7" style="text-align: center;">Caricamento competizioni...</td></tr>
             </tbody>
           </table>
         </div>
@@ -80,47 +84,75 @@ export const CompetizioniSection = {
       return;
     }
 
-    container.innerHTML = allTeams.map(t => `
-      <label style="display:flex; align-items:center; gap: 8px; margin-bottom: 5px; cursor: pointer; font-size: 0.85rem;">
-        <input type="checkbox" name="teamSelect" value="${t.id}" ${selectedIds.includes(String(t.id)) ? 'checked' : ''}>
-        ${t.name || t.id}
-      </label>
-    `).join('');
+    container.innerHTML = allTeams.map(t => {
+      const teamId = t.id ? String(t.id) : '';
+      const isChecked = selectedIds.includes(teamId) ? 'checked' : '';
+      return `
+        <label style="display:flex; align-items:center; gap: 8px; margin-bottom: 5px; cursor: pointer; font-size: 0.85rem;">
+          <input type="checkbox" name="teamSelect" value="${teamId}" ${isChecked}>
+          ${t.name || teamId}
+        </label>
+      `;
+    }).join('');
   },
 
   render(state) {
     const listContainer = document.getElementById('admin-competitions-list');
     if (!listContainer) return;
 
-    // Recupera l'array globale delle squadre gestito in maiuscolo da admin.html
     const allTeams = state.TEAMS || window.TEAMS || [];
-    
     const isEditing = document.getElementById('btn-cancel-edit-comp')?.style.display === "inline-flex";
     
-    // Se non siamo in modifica, mantiene pulita la lista delle checkbox o non tocca le spunte attive
     if (!isEditing) {
       this.populateTeamsList(allTeams, []);
     }
 
     const comps = state.competitions || [];
+    if (comps.length === 0) {
+      listContainer.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text3);">Nessuna competizione creata. Usa il modulo sopra per crearne una.</td></tr>`;
+      return;
+    }
+
     listContainer.innerHTML = comps.map(c => {
-      // Normalizzazione difensiva per contare ed estrarre le squadre (gestisce sia Array che Object di vecchi salvataggi)
+      const currentGW = (c.status && c.status.currentGW) ? c.status.currentGW : 1;
+      const marketOpen = c.marketOpen !== false;
+      const safeName = c.name.replace(/'/g, "\\'");
+      const gironi = c.gironi || 1;
+      const qualificati = c.qualificatiFaseFinale || 0;
+
       let teamsArray = [];
       if (c.teams) {
         teamsArray = Array.isArray(c.teams) ? c.teams : Object.values(c.teams);
       }
+      teamsArray = teamsArray.filter(t => t !== null && t !== undefined);
       const teamsString = teamsArray.join(',');
 
       return `
         <tr>
-          <td style="font-family: monospace; font-size: .8rem;">${c.id}</td>
+          <td style="font-family: 'DM Mono', monospace; font-size: .8rem; color: var(--accent2);">${c.id}</td>
           <td style="font-weight: 500;">${c.name}</td>
-          <td>${teamsArray.length}</td>
-          <td style="text-align: right;">
-            <button class="btn btn-blue" style="padding: .3rem .6rem; width: auto;" 
-              onclick="window.caricaCompetizioneNelForm('${c.id}', '${c.name.replace(/'/g, "\\'")}', '${c.type}', ${c.gironi || 1}, ${c.qualificatiFaseFinale || 0}, '${teamsString}')">
-              ✏️
+          <td style="text-transform: capitalize; font-size: .8rem;">${c.type}</td>
+          <td>
+            <div style="display: flex; align-items: center; gap: .5rem;">
+              <input type="number" value="${currentGW}" id="gw-input-${c.id}" style="width: 50px; background: var(--bg); border: 1px solid var(--border); color: #fff; padding: .2rem .4rem; border-radius: 4px; text-align: center;">
+              <button class="btn btn-blue" onclick="window.updateCompGW('${c.id}')" style="padding: .25rem .5rem; font-size: .75rem; width: auto;">Salva</button>
+            </div>
+          </td>
+          <td>
+            <button class="btn ${marketOpen ? 'btn-green' : 'btn-red'}" onclick="window.toggleCompMarket('${c.id}', ${marketOpen})" style="padding: .25rem .5rem; font-size: .75rem; width: auto; font-weight:500;">
+              ${marketOpen ? '🟢 Aperto' : '🔴 Chiuso'}
             </button>
+          </td>
+          <td><span class="badge ${teamsArray.length > 0 ? 'badge-green' : 'badge-red'}">${teamsArray.length} sq.</span></td>
+          <td style="text-align: right;">
+            <div style="display: inline-flex; gap: .4rem;">
+              <button class="btn btn-blue" onclick="window.caricaCompetizioneNelForm('${c.id}', '${safeName}', '${c.type}', ${gironi}, ${qualificati}, '${teamsString}')" style="padding: .35rem .6rem; font-size: .75rem; width: auto;">
+                ✏️ Modifica
+              </button>
+              <button class="btn btn-red" onclick="window.eliminaCompetizione('${c.id}', '${safeName}')" style="padding: .35rem .6rem; font-size: .75rem; width: auto;">
+                🗑️ Elimina
+              </button>
+            </div>
           </td>
         </tr>
       `;
@@ -129,85 +161,167 @@ export const CompetizioniSection = {
 
   registerGlobalActions() {
     window.toggleCompFields = (type) => {
-      document.getElementById('fieldGironi').style.display = (type === 'campionato' || type === 'misto') ? 'block' : 'none';
-      document.getElementById('fieldQualificati').style.display = (type === 'misto') ? 'block' : 'none';
+      const fg = document.getElementById('fieldGironi');
+      const fq = document.getElementById('fieldQualificati');
+      if (!fg || !fq) return;
+      
+      fg.style.display = (type === 'campionato' || type === 'misto') ? 'block' : 'none';
+      fq.style.display = (type === 'misto') ? 'block' : 'none';
     };
 
     window.caricaCompetizioneNelForm = (id, name, type, gironi, qualificati, teamsString) => {
-      // Usiamo readOnly invece di disabled per non perdere la leggibilità del valore nel DOM al momento del submit
-      const compIdInput = document.getElementById('compId');
-      compIdInput.value = id;
-      compIdInput.readOnly = true;
-      compIdInput.style.opacity = "0.6";
-      compIdInput.style.pointerEvents = "none";
+      const idInput = document.getElementById('compId');
+      if (!idInput) return;
+
+      // MODIFICA CRITICA: readOnly al posto di disabled per non svuotare il DOM
+      idInput.value = id;
+      idInput.readOnly = true;
+      idInput.style.opacity = "0.6";
+      idInput.style.pointerEvents = "none";
 
       document.getElementById('compName').value = name;
       document.getElementById('compType').value = type;
-      document.getElementById('compGironi').value = gironi;
-      document.getElementById('compQualificati').value = qualificati;
-      
-      // Converte la stringa in array e mappa forzando il tipo stringa per il confronto .includes()
+      if (document.getElementById('compGironi')) document.getElementById('compGironi').value = gironi;
+      if (document.getElementById('compQualificati')) document.getElementById('compQualificati').value = qualificati;
+
       const selectedIds = teamsString ? teamsString.split(',').map(x => String(x.trim())) : [];
       const allTeams = window.TEAMS || []; 
-      
-      // Rigenera la lista spuntando i checkbox corretti
       this.populateTeamsList(allTeams, selectedIds);
-      
+
       window.toggleCompFields(type);
-      document.getElementById('form-comp-title').innerText = "Modifica la competizione esistente";
-      document.getElementById('btn-submit-comp').innerText = "💾 Salva Modifiche";
+
+      document.getElementById('form-comp-title').innerText = `Modifica della Competizione: ${id.toUpperCase()}`;
+      const btnSubmit = document.getElementById('btn-submit-comp');
+      btnSubmit.innerText = "💾 Salva Modifiche";
+      btnSubmit.className = "btn btn-blue";
       document.getElementById('btn-cancel-edit-comp').style.display = "inline-flex";
+
+      document.getElementById('sec-crea-competizioni').scrollIntoView({ behavior: 'smooth' });
     };
 
     window.annullaModificaComp = () => {
-      const compIdInput = document.getElementById('compId');
-      compIdInput.readOnly = false;
-      compIdInput.style.opacity = "1";
-      compIdInput.style.pointerEvents = "auto";
-      compIdInput.value = '';
+      const idInput = document.getElementById('compId');
+      if (idInput) {
+        idInput.readOnly = false;
+        idInput.style.opacity = "1";
+        idInput.style.pointerEvents = "auto";
+        idInput.value = '';
+      }
 
-      document.getElementById('compName').value = '';
-      document.getElementById('compType').value = 'campionato';
-      document.getElementById('compGironi').value = 1;
-      document.getElementById('compQualificati').value = 2;
+      if (document.getElementById('compName')) document.getElementById('compName').value = '';
+      if (document.getElementById('compType')) document.getElementById('compType').value = 'campionato';
+      if (document.getElementById('compGironi')) document.getElementById('compGironi').value = '1';
+      if (document.getElementById('compQualificati')) document.getElementById('compQualificati').value = '2';
       
       const allTeams = window.TEAMS || [];
       this.populateTeamsList(allTeams, []);
       window.toggleCompFields('campionato');
-      
+
       document.getElementById('form-comp-title').innerText = "Crea una nuova competizione";
-      document.getElementById('btn-submit-comp').innerText = "✨ Crea Competizione";
+      const btnSubmit = document.getElementById('btn-submit-comp');
+      btnSubmit.innerText = "✨ Crea Competizione";
+      btnSubmit.className = "btn btn-green";
       document.getElementById('btn-cancel-edit-comp').style.display = "none";
     };
 
     window.creaCompetizione = async () => {
-      const id = document.getElementById('compId').value.trim().toLowerCase().replace(/\s+/g, '-');
-      const name = document.getElementById('compName').value.trim();
-      
-      // Recupera tutti i checkbox correntemente spuntati
-      const checkboxes = document.querySelectorAll('input[name="teamSelect"]:checked');
-      const teams = Array.from(checkboxes).map(cb => cb.value);
+      if (!database) return console.error("Database non inizializzato");
 
-      if (!id || !name) return window.toast("ID e Nome obbligatori", "err");
+      const idInput = document.getElementById('compId');
+      const nameInput = document.getElementById('compName');
+      if (!idInput || !nameInput) return;
+
+      const id = idInput.value.trim().toLowerCase().replace(/\s+/g, '-');
+      const name = nameInput.value.trim();
+      const type = document.getElementById('compType').value;
+
+      const checkboxes = document.querySelectorAll('input[name="teamSelect"]:checked');
+      const teams = Array.from(checkboxes).map(cb => cb.value).filter(val => val !== '');
+
+      if (!id || !name) return window.toast("ID e Nome Competizione sono obbligatori!", "err");
       if (teams.length === 0) return window.toast("Seleziona almeno una squadra!", "err");
 
-      const payload = {
+      let compPayload = { 
         id, 
         name, 
-        type: document.getElementById('compType').value,
-        gironi: parseInt(document.getElementById('compGironi').value) || 1,
-        qualificatiFaseFinale: parseInt(document.getElementById('compQualificati').value) || 0,
+        type,
         teams: teams
       };
 
+      // Se stiamo creando da zero (non in modalità modifica), impostiamo i parametri di default
+      if (!idInput.readOnly) {
+        compPayload.status = { currentGW: 1 };
+        compPayload.marketOpen = true;
+      }
+
+      // INTEGRAZIONE: Gestione differenziata in base al tipo (Misto Speciale o standard)
+      if (type === 'misto-speciale') {
+        compPayload.regolamento = {
+          fase1: { tipo: "campionato", giornate: 11, squadre: 12 },
+          qualificatiDirettiQuarti: 6,
+          playoff: {
+            posizioni: [7, 8, 9, 10],
+            accoppiamenti: [
+              { nome: "Playoff 1", casa: "pos_7", trasferta: "pos_10" },
+              { nome: "Playoff 2", casa: "pos_8", trasferta: "pos_9" }
+            ]
+          },
+          quartiTabellone: [
+            { match: "Q1", casa: "pos_1", trasferta: "vincitore_playoff_2" },
+            { match: "Q2", casa: "pos_2", trasferta: "vincitore_playoff_1" },
+            { match: "Q3", casa: "pos_3", trasferta: "pos_6" },
+            { match: "Q4", casa: "pos_4", trasferta: "pos_5" }
+          ],
+          eliminate: [11, 12]
+        };
+      } else {
+        const gironi = parseInt(document.getElementById('compGironi').value) || 1;
+        const qualificati = parseInt(document.getElementById('compQualificati').value) || 0;
+        if (type === 'campionato' || type === 'misto') compPayload.gironi = gironi;
+        if (type === 'misto') compPayload.qualificatiFaseFinale = qualificati;
+      }
+
       try {
-        // Esegue l'update diretto sul nodo della competizione specifica
-        await update(ref(database, `competitions/${id}`), payload);
-        window.toast("Competizione salvata con successo!", "ok");
+        await update(ref(database, `competitions/${id}`), compPayload);
+        window.toast(`Competizione salvata/aggiornata con successo!`, "ok");
         window.annullaModificaComp();
-      } catch (e) { 
-        console.error("Errore salvataggio Firebase:", e);
-        window.toast("Errore nel salvataggio dei dati", "err"); 
+      } catch (err) { 
+        console.error("Errore scrittura Firebase:", err);
+        window.toast("Errore durante il salvataggio dei dati", "err"); 
+      }
+    };
+
+    window.updateCompGW = async function(compId) {
+      if (!database) return;
+      const gwVal = parseInt(document.getElementById(`gw-input-${compId}`).value) || 1;
+      try {
+        await update(ref(database, `competitions/${compId}/status`), { currentGW: gwVal });
+        window.toast(`GW salvata a ${gwVal} per ${compId.toUpperCase()}`, "ok");
+      } catch (err) {
+        window.toast("Errore durante il salvataggio della GW", "err");
+      }
+    };
+
+    window.toggleCompMarket = async function(compId, currentlyOpen) {
+      if (!database) return;
+      try {
+        await update(ref(database, `competitions/${compId}`), { marketOpen: !currentlyOpen });
+        window.toast(`Mercato della competizione aggiornato!`, "ok");
+      } catch (err) {
+        window.toast("Errore durante la modifica del mercato", "err");
+      }
+    };
+
+    window.eliminaCompetizione = async function(compId, compName) {
+      if (!database) return;
+      if (confirm(`⚠️ SEI SICURO?\nEliminando la competizione "${compName}" rimuoverai per sempre tutti i suoi calendari, risultati e classifiche.`)) {
+        try {
+          await remove(ref(database, `competitions/${compId}`));
+          window.toast(`Competizione "${compName}" eliminata definitivamente`, "info");
+          window.annullaModificaComp();
+        } catch (err) {
+          window.toast("Errore durante l'eliminazione", "err");
+        }
       }
     };
   }
