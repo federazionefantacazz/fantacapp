@@ -6,7 +6,7 @@ export const HomePage = {
         <div class="app-header" style="margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; position: relative;">
           <div style="width: 32px;"></div> <div class="logo" style="font-size: 2.4rem; letter-spacing: 2px;">FANTACAZZ</div>
           <button onclick="window.doFirebaseLogout()" style="background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; -webkit-tap-highlight-color: transparent;" title="Disconnetti">
-            <svg viewBox="0 0 24 24" width="22" height="22" stroke="var(--accent3)" stroke-width="2.5" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\">
+            <svg viewBox="0 0 24 24" width="22" height="22" stroke="var(--accent3)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round\">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
               <polyline points="16 17 21 12 16 7"></polyline>
               <line x1="21" y1="12" x2="9" y2="12"></line>
@@ -66,9 +66,10 @@ export const HomePage = {
     const lv = document.getElementById('homeLastVotes');
     const teamLogoContainer = document.getElementById('userTeamLogo');
 
-    // 🟢 AGGIORNAMENTO BANNER GIORNATA REALE
+    // 🟢 AGGIORNAMENTO BANNER GIORNATA REALE (CORRETTO)
+    // Usiamo come priorità 'giornataRealeCorrente' valorizzata a 8, con fallback alternativi
     if (banner) {
-      const realGw = STATE.currentRealGW !== undefined ? STATE.currentRealGW : 0;
+      const realGw = STATE.giornataRealeCorrente || STATE.currentRealGW || STATE.status?.currentGW || 0;
       if (realGw === 0) {
         banner.innerHTML = `
           <div class="card card-sm" style="border-left: 4px solid var(--accent2); background: rgba(74, 144, 226, 0.05); padding: .75rem 1rem; margin-bottom: 0;">
