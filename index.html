@@ -302,8 +302,6 @@ onValue(ref(db, 'teams'), snap => {
     }
   }
   
-  // FIX CRUCIALE: Se l'app non è ancora avviata (siamo nel login), 
-  // forziamo il popolamento della tendina non appena i dati dei team arrivano!
   if (!window.STATE.booted) {
     populateLoginDropdown();
   }
@@ -411,7 +409,7 @@ function gestisciSwitchLive(liveAttivo, gwNum) {
     if (window.STATE.user) {
       const currentCompId = window.STATE.currentCompetition;
       const compData = window.STATE.competitions.find(c => c.id === currentCompId);
-      const associazioni = compData ? compData.associazioniGwReali : {};
+      const associazioni = compData ? (compData.associazioniGwRealiMap || compData.associazioniGwReali || {}) : {};
 
       LiveMatchModule.init(db, window.STATE.user.id, currentCompId);
       LiveMatchModule.startLiveTracking(gwNum, associazioni);
@@ -506,7 +504,6 @@ function populateLoginDropdown() {
   const currentUser = auth.currentUser;
   if (!currentUser) return; 
 
-  // Se l'array delle squadre non è ancora pronto dal database, usciamo e attendiamo che il listener globale lo riempia
   if (!window.STATE.teams || window.STATE.teams.length === 0) return;
 
   const myTeamFromDB = window.STATE.teams.find(t => t.owners && t.owners[currentUser.uid]);
@@ -619,9 +616,24 @@ function refreshUI() {
   else if (current === 'formazione') FormazionePage.render(window.STATE);
   else if (current === 'mercato') MercatoPage.render(window.STATE);
   else if (current === 'teams') TeamsPage.render(window.STATE);
+  else if (current === 'live') {
+    // Sincronizza o fa ripartire il tracking in tempo reale in caso di navigazione interna manuale
+    const currentCompId = window.STATE.currentCompetition;
+    const compData = window.STATE.competitions.find(c => c.id === currentCompId);
+    const associazioni = compData ? (compData.associazioniGwRealiMap || compData.associazioniGwReali || {}) : {};
+    const gwCorrenteReale = window.STATE.status?.currentGW || 1;
+
+    LiveMatchModule.init(db, window.STATE.user.id, currentCompId);
+    LiveMatchModule.startLiveTracking(gwCorrenteReale, associazioni);
+  }
 }
 
 window.goPage = function(name, btn) {
+  // Spegne l'ascoltatore real-time se l'utente decide di cambiare scheda (ottimizzazione dati)
+  if (window.STATE.currentPage === 'live' && name !== 'live') {
+    LiveMatchModule.stopLiveTracking();
+  }
+
   if (name === 'teams' && typeof TeamsPage.backToTeamsList === 'function') {
     TeamsPage.backToTeamsList();
   }
