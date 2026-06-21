@@ -346,7 +346,7 @@ function caricaDatiCompetizione(compId) {
   if (!compId) return;
   
   window.STATE.matches = {};
-  window.STATE.status = {}; // FIX: Inizializzato vuoto per evitare il falso valore di fallback (1) all'avvio
+  window.STATE.status = {}; // Inizializzato vuoto per evitare il falso valore di fallback (1) all'avvio
   
   onValue(ref(db, `competitions/${compId}/lineups`), snap => {
     if (!window.STATE._currentCompData) window.STATE._currentCompData = {};
@@ -355,7 +355,9 @@ function caricaDatiCompetizione(compId) {
   });
   
   onValue(ref(db, `competitions/${compId}/status`), snap => { 
-    window.STATE.status = snap.val() || {}; 
+    const val = snap.val();
+    // Se lo status contiene direttamente il numero (es: 8), lo normalizziamo in un oggetto per non rompere la Home
+    window.STATE.status = (typeof val === 'object' && val !== null) ? val : { currentGW: val, giornataReale: val }; 
     refreshUI(); 
   });
 
@@ -612,18 +614,19 @@ function refreshUI() {
   else if (current === 'live') {
     const currentCompId = window.STATE.currentCompetition;
     const compData = window.STATE.competitions.find(c => c.id === currentCompId);
-    const associazioni = compData ? (compData.associazioniGwRealiMap || compData.associazioniGwReali || {}) : {};
     
-    // Recuperiamo il valore dallo STATE senza fallback immediato a 1
-    const gwCorrenteReale = window.STATE.status?.currentGW;
+    // Corretto: legge la struttura 'associazioniGwReali' corretta dalla competizione
+    const associazioni = compData ? (compData.associazioniGwReali || {}) : {};
+    
+    // Corretto: estrae la giornata dallo status normalizzato
+    const gwCorrenteReale = window.STATE.status?.currentGW || window.STATE.status?.giornataReale;
 
-    // FIX: Se i dati da Firebase non sono ancora arrivati, mostriamo una schermata di caricamento/attesa
     if (!gwCorrenteReale) {
       const container = document.getElementById('live-match-container');
       if (container) {
         container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Sincronizzazione giornata in corso...</p>`;
       }
-      return; // Interrompe temporaneamente per attendere i dati reali della competizione
+      return; 
     }
 
     LiveMatchModule.init(db, window.STATE.user.id, currentCompId);
