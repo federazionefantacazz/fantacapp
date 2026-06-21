@@ -77,52 +77,57 @@ export const ClassificaPage = {
       contentDiv.innerHTML = this.renderTabellaClassica(compTeams, compId);
     } 
     
-    // 2) CASO TORNEO MISTO (CON I TUOI GIRONI DA SCREENSHOT)
+    // 2) CASO TORNEO MISTO
     else if (compType === 'misto') {
       this.renderModoConTabellone(actionsDiv, contentDiv, compData, state, () => {
         let html = '<div id="view-dati-classifica">';
         
-        // Controlliamo se esistono i gironi dentro la competizione
         if (compData.gironi) {
-          // Cicliamo su ogni girone trovato nel database (es. gironeA, gironeB...)
-          Object.keys(compData.gironi).sort().forEach(gironeKey => {
-            const gironeObj = compData.gironi[gironeKey];
-            const listaSquadreGirone = [];
+          // Recupero sicuro delle chiavi (gestisce sia Array sporchi che Oggetti puri)
+          const gironiKeys = Object.keys(compData.gironi).filter(k => k !== 'length' && isNaN(k) || compData.gironi[k] !== undefined);
+          
+          if (gironiKeys.length > 0) {
+            gironiKeys.sort().forEach(gironeKey => {
+              const gironeObj = compData.gironi[gironeKey];
+              if (!gironeObj) return;
 
-            // Se il girone ha un nodo 'teams', estraiamo le squadre corrispondenti dallo state globale
-            if (gironeObj.teams) {
-              Object.keys(gironeObj.teams).forEach(teamId => {
-                const teamData = compTeams.find(t => String(t.id) === String(teamId));
-                if (teamData) {
-                  listaSquadreGirone.push(teamData);
-                }
+              const listaSquadreGirone = [];
+
+              // Estrazione delle squadre del girone corretto
+              if (gironeObj.teams) {
+                Object.keys(gironeObj.teams).forEach(teamId => {
+                  const teamData = compTeams.find(t => String(t.id) === String(teamId));
+                  if (teamData) {
+                    listaSquadreGirone.push(teamData);
+                  }
+                });
+              }
+
+              // Ordinamento meritocratico dei punti della competizione
+              listaSquadreGirone.sort((a, b) => {
+                const ptsA = (a.competitions && a.competitions[compId]?.pts) !== undefined ? a.competitions[compId].pts : (a.pts || 0);
+                const ptsB = (b.competitions && b.competitions[compId]?.pts) !== undefined ? b.competitions[compId].pts : (b.pts || 0);
+                return ptsB - ptsA;
               });
-            }
 
-            // Ordiniamo le squadre di QUESTO specifico girone in base ai punti accumulati
-            listaSquadreGirone.sort((a, b) => {
-              const ptsA = (a.competitions && a.competitions[compId]?.pts) !== undefined ? a.competitions[compId].pts : (a.pts || 0);
-              const ptsB = (b.competitions && b.competitions[compId]?.pts) !== undefined ? b.competitions[compId].pts : (b.pts || 0);
-              return ptsB - ptsA;
+              const nomeVisualizzazione = gironeKey.replace('girone', 'GIRONE ').toUpperCase();
+              const numQualificati = parseInt(compData.qualificatiFaseFinale) || 2;
+
+              html += `<div class="label" style="font-size:0.95rem; margin-top:1.5rem; color:var(--accent); font-weight:600; padding-left:0.5rem;">🏆 ${nomeVisualizzazione}</div>`;
+              
+              if (listaSquadreGirone.length > 0) {
+                html += this.renderTabellaClassica(listaSquadreGirone, compId, (index) => {
+                  return index < numQualificati ? 'background: rgba(80,227,194,0.08); border-left: 4px solid var(--accent);' : '';
+                });
+              } else {
+                html += `<div class="card" style="text-align:center; color:var(--text2); padding:1rem;">Nessuna squadra presente in questo girone.</div>`;
+              }
             });
-
-            // Nome pulito da mostrare nel titolo (es: gironeA diventa "GIRONE A")
-            const nomeVisualizzazione = gironeKey.replace('girone', 'GIRONE ').toUpperCase();
-
-            const numQualificati = parseInt(compData.qualificatiFaseFinale) || 2;
-
-            html += `<div class="label" style="font-size:0.95rem; margin-top:1.5rem; color:var(--accent); font-weight:600; padding-left:0.5rem;">🏆 ${nomeVisualizzazione}</div>`;
-            
-            if (listaSquadreGirone.length > 0) {
-              html += this.renderTabellaClassica(listaSquadreGirone, compId, (index) => {
-                return index < numQualificati ? 'background: rgba(80,227,194,0.08); border-left: 4px solid var(--accent);' : '';
-              });
-            } else {
-              html += `<div class="card" style="text-align:center; color:var(--text2); padding:1rem;">Nessuna squadra presente in questo girone.</div>`;
-            }
-          });
+          } else {
+            html += `<div class="card" style="text-align:center; color:var(--text2); padding:2rem;">⚠️ Nessun girone valido trovato sotto il nodo gironi.</div>`;
+          }
         } else {
-          html += `<div class="card" style="text-align:center; color:var(--text2); padding:2rem;">⚠️ Nessun girone trovato per questa competizione.</div>`;
+          html += `<div class="card" style="text-align:center; color:var(--text2); padding:2rem;">⚠️ Nessun girone configurato per questa competizione.</div>`;
         }
 
         html += '</div>';
@@ -130,7 +135,7 @@ export const ClassificaPage = {
       });
     } 
     
-    // 3) CASO CAMPIONATO MISTO-SPECIALE (12 SQUADRE)
+    // 3) CASO CAMPIONATO MISTO-SPECIALE
     else if (compType === 'misto-speciale') {
       compTeams.sort((a, b) => {
         const ptsA = (a.competitions && a.competitions[compId]?.pts) !== undefined ? a.competitions[compId].pts : (a.pts || 0);
