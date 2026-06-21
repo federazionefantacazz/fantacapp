@@ -28,7 +28,7 @@ export const CompetizioniSection = {
         <input type="text" id="compName" class="input-login" placeholder="Nome visibile">
 
         <div class="label" style="font-size:.8rem; margin-top:.5rem; color:var(--text2)">Logo Competizione (Seleziona da Android)</div>
-        <input type="file" id="compLogoFile" class="input-login" accept="image/png, image/jpeg, image/jpg" style="padding-top:.5rem;">
+        <input type="file" id="compLogoFile" name="compLogoFile" class="input-login" accept="image/png, image/jpeg, image/jpg" style="padding-top:.5rem;">
 
         <label class="label">Tipo Competizione</label>
         <select id="compType" class="input-login" onchange="window.toggleCompFields(this.value)">
@@ -105,7 +105,7 @@ export const CompetizioniSection = {
     }).join('');
   },
 
-  // 2. RENDERING DELLA TABELLA
+  // 2. RENDERING DELLA TABELLA CON LOGO
   render(state) {
     const listContainer = document.getElementById('admin-competitions-list');
     if (!listContainer) return;
@@ -185,7 +185,7 @@ export const CompetizioniSection = {
       fq.style.display = (type === 'misto') ? 'block' : 'none';
     };
 
-    // 3. CARICA DATI NEL FORM (MODIFICA)
+    // 3. CARICA DATI NEL FORM (MODIFICA) - Riferimento a CompetizioniSection esplicito
     window.caricaCompetizioneNelForm = (id, name, type, gironi, qualificati, teamsString, logo) => {
       const idInput = document.getElementById('compId');
       if (!idInput) return;
@@ -200,13 +200,13 @@ export const CompetizioniSection = {
       if (document.getElementById('compGironi')) document.getElementById('compGironi').value = gironi;
       if (document.getElementById('compQualificati')) document.getElementById('compQualificati').value = qualificati;
 
-      // Gestione sicura del link stringa per il logo esistente
+      // Salvataggio sicuro nello scope globale dell'oggetto
       CompetizioniSection.currentLogoUrl = (logo === 'undefined' || !logo) ? '' : logo;
       document.getElementById('compLogoFile').value = ''; 
 
       const selectedIds = teamsString ? teamsString.split(',').map(x => String(x.trim())) : [];
       const allTeams = window.TEAMS || []; 
-      this.populateTeamsList(allTeams, selectedIds);
+      CompetizioniSection.populateTeamsList(allTeams, selectedIds);
 
       window.toggleCompFields(type);
 
@@ -238,7 +238,7 @@ export const CompetizioniSection = {
       CompetizioniSection.currentLogoUrl = '';
 
       const allTeams = window.TEAMS || [];
-      this.populateTeamsList(allTeams, []);
+      CompetizioniSection.populateTeamsList(allTeams, []);
       window.toggleCompFields('campionato');
 
       document.getElementById('form-comp-title').innerText = "Crea una nuova competizione";
@@ -248,7 +248,7 @@ export const CompetizioniSection = {
       document.getElementById('btn-cancel-edit-comp').style.display = "none";
     };
 
-    // 5. CREAZIONE / AGGIORNAMENTO SU FIREBASE (Con voce 'logo' inclusa)
+    // 5. CREAZIONE / AGGIORNAMENTO SU FIREBASE (Controllo File Android ultra-blindato)
     window.creaCompetizione = async () => {
       if (!database) return console.error("Database non inizializzato");
 
@@ -276,13 +276,15 @@ export const CompetizioniSection = {
       try {
         let finalLogoUrl = isEditingMode ? CompetizioniSection.currentLogoUrl : '';
 
-        // Se viene selezionato un file, esegue l'upload su ImgBB
-        if (fileInput && fileInput.files.length > 0) {
+        // BLOCCO ULTRA-SICURO PER ANDROID WEBVIEW
+        if (fileInput && fileInput.files && fileInput.files.length > 0) {
           const file = fileInput.files[0];
-          finalLogoUrl = await uploadImageToImgBB(file);
+          if (file && file.size > 0) {
+            finalLogoUrl = await uploadImageToImgBB(file);
+          }
         }
 
-        // Assicuriamo che la voce 'logo' esista sempre come stringa (anche vuota) nel payload
+        // Struttura payload con campo 'logo' garantito (stringa)
         let compPayload = { 
           id, 
           name, 
@@ -322,7 +324,6 @@ export const CompetizioniSection = {
           if (type === 'misto') compPayload.qualificatiFaseFinale = qualificati;
         }
 
-        // Scrittura finale sul database
         await update(ref(database, `competitions/${id}`), compPayload);
         window.toast(`Competizione salvata/aggiornata con successo!`, "ok");
         window.annullaModificaComp();
