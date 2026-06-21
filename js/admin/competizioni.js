@@ -185,7 +185,7 @@ export const CompetizioniSection = {
       fq.style.display = (type === 'misto') ? 'block' : 'none';
     };
 
-    // 3. CARICA DATI NEL FORM (MODIFICA) - Riferimento a CompetizioniSection esplicito
+    // 3. CARICA DATI NEL FORM (MODIFICA) - Clone dell'input per Android WebView
     window.caricaCompetizioneNelForm = (id, name, type, gironi, qualificati, teamsString, logo) => {
       const idInput = document.getElementById('compId');
       if (!idInput) return;
@@ -200,9 +200,15 @@ export const CompetizioniSection = {
       if (document.getElementById('compGironi')) document.getElementById('compGironi').value = gironi;
       if (document.getElementById('compQualificati')) document.getElementById('compQualificati').value = qualificati;
 
-      // Salvataggio sicuro nello scope globale dell'oggetto
+      // SOLUZIONE BUG 403 ANDROID: Rigeneriamo l'elemento DOM dell'input per pulire la sandbox del browser
+      const oldInput = document.getElementById('compLogoFile');
+      if (oldInput) {
+        const newInput = oldInput.cloneNode(true);
+        newInput.value = ''; 
+        oldInput.parentNode.replaceChild(newInput, oldInput);
+      }
+
       CompetizioniSection.currentLogoUrl = (logo === 'undefined' || !logo) ? '' : logo;
-      document.getElementById('compLogoFile').value = ''; 
 
       const selectedIds = teamsString ? teamsString.split(',').map(x => String(x.trim())) : [];
       const allTeams = window.TEAMS || []; 
@@ -230,7 +236,15 @@ export const CompetizioniSection = {
       }
 
       if (document.getElementById('compName')) document.getElementById('compName').value = '';
-      if (document.getElementById('compLogoFile')) document.getElementById('compLogoFile').value = '';
+      
+      // SOLUZIONE BUG 403 ANDROID: Rigeneriamo l'input anche in fase di reset
+      const oldInput = document.getElementById('compLogoFile');
+      if (oldInput) {
+        const newInput = oldInput.cloneNode(true);
+        newInput.value = '';
+        oldInput.parentNode.replaceChild(newInput, oldInput);
+      }
+
       if (document.getElementById('compType')) document.getElementById('compType').value = 'campionato';
       if (document.getElementById('compGironi')) document.getElementById('compGironi').value = '1';
       if (document.getElementById('compQualificati')) document.getElementById('compQualificati').value = '2';
@@ -248,12 +262,14 @@ export const CompetizioniSection = {
       document.getElementById('btn-cancel-edit-comp').style.display = "none";
     };
 
-    // 5. CREAZIONE / AGGIORNAMENTO SU FIREBASE (Controllo File Android ultra-blindato)
+    // 5. CREAZIONE / AGGIORNAMENTO SU FIREBASE
     window.creaCompetizione = async () => {
       if (!database) return console.error("Database non inizializzato");
 
       const idInput = document.getElementById('compId');
       const nameInput = document.getElementById('compName');
+      
+      // Recuperiamo l'input file fresco dal DOM (potrebbe essere stato clonato)
       const fileInput = document.getElementById('compLogoFile');
       if (!idInput || !nameInput) return;
 
@@ -276,7 +292,7 @@ export const CompetizioniSection = {
       try {
         let finalLogoUrl = isEditingMode ? CompetizioniSection.currentLogoUrl : '';
 
-        // BLOCCO ULTRA-SICURO PER ANDROID WEBVIEW
+        // Lettura protetta dell'input file per sistemi Android
         if (fileInput && fileInput.files && fileInput.files.length > 0) {
           const file = fileInput.files[0];
           if (file && file.size > 0) {
@@ -284,7 +300,7 @@ export const CompetizioniSection = {
           }
         }
 
-        // Struttura payload con campo 'logo' garantito (stringa)
+        // Configurazione del payload con voce 'logo' definita esplicitamente
         let compPayload = { 
           id, 
           name, 
