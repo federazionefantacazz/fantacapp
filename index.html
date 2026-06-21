@@ -402,8 +402,16 @@ function gestisciSwitchLive(liveAttivo, gwNum) {
       window.goPage('live', btnFormazione);
     }
     if (window.STATE.user) {
-      LiveMatchModule.init(db, window.STATE.user.id);
-      LiveMatchModule.startLiveTracking(gwNum);
+      // 1. Recuperiamo i dati della competizione attiva dallo STATO globale
+      const currentCompId = window.STATE.currentCompetition;
+      const compData = window.STATE.competitions.find(c => c.id === currentCompId);
+      const associazioni = compData ? compData.associazioniGwReali : {};
+
+      // 2. Inizializziamo passando anche l'ID della competizione corretta
+      LiveMatchModule.init(db, window.STATE.user.id, currentCompId);
+      
+      // 3. Avviamo il tracking passando la giornata reale corrente E la mappa delle associazioni
+      LiveMatchModule.startLiveTracking(gwNum, associazioni);
     }
   } else {
     if (btnFormazione) {
@@ -417,7 +425,6 @@ function gestisciSwitchLive(liveAttivo, gwNum) {
     }
   }
 }
-
 window._handleCompetitionChange = function(newCompetitionId) {
   if (!newCompetitionId) return;
   window.STATE.currentCompetition = newCompetitionId;
