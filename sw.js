@@ -11,12 +11,13 @@ const ASSETS_TO_CACHE = [
   
   // Servizi e Pagine Utente
   './js/services/integrationImgBB.js',
+  './js/services/calcoloMatch.js',
   './js/calendario.js',
   './js/formazione.js',
   './js/home.js',
   './js/mercato.js',
   './js/firebase-config.js',
-  './js/rose.js',
+  './js/classifica.js',
   './js/teams.js'
   
 ];
