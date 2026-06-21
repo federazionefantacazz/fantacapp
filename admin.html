@@ -163,7 +163,7 @@ import { db, auth, ref, onValue, set, update, onAuthStateChanged, signInWithEmai
 
 // Importazione di tutti i sottomoduli amministrativi
 import { DashboardSection }     from './js/admin/dashboard.js';
-import { TeamsSection }        from './js/admin/teams.js';
+import { TeamsSection }         from './js/admin/teams.js';
 import { PlayersSection }       from './js/admin/players.js';
 import { VotesSection }         from './js/admin/votes.js';
 import { MercatoSection }       from './js/admin/mercato.js';
@@ -181,6 +181,7 @@ window.PLAYERS = [];
 let MATCHES = {};
 let CURRENT_GW = 1;
 let CURRENT_REAL_GW = 0; 
+let LIVE = false; 
 let competitions = [];
 let teamsCaricate = false;
 let giocatoriCaricati = false;
@@ -260,13 +261,13 @@ function initAdminApp() {
 }
 
 function refreshAll() {
-  // CORREZIONE: Passiamo sia TEAMS (per CompetizioniSection) che l'eventuale fallback ordinato se richiesto
   const state = { 
     TEAMS: TEAMS, 
     PLAYERS: window.PLAYERS, 
     MATCHES, 
     CURRENT_GW, 
     CURRENT_REAL_GW, 
+    LIVE: LIVE,
     competitions 
   };
   
@@ -323,6 +324,11 @@ function startFirebaseSubscriptions() {
     refreshAll(); 
   });
 
+  onValue(ref(db, 'status/live'), snap => {
+    LIVE = snap.val() !== null ? snap.val() : false;
+    refreshAll();
+  });
+
   onValue(ref(db, 'competitions'), snap => {
     const raw = snap.val() || {};
     competitions = Object.keys(raw).map(key => ({ id: key, ...raw[key] }));
@@ -335,7 +341,7 @@ function startFirebaseSubscriptions() {
     refreshAll(); 
   });
 
-  // CORREZIONE: Mappatura con ritenzione della chiave ID originale di Firebase per le squadre
+  // Mappatura con ritenzione della chiave ID originale di Firebase per le squadre
   onValue(ref(db, 'teams'), snap => {
     const raw = snap.val() || {};
     
@@ -345,7 +351,6 @@ function startFirebaseSubscriptions() {
         : { id: key, name: raw[key] };
     });
 
-    // Mantiene l'ordinamento classico per punti nella classifica generale se necessario
     TEAMS.sort((a, b) => (b.pts || 0) - (a.pts || 0));
     
     window.TEAMS = TEAMS; 
