@@ -402,15 +402,11 @@ function gestisciSwitchLive(liveAttivo, gwNum) {
       window.goPage('live', btnFormazione);
     }
     if (window.STATE.user) {
-      // 1. Recuperiamo i dati della competizione attiva dallo STATO globale
       const currentCompId = window.STATE.currentCompetition;
       const compData = window.STATE.competitions.find(c => c.id === currentCompId);
       const associazioni = compData ? compData.associazioniGwReali : {};
 
-      // 2. Inizializziamo passando anche l'ID della competizione corretta
       LiveMatchModule.init(db, window.STATE.user.id, currentCompId);
-      
-      // 3. Avviamo il tracking passando la giornata reale corrente E la mappa delle associazioni
       LiveMatchModule.startLiveTracking(gwNum, associazioni);
     }
   } else {
@@ -425,6 +421,7 @@ function gestisciSwitchLive(liveAttivo, gwNum) {
     }
   }
 }
+
 window._handleCompetitionChange = function(newCompetitionId) {
   if (!newCompetitionId) return;
   window.STATE.currentCompetition = newCompetitionId;
@@ -522,7 +519,6 @@ function populateLoginDropdown() {
 
   const select = document.getElementById('loginSelect');
   if (!select) return;
-  if (select.children.length > 1) return;
 
   let optionsHTML = '<option value="">Scegli la tua squadra...</option>';
   window.STATE.teams.forEach(t => {
@@ -578,7 +574,6 @@ function bootApp() {
   if (window.STATE.booted) return;
   window.STATE.booted = true;
 
-  // Inizializza la Classifica passando il db istanziato
   ClassificaPage.init(db);
 
   const container = document.getElementById('dynamic-pages-container');
