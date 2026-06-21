@@ -76,25 +76,25 @@ export const ClassificaPage = {
       contentDiv.innerHTML = this.renderTabellaClassica(compTeams, compId);
     } 
     
-    // 2) CASO TORNEO MISTO (CON INPUT DA STRUTTURAGIRONI)
+    // 2) CASO TORNEO MISTO (CORRETTO CON strutturaGironi)
     else if (compType === 'misto') {
       this.renderModoConTabellone(actionsDiv, contentDiv, compData, state, () => {
         let html = '<div id="view-dati-classifica">';
         
-        // Verifichiamo la presenza del nodo 'strutturagironi'
-        if (compData.strutturagironi) {
-          const gironiKeys = Object.keys(compData.strutturagironi);
+        // 🔥 CORRETTO: adesso usa 'strutturaGironi' con la G maiuscola
+        if (compData.strutturaGironi) {
+          const gironiKeys = Object.keys(compData.strutturaGironi);
           
           if (gironiKeys.length > 0) {
             gironiKeys.sort().forEach(gironeName => {
-              const squadreIdList = compData.strutturagironi[gironeName];
+              const squadreIdList = compData.strutturaGironi[gironeName];
               if (!squadreIdList) return;
 
               const listaSquadreGirone = [];
 
-              // Iteriamo sull'oggetto/array dei team (0: team1, 1: team2...)
+              // Iteriamo sull'elenco indicizzato delle squadre (0, 1, 2...) interne al singolo girone
               Object.keys(squadreIdList).forEach(idx => {
-                const teamId = squadreIdList[idx]; // Legge direttamente la stringa dell'ID (es. "team1")
+                const teamId = squadreIdList[idx]; 
                 if (teamId) {
                   const teamData = compTeams.find(t => String(t.id) === String(teamId));
                   if (teamData) {
@@ -123,10 +123,10 @@ export const ClassificaPage = {
               }
             });
           } else {
-            html += `<div class="card" style="text-align:center; color:var(--text2); padding:2rem;">⚠️ Il nodo strutturagironi è vuoto.</div>`;
+            html += `<div class="card" style="text-align:center; color:var(--text2); padding:2rem;">⚠️ Il nodo strutturaGironi è vuoto.</div>`;
           }
         } else {
-          html += `<div class="card" style="text-align:center; color:var(--text2); padding:2rem;">⚠️ Voce "strutturagironi" non configurata per questa competizione.</div>`;
+          html += `<div class="card" style="text-align:center; color:var(--text2); padding:2rem;">⚠️ Voce "strutturaGironi" non configurata per questa competizione.</div>`;
         }
 
         html += '</div>';
