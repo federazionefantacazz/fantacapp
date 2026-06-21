@@ -76,12 +76,11 @@ export const ClassificaPage = {
       contentDiv.innerHTML = this.renderTabellaClassica(compTeams, compId);
     } 
     
-    // 2) CASO TORNEO MISTO (CORRETTO CON strutturaGironi)
+    // 2) CASO TORNEO MISTO (CON INGRESSO DA strutturaGironi)
     else if (compType === 'misto') {
       this.renderModoConTabellone(actionsDiv, contentDiv, compData, state, () => {
         let html = '<div id="view-dati-classifica">';
         
-        // 🔥 CORRETTO: adesso usa 'strutturaGironi' con la G maiuscola
         if (compData.strutturaGironi) {
           const gironiKeys = Object.keys(compData.strutturaGironi);
           
@@ -92,7 +91,6 @@ export const ClassificaPage = {
 
               const listaSquadreGirone = [];
 
-              // Iteriamo sull'elenco indicizzato delle squadre (0, 1, 2...) interne al singolo girone
               Object.keys(squadreIdList).forEach(idx => {
                 const teamId = squadreIdList[idx]; 
                 if (teamId) {
@@ -103,7 +101,6 @@ export const ClassificaPage = {
                 }
               });
 
-              // Ordinamento meritocratico in base ai punti della competizione corrente
               listaSquadreGirone.sort((a, b) => {
                 const ptsA = (a.competitions && a.competitions[compId]?.pts) !== undefined ? a.competitions[compId].pts : (a.pts || 0);
                 const ptsB = (b.competitions && b.competitions[compId]?.pts) !== undefined ? b.competitions[compId].pts : (b.pts || 0);
@@ -207,11 +204,17 @@ export const ClassificaPage = {
 
       const customStyle = rowStyleCallback ? rowStyleCallback(idx) : '';
 
+      // --- LOGHI DINAMICI AGGIORNATI CON LA STESSA LOGICA DEL CALENDARIO ---
+      const logoHTML = t.logo 
+        ? `<img src="${t.logo}" alt="Logo ${t.name}" style="width:32px; height:32px; object-fit:contain; border-radius:4px; flex-shrink:0;">`
+        : `<div style="width:32px; height:32px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:1rem; color:var(--text3); flex-shrink:0;">🛡️</div>`;
+      // ---------------------------------------------------------------------
+
       html += `
         <tr style="border-bottom:1px solid var(--border); ${customStyle}">
           <td style="padding:0.75rem; text-align:center; font-weight:600; color:var(--text2);">${idx + 1}</td>
           <td style="padding:0.75rem; display:flex; align-items:center; gap:0.5rem; border:none;">
-            <span style="font-size:1.1rem;">🛡️</span>
+            ${logoHTML}
             <span style="font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${t.name}</span>
           </td>
           <td style="padding:0.75rem; text-align:center; color:var(--text2);">${giocate}</td>
