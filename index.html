@@ -354,10 +354,10 @@ function caricaDatiCompetizione(compId) {
     refreshUI();
   });
   
-  onValue(ref(db, `competitions/${compId}/status`), snap => { 
+  // Ascolta la giornata reale corrente dal percorso globale del DB
+  onValue(ref(db, `status/currentRealGw`), snap => { 
     const val = snap.val();
-    // Se lo status contiene direttamente il numero (es: 8), lo normalizziamo in un oggetto per non rompere la Home
-    window.STATE.status = (typeof val === 'object' && val !== null) ? val : { currentGW: val, giornataReale: val }; 
+    window.STATE.giornataRealeCorrente = val ? Number(val) : null; 
     refreshUI(); 
   });
 
