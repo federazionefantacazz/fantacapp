@@ -40,9 +40,6 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ==========================================================================
-   STRUTTURA STRUTTURALE UNIFICATA - FIX DEF_IOS
-   ========================================================================== */
 html {
   height: -webkit-fill-available;
   width: 100%;
@@ -81,7 +78,6 @@ body {
   flex-shrink: 0;
 }
 
-/* CONTENITORI CON SCROLL ISOLATO */
 #dynamic-pages-container {
   flex: 1 1 0% !important;
   min-height: 0;
@@ -104,7 +100,6 @@ body {
   margin: 0 auto;
 }
 
-/* LE PAGINE INTERNE */
 .page {
   display: none;
   width: 100%;
@@ -114,7 +109,6 @@ body {
   animation: fadeIn 0.25s ease-out;
 }
 
-/* ELEMENTI GRAFICI GLOBALI */
 .logo{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:1px;background:linear-gradient(45deg, #fff, var(--text2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .sec{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:0.5px;color:var(--text);margin-bottom:.8rem;display:flex;align-items:center;gap:.4rem}
 .card{background:var(--card);border:1px solid rgba(255,255,255,0.05);border-radius:16px;padding:1rem;margin-bottom:1rem;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
@@ -280,6 +274,7 @@ window.STATE = {
   players: [], 
   votes: {}, 
   status: {}, 
+  giornataRealeCorrente: null, // Salva la giornata globale numerica (es. 8)
   matches: {}, 
   currentCompetition: '',
   currentPage: 'home', 
@@ -289,7 +284,6 @@ window.STATE = {
 
 const preloadedLogos = new Set();
 
-// --- LISTENER GLOBALE TEAMS AGGIORNATO ---
 onValue(ref(db, 'teams'), snap => {
   const raw = snap.val() || {};
   window.STATE.teams = Object.values(raw).sort((a,b) => b.pts - a.pts);
@@ -342,23 +336,27 @@ function globalPreloadLogos(teams) {
   });
 }
 
+// --- LISTENER GLOBALE PER LA GIORNATA REALE ---
+onValue(ref(db, 'status/currentRealGW'), snap => { 
+  const val = snap.val();
+  window.STATE.giornataRealeCorrente = val ? Number(val) : null;
+  // Iniettiamo un oggetto compatibile in window.STATE.status per non rompere la vecchia logica di home.js
+  window.STATE.status = { currentGW: window.STATE.giornataRealeCorrente, giornataReale: window.STATE.giornataRealeCorrente };
+  
+  if (window.STATE.booted) {
+    refreshUI(); 
+  }
+});
+
 function caricaDatiCompetizione(compId) {
   if (!compId) return;
   
   window.STATE.matches = {};
-  window.STATE.status = {}; // Inizializzato vuoto per evitare il falso valore di fallback (1) all'avvio
   
   onValue(ref(db, `competitions/${compId}/lineups`), snap => {
     if (!window.STATE._currentCompData) window.STATE._currentCompData = {};
     window.STATE._currentCompData.lineups = snap.val() || {};
     refreshUI();
-  });
-  
-  // Ascolta la giornata reale corrente dal percorso globale del DB
-  onValue(ref(db, `status/currentRealGW`), snap => { 
-    const val = snap.val();
-    window.STATE.giornataRealeCorrente = val ? Number(val) : null; 
-    refreshUI(); 
   });
 
   onValue(ref(db, 'status/live'), snap => {
@@ -615,16 +613,14 @@ function refreshUI() {
     const currentCompId = window.STATE.currentCompetition;
     const compData = window.STATE.competitions.find(c => c.id === currentCompId);
     
-    // Corretto: legge la struttura 'associazioniGwReali' corretta dalla competizione
     const associazioni = compData ? (compData.associazioniGwReali || {}) : {};
-    
-    // Corretto: estrae la giornata dallo status normalizzato
-    const gwCorrenteReale = window.STATE.status?.currentGW || window.STATE.status?.giornataReale;
+    const gwCorrenteReale = window.STATE.giornataRealeCorrente;
 
-    if (!gwCorrenteReale) {
+    // Se mancano la giornata corrente o i dati della competizione (le associazioni), attendi lo sblocco
+    if (!gwCorrenteReale || Object.keys(associazioni).length === 0) {
       const container = document.getElementById('live-match-container');
       if (container) {
-        container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Sincronizzazione giornata in corso...</p>`;
+        container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Sincronizzazione giornata e competizione in corso...</p>`;
       }
       return; 
     }
