@@ -346,7 +346,7 @@ function caricaDatiCompetizione(compId) {
   if (!compId) return;
   
   window.STATE.matches = {};
-  window.STATE.status = { currentGW: 1 };
+  window.STATE.status = {}; // FIX: Inizializzato vuoto per evitare il falso valore di fallback (1) all'avvio
   
   onValue(ref(db, `competitions/${compId}/lineups`), snap => {
     if (!window.STATE._currentCompData) window.STATE._currentCompData = {};
@@ -355,14 +355,13 @@ function caricaDatiCompetizione(compId) {
   });
   
   onValue(ref(db, `competitions/${compId}/status`), snap => { 
-    window.STATE.status = snap.val() || { currentGW: 1 }; 
+    window.STATE.status = snap.val() || {}; 
     refreshUI(); 
   });
 
   onValue(ref(db, 'status/live'), snap => {
     const liveAttivo = !!snap.val();
-    const gwCorrente = window.STATE.status?.currentGW || 1;
-    gestisciSwitchLive(liveAttivo, gwCorrente);
+    gestisciSwitchLive(liveAttivo);
   });
 
   onValue(ref(db, `competitions/${compId}/theme`), snap => {
@@ -395,7 +394,7 @@ function caricaDatiCompetizione(compId) {
   });
 }
 
-function gestisciSwitchLive(liveAttivo, gwNum) {
+function gestisciSwitchLive(liveAttivo) {
   const btnFormazione = document.getElementById('btn-nav-formazione');
   if (liveAttivo) {
     if (btnFormazione) {
@@ -405,14 +404,8 @@ function gestisciSwitchLive(liveAttivo, gwNum) {
     }
     if (window.STATE.currentPage === 'formazione') {
       window.goPage('live', btnFormazione);
-    }
-    if (window.STATE.user) {
-      const currentCompId = window.STATE.currentCompetition;
-      const compData = window.STATE.competitions.find(c => c.id === currentCompId);
-      const associazioni = compData ? (compData.associazioniGwRealiMap || compData.associazioniGwReali || {}) : {};
-
-      LiveMatchModule.init(db, window.STATE.user.id, currentCompId);
-      LiveMatchModule.startLiveTracking(gwNum, associazioni);
+    } else if (window.STATE.currentPage === 'live') {
+      refreshUI();
     }
   } else {
     if (btnFormazione) {
@@ -617,11 +610,21 @@ function refreshUI() {
   else if (current === 'mercato') MercatoPage.render(window.STATE);
   else if (current === 'teams') TeamsPage.render(window.STATE);
   else if (current === 'live') {
-    // Sincronizza o fa ripartire il tracking in tempo reale in caso di navigazione interna manuale
     const currentCompId = window.STATE.currentCompetition;
     const compData = window.STATE.competitions.find(c => c.id === currentCompId);
     const associazioni = compData ? (compData.associazioniGwRealiMap || compData.associazioniGwReali || {}) : {};
-    const gwCorrenteReale = window.STATE.status?.currentGW || 1;
+    
+    // Recuperiamo il valore dallo STATE senza fallback immediato a 1
+    const gwCorrenteReale = window.STATE.status?.currentGW;
+
+    // FIX: Se i dati da Firebase non sono ancora arrivati, mostriamo una schermata di caricamento/attesa
+    if (!gwCorrenteReale) {
+      const container = document.getElementById('live-match-container');
+      if (container) {
+        container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Sincronizzazione giornata in corso...</p>`;
+      }
+      return; // Interrompe temporaneamente per attendere i dati reali della competizione
+    }
 
     LiveMatchModule.init(db, window.STATE.user.id, currentCompId);
     LiveMatchModule.startLiveTracking(gwCorrenteReale, associazioni);
@@ -629,7 +632,6 @@ function refreshUI() {
 }
 
 window.goPage = function(name, btn) {
-  // Spegne l'ascoltatore real-time se l'utente decide di cambiare scheda (ottimizzazione dati)
   if (window.STATE.currentPage === 'live' && name !== 'live') {
     LiveMatchModule.stopLiveTracking();
   }
