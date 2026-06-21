@@ -340,13 +340,19 @@ function caricaDatiCompetizione(compId) {
     refreshUI();
   });
   
+  // Ascolta lo status interno della competizione per ottenere la giornata corrente (currentGW)
   onValue(ref(db, `competitions/${compId}/status`), snap => { 
     window.STATE.status = snap.val() || { currentGW: 1 }; 
-    
-    // RILEVAZIONE AUTOMATICA DELLO STATO LIVE ED INNESCO SWITCH NELL'INDEX
-    gestisciSwitchLive(!!window.STATE.status.live, window.STATE.status.currentGW || 1);
-    
     refreshUI(); 
+  });
+
+  // ASCOLTO DEL LIVE UNIFICATO DA LIVELLO ROOT ESTERNO (status/live)
+  onValue(ref(db, 'status/live'), snap => {
+    const liveAttivo = !!snap.val(); // Converte in booleano true/false
+    const gwCorrente = window.STATE.status?.currentGW || 1;
+    
+    // Innesca la sostituzione condizionale della pagina Formazione/Live
+    gestisciSwitchLive(liveAttivo, gwCorrente);
   });
 
   // Ottimizzazione del Tema mediante blocco di testo unico (Atomic CSS injection)
@@ -611,11 +617,6 @@ function bootApp() {
 
   const header = document.getElementById('app-header');
   if (header) header.style.display = 'flex';
-
-  // Controlliamo preventivamente lo stato live se presente al caricamento iniziale dell'app
-  if (window.STATE.status) {
-    gestisciSwitchLive(!!window.STATE.status.live, window.STATE.status.currentGW || 1);
-  }
 
   window.goPage('home', document.querySelector('.nav-btn'));
 }
