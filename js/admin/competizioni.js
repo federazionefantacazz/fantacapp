@@ -12,7 +12,7 @@ export const CompetizioniSection = {
     this.registerGlobalActions();
   },
 
-  // 1. INTERFACCIA GRAFICA DEL FORM (Aggiunto input di tipo file per il Logo Competizione)
+  // 1. INTERFACCIA GRAFICA DEL FORM
   renderHTML() {
     return `
     <div id="sec-crea-competizioni" class="admin-sec" style="display:none;">
@@ -65,7 +65,8 @@ export const CompetizioniSection = {
           <table>
             <thead>
               <tr>
-                <th>Logo</th> <th>ID</th>
+                <th>Logo</th>
+                <th>ID</th>
                 <th>Nome</th>
                 <th>Tipo</th>
                 <th>GW Attuale</th>
@@ -104,7 +105,7 @@ export const CompetizioniSection = {
     }).join('');
   },
 
-  // 2. RENDERING DELLA TABELLA (Aggiunta la visualizzazione del logo con gestione del fallback)
+  // 2. RENDERING DELLA TABELLA
   render(state) {
     const listContainer = document.getElementById('admin-competitions-list');
     if (!listContainer) return;
@@ -137,7 +138,6 @@ export const CompetizioniSection = {
       teamsArray = teamsArray.filter(t => t !== null && t !== undefined);
       const teamsString = teamsArray.join(',');
 
-      // Renderizzazione del Tag Logo (Simile a TeamsSection)
       const logoHtml = c.logo 
         ? `<img src="${c.logo}" alt="Logo" style="width:40px; height:40px; object-fit:contain; border-radius:6px; vertical-align:middle;">`
         : `<div style="width:40px; height:40px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3); vertical-align:middle;">🏆</div>`;
@@ -185,7 +185,7 @@ export const CompetizioniSection = {
       fq.style.display = (type === 'misto') ? 'block' : 'none';
     };
 
-    // 3. STATO DI MODIFICA (Esteso per includere e mappare il parametro logo)
+    // 3. CARICA DATI NEL FORM (MODIFICA)
     window.caricaCompetizioneNelForm = (id, name, type, gironi, qualificati, teamsString, logo) => {
       const idInput = document.getElementById('compId');
       if (!idInput) return;
@@ -200,9 +200,9 @@ export const CompetizioniSection = {
       if (document.getElementById('compGironi')) document.getElementById('compGironi').value = gironi;
       if (document.getElementById('compQualificati')) document.getElementById('compQualificati').value = qualificati;
 
-      // Memorizza il logo attuale nel modulo
-      this.currentLogoUrl = (logo === 'undefined' || !logo) ? '' : logo;
-      document.getElementById('compLogoFile').value = ''; // Resetta il file input
+      // Gestione sicura del link stringa per il logo esistente
+      CompetizioniSection.currentLogoUrl = (logo === 'undefined' || !logo) ? '' : logo;
+      document.getElementById('compLogoFile').value = ''; 
 
       const selectedIds = teamsString ? teamsString.split(',').map(x => String(x.trim())) : [];
       const allTeams = window.TEAMS || []; 
@@ -219,7 +219,7 @@ export const CompetizioniSection = {
       document.getElementById('sec-crea-competizioni').scrollIntoView({ behavior: 'smooth' });
     };
 
-    // 4. ANNULLA MODIFICA (Svuota l'input del file e resetta la memoria del logo)
+    // 4. ANNULLA MODIFICA
     window.annullaModificaComp = () => {
       const idInput = document.getElementById('compId');
       if (idInput) {
@@ -235,7 +235,7 @@ export const CompetizioniSection = {
       if (document.getElementById('compGironi')) document.getElementById('compGironi').value = '1';
       if (document.getElementById('compQualificati')) document.getElementById('compQualificati').value = '2';
       
-      this.currentLogoUrl = '';
+      CompetizioniSection.currentLogoUrl = '';
 
       const allTeams = window.TEAMS || [];
       this.populateTeamsList(allTeams, []);
@@ -248,7 +248,7 @@ export const CompetizioniSection = {
       document.getElementById('btn-cancel-edit-comp').style.display = "none";
     };
 
-    // 5. SALVATAGGIO LOGICO (Gestione asincrona del caricamento dell'immagine su ImgBB)
+    // 5. CREAZIONE / AGGIORNAMENTO SU FIREBASE (Con voce 'logo' inclusa)
     window.creaCompetizione = async () => {
       if (!database) return console.error("Database non inizializzato");
 
@@ -257,7 +257,7 @@ export const CompetizioniSection = {
       const fileInput = document.getElementById('compLogoFile');
       if (!idInput || !nameInput) return;
 
-      const isEditingMode = idInput.readOnly; // Riconosce la modalità se l'ID è bloccato
+      const isEditingMode = idInput.readOnly;
       const id = idInput.value.trim().toLowerCase().replace(/\s+/g, '-');
       const name = nameInput.value.trim();
       const type = document.getElementById('compType').value;
@@ -268,31 +268,29 @@ export const CompetizioniSection = {
       if (!id || !name) return window.toast("ID e Nome Competizione sono obbligatori!", "err");
       if (teams.length === 0) return window.toast("Seleziona almeno una squadra!", "err");
 
-      // Feedback visivo di caricamento sul pulsante d'invio
       const btnSubmit = document.getElementById('btn-submit-comp');
       const originalBtnText = btnSubmit.innerText;
       btnSubmit.innerText = "⌛ Caricamento Immagine...";
       btnSubmit.disabled = true;
 
       try {
-        // Logica di fallback o mantenimento del logo precedente
-        let finalLogoUrl = isEditingMode ? this.currentLogoUrl : '';
+        let finalLogoUrl = isEditingMode ? CompetizioniSection.currentLogoUrl : '';
 
-        // Se l'utente ha selezionato una nuova immagine, esegui l'upload su ImgBB
+        // Se viene selezionato un file, esegue l'upload su ImgBB
         if (fileInput && fileInput.files.length > 0) {
           const file = fileInput.files[0];
           finalLogoUrl = await uploadImageToImgBB(file);
         }
 
+        // Assicuriamo che la voce 'logo' esista sempre come stringa (anche vuota) nel payload
         let compPayload = { 
           id, 
           name, 
           type,
-          logo: finalLogoUrl, // Salvataggio del link immagine nel payload
+          logo: finalLogoUrl || "", 
           teams: teams
         };
 
-        // Se stiamo creando da zero, impostiamo i parametri di default
         if (!isEditingMode) {
           compPayload.status = { currentGW: 1 };
           compPayload.marketOpen = true;
@@ -324,6 +322,7 @@ export const CompetizioniSection = {
           if (type === 'misto') compPayload.qualificatiFaseFinale = qualificati;
         }
 
+        // Scrittura finale sul database
         await update(ref(database, `competitions/${id}`), compPayload);
         window.toast(`Competizione salvata/aggiornata con successo!`, "ok");
         window.annullaModificaComp();
@@ -331,7 +330,6 @@ export const CompetizioniSection = {
         console.error("Errore scrittura Firebase:", err);
         window.toast(err.message || "Errore durante il salvataggio dei dati", "err"); 
       } finally {
-        // Ripristino del bottone
         btnSubmit.innerText = originalBtnText;
         btnSubmit.disabled = false;
       }
