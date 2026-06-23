@@ -3,13 +3,13 @@ import { CalcoloMatchService } from "./services/calcoloMatch.js";
 
 export const LiveMatchModule = {
   db: null,
-  currentUserId: null,
+  myTeamId: null, // Riceve direttamente "1", "FE", ecc.
   currentCompId: null,
   activeListener: null,
 
-  init(database, userId, compId) {
+  init(database, teamId, compId) {
     this.db = database;
-    this.currentUserId = userId;
+    this.myTeamId = teamId;
     this.currentCompId = compId;
   },
 
@@ -18,7 +18,7 @@ export const LiveMatchModule = {
     const container = document.getElementById('live-match-container');
     if (!container) return;
 
-    // 1. Traduzione: Quale GW di lega corrisponde alla GW reale?
+    // Traduzione della Giornata Reale -> Giornata di Lega (es: gw1)
     const entry = Object.entries(associazioniGwRealiMap || {}).find(([k, v]) => {
       return String(v).trim() === String(gwReale).trim();
     });
@@ -35,23 +35,48 @@ export const LiveMatchModule = {
     const gwCompetizione = entry[0]; // Es: "gw1"
     container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Caricamento dati live...</p>`;
 
-    // --- CORREZIONE DEL PERCORSO DI LETTURA ---
-    // Invertito l'ordine: impostato gwCompetizione (gw1) PRIMA di currentUserId
-    const livePath = `competitions/${this.currentCompId}/lineups/${gwCompetizione}/${this.currentUserId}`;
+    if (!this.myTeamId) {
+      container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Errore: ID Squadra mancante.</p>`;
+      return;
+    }
+
+    // Puntiamo all'intero nodo della giornata, che ora contiene anche 'accoppiamenti'
+    const livePath = `competitions/${this.currentCompId}/lineups/${gwCompetizione}`;
     
     this.activeListener = onValue(ref(this.db, livePath), (snapshot) => {
-      const data = snapshot.val();
-      if (!data || !data.titolari) {
-        container.innerHTML = `
-          <div style="text-align:center; padding: 2rem; color:var(--text2);">
-            <p>Formazione non schierata per la ${gwCompetizione.toUpperCase()}</p>
-          </div>`;
-        return;
+      const gwData = snapshot.val() || {};
+      
+      // 1. Estraiamo gli accoppiamenti
+      const accoppiamenti = gwData.accoppiamenti || {};
+      let opponentTeamId = null;
+
+      // 2. Cerchiamo in quale accoppiamento giochiamo e chi è l'avversario
+      for (const key in accoppiamenti) {
+        const match = accoppiamenti[key];
+        if (String(match.home) === String(this.myTeamId)) {
+          opponentTeamId = String(match.away);
+          break;
+        } else if (String(match.away) === String(this.myTeamId)) {
+          opponentTeamId = String(match.home);
+          break;
+        }
       }
 
+      // 3. Estraiamo le due formazioni usando i teamId
+      const myData = gwData[this.myTeamId]; 
+      const oppData = opponentTeamId ? gwData[opponentTeamId] : null;
+
+      // 4. Procediamo col render recuperando voti e anagrafiche giocatori
       get(ref(this.db, 'votes')).then((vSnap) => {
         get(ref(this.db, 'players')).then((pSnap) => {
-          this.renderLiveScreen(container, data.titolari, data.panchina, vSnap.val() || {}, pSnap.val() || {}, gwCompetizione);
+          this.renderLiveScreen(
+            container, 
+            myData, 
+            oppData, 
+            vSnap.val() || {}, 
+            pSnap.val() || {}, 
+            gwCompetizione
+          );
         });
       });
     });
@@ -64,9 +89,7 @@ export const LiveMatchModule = {
     }
   },
 
-  renderLiveScreen(container, titolariIds, panchinaIds, votes, players, gwLabel) {
-    let totPuntiTitolari = 0;
-    
+  renderLiveScreen(container, myData, oppData, votes, players, gwLabel) {
     const mapPlayer = (id) => {
       const p = Object.values(players).find(pl => String(pl.id) === String(id));
       if (!p) return { name: "Sconosciuto", role: "?", club: "?", voto: 0, bonus: 0, malus: 0, fv: 0, live: false };
@@ -85,97 +108,125 @@ export const LiveMatchModule = {
       };
     };
 
-    const titolariMapped = titolariIds.map(mapPlayer);
-    const panchinaMapped = (panchinaIds || []).map(mapPlayer);
+    const generateTeamMarkup = (teamData, title) => {
+      if (!teamData || !teamData.titolari) {
+        return `
+          <div style="flex: 1; min-width: 280px;">
+            <div class="label" style="margin-bottom:0.6rem; font-size:0.85rem; color:var(--accent);">${title}</div>
+            <div style="text-align:center; padding: 2rem; background: var(--bg3); border-radius: 8px; color:var(--text2); border: 1px dashed rgba(255,255,255,0.05);">
+              <p style="font-size:0.9rem;">Formazione non schierata</p>
+            </div>
+          </div>`;
+      }
 
-    titolariMapped.forEach(p => {
-      totPuntiTitolari += p.fv > 0 ? p.fv : (p.voto > 0 ? p.voto : 0);
-    });
+      let totPuntiTitolari = 0;
+      const titolariMapped = teamData.titolari.map(mapPlayer);
+      const panchinaMapped = (teamData.panchina || []).map(mapPlayer);
 
-    let titolariHTML = "";
-    titolariMapped.forEach(p => {
-      let badgeColor = "var(--accent2)";
-      if (p.role === 'P') badgeColor = "#4a5568";
-      if (p.role === 'D') badgeColor = "#0077ff";
-      if (p.role === 'C') badgeColor = "#00e5a0";
-      if (p.role === 'A') badgeColor = "#ff4757";
+      titolariMapped.forEach(p => {
+        totPuntiTitolari += p.fv > 0 ? p.fv : (p.voto > 0 ? p.voto : 0);
+      });
 
-      const textColor = p.role === 'C' ? '#0a0f1e' : '#fff';
-      const indicatorLive = p.live ? `<span style="color:var(--accent3); font-size:0.65rem; margin-left:4px; animation: fadeIn 1s infinite alternate;">●</span>` : "";
-      
-      let scoreText = "-";
-      if (p.fv > 0) scoreText = p.fv;
-      else if (p.voto > 0) scoreText = p.voto;
+      let titolariHTML = "";
+      titolariMapped.forEach(p => {
+        let badgeColor = "var(--accent2)";
+        if (p.role === 'P') badgeColor = "#4a5568";
+        if (p.role === 'D') badgeColor = "#0077ff";
+        if (p.role === 'C') badgeColor = "#00e5a0";
+        if (p.role === 'A') badgeColor = "#ff4757";
 
-      titolariHTML += `
-        <div class="pcard" style="margin-bottom:0.4rem; padding:0.4rem 0.6rem;">
-          <div class="rbadge" style="background:${badgeColor}; color:${textColor}; width:24px; height:24px; font-size:0.7rem; border-radius:6px;">${p.role}</div>
-          <div class="pi">
-            <div class="pn" style="font-size:0.85rem;">${p.name} ${indicatorLive}</div>
-            <div class="pm" style="font-size:0.65rem;">${p.club.toUpperCase()}</div>
-          </div>
-          <div class="pr">
-            <span class="price" style="font-size:0.9rem; color:${p.live ? 'var(--accent)' : 'var(--gold)'};">${scoreText}</span>
-          </div>
-        </div>
-      `;
-    });
-
-    let panchinaHTML = "";
-    if (panchinaMapped.length > 0) {
-      panchinaMapped.forEach(p => {
-        let badgeColor = "rgba(255,255,255,0.1)";
-        if (p.role === 'P') badgeColor = "rgba(74,85,104,0.4)";
-        if (p.role === 'D') badgeColor = "rgba(0,119,255,0.4)";
-        if (p.role === 'C') badgeColor = "rgba(0,229,160,0.4)";
-        if (p.role === 'A') badgeColor = "rgba(255,71,87,0.4)";
-
+        const textColor = p.role === 'C' ? '#0a0f1e' : '#fff';
+        const indicatorLive = p.live ? `<span style="color:var(--accent3); font-size:0.65rem; margin-left:4px; animation: fadeIn 1s infinite alternate;">●</span>` : "";
+        
         let scoreText = "-";
         if (p.fv > 0) scoreText = p.fv;
         else if (p.voto > 0) scoreText = p.voto;
 
-        panchinaHTML += `
-          <div class="pcard" style="margin-bottom:0.3rem; padding:0.3rem 0.5rem; background: rgba(255,255,255,0.02); border-radius:8px;">
-            <div class="rbadge" style="background:${badgeColor}; width:20px; height:20px; font-size:0.65rem; border-radius:4px;">${p.role}</div>
+        titolariHTML += `
+          <div class="pcard" style="margin-bottom:0.4rem; padding:0.4rem 0.6rem;">
+            <div class="rbadge" style="background:${badgeColor}; color:${textColor}; width:24px; height:24px; font-size:0.7rem; border-radius:6px;">${p.role}</div>
             <div class="pi">
-              <div class="pn" style="font-size:0.8rem; opacity:0.8;">${p.name}</div>
+              <div class="pn" style="font-size:0.85rem;">${p.name} ${indicatorLive}</div>
+              <div class="pm" style="font-size:0.65rem;">${p.club.toUpperCase()}</div>
             </div>
             <div class="pr">
-              <span style="font-size:0.8rem; font-family:'DM Mono',monospace; color:var(--text2);">${scoreText}</span>
+              <span class="price" style="font-size:0.9rem; color:${p.live ? 'var(--accent)' : 'var(--gold)'};">${scoreText}</span>
             </div>
           </div>
         `;
       });
-    } else {
-      panchinaHTML = `<p style="text-align:center; font-size:0.75rem; color:var(--text2); opacity:0.6; padding:0.5rem 0;">Nessun panchinaro schierato</p>`;
-    }
+
+      let panchinaHTML = "";
+      if (panchinaMapped.length > 0) {
+        panchinaMapped.forEach(p => {
+          let badgeColor = "rgba(255,255,255,0.1)";
+          if (p.role === 'P') badgeColor = "rgba(74,85,104,0.4)";
+          if (p.role === 'D') badgeColor = "rgba(0,119,255,0.4)";
+          if (p.role === 'C') badgeColor = "rgba(0,229,160,0.4)";
+          if (p.role === 'A') badgeColor = "rgba(255,71,87,0.4)";
+
+          let scoreText = "-";
+          if (p.fv > 0) scoreText = p.fv;
+          else if (p.voto > 0) scoreText = p.voto;
+
+          panchinaHTML += `
+            <div class="pcard" style="margin-bottom:0.3rem; padding:0.3rem 0.5rem; background: rgba(255,255,255,0.02); border-radius:8px;">
+              <div class="rbadge" style="background:${badgeColor}; width:20px; height:20px; font-size:0.65rem; border-radius:4px;">${p.role}</div>
+              <div class="pi">
+                <div class="pn" style="font-size:0.8rem; opacity:0.8;">${p.name}</div>
+              </div>
+              <div class="pr">
+                <span style="font-size:0.8rem; font-family:'DM Mono',monospace; color:var(--text2);">${scoreText}</span>
+              </div>
+            </div>
+          `;
+        });
+      } else {
+        panchinaHTML = `<p style="text-align:center; font-size:0.75rem; color:var(--text2); opacity:0.6; padding:0.5rem 0;">Nessun panchinaro</p>`;
+      }
+
+      const moduloText = teamData.modulo ? `(${teamData.modulo})` : '';
+
+      return `
+        <div style="flex: 1; min-width: 280px; background: rgba(0,0,0,0.15); padding: 1rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.02);">
+          <div class="label" style="margin-bottom:1rem; font-size:0.9rem; font-weight:bold; color:var(--text1); text-align:center; letter-spacing: 0.5px;">
+            ${title} <span style="font-size:0.75rem; color:var(--text2); font-weight:normal;">${moduloText}</span>
+          </div>
+          
+          <div class="label" style="margin-bottom:0.6rem; font-size:0.75rem; opacity:0.7;">Titolari</div>
+          <div style="margin-bottom: 1.5rem;">
+            ${titolariHTML}
+          </div>
+
+          <div class="label" style="margin-bottom:0.6rem; font-size:0.75rem; opacity:0.7;">Panchina</div>
+          <div style="margin-bottom: 1.5rem; opacity: 0.85;">
+            ${panchinaHTML}
+          </div>
+
+          <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 1rem; display:flex; justify-content:space-between; align-items:center;">
+            <span class="label" style="margin:0; font-size:0.75rem;">Punteggio Parziale</span>
+            <span style="font-size:1.4rem; font-weight:700; color:var(--accent); font-family:'DM Mono',monospace;">
+              ${totPuntiTitolari.toFixed(1)}
+            </span>
+          </div>
+        </div>
+      `;
+    };
 
     container.innerHTML = `
       <div class="card" style="margin-top: 0.5rem;">
         <div class="sec" style="justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-          <div style="display:flex; align-items:center; gap:0.5rem;">
-            <span style="color: var(--accent3);">🔴</span> LIVE MATCH
+          <div style="display:flex; align-items:center; gap:0.5rem; font-weight:bold;">
+            <span style="color: var(--accent3); animation: pulse 1.5s infinite;">🔴</span> LIVE MATCH
           </div>
-          <span style="font-size: 0.85rem; background: var(--bg3); padding: 0.2rem 0.6rem; border-radius: 20px; color: var(--text2);">
+          <span style="font-size: 0.85rem; background: var(--bg3); padding: 0.2rem 0.6rem; border-radius: 20px; color: var(--text2); font-weight: 500;">
             ${gwLabel.toUpperCase()}
           </span>
         </div>
 
-        <div class="label" style="margin-bottom:0.6rem; font-size:0.75rem;">Formazione Titolare</div>
-        <div style="margin-bottom: 1.5rem;">
-          ${titolariHTML}
-        </div>
-
-        <div class="label" style="margin-bottom:0.6rem; font-size:0.75rem;">Panchina</div>
-        <div style="margin-bottom: 1.5rem; opacity: 0.85;">
-          ${panchinaHTML}
-        </div>
-
-        <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 1rem; display:flex; justify-content:space-between; align-items:center;">
-          <span class="label" style="margin:0;">Punteggio Parziale (Titolari)</span>
-          <span style="font-size:1.3rem; font-weight:700; color:var(--accent); font-family:'DM Mono',monospace;">
-            ${totPuntiTitolari.toFixed(1)}
-          </span>
+        <div style="display: flex; flex-wrap: wrap; gap: 1.5rem;">
+          ${generateTeamMarkup(myData, "LA TUA SQUADRA")}
+          ${oppData ? generateTeamMarkup(oppData, "SQUADRA AVVERSARIA") : generateTeamMarkup(null, "SQUADRA AVVERSARIA")}
         </div>
       </div>
     `;
