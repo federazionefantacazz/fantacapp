@@ -72,6 +72,13 @@ export const CalendarioSection = {
         </div>
       </div>
 
+      <div class="card" id="assocGwCard">
+        <div class="label" style="color: var(--gold); margin-bottom: 1rem;">🔗 Associazione Giornate Reali</div>
+        <div id="assocGwContainer" style="display: flex; flex-direction: column; gap: 0.5rem;">
+          </div>
+        <button class="btn btn-green" style="margin-top: 1rem;" onclick="window.salvaAssociazioniGw()">💾 Salva Mappatura Giornate</button>
+      </div>
+
       <div class="card" id="previewGironiCard" style="display: none;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: .5rem; margin-bottom: 1rem;">
           <div class="label" style="color: var(--gold); font-weight: 600; margin-bottom: 0;">🏆 Composizione Attuale dei Gironi</div>
@@ -243,6 +250,27 @@ export const CalendarioSection = {
 
     // Rendering dell'Albero del Tabellone se già esistente nel DB
     this.renderAlberoGraficoTabellone(comp);
+
+
+    const assocContainer = document.getElementById('assocGwContainer');
+    const comp = this._currentCompetitions.find(c => c.id === compId);
+    
+    if (comp && comp.matches && assocContainer) {
+      const gwDisponibili = Object.keys(comp.matches); // gw1, gw2, gw_playoff_1...
+      const attuali = comp.associazioniGwReali || {};
+      
+      assocContainer.innerHTML = Array.from({length: 38}, (_, i) => i + 1).map(realGw => {
+        return `
+          <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem;">
+            <span style="width: 80px;">Serie A GW ${realGw}:</span>
+            <select class="input-login assoc-select" data-real-gw="${realGw}" style="margin-bottom:0; padding:0.3rem;">
+              <option value="">Nessuna</option>
+              ${gwDisponibili.map(gw => `<option value="${gw}" ${attuali[realGw] === gw ? 'selected' : ''}>${gw}</option>`).join('')}
+            </select>
+          </div>
+        `;
+      }).join('');
+    }
   },
 
   renderAlberoGraficoTabellone(comp) {
@@ -301,6 +329,30 @@ export const CalendarioSection = {
 };
 
 /* ─── Funzioni Globali d'Azione Modulo ─────────────────────────────────── */
+
+window.salvaAssociazioniGw = async function() {
+  const targetCompId = window.CURRENT_COMPETITION;
+  const selects = document.querySelectorAll('.assoc-select');
+  let nuovaMappatura = {};
+
+  selects.forEach(sel => {
+    const realGw = sel.getAttribute('data-real-gw');
+    const compGw = sel.value;
+    if (compGw) {
+      nuovaMappatura[realGw] = compGw;
+    }
+  });
+
+  try {
+    const database = CalendarioSection.db || getDatabase();
+    await update(ref(database, `competitions/${targetCompId}`), { 
+      associazioniGwReali: nuovaMappatura 
+    });
+    window.toast?.("✅ Mappatura giornate salvata!", "ok");
+  } catch (err) {
+    window.toast?.("Errore nel salvataggio", "err");
+  }
+};
 
 window.changeCalendarTargetComp = function(compId) {
   window.CURRENT_COMPETITION = compId;
