@@ -87,7 +87,7 @@ export const HomePage = {
 
     // 🟢 GESTIONE DELLO SFONDO DINAMICO DEDICATO ALLA HOME PAGE
     if (comp && comp.backgroundImage && comp.backgroundImage.trim() !== "") {
-      document.body.style.backgroundImage = `linear-gradient(rgba(26, 30, 36, 0.88), rgba(26, 30, 36, 0.88)), url('${comp.backgroundImage}')`;
+      document.body.style.backgroundImage = `linear-gradient(rgba(26, 30, 36, 0.3), rgba(26, 30, 36, 0.88)), url('${comp.backgroundImage}')`;
       document.body.style.backgroundSize = "cover";
       document.body.style.backgroundPosition = "center";
       document.body.style.backgroundAttachment = "fixed";
