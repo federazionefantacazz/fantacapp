@@ -191,7 +191,7 @@ body {
 <div id="app">
   <div id="app-header" style="display:none; padding: .8rem 1rem; background: var(--card); border-bottom: 1px solid rgba(255,255,255,0.05); align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1000;">
     <div style="display: flex; align-items: center; gap: .5rem;">
-      <img src="icons/logo-federazione.jpg" alt="Logo" style="height: 28px; width: auto; object-fit: contain;">
+      <div id="app-global-navbar-logo-container" style="flex-shrink:0; display:flex; align-items:center; justify-content:center;"></div>
       <div class="logo" style="font-size: 1.4rem; margin: 0;">FANTACAZZ</div>
     </div>
     <select id="userCompSelect" class="select-rose" style="width: auto; padding: .4rem .6rem; margin: 0; font-weight: 500;" onchange="window._handleCompetitionChange(this.value)">
@@ -600,7 +600,26 @@ function bootApp() {
 }
 
 function refreshUI() {
-  if (!window.STATE.booted || !window.STATE.user || !document.getElementById('page-home')) return;
+  if (!window.STATE.booted || !window.STATE.user) return;
+
+  // 🟢 AGGIORNAMENTO DINAMICO LOGO COMPETIZIONE GLOBALE NELLA NAVBAR SUPERIORE
+  const globalNavbarLogoContainer = document.getElementById('app-global-navbar-logo-container');
+  if (globalNavbarLogoContainer) {
+    const currentCompId = window.STATE.currentCompetition;
+    const compData = (window.STATE.competitions || []).find(c => String(c.id) === String(currentCompId));
+
+    if (compData && compData.logo && compData.logo.trim() !== "") {
+      globalNavbarLogoContainer.innerHTML = `
+        <img src="${compData.logo}" style="height:28px; width:28px; object-fit:contain; border-radius:4px; background:var(--bg3); padding:2px;" onerror="this.src=''; this.innerHTML='🏆';" alt="Logo Comp">
+      `;
+    } else {
+      globalNavbarLogoContainer.innerHTML = `
+        <div style="width:28px; height:28px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:.9rem; color:var(--text3)">🏆</div>
+      `;
+    }
+  }
+
+  if (!document.getElementById('page-home')) return;
 
   const current = window.STATE.currentPage;
   if (current === 'home') HomePage.render(window.STATE);
@@ -616,7 +635,6 @@ function refreshUI() {
     const associazioni = compData ? (compData.associazioniGwReali || {}) : {};
     const gwCorrenteReale = window.STATE.giornataRealeCorrente;
 
-    // Se mancano la giornata corrente o i dati della competizione (le associazioni), attendi lo sblocco
     if (!gwCorrenteReale || Object.keys(associazioni).length === 0) {
       const container = document.getElementById('live-match-container');
       if (container) {
