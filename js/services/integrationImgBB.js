@@ -1,6 +1,6 @@
 // js/services/integrationImgBB.js
 
-const IMGBB_API_KEY = '1e2eac6e1d13e266ae521061a4972bc3'; // La tua chiave presa da api.imgbb.com
+const IMGBB_API_KEY = 'fcd3975ed7db50a4affc107a580775c4'; // La tua chiave presa da api.imgbb.com
 
 /**
  * Carica un file immagine sui server di ImgBB e restituisce il link diretto.
