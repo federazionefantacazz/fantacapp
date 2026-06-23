@@ -2,694 +2,413 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#0a0f1e">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Fantacazz">
-<link rel="manifest" href="manifest.json">
-<link class="apple-touch-icon" href="icons/icon-192.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<title>Fantacazz</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<title>Fantacazz — Patron</title>
 <style>
 :root {
-  --bg: #1a1e24;       /* Sfondo principale */
-  --bg2: #22272f;      /* Sfondo secondario */
-  --bg3: #2b323c;      /* Sfondo input */
-  --card: #282e37;     /* Colore schede */
-  --card2: #333a46;    /* Righe sub-box */
-  --accent: #50e3c2;   /* Verde menta glaciale */
-  --accent2: #64748b;  /* Grigio Acciaio */
-  --accent3: #ff6b6b;  /* Rosso corallo */
-  --gold: #f5a623;     /* Oro ambrato */
-  --text: #e2e8f0;     /* Testo chiaro */
-  --text2: #94a3b8;    /* Testo secondario */
-  --text3: #475569;    
+  --bg: #1a1e24;       
+  --bg2: #22272f;      
+  --bg3: #2b323c;      
+  --card: #282e37;     
+  --card2: #333a46;    
+  --accent: #50e3c2;   
+  --accent2: #4a90e2;  
+  --accent3: #ff6b6b;  
+  --gold: #f5a623;     
+  --text: #f5f6f7;     
+  --text2: #a0aab5;    
+  --text3: #626e7a;    
+  --border: rgba(255,255,255,0.06);
+  --sidebar-width: 240px;
 }
-.field-player select {
-  -webkit-appearance: none;
-  appearance: none;
-  text-align: center;
-}
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  -webkit-tap-highlight-color: transparent;
-}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
 
-html {
-  height: -webkit-fill-available;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-}
+.layout { display: none; flex-direction: column; min-height: 100vh; width: 100%; }
 
-body {
-  overscroll-behavior-y: none; 
-  overflow: hidden;
-  height: 100vh;
-  height: -webkit-fill-available;
-  width: 100%;
-  position: fixed;
-  top: 0;
-  left: 0;
-  font-family: 'DM Sans', sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  -webkit-user-select: none;
-  user-select: none;
-}
+.mobile-header { display: flex; flex-direction: column; background: var(--bg2); border-bottom: 1px solid var(--border); padding: 1rem; position: sticky; top: 0; z-index: 100; }
+.mobile-header .logo-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+.mobile-header .logo { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; }
+.mobile-header .logo span { font-size: .75rem; font-family: 'DM Sans', sans-serif; color: var(--accent); margin-left: 0.5rem; }
 
-#app {
-  display: flex !important;
-  flex-direction: column !important;
-  height: 100% !important;
-  width: 100% !important;
-  overflow: hidden !important;
-  position: relative;
-  padding-top: env(safe-area-inset-top, 0px); 
-  box-sizing: border-box;
-}
+.sidebar { display: none; background: var(--bg2); border-right: 1px solid var(--border); padding: 1.5rem 0; flex-direction: column; gap: .2rem; width: var(--sidebar-width); height: 100vh; position: fixed; top: 0; left: 0; z-index: 101; }
+.sidebar .logo{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:1px;padding:0 1.5rem;margin-bottom:1.5rem;color:#fff;display:flex;flex-direction:column}
+.sidebar .logo span{font-size:.75rem;font-family:'DM Sans',sans-serif;color:var(--accent);letter-spacing:0;font-weight:600;text-transform:uppercase;margin-top:-4px}
 
-#app-header {
-  flex-shrink: 0;
-}
+.snav { background: none; border: none; color: var(--text2); padding: .8rem 1.5rem; text-align: left; font-size: .9rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: .75rem; transition: all .2s; }
+.snav:hover { background: rgba(255,255,255,0.03); color: #fff; }
+.snav.active { background: rgba(80,227,194,0.08); color: var(--accent); font-weight: 600; border-left: 3px solid var(--accent); }
+.snav svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 
-#dynamic-pages-container {
-  flex: 1 1 0% !important;
-  min-height: 0;
-  overflow-y: scroll !important;
-  -webkit-overflow-scrolling: touch !important;
-  width: 100% !important;
-  padding: 0.5rem 1rem calc(75px + env(safe-area-inset-bottom, 16px)) 1rem !important;
-  box-sizing: border-box;
-}
+.sidebar-bottom { margin-top: auto; padding: 0 1.5rem; }
+.sync-status { font-size: .75rem; color: var(--text2); background: var(--bg3); padding: .5rem .75rem; border-radius: 6px; border: 1px solid var(--border); text-align: center; }
 
-#page-login {
-  flex: 1 1 0% !important;
-  min-height: 0;
-  overflow-y: auto !important;
-  -webkit-overflow-scrolling: touch !important;
-  width: 100%;
-  padding: 3rem 1.5rem;
-  text-align: center;
-  max-width: 400px;
-  margin: 0 auto;
-}
+.bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg2); border-top: 1px solid var(--border); z-index: 100; overflow-x: auto; scrollbar-width: none; }
+.bottom-nav::-webkit-scrollbar { display: none; }
+.bottom-nav .snav { flex: 1; min-width: 75px; flex-direction: column; justify-content: center; align-items: center; gap: 0.25rem; padding: 0.6rem 0.5rem; font-size: 0.7rem; text-align: center; border-left: none; }
+.bottom-nav .snav.active { border-left: none; border-top: 3px solid var(--accent); background: rgba(80,227,194,0.04); }
+.bottom-nav .snav svg { width: 20px; height: 20px; }
 
-.page {
-  display: none;
-  width: 100%;
-}
-.page.active {
-  display: block;
-  animation: fadeIn 0.25s ease-out;
-}
-
-.logo{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:1px;background:linear-gradient(45deg, #fff, var(--text2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.sec{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:0.5px;color:var(--text);margin-bottom:.8rem;display:flex;align-items:center;gap:.4rem}
-.card{background:var(--card);border:1px solid rgba(255,255,255,0.05);border-radius:16px;padding:1rem;margin-bottom:1rem;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
-.label{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;margin-bottom:.4rem}
-.pcard{background:var(--card2);border-radius:12px;padding:.5rem .75rem;display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem}
-.rbadge{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;flex-shrink:0}
-.rP{background:#4a5568}.rD{background:#0077ff}.rC{background:#00e5a0;color:#0a0f1e}.rA{background:#ff4757}
-.pi{flex:1;min-width:0}
-.pn{font-size:.9rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
-.pm{font-size:.72rem;color:var(--text2)}
-.pr{text-align:right;flex-shrink:0}.price{font-size:.9rem;font-weight:600;font-family:'DM Mono',monospace;color:var(--gold)}.pavg{font-size:.68rem;color:var(--text2)}
-.btn{background:var(--accent2);color:#fff;border:none;padding:.7rem 1.2rem;border-radius:10px;font-size:.85rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;transition:all 0.2s;width:100%}
-.btn-green{background:var(--accent);color:#0a0f1e;font-weight:600}
-.btn-outline{background:transparent;border:1px solid rgba(255,255,255,0.2);color:var(--text2)}
-.btn:active{opacity:0.8;transform:scale(0.98)}
-.select-rose, .input-login{width:100%;background:var(--bg3);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:.7rem .9rem;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none}
-.input-login{background:var(--bg2);border-color:rgba(255,255,255,0.15);margin-bottom:1rem;user-select:text !important;-webkit-user-select:text !important;}
-.link-toggle{color:var(--accent2);font-size:.8rem;text-decoration:none;display:inline-block;margin-top:1rem;cursor:pointer}
-
-#nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: calc(60px + env(safe-area-inset-bottom));
-  background: var(--card);
-  backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
-  display: flex;
-  justify-content: space-around;
-  padding-top: .5rem;
-  padding-bottom: env(safe-area-inset-bottom);
-  z-index: 999;
-}
-
-.nav-btn {
-  background: none;
-  border: none;
-  color: var(--text2);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .25rem;
-  font-family: 'DM Sans', sans-serif;
-  font-size: .58rem !important;
-  font-weight: 500;
-  cursor: pointer;
-  width: 16.6% !important;
-}
-
-.nav-btn svg {
-  width: 20px;
-  height: 20px;
-  stroke: currentColor;
-  stroke-width: 2;
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: all 0.2s;
-}
-
-.nav-btn.active {
-  color: var(--text);
-}
-
-.nav-btn.active svg {
-  transform: translateY(-2px);
-}
-
+.main-content { padding: 1rem; flex: 1; width: 100%; margin-bottom: 70px; }
+.admin-sec { animation: fadeIn .25s ease-out; display: none; }
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-.toast{position:fixed;top:1.5rem;left:50%;transform:translateX(-50%) translateY(-40px);background:var(--card);border:1px solid rgba(255,255,255,0.1);padding:.75rem 1.5rem;border-radius:12px;font-size:.85rem;font-weight:500;z-index:9999;box-shadow:0 10px 30px rgba(0,0,0,0.5);opacity:0;transition:all 0.3s ease;pointer-events:none}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.toast.ok{border-color:var(--accent);color:var(--accent)}
-.toast.err{border-color:var(--accent3);color:var(--accent3)}
+.sec-title { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 1px; margin-bottom: 1.25rem; color: #fff; }
+
+.card { background: var(--card); border-radius: 12px; padding: 1.25rem; border: 1px solid var(--border); margin-bottom: 1.25rem; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
+.stat-box { background: var(--bg3); border-radius: 8px; padding: .8rem 1rem; border: 1px solid var(--border); display: flex; flex-direction: column; gap: .25rem; }
+.stat-box .num { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; color: var(--accent); }
+.label { font-size: .72rem; color: var(--text2); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-bottom: .3rem; }
+.input-login { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; color: #fff; padding: .65rem .75rem; font-size: .9rem; margin-bottom: 1rem; transition: border-color .2s; }
+.input-login:focus { outline: none; border-color: var(--accent); }
+.btn { width: 100%; padding: .7rem 1rem; border-radius: 6px; border: none; font-weight: 600; font-size: .9rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: .5rem; transition: all .2s; text-decoration: none; }
+.btn-green { background: var(--accent); color: #0a0f1e; }
+.btn-green:hover { background: #3cd6b4; }
+.btn-blue { background: var(--accent2); color: #fff; }
+.btn-blue:hover { background: #357abd; }
+.btn-red { background: var(--accent3); color: #fff; }
+.btn-red:hover { background: #ff5252; }
+
+.badge { display: inline-block; padding: .2rem .5rem; border-radius: 4px; font-size: .75rem; font-weight: 600; color: #fff; text-align: center; }
+.badge-gray { background: #626e7a; }
+.badge-blue { background: var(--accent2); }
+.badge-green { background: var(--accent); color: #0a0f1e; }
+.badge-red { background: var(--accent3); }
+
+.table-wrapper { overflow-x: auto; margin-top: .5rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg3); -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: collapse; text-align: left; font-size: .85rem; min-width: 500px; }
+th { background: var(--card); color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: .7rem; letter-spacing: 0.5px; padding: .75rem 1rem; border-bottom: 1px solid var(--border); }
+td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+
+.vote-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .5rem; margin-top: .5rem; }
+.vote-item { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: .6rem .8rem; display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; }
+
+.toast { position: fixed; bottom: 5rem; right: 1rem; left: 1rem; padding: .75rem 1.25rem; border-radius: 6px; background: var(--card); border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 9999; font-size: .85rem; font-weight: 500; transform: translateY(100px); opacity: 0; transition: all .3s cubic-bezier(0.175, 0.885, 0.32, 1.275); text-align: center; }
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.ok { border-left: 4px solid var(--accent); }
+.toast.err { border-left: 4px solid var(--accent3); }
+.toast.info { border-left: 4px solid var(--accent2); }
+
+@media (min-width: 992px) {
+  .layout { width: 100%; }
+  .mobile-header { display: none; }
+  .sidebar { display: flex; }
+  .bottom-nav { display: none; }
+  .main-content { padding: 2rem; margin-bottom: 0; margin-left: var(--sidebar-width); width: calc(100% - var(--sidebar-width)); }
+  .sec-title { font-size: 2.4rem; }
+  .toast { left: auto; right: 1.5rem; bottom: 1.5rem; width: auto; max-width: 350px; text-align: left; }
+  .card-grid { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; }
+  .vote-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .75rem; }
+}
 </style>
-<style id="dynamic-theme"></style>
 </head>
 <body>
 
-<div id="app">
-  <div id="app-header" style="display:none; padding: .8rem 1rem; background: var(--card); border-bottom: 1px solid rgba(255,255,255,0.05); align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1000;">
-    <div style="display: flex; align-items: center; gap: .5rem;">
-      <div id="app-global-navbar-logo-container" style="flex-shrink:0; display:flex; align-items:center; justify-content:center;"></div>
-      <div class="logo" style="font-size: 1.4rem; margin: 0;">FANTACAZZ</div>
+<div class="layout">
+  <div class="mobile-header">
+    <div class="logo-row">
+      <div class="logo">Fantacazz<span>Patron</span></div>
+      <div id="mobileSyncStatus" style="font-size: 0.7rem; color: var(--accent)">🟢 Connesso</div>
     </div>
-    <select id="userCompSelect" class="select-rose" style="width: auto; padding: .4rem .6rem; margin: 0; font-weight: 500;" onchange="window._handleCompetitionChange(this.value)">
-      <option value="fantacazz">🏆 Caricamento...</option>
-    </select>
   </div>
-
-  <div id="page-login">
-    <div class="logo" style="font-size:3rem; margin-bottom:2rem;">FANTACAZZ</div>
-    
-    <div class="card" id="box-firebase-login">
-      <div class="label" style="text-align:left;">Email</div>
-      <input type="email" id="loginEmail" class="input-login" placeholder="Inserisci la tua email">
-      <div class="label" style="text-align:left;">Password</div>
-      <input type="password" id="loginPassword" class="input-login" placeholder="••••••••">
-      <button class="btn btn-green" onclick="window.doFirebaseLogin()">Accedi</button>
-      <span class="link-toggle" onclick="window.toggleAuthBoxes('register')">Non hai un account? Registrati</span>
-    </div>
-
-    <div class="card" id="box-firebase-register" style="display:none;">
-      <div class="label" style="text-align:left;">Nuova Email</div>
-      <input type="email" id="registerEmail" class="input-login" placeholder="Scegli una email">
-      <div class="label" style="text-align:left;">Scegli Password</div>
-      <input type="password" id="registerPassword" class="input-login" placeholder="Minimo 6 caratteri">
-      <button class="btn btn-green" onclick="window.doFirebaseRegister()">Crea Account</button>
-      <span class="link-toggle" onclick="window.toggleAuthBoxes('login')">Hai già un account? Accedi</span>
-    </div>
-
-    <div class="card" id="box-select-team" style="display:none;">
-      <div class="label" style="color:var(--accent); margin-bottom:.8rem; font-size:.8rem;">✓ Autenticato con successo!</div>
-      <div class="label">Associa la tua squadra di questa competizione</div>
-      <select id="loginSelect" class="select-rose" style="margin-bottom:1.5rem; background:var(--bg2);">
-        <option value="">Caricamento squadre...</option>
-      </select>
-      <button class="btn btn-green" onclick="window.doTeamSelection()">Entra nell'App</button>
-      <button class="btn btn-outline" style="margin-top: .6rem; padding: .5rem;" onclick="window.doFirebaseLogout()">Disconnetti Account</button>
+   
+  <div class="sidebar">
+    <div class="logo">Fantacazz<span>Pannello Patron</span></div>
+    <div class="nav-links-container"></div>
+    <div class="sidebar-bottom">
+      <div class="sync-status" id="syncStatus">⚪ Caricamento...</div>
     </div>
   </div>
 
-  <div id="dynamic-pages-container" style="display: none;"></div>
+  <div class="main-content" id="admin-sections-container"></div>
+  <div class="bottom-nav" id="mobileBottomNav"></div>
 </div>
 
-<nav id="nav" style="display:none">
-  <button class="nav-btn active" onclick="goPage('home',this)">
-    <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Home
+<div id="nav-template" style="display:none;">
+  <button class="snav active" data-sec="dashboard">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Dashboard
   </button>
-  <button class="nav-btn" onclick="goPage('calendario',this)">
-    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Calendario
+  <button class="snav" data-sec="teams">
+    <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>Squadre
   </button>
-  <button class="nav-btn" onclick="goPage('classifica',this)">
+  <button class="snav" data-sec="players">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>Giocatori
+  </button>
+  <button class="snav" data-sec="votes">
+    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Voti GW
+  </button>
+  <button class="snav" data-sec="mercato">
+    <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>Mercato
+  </button>
+  <button class="snav" data-sec="classifica">
     <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Classifica
   </button>
-  <button id="btn-nav-formazione" class="nav-btn" onclick="goPage('formazione',this)">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg><span>Formazione</span>
+  <button class="snav" data-sec="calendar-gen">
+    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Calendario
   </button>
-  <button class="nav-btn" onclick="goPage('mercato',this)">
-    <svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 001.95-1.55L23 6H6"/></svg>Mercato
+  <button class="snav" data-sec="crea-competizioni">
+    <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Competizioni
   </button>
-  <button class="nav-btn" onclick="goPage('teams',this)">
-    <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0-9 9v7a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-7a9 9 0 0 0-9-9zm0 4a2 2 0 1 1-2 2 2 2 0 0 1 2-2zm-4 9a4 4 0 0 1 8 0z"></path></svg>Squadre
+  <button class="snav" data-sec="themes">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 18a6 6 0 1 0 0-12v12z"/></svg>Temi
   </button>
-</nav>
+</div>
 
 <div id="toast" class="toast"></div>
 
 <script type="module">
-import { db, auth, ref, onValue, set, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from './js/firebase-config.js';
+// ─── 1. CONNESSIONE CENTRALIZZATA ED UNICA ───────────────────────────────
+import { db, auth, ref, onValue, set, update, onAuthStateChanged, signInWithEmailAndPassword } from './js/firebase-config.js';
 
-import { HomePage } from './js/home.js';
-import { CalendarioPage } from './js/calendario.js';
-import { FormazionePage } from './js/formazione.js';
-import { MercatoPage } from './js/mercato.js';
-import { TeamsPage } from './js/teams.js';
-import { LiveMatchModule } from "./js/liveMatch.js";
-import { ClassificaPage } from './js/classifica.js';
+// Importazione di tutti i sottomoduli amministrativi
+import { DashboardSection }     from './js/admin/dashboard.js';
+import { TeamsSection }         from './js/admin/teams.js';
+import { PlayersSection }       from './js/admin/players.js';
+import { VotesSection }         from './js/admin/votes.js';
+import { MercatoSection }       from './js/admin/mercato.js';
+import { ClassificaSection }    from './js/admin/classifica.js';
+import { CalendarioSection }    from './js/admin/calendario.js';
+import { CompetizioniSection }  from './js/admin/competizioni.js';
+import { ThemesSection }        from './js/admin/themes.js';
 
-window.STATE = { 
-  user: null, 
-  teams: [], 
-  players: [], 
-  votes: {}, 
-  status: {}, 
-  giornataRealeCorrente: null, 
-  matches: {}, 
-  currentCompetition: '',
-  currentPage: 'home', 
-  competitions: [], 
-  booted: false 
-};
+// Email amministratore impostata correttamente
+const ADMIN_EMAIL = "carminedemarzo@outlook.it";
 
-const preloadedLogos = new Set();
+/* ─── Stato globale applicativo ────────────────────────────────────────── */
+let TEAMS = [];
+window.PLAYERS = []; 
+let MATCHES = {};
+let CURRENT_GW = 1;
+let CURRENT_REAL_GW = 0; 
+let LIVE = false; 
+let competitions = [];
+let teamsCaricate = false;
+let giocatoriCaricati = false;
 
-onValue(ref(db, 'teams'), snap => {
-  const raw = snap.val() || {};
-  window.STATE.teams = Object.values(raw).sort((a,b) => b.pts - a.pts);
-  globalPreloadLogos(window.STATE.teams);
+window.CURRENT_COMPETITION = ""; 
 
-  if (window.STATE.user) {
-    const foundCurrentTeam = window.STATE.teams.find(t => t.id === window.STATE.user.id);
-    if (foundCurrentTeam) {
-      window.STATE.user = foundCurrentTeam;
-    }
-  }
-  
-  if (!window.STATE.booted) {
-    populateLoginDropdown();
-  }
-  
-  refreshUI();
-});
-
-onAuthStateChanged(auth, firebaseUser => {
-  if (firebaseUser) {
-    document.getElementById('box-firebase-login').style.display = 'none';
-    document.getElementById('box-firebase-register').style.display = 'none';
-    document.getElementById('box-select-team').style.display = 'block';
-    populateLoginDropdown();
+/* ─── Intercettatore Stato Autenticazione ──────────────────────────────── */
+onAuthStateChanged(auth, (user) => {
+  if (user && user.email === ADMIN_EMAIL) {
+    document.querySelector('.layout').style.display = 'flex';
+    initAdminApp();
   } else {
-    document.getElementById('box-firebase-login').style.display = 'block';
-    document.getElementById('box-firebase-register').style.display = 'none';
-    document.getElementById('box-select-team').style.display = 'none';
+    document.querySelector('.layout').style.display = 'none';
+    eseguiLoginAdmin();
   }
 });
 
-function globalPreloadLogos(teams) {
-  if (!teams || !Array.isArray(teams)) return;
-  const urls = [...new Set(teams.map(t => t.logo).filter(Boolean))];
-  urls.forEach((url, index) => {
-    if (preloadedLogos.has(url)) return;
-    setTimeout(() => {
-      const img = new Image();
-      img.crossOrigin = "anonymous"; 
-      img.onload = () => {
-        preloadedLogos.add(url);
-      };
-      img.src = url;
-    }, index * 60);
-  });
-}
-
-onValue(ref(db, 'status/currentRealGW'), snap => { 
-  const val = snap.val();
-  window.STATE.giornataRealeCorrente = val ? Number(val) : null;
-  window.STATE.status = { currentGW: window.STATE.giornataRealeCorrente, giornataReale: window.STATE.giornataRealeCorrente };
+function eseguiLoginAdmin() {
+  const email = prompt("Area Riservata Patron.\nInserisci l'email di amministrazione:");
+  const password = prompt("Inserisci la password di amministrazione:");
   
-  if (window.STATE.booted) {
-    refreshUI(); 
-  }
-});
-
-function caricaDatiCompetizione(compId) {
-  if (!compId) return;
-  
-  window.STATE.matches = {};
-  
-  onValue(ref(db, `competitions/${compId}/lineups`), snap => {
-    if (!window.STATE._currentCompData) window.STATE._currentCompData = {};
-    window.STATE._currentCompData.lineups = snap.val() || {};
-    refreshUI();
-  });
-
-  onValue(ref(db, 'status/live'), snap => {
-    const liveAttivo = !!snap.val();
-    gestisciSwitchLive(liveAttivo);
-  });
-
-  onValue(ref(db, `competitions/${compId}/theme`), snap => {
-    const theme = snap.val();
-    const styleTag = document.getElementById('dynamic-theme');
-    if (theme && styleTag) {
-      styleTag.innerHTML = `
-        :root {
-          ${theme.bg ? `--bg: ${theme.bg};` : ''}
-          ${theme.bg2 ? `--bg2: ${theme.bg2};` : ''}
-          ${theme.bg3 ? `--bg3: ${theme.bg3};` : ''}
-          ${theme.card ? `--card: ${theme.card};` : ''}
-          ${theme.card2 ? `--card2: ${theme.card2};` : ''}
-          ${theme.accent ? `--accent: ${theme.accent};` : ''}
-          ${theme.accent2 ? `--accent2: ${theme.accent2};` : ''}
-          ${theme.accent3 ? `--accent3: ${theme.accent3};` : ''}
-          ${theme.gold ? `--gold: ${theme.gold};` : ''}
-          ${theme.text ? `--text: ${theme.text};` : ''}
-          ${theme.text2 ? `--text2: ${theme.text2};` : ''}
-        }
-      `;
-    } else if (styleTag) {
-      styleTag.innerHTML = '';
-    }
-  });
-
-  onValue(ref(db, `competitions/${compId}/matches`), snap => { 
-    window.STATE.matches = snap.val() || {}; 
-    refreshUI(); 
-  });
-}
-
-function gestisciSwitchLive(liveAttivo) {
-  const btnFormazione = document.getElementById('btn-nav-formazione');
-  if (liveAttivo) {
-    if (btnFormazione) {
-      btnFormazione.querySelector('span').textContent = "Live Match";
-      btnFormazione.style.color = "var(--accent3)";
-      btnFormazione.setAttribute('onclick', "goPage('live', this)");
-    }
-    if (window.STATE.currentPage === 'formazione') {
-      window.goPage('live', btnFormazione);
-    } else if (window.STATE.currentPage === 'live') {
-      refreshUI();
-    }
+  if (email && password) {
+    signInWithEmailAndPassword(auth, email, password)
+      .then(() => {
+        toast("Autenticato come Patron con successo!", "ok");
+      })
+      .catch(err => {
+        alert("Credenziali errate o utente non autorizzato.");
+        eseguiLoginAdmin();
+      });
   } else {
-    if (btnFormazione) {
-      btnFormazione.querySelector('span').textContent = "Formazione";
-      btnFormazione.style.color = "";
-      btnFormazione.setAttribute('onclick', "goPage('formazione', this)");
-    }
-    LiveMatchModule.stopLiveTracking();
-    if (window.STATE.currentPage === 'live') {
-      window.goPage('formazione', btnFormazione);
-    }
+    alert("Identificazione obbligatoria per accedere al pannello.");
+    window.location.reload();
   }
 }
 
-window._handleCompetitionChange = function(newCompetitionId) {
-  if (!newCompetitionId) return;
-  window.STATE.currentCompetition = newCompetitionId;
-  window.STATE.activeCompetitionId = newCompetitionId; // Allineamento per file esterni (home.js)
-  window.showToast(`Competizione modificata in: ${newCompetitionId.toUpperCase()}`, 'ok');
-  
-  const calSelect = document.getElementById('calGwSelect');
-  if (calSelect) {
-    calSelect.innerHTML = '';
-    delete calSelect.dataset.currentComp;
-  }
-  caricaDatiCompetizione(newCompetitionId);
-  refreshUI();
-};
+function initAdminApp() {
+  // Inizializzazione sicura di ogni modulo passando il db centralizzato
+  if (DashboardSection && typeof DashboardSection.init === 'function') DashboardSection.init(db);
+  if (TeamsSection && typeof TeamsSection.init === 'function') TeamsSection.init(db);
+  if (PlayersSection && typeof PlayersSection.init === 'function') PlayersSection.init(db); 
+  if (VotesSection && typeof VotesSection.init === 'function') VotesSection.init(db);
+  if (MercatoSection && typeof MercatoSection.init === 'function') MercatoSection.init(db);
+  if (ClassificaSection && typeof ClassificaSection.init === 'function') ClassificaSection.init(db);
+  if (CalendarioSection && typeof CalendarioSection.init === 'function') CalendarioSection.init(db);
+  if (CompetizioniSection && typeof CompetizioniSection.init === 'function') CompetizioniSection.init(db);
+  if (ThemesSection && typeof ThemesSection.init === 'function') ThemesSection.init(db);
 
-onValue(ref(db, 'votes'), snap => { 
-  window.STATE.votes = snap.val() || {}; 
-  refreshUI(); 
-});
+  const navTemplate = document.getElementById('nav-template').innerHTML;
+  document.querySelector('.sidebar .nav-links-container').innerHTML = navTemplate;
+  document.getElementById('mobileBottomNav').innerHTML = navTemplate;
 
-onValue(ref(db, 'players'), snap => {
-  window.STATE.players = Object.values(snap.val() || {});
-  refreshUI();
-});
-
-window.toggleAuthBoxes = function(target) {
-  if (target === 'register') {
-    document.getElementById('box-firebase-login').style.display = 'none';
-    document.getElementById('box-firebase-register').style.display = 'block';
-  } else {
-    document.getElementById('box-firebase-login').style.display = 'block';
-    document.getElementById('box-firebase-register').style.display = 'none';
-  }
-};
-
-window.doFirebaseLogin = function() {
-  const email = document.getElementById('loginEmail').value;
-  const pass = document.getElementById('loginPassword').value;
-  if(!email || !pass) {
-    window.showToast('Inserisci email e password!', 'err');
-    return;
-  }
-  signInWithEmailAndPassword(auth, email, pass)
-    .then(() => { window.showToast('Accesso effettuato!', 'ok'); })
-    .catch(error => { window.showToast('Email o password errate!', 'err'); });
-};
-
-window.doFirebaseRegister = function() {
-  const email = document.getElementById('registerEmail').value;
-  const pass = document.getElementById('registerPassword').value;
-  if(!email || !pass) {
-    window.showToast('Riempi tutti i campi!', 'err');
-    return;
-  }
-  if(pass.length < 6) {
-    window.showToast('La password deve avere almeno 6 caratteri!', 'err');
-    return;
-  }
-  createUserWithEmailAndPassword(auth, email, pass)
-    .then(() => { window.showToast('Account creato con successo!', 'ok'); })
-    .catch(error => { window.showToast('Errore durante la registrazione!', 'err'); });
-};
-
-window.doFirebaseLogout = function() {
-  signOut(auth).then(() => {
-    localStorage.removeItem('fantaUser');
-    window.STATE.user = null;
-    window.STATE.booted = false;
-    window.showToast('Account disconnesso', 'ok');
-    setTimeout(() => location.reload(), 1000);
-  });
-};
-
-function populateLoginDropdown() {
-  if (window.STATE.booted) return;
-  const currentUser = auth.currentUser;
-  if (!currentUser) return; 
-
-  if (!window.STATE.teams || window.STATE.teams.length === 0) return;
-
-  const myTeamFromDB = window.STATE.teams.find(t => t.owners && t.owners[currentUser.uid]);
-  if (myTeamFromDB) {
-    window.STATE.user = myTeamFromDB;
-    localStorage.setItem('fantaUser', myTeamFromDB.id);
-    bootApp();
-    return;
-  }
-
-  const savedUserId = localStorage.getItem('fantaUser');
-  if (savedUserId && window.STATE.teams.length > 0) {
-    const loggedInUser = window.STATE.teams.find(t => t.id === savedUserId);
-    if (loggedInUser) {
-      window.STATE.user = loggedInUser;
-      bootApp();
-      return;
-    }
-  }
-
-  const select = document.getElementById('loginSelect');
-  if (!select) return;
-
-  let optionsHTML = '<option value="">Scegli la tua squadra...</option>';
-  window.STATE.teams.forEach(t => {
-    optionsHTML += `<option value="${t.id}">🛡️ ${t.name} (${t.owner || 'Nessun proprietario'})</option>`;
-  });
-  select.innerHTML = optionsHTML;
-}
-
-window.doTeamSelection = function() {
-  const select = document.getElementById('loginSelect');
-  if (!select) return;
-  const id = select.value;
-  if(!id) {
-    window.showToast('Seleziona una squadra valida!', 'err');
-    return;
-  }
-  const found = window.STATE.teams.find(t => t.id === id);
-  if(found) {
-    const currentUser = auth.currentUser;
-    if (currentUser) {
-      window._saveNode(`teams/${id}/owners/${currentUser.uid}`, true);
-    }
-    window.STATE.user = found;
-    localStorage.setItem('fantaUser', id);
-    bootApp();
-  }
-};
-
-onValue(ref(db, 'competitions'), snap => {
-  const comps = snap.val() || {};
-  
-  // Manteniamo le chiavi originali iniettando l'id all'interno di ciascun oggetto
-  const list = Object.entries(comps).map(([key, val]) => {
-    return { ...val, id: key };
-  });
-  
-  window.STATE.competitions = list;
-  window.STATE.allCompetitions = list;
-  
-  const userSelect = document.getElementById('userCompSelect');
-  if (userSelect) {
-    if (list.length === 0) {
-      userSelect.innerHTML = `<option value="">⚠️ Nessun torneo nel DB</option>`;
-      window.STATE.currentCompetition = '';
-      window.STATE.activeCompetitionId = '';
-    } else {
-      if (!window.STATE.currentCompetition || !comps[window.STATE.currentCompetition]) {
-        window.STATE.currentCompetition = list[0].id;
-        window.STATE.activeCompetitionId = list[0].id;
-        caricaDatiCompetizione(list[0].id);
-      }
-      userSelect.innerHTML = list.map(c => `<option value="${c.id}" ${String(window.STATE.currentCompetition) === String(c.id) ? 'selected' : ''}>🏆 ${c.name || c.id}</option>`).join('');
-    }
-  }
-  refreshUI();
-});
-
-function bootApp() {
-  if (window.STATE.booted) return;
-  window.STATE.booted = true;
-
-  ClassificaPage.init(db);
-
-  const container = document.getElementById('dynamic-pages-container');
+  // Iniezione liquida dinamica per ciascuna sezione attiva
+  const container = document.getElementById('admin-sections-container');
   if (container) {
-    container.style.display = 'block'; 
     container.innerHTML = `
-      ${HomePage.renderHTML()}
-      ${CalendarioPage.renderHTML()}
-      ${ClassificaPage.renderHTML()}
-      ${FormazionePage.renderHTML()}
-      ${MercatoPage.renderHTML()}
-      ${TeamsPage.renderHTML()}
-      <div id="page-live" class="page"><div id="live-match-container"></div></div>
+      ${typeof DashboardSection.renderHTML === 'function' ? DashboardSection.renderHTML() : ''}
+      ${typeof TeamsSection.renderHTML === 'function' ? TeamsSection.renderHTML() : ''}
+      ${typeof PlayersSection.renderHTML === 'function' ? PlayersSection.renderHTML() : ''}
+      ${typeof VotesSection.renderHTML === 'function' ? VotesSection.renderHTML() : ''}
+      ${typeof MercatoSection.renderHTML === 'function' ? MercatoSection.renderHTML() : ''}
+      ${typeof ClassificaSection.renderHTML === 'function' ? ClassificaSection.renderHTML() : ''}
+      ${typeof CalendarioSection.renderHTML === 'function' ? CalendarioSection.renderHTML() : ''}
+      ${typeof CompetizioniSection.renderHTML === 'function' ? CompetizioniSection.renderHTML() : ''}
+      ${typeof ThemesSection.renderHTML === 'function' ? ThemesSection.renderHTML() : ''}
     `;
   }
 
-  document.getElementById('page-login').style.display = 'none';
-  document.getElementById('nav').style.display = 'flex';
+  const syncStatusEl = document.getElementById('syncStatus');
+  if (syncStatusEl) {
+    syncStatusEl.innerHTML = "🟢 Connesso in sicurezza";
+    syncStatusEl.style.color = "var(--accent)";
+  }
 
-  const header = document.getElementById('app-header');
-  if (header) header.style.display = 'flex';
-
-  window.goPage('home', document.querySelector('.nav-btn'));
+  startFirebaseSubscriptions();
+  window.showSec('dashboard');
 }
 
-function refreshUI() {
-  if (!window.STATE.booted || !window.STATE.user) return;
+function refreshAll() {
+  const state = { 
+    TEAMS: TEAMS, 
+    PLAYERS: window.PLAYERS, 
+    MATCHES, 
+    CURRENT_GW, 
+    CURRENT_REAL_GW, 
+    LIVE: LIVE,
+    competitions 
+  };
+  
+  // Renderizzazione sicura e condizionale elemento per elemento
+  if (DashboardSection && typeof DashboardSection.render === 'function') DashboardSection.render(state);
+  if (TeamsSection && typeof TeamsSection.render === 'function') TeamsSection.render(state);
+  if (PlayersSection && typeof PlayersSection.render === 'function') PlayersSection.render(state);
+  if (VotesSection && typeof VotesSection.render === 'function') VotesSection.render(state);
+  if (MercatoSection && typeof MercatoSection.render === 'function') MercatoSection.render(state);
+  if (ClassificaSection && typeof ClassificaSection.render === 'function') ClassificaSection.render(state);
+  if (CalendarioSection && typeof CalendarioSection.render === 'function') CalendarioSection.render(state);
+  if (CompetizioniSection && typeof CompetizioniSection.render === 'function') CompetizioniSection.render(state);
+  if (ThemesSection && typeof ThemesSection.render === 'function') ThemesSection.render({});
+}
 
-  // 🟢 AGGIORNAMENTO DINAMICO LOGO NAVBAR SUPERIORE CORRETTO CON STRING CASTING
-  const globalNavbarLogoContainer = document.getElementById('app-global-navbar-logo-container');
-  if (globalNavbarLogoContainer) {
-    const currentCompId = window.STATE.currentCompetition || window.STATE.activeCompetitionId;
-    const compData = (window.STATE.competitions || []).find(c => String(c.id) === String(currentCompId));
-
-    if (compData && compData.logo && compData.logo.trim() !== "") {
-      globalNavbarLogoContainer.innerHTML = `
-        <img src="${compData.logo}" style="height:28px; width:28px; object-fit:contain; border-radius:4px; background:var(--bg3); padding:2px;" onerror="this.src=''; this.innerHTML='🏆';" alt="Logo Comp">
-      `;
+/* ─── Gestione della Navigazione Sincronizzata ──────────────────────────── */
+window.showSec = function(secId) {
+  document.querySelectorAll('.admin-sec').forEach(sec => sec.style.display = 'none');
+  const target = document.getElementById('sec-' + secId);
+  if (target) target.style.display = 'block';
+  
+  document.querySelectorAll('.snav').forEach(btn => {
+    if(btn.getAttribute('data-sec') === secId) {
+      btn.classList.add('active');
     } else {
-      globalNavbarLogoContainer.innerHTML = `
-        <div style="width:28px; height:28px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:.9rem; color:var(--text3)">🏆</div>
-      `;
+      btn.classList.remove('active');
     }
+  });
+};
+
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.snav');
+  if (btn) {
+    const targetSec = btn.getAttribute('data-sec');
+    window.showSec(targetSec);
   }
+});
 
-  if (!document.getElementById('page-home')) return;
+/* ─── Modifica della Competizione Attiva ───────────────────────────────── */
+window.selectCompetition = function(compId) {
+  window.CURRENT_COMPETITION = compId;
+  const comp = competitions.find(c => c.id === compId);
+  if (comp && comp.status) {
+    CURRENT_GW = comp.status.currentGW || 1;
+  }
+  toast(`Competizione attiva impostata su: ${compId.toUpperCase()}`, "info");
+  refreshAll();
+};
 
-  const current = window.STATE.currentPage;
-  if (current === 'home') HomePage.render(window.STATE);
-  else if (current === 'calendario') CalendarioPage.render(window.STATE);
-  else if (current === 'classifica') ClassificaPage.render(window.STATE);
-  else if (current === 'formazione') FormazionePage.render(window.STATE);
-  else if (current === 'mercato') MercatoPage.render(window.STATE);
-  else if (current === 'teams') TeamsPage.render(window.STATE);
-  else if (current === 'live') {
-    const currentCompId = window.STATE.currentCompetition;
-    const compData = window.STATE.competitions.find(c => String(c.id) === String(currentCompId));
+/* ─── Sottoscrizioni Real-time ai nodi Firebase ────────────────────────── */
+function startFirebaseSubscriptions() {
+  onValue(ref(db, 'status/currentRealGW'), snap => {
+    CURRENT_REAL_GW = snap.val() !== null ? parseInt(snap.val()) : 0;
+    refreshAll(); 
+  });
+
+  onValue(ref(db, 'status/live'), snap => {
+    LIVE = snap.val() !== null ? snap.val() : false;
+    refreshAll();
+  });
+
+  onValue(ref(db, 'competitions'), snap => {
+    const raw = snap.val() || {};
+    competitions = Object.keys(raw).map(key => ({ id: key, ...raw[key] }));
     
-    const associazioni = compData ? (compData.associazioniGwReali || {}) : {};
-    const gwCorrenteReale = window.STATE.giornataRealeCorrente;
-
-    if (!gwCorrenteReale || Object.keys(associazioni).length === 0) {
-      const container = document.getElementById('live-match-container');
-      if (container) {
-        container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Sincronizzazione giornata e competizione in corso...</p>`;
-      }
-      return; 
+    if (!window.CURRENT_COMPETITION && competitions.length > 0) {
+      window.CURRENT_COMPETITION = competitions[0].id;
+      if (competitions[0].status) CURRENT_GW = competitions[0].status.currentGW || 1;
     }
+    
+    refreshAll(); 
+  });
 
-    LiveMatchModule.init(db, window.STATE.user.id, currentCompId);
-    LiveMatchModule.startLiveTracking(gwCorrenteReale, associazioni);
-  }
-}
+  // Mappatura con ritenzione della chiave ID originale di Firebase per le squadre
+  onValue(ref(db, 'teams'), snap => {
+    const raw = snap.val() || {};
+    
+    TEAMS = Object.keys(raw).map(key => {
+      return typeof raw[key] === 'object' 
+        ? { id: key, ...raw[key] }
+        : { id: key, name: raw[key] };
+    });
 
-window.goPage = function(name, btn) {
-  if (window.STATE.currentPage === 'live' && name !== 'live') {
-    LiveMatchModule.stopLiveTracking();
-  }
+    TEAMS.sort((a, b) => (b.pts || 0) - (a.pts || 0));
+    
+    window.TEAMS = TEAMS; 
+    teamsCaricate = true;
+    if (teamsCaricate && giocatoriCaricati) refreshAll();
+  });
 
-  if (name === 'teams' && typeof TeamsPage.backToTeamsList === 'function') {
-    TeamsPage.backToTeamsList();
-  }
-
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  
-  const target = document.getElementById('page-' + name);
-  if(target) {
-    target.classList.add('active');
-  }
-  if(btn) btn.classList.add('active');
-  
-  const container = document.getElementById('dynamic-pages-container');
-  if(container) container.scrollTop = 0;
-
-  window.STATE.currentPage = name;
-  refreshUI();
-};
-
-window.showToast = function(msg, type='ok') {
-  const t = document.getElementById('toast');
-  if(!t) return;
-  t.textContent = msg; t.className = 'toast '+type+' show';
-  setTimeout(()=>t.classList.remove('show'),2600);
-};
-
-window._saveNode = (path, payload) => set(ref(db, path), payload);
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then(reg => console.log('SW registrato', reg))
-      .catch(err => console.error('Errore SW', err));
+  onValue(ref(db, 'players'), snap => {
+    const raw = snap.val() || {};
+    window.PLAYERS = Object.keys(raw).map(key => ({ id: key, ...raw[key] }));
+    giocatoriCaricati = true;
+    if (teamsCaricate && giocatoriCaricati) refreshAll();
   });
 }
+
+/* ─── Callback ed Azioni Globali Rimaste ───────────────────────────────── */
+window.changeRealGW = async function(newGw) {
+  const gwNumber = parseInt(newGw);
+  try {
+    await set(ref(db, 'status/currentRealGW'), gwNumber);
+    if (gwNumber === 0) {
+      window.toast("Stato impostato su: Prima del Campionato (GW 0)", "info");
+    } else {
+      window.toast(`Giornata reale Serie A impostata alla numero: ${gwNumber}`, "ok");
+    }
+  } catch (err) {
+    window.toast("Errore nel salvataggio della giornata reale", "err");
+  }
+};
+
+window.saveGW = async function() {
+  if (!window.CURRENT_COMPETITION) return toast("Seleziona prima una competizione attiva!", "err");
+  try {
+    await set(ref(db, `competitions/${window.CURRENT_COMPETITION}/status`), { currentGW: CURRENT_GW });
+    toast('Giornata GW' + CURRENT_GW + ' salvata per ' + window.CURRENT_COMPETITION.toUpperCase(), 'ok');
+  } catch (err) { toast("Errore nel salvataggio della GW", "err"); }
+};
+
+window.saveRankRow = async function(id) {
+  const pts = parseFloat(document.getElementById('rk-pts-' + id).value) || 0;
+  const lgw = parseFloat(document.getElementById('rk-lgw-' + id).value) || 0;
+  const w   = parseInt(document.getElementById('rk-w-' + id).value) || 0;
+  const d   = parseInt(document.getElementById('rk-d-' + id).value) || 0;
+  const l   = parseInt(document.getElementById('rk-l-' + id).value) || 0;
+  try {
+    await update(ref(db, 'teams/' + id), { pts, lastGW: lgw, w, d, l });
+    toast('Classifica di squadra aggiornata globalmente!', 'ok');
+  } catch (err) { toast('Errore nel salvataggio della classifica', 'err'); }
+};
+
+/* ─── Toast System Notification Helper ──────────────────────────────────── */
+window.toast = function(msg, type = "ok") {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.className = 'toast ' + type + ' show';
+  setTimeout(() => t.classList.remove('show'), 2800);
+};
 </script>
 </body>
 </html>
