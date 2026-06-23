@@ -265,7 +265,7 @@ import { CalendarioPage } from './js/calendario.js';
 import { FormazionePage } from './js/formazione.js';
 import { MercatoPage } from './js/mercato.js';
 import { TeamsPage } from './js/teams.js';
-import { LiveMatchModule } from "./js/liveMatch.js";
+import {  } from "./js/liveMatch.js";
 import { ClassificaPage } from './js/classifica.js';
 
 window.STATE = { 
@@ -644,7 +644,9 @@ function refreshUI() {
       return; 
     }
 
-    LiveMatchModule.init(db, window.STATE.user.id, currentCompId);
+    const myTeamId = window.STATE.user.id;
+    
+    LiveMatchModule.init(db, myTeamId, currentCompId);
     LiveMatchModule.startLiveTracking(gwCorrenteReale, associazioni);
   }
 }
