@@ -5,7 +5,8 @@ import { uploadImageToImgBB } from "../services/integrationImgBB.js";
 let database = null;
 
 export const CompetizioniSection = {
-  currentLogoUrl: '',  // Tiene in memoria il vecchio logo se non viene cambiato in modifica
+  currentLogoUrl: '',       // Tiene in memoria il vecchio logo se non viene cambiato in modifica
+  currentBgImageUrl: '',    // 🟢 Tiene in memoria il vecchio sfondo se non viene cambiato in modifica
 
   init(db) {
     database = db;
@@ -29,6 +30,9 @@ export const CompetizioniSection = {
 
         <div class="label" style="font-size:.8rem; margin-top:.5rem; color:var(--text2)">Logo Competizione (.jpg, .jpeg, .png)</div>
         <input type="file" id="compLogoFile" name="compLogoFile" class="input-login" accept=".jpg, .jpeg, .png, .JPG, .JPEG, .PNG, image/jpeg, image/png" style="padding-top:.5rem;">
+
+        <div class="label" style="font-size:.8rem; margin-top:.5rem; color:var(--text2)">Immagine di Sfondo (.jpg, .jpeg, .png)</div>
+        <input type="file" id="compBgFile" name="compBgFile" class="input-login" accept=".jpg, .jpeg, .png, .JPG, .JPEG, .PNG, image/jpeg, image/png" style="padding-top:.5rem;">
 
         <label class="label">Tipo Competizione</label>
         <select id="compType" class="input-login" onchange="window.toggleCompFields(this.value)">
@@ -130,6 +134,7 @@ export const CompetizioniSection = {
       const gironi = c.gironi || 1;
       const qualificati = c.qualificatiFaseFinale || 0;
       const safeLogo = c.logo ? c.logo.replace(/'/g, "\\'") : '';
+      const safeBg = c.backgroundImage ? c.backgroundImage.replace(/'/g, "\\'") : ''; // 🟢 Safe string dello sfondo
 
       let teamsArray = [];
       if (c.teams) {
@@ -162,7 +167,7 @@ export const CompetizioniSection = {
           <td style="vertical-align:middle;"><span class="badge ${teamsArray.length > 0 ? 'badge-green' : 'badge-red'}">${teamsArray.length} sq.</span></td>
           <td style="text-align: right; vertical-align:middle;">
             <div style="display: inline-flex; gap: .4rem;">
-              <button class="btn btn-blue" onclick="window.caricaCompetizioneNelForm('${c.id}', '${safeName}', '${c.type}', ${gironi}, ${qualificati}, '${teamsString}', '${safeLogo}')" style="padding: .35rem .6rem; font-size: .75rem; width: auto;">
+              <button class="btn btn-blue" onclick="window.caricaCompetizioneNelForm('${c.id}', '${safeName}', '${c.type}', ${gironi}, ${qualificati}, '${teamsString}', '${safeLogo}', '${safeBg}')" style="padding: .35rem .6rem; font-size: .75rem; width: auto;">
                 ✏️ Modifica
               </button>
               <button class="btn btn-red" onclick="window.eliminaCompetizione('${c.id}', '${safeName}')" style="padding: .35rem .6rem; font-size: .75rem; width: auto;">
@@ -186,7 +191,7 @@ export const CompetizioniSection = {
     };
 
     // 3. CARICA DATI NEL FORM (MODIFICA) - Clone dell'input per Android WebView
-    window.caricaCompetizioneNelForm = (id, name, type, gironi, qualificati, teamsString, logo) => {
+    window.caricaCompetizioneNelForm = (id, name, type, gironi, qualificati, teamsString, logo, bgImage) => {
       const idInput = document.getElementById('compId');
       if (!idInput) return;
 
@@ -200,7 +205,7 @@ export const CompetizioniSection = {
       if (document.getElementById('compGironi')) document.getElementById('compGironi').value = gironi;
       if (document.getElementById('compQualificati')) document.getElementById('compQualificati').value = qualificati;
 
-      // SOLUZIONE BUG 403 ANDROID: Rigeneriamo l'elemento DOM dell'input per pulire la sandbox del browser
+      // SOLUZIONE BUG 403 ANDROID: Rigeneriamo l'elemento DOM dell'input del Logo
       const oldInput = document.getElementById('compLogoFile');
       if (oldInput) {
         const newInput = oldInput.cloneNode(true);
@@ -208,7 +213,16 @@ export const CompetizioniSection = {
         oldInput.parentNode.replaceChild(newInput, oldInput);
       }
 
+      // 🟢 SOLUZIONE BUG 403 ANDROID: Rigeneriamo l'elemento DOM dell'input dello Sfondo
+      const oldBgInput = document.getElementById('compBgFile');
+      if (oldBgInput) {
+        const newBgInput = oldBgInput.cloneNode(true);
+        newBgInput.value = '';
+        oldBgInput.parentNode.replaceChild(newBgInput, oldBgInput);
+      }
+
       CompetizioniSection.currentLogoUrl = (logo === 'undefined' || !logo) ? '' : logo;
+      CompetizioniSection.currentBgImageUrl = (bgImage === 'undefined' || !bgImage) ? '' : bgImage; // 🟢 Salva lo sfondo corrente
 
       const selectedIds = teamsString ? teamsString.split(',').map(x => String(x.trim())) : [];
       const allTeams = window.TEAMS || []; 
@@ -237,7 +251,7 @@ export const CompetizioniSection = {
 
       if (document.getElementById('compName')) document.getElementById('compName').value = '';
       
-      // SOLUZIONE BUG 403 ANDROID: Rigeneriamo l'input anche in fase di reset
+      // SOLUZIONE BUG 403 ANDROID: Rigeneriamo gli input file nel reset
       const oldInput = document.getElementById('compLogoFile');
       if (oldInput) {
         const newInput = oldInput.cloneNode(true);
@@ -245,11 +259,19 @@ export const CompetizioniSection = {
         oldInput.parentNode.replaceChild(newInput, oldInput);
       }
 
+      const oldBgInput = document.getElementById('compBgFile');
+      if (oldBgInput) {
+        const newBgInput = oldBgInput.cloneNode(true);
+        newBgInput.value = '';
+        oldBgInput.parentNode.replaceChild(newBgInput, oldBgInput);
+      }
+
       if (document.getElementById('compType')) document.getElementById('compType').value = 'campionato';
       if (document.getElementById('compGironi')) document.getElementById('compGironi').value = '1';
       if (document.getElementById('compQualificati')) document.getElementById('compQualificati').value = '2';
       
       CompetizioniSection.currentLogoUrl = '';
+      CompetizioniSection.currentBgImageUrl = ''; // 🟢 Resetta la memoria dello sfondo
 
       const allTeams = window.TEAMS || [];
       CompetizioniSection.populateTeamsList(allTeams, []);
@@ -269,6 +291,7 @@ export const CompetizioniSection = {
       const idInput = document.getElementById('compId');
       const nameInput = document.getElementById('compName');
       const fileInput = document.getElementById('compLogoFile');
+      const bgFileInput = document.getElementById('compBgFile'); // 🟢 Riferimento all'input dello sfondo
       if (!idInput || !nameInput) return;
 
       const isEditingMode = idInput.readOnly;
@@ -284,39 +307,52 @@ export const CompetizioniSection = {
 
       const btnSubmit = document.getElementById('btn-submit-comp');
       const originalBtnText = btnSubmit.innerText;
-      btnSubmit.innerText = "⌛ Caricamento Immagine...";
+      btnSubmit.innerText = "⌛ Caricamento Immagini...";
       btnSubmit.disabled = true;
 
       try {
         let finalLogoUrl = isEditingMode ? CompetizioniSection.currentLogoUrl : '';
+        let finalBgImageUrl = isEditingMode ? CompetizioniSection.currentBgImageUrl : ''; // 🟢 Sfondo finale di partenza
 
-        // BLOCCO NORMALIZZAZIONE FILE CONTRO IL 403 DI IMGBB SU ANDROID
+        // BLOCCO NORMALIZZAZIONE LOGO CONTRO IL 403 DI IMGBB SU ANDROID
         if (fileInput && fileInput.files && fileInput.files.length > 0) {
           const originalFile = fileInput.files[0];
-          
           if (originalFile && originalFile.size > 0) {
-            // Estraiamo l'estensione dal tipo MIME (es. image/png -> png)
             const mimeType = originalFile.type || 'image/jpeg';
             const extension = mimeType.split('/')[1] || 'jpg';
-            
-            // Ricostruiamo l'oggetto File per ripulire i finti percorsi sandbox di Android
             const cleanFile = new File(
               [originalFile], 
               `logo-${id || 'comp'}.${extension}`, 
               { type: mimeType }
             );
-
-            console.log("Inviando file normalizzato a ImgBB:", cleanFile.name, cleanFile.type);
+            console.log("Inviando logo normalizzato a ImgBB:", cleanFile.name);
             finalLogoUrl = await uploadImageToImgBB(cleanFile);
           }
         }
 
-        // Configurazione del payload con voce 'logo' definita esplicitamente
+        // 🟢 BLOCCO NORMALIZZAZIONE SFONDO CONTRO IL 403 DI IMGBB SU ANDROID
+        if (bgFileInput && bgFileInput.files && bgFileInput.files.length > 0) {
+          const originalBgFile = bgFileInput.files[0];
+          if (originalBgFile && originalBgFile.size > 0) {
+            const mimeTypeBg = originalBgFile.type || 'image/jpeg';
+            const extensionBg = mimeTypeBg.split('/')[1] || 'jpg';
+            const cleanBgFile = new File(
+              [originalBgFile], 
+              `bg-${id || 'comp'}.${extensionBg}`, 
+              { type: mimeTypeBg }
+            );
+            console.log("Inviando sfondo normalizzato a ImgBB:", cleanBgFile.name);
+            finalBgImageUrl = await uploadImageToImgBB(cleanBgFile);
+          }
+        }
+
+        // Configurazione del payload completo
         let compPayload = { 
           id: id, 
           name: name, 
           type: type,
           logo: finalLogoUrl || "", 
+          backgroundImage: finalBgImageUrl || "", // 🟢 Inserito nel tracciamento dell'oggetto
           teams: teams
         };
 
