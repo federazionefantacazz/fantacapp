@@ -253,7 +253,7 @@ export const CalendarioSection = {
 
 
     const assocContainer = document.getElementById('assocGwContainer');
-    const comp = this._currentCompetitions.find(c => c.id === compId);
+    comp = this._currentCompetitions.find(c => c.id === compId);
     
     if (comp && comp.matches && assocContainer) {
       const gwDisponibili = Object.keys(comp.matches); // gw1, gw2, gw_playoff_1...
