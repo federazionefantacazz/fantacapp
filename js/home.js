@@ -67,31 +67,36 @@ export const HomePage = {
     const lv = document.getElementById('homeLastVotes');
     const teamLogoContainer = document.getElementById('userTeamLogo');
 
-    // 🟢 1. GESTIONE FALLBACK PRIMO AVVIO & LOGO NAVBAR GLOBALE (IN ALTO A SINISTRA)
-    const competitionsList = STATE.competitions || [];
+    // 🟢 CORREZIONE COMPATIBILITÀ DIZIONARIO/ARRAY FIREBASE
+    let competitionsList = [];
+    if (STATE.competitions) {
+      competitionsList = Array.isArray(STATE.competitions) 
+        ? STATE.competitions 
+        : Object.values(STATE.competitions);
+    }
     
-    // Se non c'è una competizione attiva impostata, forziamo la prima disponibile nel database
+    // Se non c'è una competizione attiva impostata nello stato globale, forziamo la prima disponibile
     if (!STATE.activeCompetitionId && competitionsList.length > 0) {
       STATE.activeCompetitionId = competitionsList[0].id;
     }
 
-    // Cerchiamo l'elemento img del logo verde della navbar globale nel DOM
+    // Cerchiamo l'elemento img della navbar globale
     const globalNavbarLogo = document.getElementById('app-global-navbar-logo');
-    const comp = competitionsList.find(c => c.id === STATE.activeCompetitionId);
+    const comp = competitionsList.find(c => String(c.id) === String(STATE.activeCompetitionId));
 
     if (globalNavbarLogo) {
       if (comp && comp.logo && comp.logo.trim() !== "") {
-        // Se la competizione ha un logo, sostituisce quello verde
+        // Se la competizione attiva ha un logo, sostituisce l'icona verde iniziale
         globalNavbarLogo.src = comp.logo;
         globalNavbarLogo.style.objectFit = "contain";
         globalNavbarLogo.style.borderRadius = "4px";
       } else {
-        // Fallback: Rimette il logo verde iniziale (o una stringa/immagine di default)
+        // Fallback se il logo nel DB è vuoto: mostra lo scudetto di default
         globalNavbarLogo.src = "assets/img/logo-verde-default.png"; 
       }
     }
 
-    // 🟢 2. AGGIORNAMENTO BANNER GIORNATA REALE
+    // 🟢 AGGIORNAMENTO BANNER GIORNATA REALE
     if (banner) {
       const realGw = STATE.giornataRealeCorrente || STATE.currentRealGW || STATE.status?.currentGW || 0;
       if (realGw === 0) {
@@ -113,7 +118,7 @@ export const HomePage = {
               <span style="font-size: 1.2rem; line-height: 1;">⚽</span>
               <div>
                 <div style="font-size: .85rem; font-weight: 600; color: #fff;">Campionato Live — Serie A</div>
-                <div style="font-size: .75rem; color: var(--text2); margin-top: 1px;">Siamo currently alla <strong style="color: var(--accent);">${realGw}ª Giornata</strong> reale.</div>
+                <div style="font-size: .75rem; color: var(--text2); margin-top: 1px;">Siamo attualmente alla <strong style="color: var(--accent);">${realGw}ª Giornata</strong> reale.</div>
               </div>
             </div>
           </div>
@@ -121,9 +126,14 @@ export const HomePage = {
       }
     }
 
-    // 🟢 3. DATI SQUADRA UTENTE LOGGATO
+    // 🟢 DATI SQUADRA UTENTE LOGGATO
     if (!STATE.user) return;
-    const myTeam = (STATE.teams || []).find(t => t.id === STATE.user.id);
+    
+    let teamsList = [];
+    if (STATE.teams) {
+      teamsList = Array.isArray(STATE.teams) ? STATE.teams : Object.values(STATE.teams);
+    }
+    const myTeam = teamsList.find(t => t.id === STATE.user.id);
 
     if (myTeam) {
       if (tn) tn.textContent = myTeam.name || "Senza Nome";
@@ -144,7 +154,7 @@ export const HomePage = {
       if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:44px; height:44px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.3rem; color:var(--text3)">👁️</div>`;
     }
 
-    // 🟢 4. INFO COMPETIZIONE ATTIVA E PROSSIMO MATCH
+    // 🟢 INFO COMPETIZIONE ATTIVA E PROSSIMO MATCH
     if (comp) {
       if (tl) tl.textContent = comp.name || comp.id.toUpperCase();
       if (tg) tg.textContent = comp.status ? `GW ${comp.status.currentGW || 1}` : "GW 1";
@@ -155,8 +165,8 @@ export const HomePage = {
       const myMatch = gwMatches.find(m => m.homeId === STATE.user.id || m.awayId === STATE.user.id);
 
       if (myMatch) {
-        const tHome = (STATE.teams || []).find(t => t.id === myMatch.homeId) || { name: myMatch.homeId, emoji: '🏠' };
-        const tAway = (STATE.teams || []).find(t => t.id === myMatch.awayId) || { name: myMatch.awayId, emoji: '🚀' };
+        const tHome = teamsList.find(t => t.id === myMatch.homeId) || { name: myMatch.homeId, emoji: '🏠' };
+        const tAway = teamsList.find(t => t.id === myMatch.awayId) || { name: myMatch.awayId, emoji: '🚀' };
         
         if (nm) {
           nm.innerHTML = `
@@ -182,12 +192,16 @@ export const HomePage = {
       if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Seleziona una competizione dal menu in alto.</div>`;
     }
 
-    // 🟢 5. ULTIMI VOTI RILASCIATI
+    // 🟢 ULTIMI VOTI RILASCIATI
     const vArr = Object.entries(STATE.votes || {});
     if (vArr.length > 0) {
       if (lv) {
+        let playersList = [];
+        if (STATE.players) {
+          playersList = Array.isArray(STATE.players) ? STATE.players : Object.values(STATE.players);
+        }
         lv.innerHTML = vArr.map(([pid, val]) => {
-          const p = (STATE.players || []).find(x => x.id === pid) || { name: pid, role: 'C', club: '' };
+          const p = playersList.find(x => x.id === pid) || { name: pid, role: 'C', club: '' };
           let customStyle = 'padding: .2rem .5rem; border-radius: 6px; font-weight: bold; font-family: "DM Mono", monospace; ';
           if (val >= 7) customStyle += 'background: rgba(80, 227, 194, 0.15); color: var(--accent);';
           else if (val < 5.5) customStyle += 'background: rgba(255, 107, 107, 0.15); color: var(--accent3);';
