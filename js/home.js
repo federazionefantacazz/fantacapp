@@ -85,8 +85,17 @@ export const HomePage = {
 
     const comp = competitionsList.find(c => String(c.id) === String(STATE.activeCompetitionId));
 
-    
-  
+    // 🟢 GESTIONE DELLO SFONDO DINAMICO DEDICATO ALLA HOME PAGE
+    if (comp && comp.backgroundImage && comp.backgroundImage.trim() !== "") {
+      document.body.style.backgroundImage = `linear-gradient(rgba(26, 30, 36, 0.88), rgba(26, 30, 36, 0.88)), url('${comp.backgroundImage}')`;
+      document.body.style.backgroundSize = "cover";
+      document.body.style.backgroundPosition = "center";
+      document.body.style.backgroundAttachment = "fixed";
+      document.body.style.backgroundRepeat = "no-repeat";
+    } else {
+      document.body.style.backgroundImage = "none";
+      document.body.style.backgroundColor = "var(--bg)";
+    }
 
     // 🟢 AGGIORNAMENTO BANNER GIORNATA REALE
     if (banner) {
