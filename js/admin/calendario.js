@@ -455,24 +455,17 @@ window.sorteggiaGironiCompetizione = async function() {
 window.creaTabelloneFaseFinale = async function() {
   const targetCompId = window.CURRENT_COMPETITION;
   const comp = CalendarioSection._currentCompetitions.find(c => c.id === targetCompId);
+  
   if (!comp) return window.toast?.("Seleziona una competizione valida!", "err");
-
   if (comp.type === 'campionato') {
-    return window.toast?.("Impossibile creare un tabellone per una competizione di tipo Campionato standard!", "err");
+    return window.toast?.("Impossibile creare un tabellone per un Campionato standard!", "err");
   }
 
-  const playoffMode = document.getElementById('playoffRotationType').value; // 'solo-andata' o 'andata-ritorno'
-  
-  let squadreTabellone = [];
+  const playoffMode = document.getElementById('playoffRotationType').value;
   let strutturaAlberofasi = {}; 
   let matchesFaseFinaleNode = {}; 
-  
-  // Estrazione squadre partecipanti totali
-  let totalTeams = [];
-  if (comp.teams) {
-    totalTeams = Array.isArray(comp.teams) ? comp.teams : Object.values(comp.teams);
-  }
-  totalTeams = totalTeams.filter(id => id !== null && id !== undefined).map(id => String(id));
+  let totalTeams = Array.isArray(comp.teams) ? comp.teams : Object.values(comp.teams || {});
+  totalTeams = totalTeams.filter(id => id).map(String);
 
   // ─────────────────────────────────────────────────────────────────────────
   // CASO 1: COMPETIZIONE DIRETTA
@@ -677,54 +670,57 @@ window.creaTabelloneFaseFinale = async function() {
   // TRASFORMAZIONE DELL'ALBERO IN GIORNATE DI CALENDARIO REALI (Firebase `matches`)
   // ─────────────────────────────────────────────────────────────────────────
   let globalGwCounter = 1;
-  const chiaviFasiOrdinate = Object.keys(strutturaAlberofasi).sort();
+  const chiaviFasi = Object.keys(strutturaAlberofasi).sort();
 
-  chiaviFasiOrdinate.forEach(chiaveFase => {
+  chiaviFasi.forEach(chiaveFase => {
     const fase = strutturaAlberofasi[chiaveFase];
     const isFinaleSecca = (fase.nomeFase.toLowerCase().includes("finale") && !fase.nomeFase.toLowerCase().includes("quarti") && !fase.nomeFase.toLowerCase().includes("semi"));
 
-    // TURNO ANDATA (o Gara Secca)
+    // 1. Gara di Andata
     let matchGiornataAndata = {};
-    fase.matchList.forEach((m, idx) => {
-      // Se le squadre sono già definite e non fittizie, creiamo il match pronto per essere giocato
-      const isFittizia = m.homeId.startsWith("VINCENTE_") || m.awayId.startsWith("VINCENTE_") || m.homeId.includes("Classificato");
-      
+    fase.matchList.forEach((m) => {
       matchGiornataAndata[`match_a_${m.id}`] = {
-          id: `match_a_${m.id}`,
-          phaseKey: chiaveFase,
-          phaseName: fase.nomeFase,
-          couples: { // <--- AGGIUNTO
-            m1: {
-              id: m.id,
-              homeId: isFittizia ? m.homeId : m.homeId,
-              awayId: isFittizia ? m.awayId : m.awayId,
-              homeScore: null,
-              awayScore: null,
-              finished: false
-            }
-          },
-          lineups: {}, // <--- AGGIUNTO
-          type: isFinaleSecca ? "FINALE" : "ELIMINAZIONE_DIRETTA",
-          label: `${fase.nomeFase} - Andata`
-        };
-    
+        id: `match_a_${m.id}`,
+        phaseKey: chiaveFase,
+        phaseName: fase.nomeFase,
+        type: isFinaleSecca ? "FINALE" : "ELIMINAZIONE_DIRETTA",
+        couples: {
+          m1: { 
+            id: m.id, 
+            homeId: m.homeId, 
+            awayId: m.awayId, 
+            homeScore: null, 
+            awayScore: null, 
+            finished: false 
+          }
+        },
+        lineups: {},
+        label: `${fase.nomeFase} - Andata`
+      };
+    });
     matchesFaseFinaleNode[`gw_playoff_${globalGwCounter}`] = matchGiornataAndata;
     globalGwCounter++;
 
-    // TURNO RITORNO (Se richiesto e se NON è la finalissima secca)
+    // 2. Gara di Ritorno (se necessaria)
     if (playoffMode === 'andata-ritorno' && !isFinaleSecca) {
       let matchGiornataRitorno = {};
-      fase.matchList.forEach((m, idx) => {
+      fase.matchList.forEach((m) => {
         matchGiornataRitorno[`match_r_${m.id}`] = {
           id: `match_r_${m.id}`,
           phaseKey: chiaveFase,
           phaseName: fase.nomeFase,
           type: "ELIMINAZIONE_DIRETTA_RITORNO",
-          homeId: m.awayId, // Campi invertiti per il ritorno
-          awayId: m.homeId,
-          homeScore: null,
-          awayScore: null,
-          finished: false,
+          couples: {
+            m1: { 
+              id: m.id, 
+              homeId: m.awayId, 
+              awayId: m.homeId, 
+              homeScore: null, 
+              awayScore: null, 
+              finished: false 
+            }
+          },
+          lineups: {},
           label: `${fase.nomeFase} - Ritorno`
         };
       });
@@ -733,10 +729,11 @@ window.creaTabelloneFaseFinale = async function() {
     }
   });
 
+  // --- SALVATAGGIO SU FIREBASE ---
   try {
     const database = CalendarioSection.db || getDatabase();
     
-    // Salviamo la struttura dell'albero per la visualizzazione grafica
+    // Salvataggio 1: Struttura Albero
     await update(ref(database, `competitions/${targetCompId}`), {
       tabelloneStructure: {
         tipoGenerato: comp.type,
@@ -745,17 +742,15 @@ window.creaTabelloneFaseFinale = async function() {
       }
     });
 
-    // Iniettiamo le giornate del tabellone all'interno del nodo dei match di competizione
-    // Nota: Se vuoi resettare la regular season scrivi con 'set', se vuoi appenderle usa 'update'
+    // Salvataggio 2: Giornate (Matches)
     await update(ref(database, `competitions/${targetCompId}/matches`), matchesFaseFinaleNode);
     
-    window.toast?.("🏆 Tabellone e Turni ad eliminazione salvati con successo!", "ok");
-    
-    comp.tabelloneStructure = { fasi: strutturaAlberofasi };
+    window.toast?.("🏆 Tabellone salvato con successo!", "ok");
     CalendarioSection.updateBadgeDinamici(targetCompId);
+    
   } catch (err) {
-    console.error(err);
-    window.toast?.("Errore durante la creazione del Tabellone", "err");
+    console.error("Errore salvataggio:", err);
+    window.toast?.("Errore durante il salvataggio", "err");
   }
 };
 
