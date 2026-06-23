@@ -61,6 +61,8 @@ body {
   color: var(--text);
   -webkit-user-select: none;
   user-select: none;
+  /* 🟢 Transizione fluida per il cambio immagine di sfondo */
+  transition: background 0.3s ease-in-out, background-color 0.3s ease-in-out; 
 }
 
 #app {
@@ -358,6 +360,23 @@ function caricaDatiCompetizione(compId) {
     gestisciSwitchLive(liveAttivo);
   });
 
+  // 🟢 ASCOLTATORE DEDICATO PER LO SFONDO PERSONALIZZATO DELLA COMPETIZIONE
+  onValue(ref(db, `competitions/${compId}/backgroundImage`), snap => {
+    const bgUrl = snap.val();
+    if (bgUrl && bgUrl.trim() !== "") {
+      // Imposta l'immagine con una copertura fluida e una patina scura per la leggibilità del testo
+      document.body.style.backgroundImage = `linear-gradient(rgba(26, 30, 36, 0.88), rgba(26, 30, 36, 0.88)), url('${bgUrl}')`;
+      document.body.style.backgroundSize = "cover";
+      document.body.style.backgroundPosition = "center";
+      document.body.style.backgroundAttachment = "fixed";
+      document.body.style.backgroundRepeat = "no-repeat";
+    } else {
+      // Se non c'è l'immagine ripristina il colore a tinta unita di default
+      document.body.style.backgroundImage = "none";
+      document.body.style.backgroundColor = "var(--bg)";
+    }
+  });
+
   onValue(ref(db, `competitions/${compId}/theme`), snap => {
     const theme = snap.val();
     const styleTag = document.getElementById('dynamic-theme');
@@ -584,7 +603,7 @@ function bootApp() {
       ${HomePage.renderHTML()}
       ${CalendarioPage.renderHTML()}
       ${ClassificaPage.renderHTML()}
-      ${FormazionePage.renderHTML()}
+      ${FormformationPage.renderHTML()}
       ${MercatoPage.renderHTML()}
       ${TeamsPage.renderHTML()}
       <div id="page-live" class="page"><div id="live-match-container"></div></div>
@@ -603,7 +622,7 @@ function bootApp() {
 function refreshUI() {
   if (!window.STATE.booted || !window.STATE.user) return;
 
-  // 🟢 AGGIORNAMENTO DINAMICO LOGO NAVBAR SUPERIORE CORRETTO CON STRING CASTING
+  // AGGIORNAMENTO DINAMICO LOGO NAVBAR SUPERIORE CORRETTO CON STRING CASTING
   const globalNavbarLogoContainer = document.getElementById('app-global-navbar-logo-container');
   if (globalNavbarLogoContainer) {
     const currentCompId = window.STATE.currentCompetition || window.STATE.activeCompetitionId;
