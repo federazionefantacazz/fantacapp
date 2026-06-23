@@ -67,6 +67,9 @@ export const HomePage = {
     const lv = document.getElementById('homeLastVotes');
     const teamLogoContainer = document.getElementById('userTeamLogo');
 
+    // Recuperiamo il contenitore globale del logo nella navbar in alto
+    const globalNavbarLogoContainer = document.getElementById('app-global-navbar-logo-container');
+
     // 🟢 CORREZIONE COMPATIBILITÀ DIZIONARIO/ARRAY FIREBASE
     let competitionsList = [];
     if (STATE.competitions) {
@@ -80,19 +83,20 @@ export const HomePage = {
       STATE.activeCompetitionId = competitionsList[0].id;
     }
 
-    // Cerchiamo l'elemento img della navbar globale
-    const globalNavbarLogo = document.getElementById('app-global-navbar-logo');
     const comp = competitionsList.find(c => String(c.id) === String(STATE.activeCompetitionId));
 
-    if (globalNavbarLogo) {
+    // 🟢 NUOVO METODO OMOGENEO PER IL LOGO DELLA COMPETIZIONE (UGUALE A QUELLO DELLA SQUADRA)
+    if (globalNavbarLogoContainer) {
       if (comp && comp.logo && comp.logo.trim() !== "") {
-        // Se la competizione attiva ha un logo, sostituisce l'icona verde iniziale
-        globalNavbarLogo.src = comp.logo;
-        globalNavbarLogo.style.objectFit = "contain";
-        globalNavbarLogo.style.borderRadius = "4px";
+        // Se la competizione ha un logo valido, iniettiamo il tag img (mantenendo le proporzioni della navbar, es: 32px)
+        globalNavbarLogoContainer.innerHTML = `
+          <img src="${comp.logo}" style="width:32px; height:32px; object-fit:contain; border-radius:4px; background:var(--bg3); padding:2px;" onerror="this.src=''; this.innerHTML='🏆';" alt="Logo Comp">
+        `;
       } else {
-        // Fallback se il logo nel DB è vuoto: mostra lo scudetto di default
-        globalNavbarLogo.src = "assets/img/logo-verde-default.png"; 
+        // Fallback identico: se non c'è il logo, creiamo il div con l'emoji o lo scudetto standard
+        globalNavbarLogoContainer.innerHTML = `
+          <div style="width:32px; height:32px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:1rem; color:var(--text3)">🏆</div>
+        `;
       }
     }
 
