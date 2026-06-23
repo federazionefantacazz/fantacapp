@@ -1,12 +1,13 @@
 export const HomePage = {
-  // 1. Metodo che genera lo scheletro HTML (senza la select competizione)
+  // 1. Metodo che genera lo scheletro HTML della pagina interna
   renderHTML(STATE = {}) {
     return `
       <div class="page" id="page-home" style="padding-top: 1.5rem;">
         <div class="app-header" style="margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; position: relative;">
-          <div style="width: 32px;"></div> <div class="logo" style="font-size: 2.4rem; letter-spacing: 2px;">FANTACAZZ</div>
+          <div style="width: 32px;"></div> 
+          <div class="logo" style="font-size: 2.4rem; letter-spacing: 2px;">FANTACAZZ</div>
           <button onclick="window.doFirebaseLogout()" style="background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; -webkit-tap-highlight-color: transparent;" title="Disconnetti">
-            <svg viewBox="0 0 24 24" width="22" height="22" stroke="var(--accent3)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round\">
+            <svg viewBox="0 0 24 24" width="22" height="22" stroke="var(--accent3)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
               <polyline points="16 17 21 12 16 7"></polyline>
               <line x1="21" y1="12" x2="9" y2="12"></line>
@@ -66,8 +67,31 @@ export const HomePage = {
     const lv = document.getElementById('homeLastVotes');
     const teamLogoContainer = document.getElementById('userTeamLogo');
 
-    // 🟢 AGGIORNAMENTO BANNER GIORNATA REALE (CORRETTO)
-    // Usiamo come priorità 'giornataRealeCorrente' valorizzata a 8, con fallback alternativi
+    // 🟢 1. GESTIONE FALLBACK PRIMO AVVIO & LOGO NAVBAR GLOBALE (IN ALTO A SINISTRA)
+    const competitionsList = STATE.competitions || [];
+    
+    // Se non c'è una competizione attiva impostata, forziamo la prima disponibile nel database
+    if (!STATE.activeCompetitionId && competitionsList.length > 0) {
+      STATE.activeCompetitionId = competitionsList[0].id;
+    }
+
+    // Cerchiamo l'elemento img del logo verde della navbar globale nel DOM
+    const globalNavbarLogo = document.getElementById('app-global-navbar-logo');
+    const comp = competitionsList.find(c => c.id === STATE.activeCompetitionId);
+
+    if (globalNavbarLogo) {
+      if (comp && comp.logo && comp.logo.trim() !== "") {
+        // Se la competizione ha un logo, sostituisce quello verde
+        globalNavbarLogo.src = comp.logo;
+        globalNavbarLogo.style.objectFit = "contain";
+        globalNavbarLogo.style.borderRadius = "4px";
+      } else {
+        // Fallback: Rimette il logo verde iniziale (o una stringa/immagine di default)
+        globalNavbarLogo.src = "assets/img/logo-verde-default.png"; 
+      }
+    }
+
+    // 🟢 2. AGGIORNAMENTO BANNER GIORNATA REALE
     if (banner) {
       const realGw = STATE.giornataRealeCorrente || STATE.currentRealGW || STATE.status?.currentGW || 0;
       if (realGw === 0) {
@@ -89,7 +113,7 @@ export const HomePage = {
               <span style="font-size: 1.2rem; line-height: 1;">⚽</span>
               <div>
                 <div style="font-size: .85rem; font-weight: 600; color: #fff;">Campionato Live — Serie A</div>
-                <div style="font-size: .75rem; color: var(--text2); margin-top: 1px;">Siamo attualmente alla <strong style="color: var(--accent);">${realGw}ª Giornata</strong> reale.</div>
+                <div style="font-size: .75rem; color: var(--text2); margin-top: 1px;">Siamo currently alla <strong style="color: var(--accent);">${realGw}ª Giornata</strong> reale.</div>
               </div>
             </div>
           </div>
@@ -97,6 +121,7 @@ export const HomePage = {
       }
     }
 
+    // 🟢 3. DATI SQUADRA UTENTE LOGGATO
     if (!STATE.user) return;
     const myTeam = (STATE.teams || []).find(t => t.id === STATE.user.id);
 
@@ -119,7 +144,7 @@ export const HomePage = {
       if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:44px; height:44px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.3rem; color:var(--text3)">👁️</div>`;
     }
 
-    const comp = (STATE.competitions || []).find(c => c.id === STATE.activeCompetitionId);
+    // 🟢 4. INFO COMPETIZIONE ATTIVA E PROSSIMO MATCH
     if (comp) {
       if (tl) tl.textContent = comp.name || comp.id.toUpperCase();
       if (tg) tg.textContent = comp.status ? `GW ${comp.status.currentGW || 1}` : "GW 1";
@@ -157,6 +182,7 @@ export const HomePage = {
       if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Seleziona una competizione dal menu in alto.</div>`;
     }
 
+    // 🟢 5. ULTIMI VOTI RILASCIATI
     const vArr = Object.entries(STATE.votes || {});
     if (vArr.length > 0) {
       if (lv) {
