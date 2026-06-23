@@ -768,9 +768,10 @@ window.generateRandomCalendar = async function() {
 
   const numGironiPrevisti = parseInt(comp.gironi) || 1;
 
+  // --- LOGICA MISTO ---
   if ((comp.type === 'misto' || comp.type === 'misto-speciale') && numGironiPrevisti > 1) {
     if (!comp.strutturaGironi) {
-      return window.toast?.("Devi prima effettuare il sorteggio o comporre i gruppi manualmente!", "err");
+      return window.toast?.("Devi prima effettuare il sorteggio!", "err");
     }
 
     const gironiIds = Object.keys(comp.strutturaGironi);
@@ -783,18 +784,12 @@ window.generateRandomCalendar = async function() {
       
       const n = lista.length;
       const turniUnici = n - 1; 
-      let giri = 1;
-      if (rotationType === 'andata-ritorno') giri = 2;
-      if (rotationType === 'tre-giri') giri = 3;
+      let giri = rotationType === 'andata-ritorno' ? 2 : (rotationType === 'tre-giri' ? 3 : 1);
       
       const giornateTotaliGirone = turniUnici * giri;
       if (giornateTotaliGirone > maxGiornateFase) maxGiornateFase = giornateTotaliGirone;
 
-      agendeGironi[gId] = {
-        squadre: lista,
-        turniUnici: turniUnici,
-        giornateTotali: giornateTotaliGirone
-      };
+      agendeGironi[gId] = { squadre: lista, turniUnici: turniUnici, giornateTotali: giornateTotaliGirone };
     });
 
     for (let g = 1; g <= maxGiornateFase; g++) {
@@ -807,14 +802,11 @@ window.generateRandomCalendar = async function() {
 
         const lista = agenda.squadre;
         const numSquadre = lista.length;
-        const turniUnici = agenda.turniUnici;
-        
-        const gironeCorrente = Math.floor((g - 1) / turniUnici);
-        const turnoNelGirone = (g - 1) % turniUnici;
+        const gironeCorrente = Math.floor((g - 1) / agenda.turniUnici);
+        const turnoNelGirone = (g - 1) % agenda.turniUnici;
         const inverti = (gironeCorrente === 1 || gironeCorrente === 3); 
 
-        const matchPerGiornata = numSquadre / 2;
-        for (let m = 0; m < matchPerGiornata; m++) {
+        for (let m = 0; m < (numSquadre / 2); m++) {
           let casaIdx = (turnoNelGirone + m) % (numSquadre - 1);
           let trasfIdx = m === 0 ? numSquadre - 1 : (numSquadre - 1 - m + turnoNelGirone) % (numSquadre - 1);
           
@@ -822,92 +814,62 @@ window.generateRandomCalendar = async function() {
           let idTrasf = lista[trasfIdx];
 
           if (idCasa === "RIPOSO" || idTrasf === "RIPOSO") continue;
-          if (inverti) { const tmp = idCasa; idCasa = idTrasf; idTrasf = tmp; }
+          if (inverti) { let tmp = idCasa; idCasa = idTrasf; idTrasf = tmp; }
 
-          // Sostituisci il blocco dentro il ciclo for della Regular Season con questo:
           matchGiornata[`m${matchCounter}`] = {
             id: `m${matchCounter}`,
-            couples: { // <--- AGGIUNTO
-              m1: { // Assumendo un match per "couples"
-                id: `m${matchCounter}`,
-                homeId: idCasa,
-                awayId: idTrasf,
-                homeScore: null,
-                awayScore: null,
-                finished: false
-              }
-            },
-            lineups: {}, //
-            girone: gId // Se applicabile
+            couples: { m1: { id: `m${matchCounter}`, homeId: idCasa, awayId: idTrasf, homeScore: null, awayScore: null, finished: false } },
+            lineups: {},
+            girone: gId
           };
-
-      if (Object.keys(matchGiornata).length > 0) {
-        calendarioCompleto[`gw${g}`] = matchGiornata;
-      }
+          matchCounter++;
+        }
+      });
+      if (Object.keys(matchGiornata).length > 0) calendarioCompleto[`gw${g}`] = matchGiornata;
     }
-
-  } else {
-    let squadreIscritte = [];
-    if (comp.teams) {
-      squadreIscritte = Array.isArray(comp.teams) ? comp.teams : Object.values(comp.teams);
-    }
-    squadreIscritte = squadreIscritte.filter(id => id !== null && id !== undefined).map(id => String(id));
-
-    if (squadreIscritte.length < 2) {
-      return window.toast?.("Servono almeno 2 squadre associate per generare il calendario!", "err");
-    }
+  } else { 
+    // --- LOGICA STANDARD ---
+    let squadreIscritte = (comp.teams ? (Array.isArray(comp.teams) ? comp.teams : Object.values(comp.teams)) : []).filter(id => id).map(String);
+    if (squadreIscritte.length < 2) return window.toast?.("Servono almeno 2 squadre!", "err");
 
     let lista = [...squadreIscritte].sort(() => Math.random() - 0.5);
     if (lista.length % 2 !== 0) lista.push("RIPOSO");
 
     const numSquadre = lista.length;
-    const matchPerGiornata = numSquadre / 2;
     const turniUnici = numSquadre - 1;
+    let giri = rotationType === 'andata-ritorno' ? 2 : (rotationType === 'tre-giri' ? 3 : 1);
     
-    let giri = 1;
-    if (rotationType === 'andata-ritorno') giri = 2;
-    if (rotationType === 'tre-giri') giri = 3;
-    const totalGwsRequested = turniUnici * giri;
-
-    for (let g = 1; g <= totalGwsRequested; g++) {
+    for (let g = 1; g <= (turniUnici * giri); g++) {
+      let matchGiornata = {};
+      let counter = 1;
       const gironeCorrente = Math.floor((g - 1) / turniUnici);
       const turnoNelGirone = (g - 1) % turniUnici;
       const inverti = (gironeCorrente === 1 || gironeCorrente === 3);
-      
-      let matchGiornata = {};
-      let counter = 1;
 
-      for (let m = 0; m < matchPerGiornata; m++) {
-        let casaIdx = (turnoNelGirone + m) % (numSquadre - 1);
-        let trasfIdx = m === 0 ? numSquadre - 1 : (numSquadre - 1 - m + turnoNelGirone) % (numSquadre - 1);
+      for (let m = 0; m < (numSquadre / 2); m++) {
+        let casaIdx = (turnoNelGirone + m) % turniUnici;
+        let trasfIdx = m === 0 ? turniUnici : (turniUnici - m + turnoNelGirone) % turniUnici;
         
         let idCasa = lista[casaIdx];
         let idTrasf = lista[trasfIdx];
 
-        if (idCasa === "RIPOSO" || idTrasf === "RIPOSO") continue;
-        if (inverti) { const tmp = idCasa; idCasa = idTrasf; idTrasf = tmp; }
-
-        matchGiornata[`m${counter}`] = { 
-          id: `m${counter}`, 
-          homeId: idCasa, 
-          awayId: idTrasf, 
-          homeScore: null, 
-          awayScore: null, 
-          finished: false 
-        };
-        counter++;
+        if (idCasa !== "RIPOSO" && idTrasf !== "RIPOSO") {
+          if (inverti) { let tmp = idCasa; idCasa = idTrasf; idTrasf = tmp; }
+          matchGiornata[`m${counter}`] = { id: `m${counter}`, homeId: idCasa, awayId: idTrasf, homeScore: null, awayScore: null, finished: false };
+          counter++;
+        }
       }
       calendarioCompleto[`gw${g}`] = matchGiornata;
     }
   }
 
+  // --- SALVATAGGIO ---
   try {
     const database = CalendarioSection.db || getDatabase();
     await set(ref(database, `competitions/${targetCompId}/matches`), calendarioCompleto);
     await set(ref(database, `competitions/${targetCompId}/status`), { currentGW: 1 });
-    window.toast?.(`🎯 Calendario regular season salvato con successo!`, "ok");
+    window.toast?.("🎯 Calendario salvato!", "ok");
   } catch (err) {
-    console.error(err);
-    window.toast?.("Errore durante il salvataggio su Firebase", "err");
+    window.toast?.("Errore salvataggio Firebase", "err");
   }
 };
