@@ -638,18 +638,23 @@ window.creaTabelloneFaseFinale = async function() {
       const isFittizia = m.homeId.startsWith("VINCENTE_") || m.awayId.startsWith("VINCENTE_") || m.homeId.includes("Classificato");
       
       matchGiornataAndata[`match_a_${m.id}`] = {
-        id: `match_a_${m.id}`,
-        phaseKey: chiaveFase,
-        phaseName: fase.nomeFase,
-        type: isFinaleSecca ? "FINALE" : "ELIMINAZIONE_DIRETTA",
-        homeId: isFittizia ? m.homeId : m.homeId,
-        awayId: isFittizia ? m.awayId : m.awayId,
-        homeScore: null,
-        awayScore: null,
-        finished: false,
-        label: `${fase.nomeFase} - Andata`
-      };
-    });
+          id: `match_a_${m.id}`,
+          phaseKey: chiaveFase,
+          phaseName: fase.nomeFase,
+          couples: { // <--- AGGIUNTO
+            m1: {
+              id: m.id,
+              homeId: isFittizia ? m.homeId : m.homeId,
+              awayId: isFittizia ? m.awayId : m.awayId,
+              homeScore: null,
+              awayScore: null,
+              finished: false
+            }
+          },
+          lineups: {}, // <--- AGGIUNTO
+          type: isFinaleSecca ? "FINALE" : "ELIMINAZIONE_DIRETTA",
+          label: `${fase.nomeFase} - Andata`
+        };
     
     matchesFaseFinaleNode[`gw_playoff_${globalGwCounter}`] = matchGiornataAndata;
     globalGwCounter++;
@@ -772,18 +777,22 @@ window.generateRandomCalendar = async function() {
           if (idCasa === "RIPOSO" || idTrasf === "RIPOSO") continue;
           if (inverti) { const tmp = idCasa; idCasa = idTrasf; idTrasf = tmp; }
 
+          // Sostituisci il blocco dentro il ciclo for della Regular Season con questo:
           matchGiornata[`m${matchCounter}`] = {
             id: `m${matchCounter}`,
-            girone: gId,
-            homeId: idCasa,
-            awayId: idTrasf,
-            homeScore: null,
-            awayScore: null,
-            finished: false
+            couples: { // <--- AGGIUNTO
+              m1: { // Assumendo un match per "couples"
+                id: `m${matchCounter}`,
+                homeId: idCasa,
+                awayId: idTrasf,
+                homeScore: null,
+                awayScore: null,
+                finished: false
+              }
+            },
+            lineups: {}, //
+            girone: gId // Se applicabile
           };
-          matchCounter++;
-        }
-      });
 
       if (Object.keys(matchGiornata).length > 0) {
         calendarioCompleto[`gw${g}`] = matchGiornata;
