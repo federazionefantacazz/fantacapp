@@ -143,7 +143,7 @@ export const FormazionePage = {
     this.buildSlots(STATE);
   },
 
-  buildSlots(STATE, userChangedModulo = false) {
+ buildSlots(STATE, userChangedModulo = false) {
     if (!STATE || !STATE.user || !STATE.players || STATE.players.length === 0) return;
 
     const modSelect = document.getElementById('f-modulo');
@@ -153,45 +153,44 @@ export const FormazionePage = {
     const userId = STATE.user.id;
     const compId = STATE.currentCompetition;
     
-    // TRADUZIONE: Identifichiamo la giornata corretta della competizione partendo dalla giornata reale
+    // 1. Identifichiamo la chiave della giornata (es: gw1)
     const compData = STATE.competitions?.find ? STATE.competitions.find(c => c.id === compId) : null;
     const associazioni = compData ? (compData.associazioniGwReali || {}) : {};
     const entry = Object.entries(associazioni).find(([k, v]) => String(v).trim() === String(gwReale).trim());
     const gwCompetizione = entry ? entry[0] : `gw${gwReale}`;
 
-    // Cerca la formazione salvata usando la corretta giornata della competizione tradotta
+    // 2. NUOVA LOGICA DI LETTURA:
+    // Cerchiamo la formazione nel nuovo percorso: matches -> gw -> lineups -> userId
     let savedLineup = null;
-    if (compData && compData.lineups?.[gwCompetizione]?.[userId]) {
-      savedLineup = compData.lineups[gwCompetizione][userId];
-    } else if (STATE.competitions?.[compId]?.lineups?.[gwCompetizione]?.[userId]) {
-      savedLineup = STATE.competitions[compId].lineups[gwCompetizione][userId];
-    } else if (STATE.lineups?.[gwCompetizione]?.[userId]) {
-      savedLineup = STATE.lineups[gwCompetizione][userId];
+    
+    if (compData && compData.matches?.[gwCompetizione]?.lineups?.[userId]) {
+        savedLineup = compData.matches[gwCompetizione].lineups[userId];
+    } else if (STATE.competitions?.[compId]?.matches?.[gwCompetizione]?.lineups?.[userId]) {
+        savedLineup = STATE.competitions[compId].matches[gwCompetizione].lineups[userId];
     }
 
-    // Se troviamo la formazione e l'utente non ha cambiato modulo a mano, caricalo
+    // Il resto della funzione rimane identico:
     if (savedLineup && savedLineup.modulo && !userChangedModulo) {
-      modSelect.value = savedLineup.modulo;
+        modSelect.value = savedLineup.modulo;
     }
 
     const modulo = modSelect.value;
     const [def, mid, att] = modulo.split('-').map(Number);
     
+    // ... (continua con il resto del codice che non cambia)
     const miaRosa = STATE.players.filter(p => {
-      const pTeamId = String(p.teamId || p.team || '');
-      const uId = String(userId || '');
-      return pTeamId !== '' && pTeamId === uId;
+        const pTeamId = String(p.teamId || p.team || '');
+        const uId = String(userId || '');
+        return pTeamId !== '' && pTeamId === uId;
     });
 
-    // Recuperiamo gli ID dei calciatori salvati
     const savedTitolariIds = savedLineup?.titolari || [];
     const savedPanchinaIds = savedLineup?.panchina || [];
 
-    // Rigenera i campi visivi
     this.drawFieldTitolari(def, mid, att, miaRosa, savedTitolariIds);
     const schemaPan = [{role:'P', count:1}, {role:'D', count:2}, {role:'C', count:2}, {role:'A', count:2}];
     this.drawSchemaPanchina('panchina-slots', schemaPan, 'pan', miaRosa, savedPanchinaIds);
-  },
+},
 
   drawFieldTitolari(def, mid, att, rosa, savedIds) {
     const container = document.getElementById('titolari-field-slots');
@@ -379,7 +378,8 @@ export const FormazionePage = {
 
     try {
       // Salviamo nel nodo corretto tradotto
-      const path = `competitions/${compId}/lineups/${gwCompetizione}/${STATE.user.id}`;
+      const path = `competitions/${compId}/matches/${gwCompetizione}/lineups/${STATE.user.id}`;
+      
       const dataToSave = {
         teamId: STATE.user.id, 
         modulo, 
@@ -387,7 +387,7 @@ export const FormazionePage = {
         panchina: panIds, 
         timestamp: Date.now()
       };
-
+      
       await window._saveNode(path, dataToSave);
 
       // Aggiorniamo al volo anche lo STATE locale usando la stessa struttura
