@@ -3,7 +3,7 @@ import { CalcoloMatchService } from "./services/calcoloMatch.js";
 
 export const LiveMatchModule = {
   db: null,
-  myTeamId: null, // Riceve direttamente "1", "FE", ecc.
+  myTeamId: null,
   currentCompId: null,
   activeListener: null,
 
@@ -40,33 +40,33 @@ export const LiveMatchModule = {
       return;
     }
 
-    // Puntiamo all'intero nodo della giornata, che ora contiene anche 'accoppiamenti'
-    const livePath = `competitions/${this.currentCompId}/lineups/${gwCompetizione}`;
+    // NUOVO PATH: Puntiamo al nodo della giornata che contiene sia lineups che couples
+    const livePath = `competitions/${this.currentCompId}/matches/${gwCompetizione}`;
     
     this.activeListener = onValue(ref(this.db, livePath), (snapshot) => {
-      const gwData = snapshot.val() || {};
+      const data = snapshot.val() || {};
+      const lineups = data.lineups || {};
+      const couples = data.couples || {}; 
       
-      // 1. Estraiamo gli accoppiamenti
-      const accoppiamenti = gwData.accoppiamenti || {};
       let opponentTeamId = null;
 
-      // 2. Cerchiamo in quale accoppiamento giochiamo e chi è l'avversario
-      for (const key in accoppiamenti) {
-        const match = accoppiamenti[key];
-        if (String(match.home) === String(this.myTeamId)) {
-          opponentTeamId = String(match.away);
+      // 1. Cerchiamo in quale coppia giochiamo e chi è l'avversario
+      for (const key in couples) {
+        const match = couples[key];
+        if (String(match.homeId) === String(this.myTeamId)) {
+          opponentTeamId = String(match.awayId);
           break;
-        } else if (String(match.away) === String(this.myTeamId)) {
-          opponentTeamId = String(match.home);
+        } else if (String(match.awayId) === String(this.myTeamId)) {
+          opponentTeamId = String(match.homeId);
           break;
         }
       }
 
-      // 3. Estraiamo le due formazioni usando i teamId
-      const myData = gwData[this.myTeamId]; 
-      const oppData = opponentTeamId ? gwData[opponentTeamId] : null;
+      // 2. Estraiamo le formazioni dal nodo lineups
+      const myData = lineups[this.myTeamId]; 
+      const oppData = opponentTeamId ? lineups[opponentTeamId] : null;
 
-      // 4. Procediamo col render recuperando voti e anagrafiche giocatori
+      // 3. Procediamo col render
       get(ref(this.db, 'votes')).then((vSnap) => {
         get(ref(this.db, 'players')).then((pSnap) => {
           this.renderLiveScreen(
