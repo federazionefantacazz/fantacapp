@@ -89,7 +89,7 @@ export const HomePage = {
     if (comp && comp.backgroundImage && comp.backgroundImage.trim() !== "") {
       document.body.style.backgroundImage = `linear-gradient(rgba(26, 30, 36, 0.3), rgba(26, 30, 36, 0.88)), url('${comp.backgroundImage}')`;
       document.body.style.backgroundSize = "100% auto";
-      document.body.style.backgroundPosition = "top center";
+      document.body.style.backgroundPosition = "cover";
       document.body.style.backgroundAttachment = "fixed";
       document.body.style.backgroundRepeat = "no-repeat";
     } else {
