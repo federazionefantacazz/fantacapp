@@ -72,13 +72,6 @@ export const CalendarioSection = {
         </div>
       </div>
 
-      <div class="card" id="assocGwCard">
-        <div class="label" style="color: var(--gold); margin-bottom: 1rem;">🔗 Associazione Giornate Reali</div>
-        <div id="assocGwContainer" style="display: flex; flex-direction: column; gap: 0.5rem;">
-          </div>
-        <button class="btn btn-green" style="margin-top: 1rem;" onclick="window.salvaAssociazioniGw()">💾 Salva Mappatura Giornate</button>
-      </div>
-
       <div class="card" id="previewGironiCard" style="display: none;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: .5rem; margin-bottom: 1rem;">
           <div class="label" style="color: var(--gold); font-weight: 600; margin-bottom: 0;">🏆 Composizione Attuale dei Gironi</div>
@@ -250,26 +243,6 @@ export const CalendarioSection = {
 
     // Rendering dell'Albero del Tabellone se già esistente nel DB
     this.renderAlberoGraficoTabellone(comp);
-
-
-    const assocContainer = document.getElementById('assocGwContainer');
-    
-    if (comp && comp.matches && assocContainer) {
-      const gwDisponibili = Object.keys(comp.matches); // gw1, gw2, gw_playoff_1...
-      const attuali = comp.associazioniGwReali || {};
-      
-      assocContainer.innerHTML = Array.from({length: 38}, (_, i) => i + 1).map(realGw => {
-        return `
-          <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem;">
-            <span style="width: 80px;">Serie A GW ${realGw}:</span>
-            <select class="input-login assoc-select" data-real-gw="${realGw}" style="margin-bottom:0; padding:0.3rem;">
-              <option value="">Nessuna</option>
-              ${gwDisponibili.map(gw => `<option value="${gw}" ${attuali[realGw] === gw ? 'selected' : ''}>${gw}</option>`).join('')}
-            </select>
-          </div>
-        `;
-      }).join('');
-    }
   },
 
   renderAlberoGraficoTabellone(comp) {
@@ -328,30 +301,6 @@ export const CalendarioSection = {
 };
 
 /* ─── Funzioni Globali d'Azione Modulo ─────────────────────────────────── */
-
-window.salvaAssociazioniGw = async function() {
-  const targetCompId = window.CURRENT_COMPETITION;
-  const selects = document.querySelectorAll('.assoc-select');
-  let nuovaMappatura = {};
-
-  selects.forEach(sel => {
-    const realGw = sel.getAttribute('data-real-gw');
-    const compGw = sel.value;
-    if (compGw) {
-      nuovaMappatura[realGw] = compGw;
-    }
-  });
-
-  try {
-    const database = CalendarioSection.db || getDatabase();
-    await update(ref(database, `competitions/${targetCompId}`), { 
-      associazioniGwReali: nuovaMappatura 
-    });
-    window.toast?.("✅ Mappatura giornate salvata!", "ok");
-  } catch (err) {
-    window.toast?.("Errore nel salvataggio", "err");
-  }
-};
 
 window.changeCalendarTargetComp = function(compId) {
   window.CURRENT_COMPETITION = compId;
@@ -454,17 +403,24 @@ window.sorteggiaGironiCompetizione = async function() {
 window.creaTabelloneFaseFinale = async function() {
   const targetCompId = window.CURRENT_COMPETITION;
   const comp = CalendarioSection._currentCompetitions.find(c => c.id === targetCompId);
-  
   if (!comp) return window.toast?.("Seleziona una competizione valida!", "err");
+
   if (comp.type === 'campionato') {
-    return window.toast?.("Impossibile creare un tabellone per un Campionato standard!", "err");
+    return window.toast?.("Impossibile creare un tabellone per una competizione di tipo Campionato standard!", "err");
   }
 
-  const playoffMode = document.getElementById('playoffRotationType').value;
+  const playoffMode = document.getElementById('playoffRotationType').value; // 'solo-andata' o 'andata-ritorno'
+  
+  let squadreTabellone = [];
   let strutturaAlberofasi = {}; 
   let matchesFaseFinaleNode = {}; 
-  let totalTeams = Array.isArray(comp.teams) ? comp.teams : Object.values(comp.teams || {});
-  totalTeams = totalTeams.filter(id => id).map(String);
+  
+  // Estrazione squadre partecipanti totali
+  let totalTeams = [];
+  if (comp.teams) {
+    totalTeams = Array.isArray(comp.teams) ? comp.teams : Object.values(comp.teams);
+  }
+  totalTeams = totalTeams.filter(id => id !== null && id !== undefined).map(id => String(id));
 
   // ─────────────────────────────────────────────────────────────────────────
   // CASO 1: COMPETIZIONE DIRETTA
@@ -669,57 +625,49 @@ window.creaTabelloneFaseFinale = async function() {
   // TRASFORMAZIONE DELL'ALBERO IN GIORNATE DI CALENDARIO REALI (Firebase `matches`)
   // ─────────────────────────────────────────────────────────────────────────
   let globalGwCounter = 1;
-  const chiaviFasi = Object.keys(strutturaAlberofasi).sort();
+  const chiaviFasiOrdinate = Object.keys(strutturaAlberofasi).sort();
 
-  chiaviFasi.forEach(chiaveFase => {
+  chiaviFasiOrdinate.forEach(chiaveFase => {
     const fase = strutturaAlberofasi[chiaveFase];
     const isFinaleSecca = (fase.nomeFase.toLowerCase().includes("finale") && !fase.nomeFase.toLowerCase().includes("quarti") && !fase.nomeFase.toLowerCase().includes("semi"));
 
-    // 1. Gara di Andata
+    // TURNO ANDATA (o Gara Secca)
     let matchGiornataAndata = {};
-    fase.matchList.forEach((m) => {
+    fase.matchList.forEach((m, idx) => {
+      // Se le squadre sono già definite e non fittizie, creiamo il match pronto per essere giocato
+      const isFittizia = m.homeId.startsWith("VINCENTE_") || m.awayId.startsWith("VINCENTE_") || m.homeId.includes("Classificato");
+      
       matchGiornataAndata[`match_a_${m.id}`] = {
         id: `match_a_${m.id}`,
         phaseKey: chiaveFase,
         phaseName: fase.nomeFase,
         type: isFinaleSecca ? "FINALE" : "ELIMINAZIONE_DIRETTA",
-        couples: {
-          m1: { 
-            id: m.id, 
-            homeId: m.homeId, 
-            awayId: m.awayId, 
-            homeScore: null, 
-            awayScore: null, 
-            finished: false 
-          }
-        },
-        lineups: {},
+        homeId: isFittizia ? m.homeId : m.homeId,
+        awayId: isFittizia ? m.awayId : m.awayId,
+        homeScore: null,
+        awayScore: null,
+        finished: false,
         label: `${fase.nomeFase} - Andata`
       };
     });
+    
     matchesFaseFinaleNode[`gw_playoff_${globalGwCounter}`] = matchGiornataAndata;
     globalGwCounter++;
 
-    // 2. Gara di Ritorno (se necessaria)
+    // TURNO RITORNO (Se richiesto e se NON è la finalissima secca)
     if (playoffMode === 'andata-ritorno' && !isFinaleSecca) {
       let matchGiornataRitorno = {};
-      fase.matchList.forEach((m) => {
+      fase.matchList.forEach((m, idx) => {
         matchGiornataRitorno[`match_r_${m.id}`] = {
           id: `match_r_${m.id}`,
           phaseKey: chiaveFase,
           phaseName: fase.nomeFase,
           type: "ELIMINAZIONE_DIRETTA_RITORNO",
-          couples: {
-            m1: { 
-              id: m.id, 
-              homeId: m.awayId, 
-              awayId: m.homeId, 
-              homeScore: null, 
-              awayScore: null, 
-              finished: false 
-            }
-          },
-          lineups: {},
+          homeId: m.awayId, // Campi invertiti per il ritorno
+          awayId: m.homeId,
+          homeScore: null,
+          awayScore: null,
+          finished: false,
           label: `${fase.nomeFase} - Ritorno`
         };
       });
@@ -728,11 +676,10 @@ window.creaTabelloneFaseFinale = async function() {
     }
   });
 
-  // --- SALVATAGGIO SU FIREBASE ---
   try {
     const database = CalendarioSection.db || getDatabase();
     
-    // Salvataggio 1: Struttura Albero
+    // Salviamo la struttura dell'albero per la visualizzazione grafica
     await update(ref(database, `competitions/${targetCompId}`), {
       tabelloneStructure: {
         tipoGenerato: comp.type,
@@ -741,15 +688,17 @@ window.creaTabelloneFaseFinale = async function() {
       }
     });
 
-    // Salvataggio 2: Giornate (Matches)
+    // Iniettiamo le giornate del tabellone all'interno del nodo dei match di competizione
+    // Nota: Se vuoi resettare la regular season scrivi con 'set', se vuoi appenderle usa 'update'
     await update(ref(database, `competitions/${targetCompId}/matches`), matchesFaseFinaleNode);
     
-    window.toast?.("🏆 Tabellone salvato con successo!", "ok");
-    CalendarioSection.updateBadgeDinamici(targetCompId);
+    window.toast?.("🏆 Tabellone e Turni ad eliminazione salvati con successo!", "ok");
     
+    comp.tabelloneStructure = { fasi: strutturaAlberofasi };
+    CalendarioSection.updateBadgeDinamici(targetCompId);
   } catch (err) {
-    console.error("Errore salvataggio:", err);
-    window.toast?.("Errore durante il salvataggio", "err");
+    console.error(err);
+    window.toast?.("Errore durante la creazione del Tabellone", "err");
   }
 };
 
@@ -767,10 +716,9 @@ window.generateRandomCalendar = async function() {
 
   const numGironiPrevisti = parseInt(comp.gironi) || 1;
 
-  // --- LOGICA MISTO ---
   if ((comp.type === 'misto' || comp.type === 'misto-speciale') && numGironiPrevisti > 1) {
     if (!comp.strutturaGironi) {
-      return window.toast?.("Devi prima effettuare il sorteggio!", "err");
+      return window.toast?.("Devi prima effettuare il sorteggio o comporre i gruppi manualmente!", "err");
     }
 
     const gironiIds = Object.keys(comp.strutturaGironi);
@@ -783,12 +731,18 @@ window.generateRandomCalendar = async function() {
       
       const n = lista.length;
       const turniUnici = n - 1; 
-      let giri = rotationType === 'andata-ritorno' ? 2 : (rotationType === 'tre-giri' ? 3 : 1);
+      let giri = 1;
+      if (rotationType === 'andata-ritorno') giri = 2;
+      if (rotationType === 'tre-giri') giri = 3;
       
       const giornateTotaliGirone = turniUnici * giri;
       if (giornateTotaliGirone > maxGiornateFase) maxGiornateFase = giornateTotaliGirone;
 
-      agendeGironi[gId] = { squadre: lista, turniUnici: turniUnici, giornateTotali: giornateTotaliGirone };
+      agendeGironi[gId] = {
+        squadre: lista,
+        turniUnici: turniUnici,
+        giornateTotali: giornateTotaliGirone
+      };
     });
 
     for (let g = 1; g <= maxGiornateFase; g++) {
@@ -801,11 +755,14 @@ window.generateRandomCalendar = async function() {
 
         const lista = agenda.squadre;
         const numSquadre = lista.length;
-        const gironeCorrente = Math.floor((g - 1) / agenda.turniUnici);
-        const turnoNelGirone = (g - 1) % agenda.turniUnici;
+        const turniUnici = agenda.turniUnici;
+        
+        const gironeCorrente = Math.floor((g - 1) / turniUnici);
+        const turnoNelGirone = (g - 1) % turniUnici;
         const inverti = (gironeCorrente === 1 || gironeCorrente === 3); 
 
-        for (let m = 0; m < (numSquadre / 2); m++) {
+        const matchPerGiornata = numSquadre / 2;
+        for (let m = 0; m < matchPerGiornata; m++) {
           let casaIdx = (turnoNelGirone + m) % (numSquadre - 1);
           let trasfIdx = m === 0 ? numSquadre - 1 : (numSquadre - 1 - m + turnoNelGirone) % (numSquadre - 1);
           
@@ -813,62 +770,88 @@ window.generateRandomCalendar = async function() {
           let idTrasf = lista[trasfIdx];
 
           if (idCasa === "RIPOSO" || idTrasf === "RIPOSO") continue;
-          if (inverti) { let tmp = idCasa; idCasa = idTrasf; idTrasf = tmp; }
+          if (inverti) { const tmp = idCasa; idCasa = idTrasf; idTrasf = tmp; }
 
           matchGiornata[`m${matchCounter}`] = {
             id: `m${matchCounter}`,
-            couples: { m1: { id: `m${matchCounter}`, homeId: idCasa, awayId: idTrasf, homeScore: null, awayScore: null, finished: false } },
-            lineups: {},
-            girone: gId
+            girone: gId,
+            homeId: idCasa,
+            awayId: idTrasf,
+            homeScore: null,
+            awayScore: null,
+            finished: false
           };
           matchCounter++;
         }
       });
-      if (Object.keys(matchGiornata).length > 0) calendarioCompleto[`gw${g}`] = matchGiornata;
+
+      if (Object.keys(matchGiornata).length > 0) {
+        calendarioCompleto[`gw${g}`] = matchGiornata;
+      }
     }
-  } else { 
-    // --- LOGICA STANDARD ---
-    let squadreIscritte = (comp.teams ? (Array.isArray(comp.teams) ? comp.teams : Object.values(comp.teams)) : []).filter(id => id).map(String);
-    if (squadreIscritte.length < 2) return window.toast?.("Servono almeno 2 squadre!", "err");
+
+  } else {
+    let squadreIscritte = [];
+    if (comp.teams) {
+      squadreIscritte = Array.isArray(comp.teams) ? comp.teams : Object.values(comp.teams);
+    }
+    squadreIscritte = squadreIscritte.filter(id => id !== null && id !== undefined).map(id => String(id));
+
+    if (squadreIscritte.length < 2) {
+      return window.toast?.("Servono almeno 2 squadre associate per generare il calendario!", "err");
+    }
 
     let lista = [...squadreIscritte].sort(() => Math.random() - 0.5);
     if (lista.length % 2 !== 0) lista.push("RIPOSO");
 
     const numSquadre = lista.length;
+    const matchPerGiornata = numSquadre / 2;
     const turniUnici = numSquadre - 1;
-    let giri = rotationType === 'andata-ritorno' ? 2 : (rotationType === 'tre-giri' ? 3 : 1);
     
-    for (let g = 1; g <= (turniUnici * giri); g++) {
-      let matchGiornata = {};
-      let counter = 1;
+    let giri = 1;
+    if (rotationType === 'andata-ritorno') giri = 2;
+    if (rotationType === 'tre-giri') giri = 3;
+    const totalGwsRequested = turniUnici * giri;
+
+    for (let g = 1; g <= totalGwsRequested; g++) {
       const gironeCorrente = Math.floor((g - 1) / turniUnici);
       const turnoNelGirone = (g - 1) % turniUnici;
       const inverti = (gironeCorrente === 1 || gironeCorrente === 3);
+      
+      let matchGiornata = {};
+      let counter = 1;
 
-      for (let m = 0; m < (numSquadre / 2); m++) {
-        let casaIdx = (turnoNelGirone + m) % turniUnici;
-        let trasfIdx = m === 0 ? turniUnici : (turniUnici - m + turnoNelGirone) % turniUnici;
+      for (let m = 0; m < matchPerGiornata; m++) {
+        let casaIdx = (turnoNelGirone + m) % (numSquadre - 1);
+        let trasfIdx = m === 0 ? numSquadre - 1 : (numSquadre - 1 - m + turnoNelGirone) % (numSquadre - 1);
         
         let idCasa = lista[casaIdx];
         let idTrasf = lista[trasfIdx];
 
-        if (idCasa !== "RIPOSO" && idTrasf !== "RIPOSO") {
-          if (inverti) { let tmp = idCasa; idCasa = idTrasf; idTrasf = tmp; }
-          matchGiornata[`m${counter}`] = { id: `m${counter}`, homeId: idCasa, awayId: idTrasf, homeScore: null, awayScore: null, finished: false };
-          counter++;
-        }
+        if (idCasa === "RIPOSO" || idTrasf === "RIPOSO") continue;
+        if (inverti) { const tmp = idCasa; idCasa = idTrasf; idTrasf = tmp; }
+
+        matchGiornata[`m${counter}`] = { 
+          id: `m${counter}`, 
+          homeId: idCasa, 
+          awayId: idTrasf, 
+          homeScore: null, 
+          awayScore: null, 
+          finished: false 
+        };
+        counter++;
       }
       calendarioCompleto[`gw${g}`] = matchGiornata;
     }
   }
 
-  // --- SALVATAGGIO ---
   try {
     const database = CalendarioSection.db || getDatabase();
     await set(ref(database, `competitions/${targetCompId}/matches`), calendarioCompleto);
     await set(ref(database, `competitions/${targetCompId}/status`), { currentGW: 1 });
-    window.toast?.("🎯 Calendario salvato!", "ok");
+    window.toast?.(`🎯 Calendario regular season salvato con successo!`, "ok");
   } catch (err) {
-    window.toast?.("Errore salvataggio Firebase", "err");
+    console.error(err);
+    window.toast?.("Errore durante il salvataggio su Firebase", "err");
   }
 };
