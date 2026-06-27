@@ -93,65 +93,70 @@ export const CalendarioPage = {
         container.innerHTML = '';
         return;
       }
-
-      if (titleEl) {
-        titleEl.textContent = `${this._selectedCompName(currentCompData)} — TURNO ${selectedGW.replace('gw', '')}`;
-      }
-
-      const turnMatches = Object.values(matchesNode[selectedGW]?.couples || {});
+    
+      // Recupera i match
+      const turnData = matchesNode[selectedGW];
+      const turnMatches = Object.values(turnData.couples || {});
       
+      if (titleEl) {
+        const isPlayoff = selectedGW.startsWith('gw_playoff_');
+        const displayGw = selectedGW.replace('gw_playoff_', '').replace('gw', '');
+        titleEl.textContent = `${this._selectedCompName(currentCompData)} — ${isPlayoff ? 'PLAYOFF' : 'TURNO'} ${displayGw}`;
+      }
+    
       if (turnMatches.length === 0) {
-        container.innerHTML = '<div style="text-align:center; padding:1rem; font-size:.85rem; color:var(--text3);">Nessun match programmato in questa giornata.</div>';
+        container.innerHTML = '<div style="text-align:center; padding:1rem; font-size:.85rem; color:var(--text3);">Nessun match programmato.</div>';
         return;
       }
-
+    
       container.innerHTML = turnMatches.map(match => {
-        const teamHome = (STATE.teams || []).find(t => t.id === match.homeId) || { name: match.homeId, logo: null };
-        const teamAway = (STATE.teams || []).find(t => t.id === match.awayId) || { name: match.awayId, logo: null };
+        // Gestione nomi squadre: se l'id contiene "VINCENTE_", mostra il segnaposto
+        const getTeamName = (id) => {
+          if (id.startsWith('VINCENTE_')) return id.replace(/_/g, ' ').toUpperCase();
+          const team = (STATE.teams || []).find(t => t.id === id);
+          return team ? team.name : id;
+        };
+    
+        const teamHomeName = getTeamName(match.homeId);
+        const teamAwayName = getTeamName(match.awayId);
         
-        // --- BLOCCO LOGHI DINAMICI COME NELLA HOME ---
-        const logoHomeHTML = teamHome.logo 
-          ? `<img src="${teamHome.logo}" alt="Logo ${teamHome.name}" style="width:32px; height:32px; object-fit:contain; border-radius:4px; flex-shrink:0;">`
-          : `<div style="width:32px; height:32px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:1rem; color:var(--text3); flex-shrink:0;">🛡️</div>`;
-
-        const logoAwayHTML = teamAway.logo 
-          ? `<img src="${teamAway.logo}" alt="Logo ${teamAway.name}" style="width:32px; height:32px; object-fit:contain; border-radius:4px; flex-shrink:0;">`
-          : `<div style="width:32px; height:32px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:1rem; color:var(--text3); flex-shrink:0;">🛡️</div>`;
-        // ---------------------------------------------
-        
-        // Controlliamo se la partita è finita o se i punteggi inseriti sono validi (inclusi gli zeri)
-        const hasHomeScore = match.homeScore !== undefined && match.homeScore !== null && match.homeScore !== '';
-        const hasAwayScore = match.awayScore !== undefined && match.awayScore !== null && match.awayScore !== '';
-        
-        const scoreHome = (match.finished || hasHomeScore) ? match.homeScore : '-';
-        const scoreAway = (match.finished || hasAwayScore) ? match.awayScore : '-';
-        
-        const gironeLabel = match.grid || match.girone ? `
+        // Loghi (solo se non è una stringa "VINCENTE_")
+        const getLogo = (id) => {
+          const team = (STATE.teams || []).find(t => t.id === id);
+          return team?.logo || null;
+        };
+    
+        const logoHomeHTML = getLogo(match.homeId) 
+          ? `<img src="${getLogo(match.homeId)}" style="width:32px; height:32px; object-fit:contain; border-radius:4px;">`
+          : `<div style="width:32px; height:32px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px;">🛡️</div>`;
+    
+        const logoAwayHTML = getLogo(match.awayId)
+          ? `<img src="${getLogo(match.awayId)}" style="width:32px; height:32px; object-fit:contain; border-radius:4px;">`
+          : `<div style="width:32px; height:32px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px;">🛡️</div>`;
+    
+        // Etichetta: priorità alla 'label' (playoff), poi 'girone' (campionato)
+        const topLabel = match.label || match.girone;
+        const labelHTML = topLabel ? `
           <div style="font-size: .65rem; color: var(--gold); font-weight: bold; text-transform: uppercase; margin-bottom: .2rem; letter-spacing: 0.5px;">
-            📍 ${match.grid || match.girone}
+            📍 ${topLabel}
           </div>` : '';
-
+    
+        const scoreHome = (match.finished || match.homeScore != null) ? match.homeScore : '-';
+        const scoreAway = (match.finished || match.awayScore != null) ? match.awayScore : '-';
+    
         return `
-          <div class="pcard" style="padding:1rem; display:flex; flex-direction:column; justify-content:center; gap:0.2rem;">
-            ${gironeLabel}
+          <div class="pcard" style="padding:1rem; display:flex; flex-direction:column; gap:0.2rem;">
+            ${labelHTML}
             <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
-              
-              <div style="width:40%; display:flex; align-items:center; gap:.5rem; min-width:0;">
+              <div style="width:45%; display:flex; align-items:center; gap:.5rem;">
                 ${logoHomeHTML}
-                <div style="font-size:.85rem; font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${teamHome.name}</div>
+                <div style="font-size:.85rem; font-weight:600; overflow:hidden; text-overflow:ellipsis;">${teamHomeName}</div>
               </div>
-              
-              <div style="width:20%; text-align:center; flex-shrink:0;">
-                <div style="font-family:'DM Mono',monospace; font-size:1.1rem; font-weight:600; background:var(--bg3); padding:.2rem .4rem; border-radius:6px; letter-spacing:1px; color:#fff;">
-                  ${scoreHome}:${scoreAway}
-                </div>
-              </div>
-              
-              <div style="width:40%; display:flex; align-items:center; justify-content:flex-end; gap:.5rem; text-align:right; min-width:0;">
-                <div style="font-size:.85rem; font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${teamAway.name}</div>
+              <div style="width:10%; text-align:center; font-family:'DM Mono',monospace; font-weight:600;">${scoreHome}:${scoreAway}</div>
+              <div style="width:45%; display:flex; align-items:center; justify-content:flex-end; gap:.5rem;">
+                <div style="font-size:.85rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; text-align:right;">${teamAwayName}</div>
                 ${logoAwayHTML}
               </div>
-              
             </div>
           </div>
         `;
