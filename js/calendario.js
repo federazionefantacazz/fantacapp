@@ -47,9 +47,15 @@ export const CalendarioPage = {
       return;
     }
 
-    // Ordina le giornate reali (gw1, gw2, ecc.)
+    // Ordina le giornate: prima le gw normali (numericamente), poi i turni playoff
     const giornateEstraibili = Object.keys(matchesNode).sort((a, b) => {
-      return parseInt(a.replace('gw', '')) - parseInt(b.replace('gw', ''));
+      const aIsPlayoff = a.startsWith('gw_playoff_');
+      const bIsPlayoff = b.startsWith('gw_playoff_');
+      if (aIsPlayoff && !bIsPlayoff) return 1;
+      if (!aIsPlayoff && bIsPlayoff) return -1;
+      const numA = parseInt(a.replace('gw_playoff_', '').replace('gw', ''));
+      const numB = parseInt(b.replace('gw_playoff_', '').replace('gw', ''));
+      return numA - numB;
     });
 
     // Aggiorna il menu a tendina solo se cambia la competizione o il numero totale di giornate nel DB
@@ -57,13 +63,24 @@ export const CalendarioPage = {
       select.dataset.currentComp = currentCompId;
       
       select.innerHTML = giornateEstraibili.map(gwKey => {
-        const num = gwKey.replace('gw', '');
-        return `<option value="${gwKey}">Giornata ${num}</option>`;
+        const label = gwKey.startsWith('gw_playoff_')
+          ? `Turno Playoff ${gwKey.replace('gw_playoff_', '')}`
+          : `Giornata ${gwKey.replace('gw', '')}`;
+        return `<option value="${gwKey}">${label}</option>`;
       }).join('');
 
-      // Imposta la giornata attiva dell'admin o dello status della competizione
-      const activeGW = STATE.status?.currentGW || (currentCompData?.status?.currentGW) || 1;
-      select.value = `gw${activeGW}`;
+      // Risolve la gwKey a partire dalla giornata reale corrente tramite associazioniGwReali
+      const associazioni = currentCompData?.associazioniGwReali || {};
+      const giornataReale = STATE.giornataRealeCorrente;
+      const gwDaReale = giornataReale ? associazioni[String(giornataReale)] : null;
+
+      if (gwDaReale && select.querySelector(`option[value="${gwDaReale}"]`)) {
+        // Priorita': giornata reale corrente mappata tramite associazioniGwReali
+        select.value = gwDaReale;
+      } else {
+        // Fallback: prima gwKey disponibile
+        select.value = giornateEstraibili[0] || '';
+      }
     } else if (previousUserSelection && select.querySelector(`option[value="${previousUserSelection}"]`)) {
       // Altrimenti mantieni la giornata che l'utente stava guardando
       select.value = previousUserSelection;
@@ -81,7 +98,7 @@ export const CalendarioPage = {
         titleEl.textContent = `${this._selectedCompName(currentCompData)} — TURNO ${selectedGW.replace('gw', '')}`;
       }
 
-      const turnMatches = Object.values(matchesNode[selectedGW]);
+      const turnMatches = Object.values(matchesNode[selectedGW]?.couples || {});
       
       if (turnMatches.length === 0) {
         container.innerHTML = '<div style="text-align:center; padding:1rem; font-size:.85rem; color:var(--text3);">Nessun match programmato in questa giornata.</div>';
