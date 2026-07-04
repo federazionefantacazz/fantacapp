@@ -668,7 +668,7 @@ function refreshUI() {
     LiveMatchModule.init(db, myTeamId, currentCompId);
     LiveMatchModule.startLiveTracking(gwCorrenteReale, associazioni);
   }
-
+}
 window.goPage = function(name, btn) {
   if (window.STATE.currentPage === 'live' && name !== 'live') {
     LiveMatchModule.stopLiveTracking();
