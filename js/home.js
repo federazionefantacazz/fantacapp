@@ -193,32 +193,59 @@ export const HomePage = {
       if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Seleziona una competizione dal menu in alto.</div>`;
     }
 
-    // 🟢 ULTIMI VOTI RILASCIATI
-    const vArr = Object.entries(STATE.votes || {});
-    if (vArr.length > 0) {
+    // 🟢 ULTIMI VOTI RILASCIATI (Nuova struttura divisa per GW)
+    if (STATE.votes) {
       if (lv) {
         let playersList = [];
         if (STATE.players) {
           playersList = Array.isArray(STATE.players) ? STATE.players : Object.values(STATE.players);
         }
-        lv.innerHTML = vArr.map(([pid, val]) => {
-          const p = playersList.find(x => x.id === pid) || { name: pid, role: 'C', club: '' };
-          let customStyle = 'padding: .2rem .5rem; border-radius: 6px; font-weight: bold; font-family: "DM Mono", monospace; ';
-          if (val >= 7) customStyle += 'background: rgba(80, 227, 194, 0.15); color: var(--accent);';
-          else if (val < 5.5) customStyle += 'background: rgba(255, 107, 107, 0.15); color: var(--accent3);';
-          else customStyle += 'background: rgba(255, 255, 255, 0.08); color: var(--text);';
 
-          return `
-            <div class="pcard">
-              <div class="rbadge r${p.role}">${p.role}</div>
-              <div class="pname">${p.name} <span class="pclub">${p.club}</span></div>
-              <div style="${customStyle}">${val.toFixed(1)}</div>
-            </div>
-          `;
-        }).join('');
+        // 1. Troviamo l'id della GW di cui mostrare i voti. 
+        // Proviamo ad usare la giornata corrente della competizione, altrimenti prendiamo l'ultima inserita nel database
+        const currentGwKey = comp && comp.status ? `gw${comp.status.currentGW}` : null;
+        
+        let targetVotes = {};
+        if (currentGwKey && STATE.votes[currentGwKey]) {
+          targetVotes = STATE.votes[currentGwKey];
+        } else {
+          // Se non trova la GW attiva, prende l'ultima chiave disponibile (es. l'ultima GW inserita)
+          const keys = Object.keys(STATE.votes);
+          if (keys.length > 0) {
+            const lastKey = keys.sort((a, b) => b.localeCompare(a, undefined, {numeric: true}))[0];
+            targetVotes = STATE.votes[lastKey] || {};
+          }
+        }
+
+        const vArr = Object.entries(targetVotes);
+
+        if (vArr.length > 0) {
+          lv.innerHTML = vArr.map(([pid, rawVal]) => {
+            const p = playersList.find(x => x.id === pid) || { name: pid, role: 'C', club: '' };
+            
+            // Sicurezza: convertiamo il voto in numero
+            const val = Number(rawVal) || 0;
+
+            let customStyle = 'padding: .2rem .5rem; border-radius: 6px; font-weight: bold; font-family: "DM Mono", monospace; ';
+            if (val >= 7) customStyle += 'background: rgba(80, 227, 194, 0.15); color: var(--accent);';
+            else if (val < 5.5) customStyle += 'background: rgba(255, 107, 107, 0.15); color: var(--accent3);';
+            else customStyle += 'background: rgba(255, 255, 255, 0.08); color: var(--text);';
+
+            return `
+              <div class="pcard">
+                <div class="rbadge r${p.role}">${p.role}</div>
+                <div class="pname">${p.name} <span class="pclub">${p.club}</span></div>
+                <div style="${customStyle}">${val.toFixed(1)}</div>
+              </div>
+            `;
+          }).join('');
+        } else {
+          lv.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1.5rem; font-size:.85rem; width:100%;">Nessun voto rilasciato per questa giornata.</div>`;
+        }
       }
     } else {
       if (lv) lv.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1.5rem; font-size:.85rem; width:100%;">Nessun voto rilasciato al momento.</div>`;
     }
+    
   }
 };
