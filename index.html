@@ -446,7 +446,7 @@ window._handleCompetitionChange = function(newCompetitionId) {
   refreshUI();
 };
 
-onValue(ref(db,  `competitions/${compId}/votes`), snap => { 
+onValue(ref(db,  `votes`), snap => { 
   window.STATE.votes = snap.val() || {}; 
   refreshUI(); 
 });
