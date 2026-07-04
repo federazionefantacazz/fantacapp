@@ -475,7 +475,10 @@ window.doFirebaseLogin = function() {
   }
   signInWithEmailAndPassword(auth, email, pass)
     .then(() => { window.showToast('Accesso effettuato!', 'ok'); })
-    .catch(error => { window.showToast('Email o password errate!', 'err'); });
+    .catch(error => { 
+      console.error(error);
+      window.showToast('Email o password errate!', 'err'); 
+    });
 };
 
 window.doFirebaseRegister = function() {
@@ -491,7 +494,10 @@ window.doFirebaseRegister = function() {
   }
   createUserWithEmailAndPassword(auth, email, pass)
     .then(() => { window.showToast('Account creato con successo!', 'ok'); })
-    .catch(error => { window.showToast('Errore durante la registrazione!', 'err'); });
+    .catch(error => { 
+      console.error(error);
+      window.showToast('Errore durante la registrazione!', 'err'); 
+    });
 };
 
 window.doFirebaseLogout = function() {
@@ -668,7 +674,8 @@ function refreshUI() {
     LiveMatchModule.init(db, myTeamId, currentCompId);
     LiveMatchModule.startLiveTracking(gwCorrenteReale, associazioni);
   }
-}
+} // Chiude correttamente refreshUI
+
 window.goPage = function(name, btn) {
   if (window.STATE.currentPage === 'live' && name !== 'live') {
     LiveMatchModule.stopLiveTracking();
