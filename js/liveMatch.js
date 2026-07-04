@@ -18,9 +18,14 @@ export const LiveMatchModule = {
     const container = document.getElementById('live-match-container');
     if (!container) return;
 
-    // Traduzione della Giornata Reale -> Giornata di Lega (es: gw1)
+    // Puliamo la giornata reale per sicurezza (es: 15 o "15")
+    const numeroGwReale = String(gwReale).replace(/\D/g, '');
+
+    // 🔄 LOGICA INVERTITA PER IL TUO DB: 
+    // Cerchiamo il numero della giornata reale dentro la CHIAVE (k) pulendola da eventuali testi
     const entry = Object.entries(associazioniGwRealiMap || {}).find(([k, v]) => {
-      return String(v).trim() === String(gwReale).trim();
+      const numeroChiaveMappa = String(k).replace(/\D/g, '');
+      return numeroChiaveMappa === numeroGwReale;
     });
 
     if (!entry) {
@@ -32,7 +37,8 @@ export const LiveMatchModule = {
       return;
     }
 
-    const gwCompetizione = entry[0]; // Es: "gw1"
+    // 🔄 LA GIORNATA DI LEGA (es: "gw1") ORA SI TROVA NEL VALORE (entry[1])
+    const gwCompetizione = entry[1]; 
     container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Caricamento dati live...</p>`;
 
     if (!this.myTeamId) {
@@ -40,17 +46,18 @@ export const LiveMatchModule = {
       return;
     }
 
-    // NUOVO PATH: Puntiamo al nodo della giornata che contiene sia lineups che couples
+    // Puntiamo al nodo corretto su Firebase usando la gwCompetizione ("gw1", "gw2", ecc.)
     const livePath = `competitions/${this.currentCompId}/matches/${gwCompetizione}`;
     
-    this.activeListener = onValue(ref(this.db, livePath), (snapshot) => {
+    // Ascoltatore Firebase ottimizzato con Promise.all per scaricare tutto in parallelo
+    this.activeListener = onValue(ref(this.db, livePath), async (snapshot) => {
       const data = snapshot.val() || {};
       const lineups = data.lineups || {};
       const couples = data.couples || {}; 
       
       let opponentTeamId = null;
 
-      // 1. Cerchiamo in quale coppia giochiamo e chi è l'avversario
+      // Cerchiamo in quale coppia giochiamo e chi è l'avversario
       for (const key in couples) {
         const match = couples[key];
         if (String(match.homeId) === String(this.myTeamId)) {
@@ -62,23 +69,29 @@ export const LiveMatchModule = {
         }
       }
 
-      // 2. Estraiamo le formazioni dal nodo lineups
+      // Estraiamo le formazioni dal nodo lineups
       const myData = lineups[this.myTeamId]; 
       const oppData = opponentTeamId ? lineups[opponentTeamId] : null;
 
-      // 3. Procediamo col render
-      get(ref(this.db, 'votes')).then((vSnap) => {
-        get(ref(this.db, 'players')).then((pSnap) => {
-          this.renderLiveScreen(
-            container, 
-            myData, 
-            oppData, 
-            vSnap.val() || {}, 
-            pSnap.val() || {}, 
-            gwCompetizione
-          );
-        });
-      });
+      try {
+        // Carichiamo voti e dizionario giocatori in parallelo in modo istantaneo
+        const [vSnap, pSnap] = await Promise.all([
+          get(ref(this.db, 'votes')),
+          get(ref(this.db, 'players'))
+        ]);
+
+        this.renderLiveScreen(
+          container, 
+          myData, 
+          oppData, 
+          vSnap.val() || {}, 
+          pSnap.val() || {}, 
+          gwCompetizione
+        );
+      } catch (err) {
+        console.error("Errore nel recupero dati live:", err);
+        container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Errore di sincronizzazione dati.</p>`;
+      }
     });
   },
 
