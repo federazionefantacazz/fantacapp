@@ -127,7 +127,7 @@ export const VotesSection = {
       return;
     }
 
-    const gVotes = localVotes[`gw${selectedGW}`] || {};
+    const gVotes = localVotes[`votes/gw${selectedGW}`] || {};
     const playersList = this.cachedPlayers || window.PLAYERS || [];
 
     if (playersList.length === 0) {
