@@ -74,10 +74,9 @@ export const LiveMatchModule = {
       const oppData = opponentTeamId ? lineups[opponentTeamId] : null;
 
       try {
-        // 🔄 MODIFICA: Recuperiamo i voti specifici di quella Giornata Reale (es: 'votes/15' o 'votes/gw15')
-        // Se nel tuo db i voti sono archiviati semplicemente sotto il numero, usiamo `numeroGwReale`
+        // 🔄 RECUPERO VOTI LIVE DALLA GIORNATA REALE SPECIFICA
         const [vSnap, pSnap] = await Promise.all([
-          get(ref(this.db, 'votes/gw${numeroGwReale}')),
+          get(ref(this.db, `votes/gw${numeroGwReale}`)),
           get(ref(this.db, 'players'))
         ]);
 
