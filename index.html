@@ -365,7 +365,7 @@ function caricaDatiCompetizione(compId) {
     const bgUrl = snap.val();
     if (bgUrl && bgUrl.trim() !== "") {
       document.body.style.backgroundImage = `linear-gradient(rgba(26, 30, 36, 0.3), rgba(26, 30, 36, 0.88)), url('${bgUrl}')`;
-      ddocument.body.style.backgroundSize = "auto 100vh";
+      document.body.style.backgroundSize = "auto 100vh";
       document.body.style.backgroundPosition = "top center";
       document.body.style.backgroundAttachment = "fixed";
       document.body.style.backgroundRepeat = "no-repeat";
@@ -650,10 +650,12 @@ function refreshUI() {
     const currentCompId = window.STATE.currentCompetition;
     const compData = window.STATE.competitions.find(c => String(c.id) === String(currentCompId));
     
-    const associazioni = compData ? (compData.associazioniGwReali || {}) : {};
+    // Fallback sicuro se l'oggetto o la mappa non esistono ancora
+    const associazioni = compData ? (compData.associazioniGwReali || compData.associazioniGwRealiMap || {}) : {};
     const gwCorrenteReale = window.STATE.giornataRealeCorrente;
 
-    if (!gwCorrenteReale || Object.keys(associazioni).length === 0) {
+    // Controllo più sicuro: verifica che gwCorrenteReale non sia null o undefined (accetta anche lo 0)
+    if (gwCorrenteReale === null || gwCorrenteReale === undefined || Object.keys(associazioni).length === 0) {
       const container = document.getElementById('live-match-container');
       if (container) {
         container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Sincronizzazione giornata e competizione in corso...</p>`;
@@ -666,7 +668,6 @@ function refreshUI() {
     LiveMatchModule.init(db, myTeamId, currentCompId);
     LiveMatchModule.startLiveTracking(gwCorrenteReale, associazioni);
   }
-}
 
 window.goPage = function(name, btn) {
   if (window.STATE.currentPage === 'live' && name !== 'live') {
