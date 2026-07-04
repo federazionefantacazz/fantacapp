@@ -85,7 +85,7 @@ export const VotesSection = {
 
     if (unsubscribeVotes) unsubscribeVotes();
 
-    const votesRef = ref(databaseRef, `competitions/${selectedCompId}/votes`);
+    const votesRef = ref(databaseRef, `votes`);
     unsubscribeVotes = onValue(votesRef, snap => {
       localVotes = snap.val() || {};
       this.renderLocal();
@@ -171,7 +171,7 @@ export const VotesSection = {
 
     try {
       // Salva nel percorso mirato scelto liberamente dall'utente
-      await set(ref(databaseRef, `competitions/${selectedCompId}/votes/gw${selectedGW}`), updatedVotes);
+      await set(ref(databaseRef, `votes/gw${selectedGW}`), updatedVotes);
       window.toast(`Voti salvati con successo per ${selectedCompId.toUpperCase()} (GW ${selectedGW})!`, "ok");
     } catch (err) {
       console.error(err);
