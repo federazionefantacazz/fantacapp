@@ -54,23 +54,41 @@ export const CalcoloMatchService = {
 
   /**
    * Calcola il punteggio totale di una lineup (titolari o panchina)
-   * @param {Object} nodoLineup - Il nodo della formazione (es: lineup[teamId])
+   * @param {Object} allLineups - L'intero nodo lineups della giornata
+   * @param {String|Number} targetTeamId - L'ID della squadra (es: "1" o 1)
    * @param {Object} mappaFantavotiLocali - I fantavoti calcolati della giornata
    * @returns {Number} Somma totale dei fantavoti
    */
-  calcolaTotaleSquadra(nodoLineup, mappaFantavotiLocali) {
-    if (!nodoLineup) return 0;
-    
-    // Fallback: se mancano i titolari, controlla in panchina
-    const giocatori = nodoLineup.titolari || nodoLineup.panchina || {};
-    if (typeof giocatori !== 'object') return 0;
-    
+  calcolaTotaleSquadra(allLineups, targetTeamId, mappaFantavotiLocali) {
+    if (!allLineups) return 0;
+
+    // 1. Cerchiamo il nodo della squadra controllando sia la chiave diretta sia la proprietà teamId interna
+    let squadData = allLineups[targetTeamId];
+
+    // Se non lo trova direttamente tramite la chiave, fa una ricerca interna tra tutte le chiavi presenti
+    if (!squadData) {
+      const keys = Object.keys(allLineups);
+      const foundKey = keys.find(k => allLineups[k] && String(allLineups[k].teamId) === String(targetTeamId));
+      if (foundKey) {
+        squadData = allLineups[foundKey];
+      }
+    }
+
+    if (!squadData) return 0; // Squadra non trovata o formazione non inserita
+
+    // 2. Recuperiamo l'array dei titolari (o panchina come fallback)
+    const giocatori = squadData.titolari || squadData.panchina || null;
+    if (!giocatori || !Array.isArray(giocatori)) return 0;
+
     let totale = 0;
-    Object.keys(giocatori).forEach(pId => {
-      if (mappaFantavotiLocali[pId] !== undefined) {
+
+    // 3. Cicliamo l'array lineare dei giocatori (es: ["6966", "4159", ...])
+    giocatori.forEach(pId => {
+      if (pId && mappaFantavotiLocali[pId] !== undefined) {
         totale += mappaFantavotiLocali[pId];
       }
     });
+
     return totale;
   }
 };
