@@ -173,8 +173,8 @@ export const DashboardSection = {
         const couples = matchesSnap.val();
 
         const updates = {};
-        const mappaFantavoti Locali = {};
-
+        const mappaFantavotiLocali = {};
+        
         // 3. Fase A: Generazione locale e salvataggio dei singoli fantavoti
         Object.keys(votiGiocatori).forEach(playerId => {
           const datiVoto = votiGiocatori[playerId];
