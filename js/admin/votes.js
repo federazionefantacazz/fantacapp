@@ -127,7 +127,7 @@ export const VotesSection = {
       return;
     }
 
-    const gVotes = localVotes[`votes/gw${selectedGW}`] || {};
+    const gVotes = localVotes[`gw${selectedGW}`] || {};
     const playersList = this.cachedPlayers || window.PLAYERS || [];
 
     if (playersList.length === 0) {
@@ -159,14 +159,19 @@ export const VotesSection = {
 
     const inputs = document.querySelectorAll('.player-vote-input');
     const updatedVotes = {};
-
+    
     inputs.forEach(input => {
       const pId = input.dataset.pid;
       const val = input.value.trim();
       
       if (val !== "") {
-        updatedVotes[pId] = parseFloat(val);
+          // Creiamo un nuovo oggetto unico per questo specifico giocatore
+          const structureVote = {
+            voto: parseFloat(val)
+          };
+          updatedVotes[pId] = structureVote;
       }
+      
     });
 
     try {
