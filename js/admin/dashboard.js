@@ -114,7 +114,7 @@ export const DashboardSection = {
     const calcCompSelect = document.getElementById('calcCompSelect');
     if (calcCompSelect) {
       if (this._competitions.length === 0) {
-        calcCompSelect.innerHTML = '<option value="">Nessuna competizione trovata</option>';
+        calcCompSelect.innerHTML = '<option value="">Nessuna competizione trouvata</option>';
       } else {
         calcCompSelect.innerHTML = this._competitions.map(c => `
           <option value="${c.id}" ${activeCompId === c.id ? 'selected' : ''}>🏆 ${c.name}</option>
@@ -158,7 +158,7 @@ export const DashboardSection = {
       try {
         window.toast("Esecuzione calcolo master e congelamento giornata...", "info");
 
-        // 1. Recupero Voti Recenti
+        // 1. Recupero Voti Recenti Globale
         const votesSnap = await get(ref(this.db, `votes/${gwId}`));
         if (!votesSnap.exists()) {
           return window.toast(`Nessun voto inserito per la giornata ${gwId.toUpperCase()}!`, "err");
@@ -172,67 +172,48 @@ export const DashboardSection = {
         }
         const couples = matchesSnap.val();
 
+        // 3. Recupero le Formazioni (lineups) della giornata per questa competizione
+        const lineupsSnap = await get(ref(this.db, `competitions/${compId}/matches/${gwId}/lineups`));
+        const allLineups = lineupsSnap.exists() ? lineupsSnap.val() : {};
+
         const updates = {};
         const mappaFantavotiLocali = {};
-        
-        // 3. Fase A: Generazione locale e salvataggio dei singoli fantavoti
+
+        // 4. Fase A: Calcolo e mappatura locale di tutti i singoli fantavoti
         Object.keys(votiGiocatori).forEach(playerId => {
           const datiVoto = votiGiocatori[playerId];
           if (datiVoto && datiVoto.voto !== undefined) {
             const fantavotoFinale = CalcoloMatchService.calcolaFantavoto(datiVoto);
             updates[`votes/${gwId}/${playerId}/fantavoto`] = fantavotoFinale;
             
-            // Salviamo localmente per usarlo subito sotto senza attendere il DB
+            // Popoliamo la mappa locale indicizzata per ID Giocatore
             mappaFantavotiLocali[playerId] = fantavotoFinale;
           }
         });
 
-        // Helper robusto per estrarre e sommare i voti dei soli calciatori schierati come TITOLARI
-        const calcolaTotaleFantasquadra = (nodoSquadra) => {
-          if (!nodoSquadra) return 0;
-          
-          // Cerchiamo i titolari dentro .titolari, .formazione, o direttamente all'interno del nodo
-          const titolari = nodoSquadra.titolari || nodoSquadra.formazione || nodoSquadra;
-          if (typeof titolari !== 'object') return 0;
-          
-          let totale = 0;
-          
-          // Se i titolari sono un array o un dizionario di ID
-          Object.keys(titolari).forEach(chiave => {
-            // L'ID potrebbe essere la chiave o il valore stesso a seconda del tuo salvataggio delle formazioni
-            const pId = titolari[chiave]?.id || titolari[chiave] || chiave;
-            
-            if (pId && mappaFantavotiLocali[pId] !== undefined) {
-              totale += mappaFantavotiLocali[pId];
-            }
-          });
-          
-          return totale;
-        };
-
-        // Funzione per il calcolo dei gol basato sui classici range a soglie (66 = 1, 72 = 2...)
-        const calcolaGol = (punteggio) => {
-          if (punteggio < 66) return 0;
-          return Math.floor((punteggio - 66) / 6) + 1;
-        };
-
-        // 4. Fase B: Elaborazione di ogni singolo Match con calcoli reali
+        // 5. Fase B: Elaborazione di ogni singolo Match legando le Lineups
         Object.keys(couples).forEach(matchKey => {
           const match = couples[matchKey];
           
-          // Estraiamo in modo sicuro i nodi home e away
-          const datiHome = match.homeFormazione || match.home || {};
-          const datiAway = match.awayFormazione || match.away || {};
+          // Estrazione dinamica degli ID Squadra dal match (gestisce proprietà home/away o homeId/awayId)
+          const homeTeamId = match.homeId || match.home || match.idHome;
+          const awayTeamId = match.awayId || match.away || match.idAway;
 
-          const ptHome = calcolaTotaleFantasquadra(datiHome);
-          const ptAway = calcolaTotaleFantasquadra(datiAway);
+          // Recuperiamo i nodi delle formazioni caricati in precedenza dal nodo lineups
+          const lineupHome = allLineups[homeTeamId] || null;
+          const lineupAway = allLineups[awayTeamId] || null;
 
-          const gHome = calcolaGol(ptHome);
-          const gAway = calcolaGol(ptAway);
+          // Calcoliamo i punteggi totali usando le funzioni esportate dal Service condiviso
+          const ptHome = CalcoloMatchService.calcolaTotaleSquadra(lineupHome, mappaFantavotiLocali);
+          const ptAway = CalcoloMatchService.calcolaTotaleSquadra(lineupAway, mappaFantavotiLocali);
+
+          // Calcoliamo i gol corrispondenti in base alle soglie legali
+          const gHome = CalcoloMatchService.calcolaGol(ptHome);
+          const gAway = CalcoloMatchService.calcolaGol(ptAway);
 
           const basePath = `competitions/${compId}/matches/${gwId}/couples/${matchKey}`;
           
-          // Prepariamo l'inserimento dei dati calcolati nel database delle coppie
+          // Prepariamo il payload atomico da salvare
           updates[`${basePath}/punteggioFinaleHome`] = ptHome;
           updates[`${basePath}/punteggioFinaleAway`] = ptAway;
           updates[`${basePath}/goalHome`] = gHome;
@@ -240,13 +221,13 @@ export const DashboardSection = {
           updates[`${basePath}/finished`] = true;
         });
 
-        // 5. Esecuzione globale e atomica dell'aggiornamento su Firebase
+        // 6. Invio atomico di tutti i dati aggregati su Firebase
         await update(ref(this.db), updates);
         window.toast(`🎯 Giornata ${gwId.toUpperCase()} salvata correttamente con tutti i risultati reali!`, "ok");
 
       } catch (err) {
         console.error(err);
-        window.toast("Errore critico durante il salvataggio dei match completi", "err");
+        window.toast("Errore critico durante il salvataggio completo della giornata", "err");
       }
     };
   }
