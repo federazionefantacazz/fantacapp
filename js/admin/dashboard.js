@@ -100,7 +100,7 @@ export const DashboardSection = {
         : `<span class="badge badge-green">Campionato in corso: ${currentRealGw}ª Giornata</span>`;
     }
 
-    // 2. Sincronizzazione Selettore e Badge dello STATO LIVE GLOBALE (fuori dalle competizioni)
+    // 2. Sincronizzazione Selettore e Badge dello STATO LIVE GLOBALE
     const globalLiveSelect = document.getElementById('globalLiveSelect');
     const liveBadgeEl = document.getElementById('dashboard-live-badge');
     
@@ -137,16 +137,15 @@ export const DashboardSection = {
       if (e.target.id === 'calcGwInput') e.target.dataset.userEdited = "true";
     });
 
-    // Cambia il valore sul nodo Firebase globale status/live
     window.changeGlobalLiveStatus = async (value) => {
       if (!this.db) return console.error("Database non inizializzato");
       const isLive = value === "true";
       try {
         await set(ref(this.db, 'status/live'), isLive);
-        window.toast(`Stato Live globale impostato su: ${isLive}`, "ok");
+        window.showToast(`Stato Live globale impostato su: ${isLive}`, "ok");
       } catch (err) {
         console.error(err);
-        window.toast("Errore nel salvataggio del live globale", "err");
+        window.showToast("Errore nel salvataggio del live globale", "err");
       }
     };
 
@@ -155,16 +154,16 @@ export const DashboardSection = {
 
       const compId = document.getElementById('calcCompSelect')?.value;
       const gwNum = document.getElementById('calcGwInput')?.value;
-      if (!compId || !gwNum) return window.toast("Competizione e Giornata obbligatorie!", "err");
+      if (!compId || !gwNum) return window.showToast("Competizione e Giornata obbligatorie!", "err");
 
       const gwId = `gw${gwNum}`;
 
       try {
-        window.toast("Esecuzione calcolo con motore live...", "info");
+        window.showToast("Esecuzione calcolo con motore live...", "info");
 
         const votesSnap = await get(ref(this.db, `votes/${gwId}`));
         if (!votesSnap.exists()) {
-          return window.toast(`Nessun voto inserito per la giornata ${gwId.toUpperCase()}!`, "err");
+          return window.showToast(`Nessun voto inserito per la giornata ${gwId.toUpperCase()}!`, "err");
         }
 
         const votiGiocatori = votesSnap.val();
@@ -176,6 +175,7 @@ export const DashboardSection = {
           
           if (datiVoto && datiVoto.voto !== undefined) {
             const fantavotoFinale = CalcoloMatchService.calcolaFantavoto(datiVoto);
+            // Ripristinato a fantavoto in minuscolo come da te richiesto
             updates[`votes/${gwId}/${playerId}/fantavoto`] = fantavotoFinale;
             conteggioCalcolati++;
           }
@@ -183,13 +183,13 @@ export const DashboardSection = {
 
         if (conteggioCalcolati > 0) {
           await update(ref(this.db), updates);
-          window.toast(`🎯 Salvati con successo ${conteggioCalcolati} fantavoti per ${gwId.toUpperCase()}!`, "ok");
+          window.showToast(`🎯 Salvati con successo ${conteggioCalcolati} fantavoti per ${gwId.toUpperCase()}!`, "ok");
         } else {
-          window.toast("Nessun voto calcolabile.", "err");
+          window.showToast("Nessun voto calcolabile.", "err");
         }
       } catch (err) {
         console.error(err);
-        window.toast("Errore critico durante il salvataggio", "err");
+        window.showToast("Errore critico durante il salvataggio", "err");
       }
     };
   }
