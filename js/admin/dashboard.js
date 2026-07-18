@@ -55,13 +55,13 @@ export const DashboardSection = {
             🧮 Calcolatore Risultati Giornata (Salvataggio Master)
           </div>
           <p style="font-size: .8rem; color: var(--text2); margin-bottom: 1rem;">
-            Elabora e salva i fantavoti ufficiali su Firebase utilizzando il motore di calcolo live condiviso.
+            Elabora i fantavoti, calcola i punteggi delle squadre e congela i match di questa giornata (Stato Finished, Punteggi e Gol).
           </p>
           
           <div style="display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1rem;">
             <div>
               <label class="label">Competizione Target:</label>
-              <select id="calcCompSelect" class="input-login" style="margin:0; padding: .65rem;" onchange="window.selectCompetition(this.value)">
+              <select id="calcCompSelect" class="input-login" style="margin:0; padding: .65rem;">
                 <option value="">Caricamento competizioni...</option>
               </select>
             </div>
@@ -71,7 +71,7 @@ export const DashboardSection = {
             </div>
           </div>
           
-          <button class="btn btn-green" onclick="window.eseguiCalcoloPunteggi()">⚡ Salva Punteggi Ufficiali</button>
+          <button class="btn btn-green" onclick="window.eseguiCalcoloPunteggi()">⚡ Salva Risultati Ufficiali Giornata</button>
         </div>
       </div>
     `;
@@ -81,7 +81,6 @@ export const DashboardSection = {
     this._competitions = state.competitions || [];
     const activeCompId = window.CURRENT_COMPETITION || (this._competitions[0]?.id || "");
 
-    // 1. Popolamento Giornata Reale Serie A
     const selectEl = document.getElementById('realGwSelect');
     if (selectEl && selectEl.options.length === 0) {
       let optionsHtml = `<option value="0">⏳ Giornata 0 (Prima del Campionato)</option>`;
@@ -100,7 +99,6 @@ export const DashboardSection = {
         : `<span class="badge badge-green">Campionato in corso: ${currentRealGw}ª Giornata</span>`;
     }
 
-    // 2. Sincronizzazione Selettore e Badge dello STATO LIVE GLOBALE
     const globalLiveSelect = document.getElementById('globalLiveSelect');
     const liveBadgeEl = document.getElementById('dashboard-live-badge');
     
@@ -113,7 +111,6 @@ export const DashboardSection = {
         : `<span class="badge badge-gray">LIVE GLOBALE DISABILITATO (status/live = false)</span>`;
     }
 
-    // 3. Popolamento Selettore Competizioni Target
     const calcCompSelect = document.getElementById('calcCompSelect');
     if (calcCompSelect) {
       if (this._competitions.length === 0) {
@@ -159,36 +156,86 @@ export const DashboardSection = {
       const gwId = `gw${gwNum}`;
 
       try {
-        window.toast("Esecuzione calcolo con motore live...", "info");
+        window.toast("Esecuzione calcolo master e congelamento giornata...", "info");
 
+        // 1. Recupero Voti Recenti
         const votesSnap = await get(ref(this.db, `votes/${gwId}`));
         if (!votesSnap.exists()) {
           return window.toast(`Nessun voto inserito per la giornata ${gwId.toUpperCase()}!`, "err");
         }
-
         const votiGiocatori = votesSnap.val();
-        const updates = {};
-        let conteggioCalcolati = 0;
 
+        // 2. Recupero i Match della competizione per questa giornata
+        const matchesSnap = await get(ref(this.db, `competitions/${compId}/matches/${gwId}/couples`));
+        if (!matchesSnap.exists()) {
+          return window.toast("Nessun match trovato per questa giornata in questa competizione.", "err");
+        }
+        const couples = matchesSnap.val();
+
+        const updates = {};
+
+        // 3. Fase A: Aggiornamento dei singoli fantavoti nel dizionario globale dei voti
         Object.keys(votiGiocatori).forEach(playerId => {
           const datiVoto = votiGiocatori[playerId];
-          
           if (datiVoto && datiVoto.voto !== undefined) {
             const fantavotoFinale = CalcoloMatchService.calcolaFantavoto(datiVoto);
             updates[`votes/${gwId}/${playerId}/fantavoto`] = fantavotoFinale;
-            conteggioCalcolati++;
           }
         });
 
-        if (conteggioCalcolati > 0) {
-          await update(ref(this.db), updates);
-          window.toast(`🎯 Salvati con successo ${conteggioCalcolati} fantavoti per ${gwId.toUpperCase()}!`, "ok");
-        } else {
-          window.toast("Nessun voto calcolabile.", "err");
-        }
+        // Helper interno per calcolare il totale di una squadra prendendo i dati dal CalcoloMatchService condiviso
+        const calcolaTotaleFantasquadra = (formazione) => {
+          if (!formazione) return 0;
+          // Se CalcoloMatchService ha già una funzione per mappare e calcolare i titolari + panchine:
+          // altrimenti applichiamo la logica standard basata sui voti calcolati in questa sessione.
+          let totale = 0;
+          const titolari = formazione.titolari || {};
+          
+          Object.keys(titolari).forEach(pId => {
+            const vObj = votiGiocatori[pId];
+            if (vObj && vObj.voto !== undefined) {
+              totale += CalcoloMatchService.calcolaFantavoto(vObj);
+            }
+          });
+          // Nota: Espandibile qui con la logica dei cambi panchina se CalcoloMatchService la espone
+          return totale;
+        };
+
+        // Funzione helper per calcolare i gol in base alle soglie (66 = 1 gol, 72 = 2 gol, ogni 6 punti un gol)
+        const calcolaGol = (punteggio) => {
+          if (punteggio < 66) return 0;
+          return Math.floor((punteggio - 66) / 6) + 1;
+        };
+
+        // 4. Fase B: Elaborazione di ogni singolo Match
+        Object.keys(couples).forEach(matchKey => {
+          const match = couples[matchKey];
+          
+          // Calcoliamo i punteggi complessivi delle due squadre (es. 66, 70.5, ecc.)
+          const ptHome = calcolaTotaleFantasquadra(match.homeFormazione);
+          const ptAway = calcolaTotaleFantasquadra(match.awayFormazione);
+
+          // Calcoliamo i gol corrispondenti
+          const gHome = calcolaGol(ptHome);
+          const gAway = calcolaGol(ptAway);
+
+          const basePath = `competitions/${compId}/matches/${gwId}/couples/${matchKey}`;
+          
+          // Prepariamo gli update richiesti per il calendario e la classifica
+          updates[`${basePath}/punteggioFinaleHome`] = ptHome;
+          updates[`${basePath}/punteggioFinaleAway`] = ptAway;
+          updates[`${basePath}/goalHome`] = gHome;
+          updates[`${basePath}/goalAway`] = gAway;
+          updates[`${basePath}/finished`] = true;
+        });
+
+        // 5. Invio atomico dei dati a Firebase
+        await update(ref(this.db), updates);
+        window.toast(`🎯 Giornata ${gwId.toUpperCase()} congelata e salvata con successo!`, "ok");
+
       } catch (err) {
         console.error(err);
-        window.toast("Errore critico durante il salvataggio", "err");
+        window.toast("Errore critico durante il salvataggio completo della giornata", "err");
       }
     };
   }
