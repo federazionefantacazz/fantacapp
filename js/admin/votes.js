@@ -171,7 +171,7 @@ export const VotesSection = {
 
     try {
       // Salva nel percorso mirato scelto liberamente dall'utente
-      await set(ref(databaseRef, `votes/gw${selectedGW}/voto`), updatedVotes);
+      await set(ref(databaseRef, `votes/gw${selectedGW}`), updatedVotes);
       window.toast(`Voti salvati con successo per ${selectedCompId.toUpperCase()} (GW ${selectedGW})!`, "ok");
     } catch (err) {
       console.error(err);
