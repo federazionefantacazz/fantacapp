@@ -173,55 +173,66 @@ export const DashboardSection = {
         const couples = matchesSnap.val();
 
         const updates = {};
+        const mappaFantavoti Locali = {};
 
-        // 3. Fase A: Aggiornamento dei singoli fantavoti nel dizionario globale dei voti
+        // 3. Fase A: Generazione locale e salvataggio dei singoli fantavoti
         Object.keys(votiGiocatori).forEach(playerId => {
           const datiVoto = votiGiocatori[playerId];
           if (datiVoto && datiVoto.voto !== undefined) {
             const fantavotoFinale = CalcoloMatchService.calcolaFantavoto(datiVoto);
             updates[`votes/${gwId}/${playerId}/fantavoto`] = fantavotoFinale;
+            
+            // Salviamo localmente per usarlo subito sotto senza attendere il DB
+            mappaFantavotiLocali[playerId] = fantavotoFinale;
           }
         });
 
-        // Helper interno per calcolare il totale di una squadra prendendo i dati dal CalcoloMatchService condiviso
-        const calcolaTotaleFantasquadra = (formazione) => {
-          if (!formazione) return 0;
-          // Se CalcoloMatchService ha già una funzione per mappare e calcolare i titolari + panchine:
-          // altrimenti applichiamo la logica standard basata sui voti calcolati in questa sessione.
-          let totale = 0;
-          const titolari = formazione.titolari || {};
+        // Helper robusto per estrarre e sommare i voti dei soli calciatori schierati come TITOLARI
+        const calcolaTotaleFantasquadra = (nodoSquadra) => {
+          if (!nodoSquadra) return 0;
           
-          Object.keys(titolari).forEach(pId => {
-            const vObj = votiGiocatori[pId];
-            if (vObj && vObj.voto !== undefined) {
-              totale += CalcoloMatchService.calcolaFantavoto(vObj);
+          // Cerchiamo i titolari dentro .titolari, .formazione, o direttamente all'interno del nodo
+          const titolari = nodoSquadra.titolari || nodoSquadra.formazione || nodoSquadra;
+          if (typeof titolari !== 'object') return 0;
+          
+          let totale = 0;
+          
+          // Se i titolari sono un array o un dizionario di ID
+          Object.keys(titolari).forEach(chiave => {
+            // L'ID potrebbe essere la chiave o il valore stesso a seconda del tuo salvataggio delle formazioni
+            const pId = titolari[chiave]?.id || titolari[chiave] || chiave;
+            
+            if (pId && mappaFantavotiLocali[pId] !== undefined) {
+              totale += mappaFantavotiLocali[pId];
             }
           });
-          // Nota: Espandibile qui con la logica dei cambi panchina se CalcoloMatchService la espone
+          
           return totale;
         };
 
-        // Funzione helper per calcolare i gol in base alle soglie (66 = 1 gol, 72 = 2 gol, ogni 6 punti un gol)
+        // Funzione per il calcolo dei gol basato sui classici range a soglie (66 = 1, 72 = 2...)
         const calcolaGol = (punteggio) => {
           if (punteggio < 66) return 0;
           return Math.floor((punteggio - 66) / 6) + 1;
         };
 
-        // 4. Fase B: Elaborazione di ogni singolo Match
+        // 4. Fase B: Elaborazione di ogni singolo Match con calcoli reali
         Object.keys(couples).forEach(matchKey => {
           const match = couples[matchKey];
           
-          // Calcoliamo i punteggi complessivi delle due squadre (es. 66, 70.5, ecc.)
-          const ptHome = calcolaTotaleFantasquadra(match.homeFormazione);
-          const ptAway = calcolaTotaleFantasquadra(match.awayFormazione);
+          // Estraiamo in modo sicuro i nodi home e away
+          const datiHome = match.homeFormazione || match.home || {};
+          const datiAway = match.awayFormazione || match.away || {};
 
-          // Calcoliamo i gol corrispondenti
+          const ptHome = calcolaTotaleFantasquadra(datiHome);
+          const ptAway = calcolaTotaleFantasquadra(datiAway);
+
           const gHome = calcolaGol(ptHome);
           const gAway = calcolaGol(ptAway);
 
           const basePath = `competitions/${compId}/matches/${gwId}/couples/${matchKey}`;
           
-          // Prepariamo gli update richiesti per il calendario e la classifica
+          // Prepariamo l'inserimento dei dati calcolati nel database delle coppie
           updates[`${basePath}/punteggioFinaleHome`] = ptHome;
           updates[`${basePath}/punteggioFinaleAway`] = ptAway;
           updates[`${basePath}/goalHome`] = gHome;
@@ -229,13 +240,13 @@ export const DashboardSection = {
           updates[`${basePath}/finished`] = true;
         });
 
-        // 5. Invio atomico dei dati a Firebase
+        // 5. Esecuzione globale e atomica dell'aggiornamento su Firebase
         await update(ref(this.db), updates);
-        window.toast(`🎯 Giornata ${gwId.toUpperCase()} congelata e salvata con successo!`, "ok");
+        window.toast(`🎯 Giornata ${gwId.toUpperCase()} salvata correttamente con tutti i risultati reali!`, "ok");
 
       } catch (err) {
         console.error(err);
-        window.toast("Errore critico durante il salvataggio completo della giornata", "err");
+        window.toast("Errore critico durante il salvataggio dei match completi", "err");
       }
     };
   }
