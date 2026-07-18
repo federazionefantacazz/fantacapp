@@ -76,7 +76,7 @@ export const LiveMatchModule = {
       try {
         // 🔄 RECUPERO VOTI LIVE DALLA GIORNATA REALE SPECIFICA
         const [vSnap, pSnap] = await Promise.all([
-          get(ref(this.db, `votes/gw${numeroGwReale}`)),
+          get(ref(this.db, 'votes/gw${numeroGwReale}')),
           get(ref(this.db, 'players'))
         ]);
 
