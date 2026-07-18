@@ -204,8 +204,8 @@ export const DashboardSection = {
           const lineupAway = allLineups[awayTeamId] || null;
 
           // Calcoliamo i punteggi totali usando le funzioni esportate dal Service condiviso
-          const ptHome = CalcoloMatchService.calcolaTotaleSquadra(lineupHome, mappaFantavotiLocali);
-          const ptAway = CalcoloMatchService.calcolaTotaleSquadra(lineupAway, mappaFantavotiLocali);
+          const ptHome = CalcoloMatchService.calcolaTotaleSquadra(allLineups, homeTeamId, mappaFantavotiLocali);
+          const ptAway = CalcoloMatchService.calcolaTotaleSquadra(allLineups, awayTeamId, mappaFantavotiLocali);
 
           // Calcoliamo i gol corrispondenti in base alle soglie legali
           const gHome = CalcoloMatchService.calcolaGol(ptHome);
