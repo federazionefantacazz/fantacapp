@@ -40,5 +40,37 @@ export const CalcoloMatchService = {
 
     // Ritorna la somma algebrica finale
     return votoBase + totaleBonusMalus;
+  },
+
+  /**
+   * Calcola i gol totali basandosi sulle soglie (66 = 1 gol, +6 per ogni gol successivo)
+   * @param {Number} punteggio - Il totale della fantasquadra
+   * @returns {Number} Numero di gol segnati
+   */
+  calcolaGol(punteggio) {
+    if (!punteggio || punteggio < 66) return 0;
+    return Math.floor((punteggio - 66) / 6) + 1;
+  },
+
+  /**
+   * Calcola il punteggio totale di una lineup (titolari o panchina)
+   * @param {Object} nodoLineup - Il nodo della formazione (es: lineup[teamId])
+   * @param {Object} mappaFantavotiLocali - I fantavoti calcolati della giornata
+   * @returns {Number} Somma totale dei fantavoti
+   */
+  calcolaTotaleSquadra(nodoLineup, mappaFantavotiLocali) {
+    if (!nodoLineup) return 0;
+    
+    // Fallback: se mancano i titolari, controlla in panchina
+    const giocatori = nodoLineup.titolari || nodoLineup.panchina || {};
+    if (typeof giocatori !== 'object') return 0;
+    
+    let totale = 0;
+    Object.keys(giocatori).forEach(pId => {
+      if (mappaFantavotiLocali[pId] !== undefined) {
+        totale += mappaFantavotiLocali[pId];
+      }
+    });
+    return totale;
   }
 };
