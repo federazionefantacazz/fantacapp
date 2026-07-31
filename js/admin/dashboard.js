@@ -55,7 +55,7 @@ export const DashboardSection = {
             🧮 Calcolatore Risultati Giornata (Salvataggio Master)
           </div>
           <p style="font-size: .8rem; color: var(--text2); margin-bottom: 1rem;">
-            Elabora i fantavoti, calcola i punteggi delle squadre e congela i match di questa giornata (Stato Finished, Punteggi e Gol).
+            Elabora i fantavoti, calcola i punteggi delle squadre, congela i match di questa giornata e aggiorna la classifica della giornata.
           </p>
           
           <div style="display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1rem;">
@@ -71,7 +71,7 @@ export const DashboardSection = {
             </div>
           </div>
           
-          <button class="btn btn-green" onclick="window.eseguiCalcoloPunteggi()">⚡ Salva Risultati Ufficiali Giornata</button>
+          <button class="btn btn-green" onclick="window.eseguiCalcoloPunteggi()">⚡ Salva Risultati Ufficiali e Classifica</button>
         </div>
       </div>
     `;
@@ -114,7 +114,7 @@ export const DashboardSection = {
     const calcCompSelect = document.getElementById('calcCompSelect');
     if (calcCompSelect) {
       if (this._competitions.length === 0) {
-        calcCompSelect.innerHTML = '<option value="">Nessuna competizione trouvata</option>';
+        calcCompSelect.innerHTML = '<option value="">Nessuna competizione trovata</option>';
       } else {
         calcCompSelect.innerHTML = this._competitions.map(c => `
           <option value="${c.id}" ${activeCompId === c.id ? 'selected' : ''}>🏆 ${c.name}</option>
@@ -195,35 +195,64 @@ export const DashboardSection = {
         Object.keys(couples).forEach(matchKey => {
           const match = couples[matchKey];
           
-          // Estrazione dinamica degli ID Squadra dal match (gestisce proprietà home/away o homeId/awayId)
+          // Estrazione dinamica degli ID Squadra dal match
           const homeTeamId = match.homeId || match.home || match.idHome;
           const awayTeamId = match.awayId || match.away || match.idAway;
-
-          // Recuperiamo i nodi delle formazioni caricati in precedenza dal nodo lineups
-          const lineupHome = allLineups[homeTeamId] || null;
-          const lineupAway = allLineups[awayTeamId] || null;
 
           // Calcoliamo i punteggi totali usando le funzioni esportate dal Service condiviso
           const ptHome = CalcoloMatchService.calcolaTotaleSquadra(allLineups, homeTeamId, mappaFantavotiLocali);
           const ptAway = CalcoloMatchService.calcolaTotaleSquadra(allLineups, awayTeamId, mappaFantavotiLocali);
 
-          // Calcoliamo i gol corrispondenti in base alle soglie legali
+          // Calcoliamo i gol corrispondenti in base alle soglie
           const gHome = CalcoloMatchService.calcolaGol(ptHome);
           const gAway = CalcoloMatchService.calcolaGol(ptAway);
 
           const basePath = `competitions/${compId}/matches/${gwId}/couples/${matchKey}`;
           
-          // Prepariamo il payload atomico da salvare
+          // Prepariamo il payload atomico per il match
           updates[`${basePath}/punteggioFinaleHome`] = ptHome;
           updates[`${basePath}/punteggioFinaleAway`] = ptAway;
           updates[`${basePath}/goalHome`] = gHome;
           updates[`${basePath}/goalAway`] = gAway;
           updates[`${basePath}/finished`] = true;
+
+          // 6. Fase C: Calcolo delle statistiche e dati per la Classifica di giornata
+          let puntiHome = 0;
+          let puntiAway = 0;
+
+          if (gHome > gAway) {
+            puntiHome = 3;
+            puntiAway = 0;
+          } else if (gHome < gAway) {
+            puntiHome = 0;
+            puntiAway = 3;
+          } else {
+            puntiHome = 1;
+            puntiAway = 1;
+          }
+
+          // Salvataggio dati Classifica per la squadra di casa
+          if (homeTeamId) {
+            const classHomePath = `competitions/${compId}/classifica/${gwId}/${homeTeamId}`;
+            updates[`${classHomePath}/punteggiofanta`] = ptHome;
+            updates[`${classHomePath}/punti`] = puntiHome;
+            updates[`${classHomePath}/golFatti`] = gHome;
+            updates[`${classHomePath}/golSubiti`] = gAway;
+          }
+
+          // Salvataggio dati Classifica per la squadra ospite
+          if (awayTeamId) {
+            const classAwayPath = `competitions/${compId}/classifica/${gwId}/${awayTeamId}`;
+            updates[`${classAwayPath}/punteggiofanta`] = ptAway;
+            updates[`${classAwayPath}/punti`] = puntiAway;
+            updates[`${classAwayPath}/golFatti`] = gAway;
+            updates[`${classAwayPath}/golSubiti`] = gHome;
+          }
         });
 
-        // 6. Invio atomico di tutti i dati aggregati su Firebase
+        // 7. Invio atomico di tutti i dati aggregati su Firebase (Match + Voti + Classifica)
         await update(ref(this.db), updates);
-        window.toast(`🎯 Giornata ${gwId.toUpperCase()} salvata correttamente con tutti i risultati reali!`, "ok");
+        window.toast(`🎯 Giornata ${gwId.toUpperCase()} salvata e classifica aggiornata correttamente!`, "ok");
 
       } catch (err) {
         console.error(err);
