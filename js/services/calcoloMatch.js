@@ -158,42 +158,40 @@ export const DashboardSection = {
       try {
         window.toast("Esecuzione calcolo master e congelamento giornata...", "info");
 
-        // 1. Recupero Voti Recenti Globale
+        // 1. Recupero Voti
         const votesSnap = await get(ref(this.db, `votes/${gwId}`));
         if (!votesSnap.exists()) {
           return window.toast(`Nessun voto inserito per la giornata ${gwId.toUpperCase()}!`, "err");
         }
         const votiGiocatori = votesSnap.val();
 
-        // 2. Recupero i Match della competizione per questa giornata
+        // 2. Recupero Match
         const matchesSnap = await get(ref(this.db, `competitions/${compId}/matches/${gwId}/couples`));
         if (!matchesSnap.exists()) {
           return window.toast("Nessun match trovato per questa giornata in questa competizione.", "err");
         }
         const couples = matchesSnap.val();
 
-        // 3. Recupero le Formazioni (lineups) della giornata per questa competizione
+        // 3. Recupero Lineups
         const lineupsSnap = await get(ref(this.db, `competitions/${compId}/matches/${gwId}/lineups`));
         const allLineups = lineupsSnap.exists() ? lineupsSnap.val() : {};
 
         const updates = {};
         const mappaFantavotiLocali = {};
 
-        // 4. Fase A: Calcolo e mappatura locale di tutti i singoli fantavoti
+        // 4. Calcolo Fantavoti
         Object.keys(votiGiocatori).forEach(playerId => {
           const datiVoto = votiGiocatori[playerId];
           if (datiVoto && datiVoto.voto !== undefined) {
             const fantavotoFinale = CalcoloMatchService.calcolaFantavoto(datiVoto);
             updates[`votes/${gwId}/${playerId}/fantavoto`] = fantavotoFinale;
-            
             mappaFantavotiLocali[playerId] = fantavotoFinale;
           }
         });
 
-        // 5. Fase B: Elaborazione di ogni singolo Match legando le Lineups
+        // 5. Elaborazione Match e Classifica
         Object.keys(couples).forEach(matchKey => {
           const match = couples[matchKey];
-          
           const homeTeamId = match.homeId || match.home || match.idHome;
           const awayTeamId = match.awayId || match.away || match.idAway;
 
@@ -204,14 +202,13 @@ export const DashboardSection = {
           const gAway = CalcoloMatchService.calcolaGol(ptAway);
 
           const basePath = `competitions/${compId}/matches/${gwId}/couples/${matchKey}`;
-          
           updates[`${basePath}/punteggioFinaleHome`] = ptHome;
           updates[`${basePath}/punteggioFinaleAway`] = ptAway;
           updates[`${basePath}/goalHome`] = gHome;
           updates[`${basePath}/goalAway`] = gAway;
           updates[`${basePath}/finished`] = true;
 
-          // 6. Fase C: Calcolo V/N/P, Punti, Gol e Punteggio Fanta per la classifica di giornata
+          // Calcolo V/N/P e punti
           let puntiHome = 0, puntiAway = 0;
           let vHome = 0, dHome = 0, lHome = 0;
           let vAway = 0, dAway = 0, lAway = 0;
