@@ -65,15 +65,54 @@ export const ClassificaPage = {
     };
 
     let compTeams = state.teams ? [...state.teams] : [];
+    const classificaDbNode = compData.classifica || {};
+
+    // Calcolo statistiche aggregate da node competitions/{compId}/classifica
+    const teamCalculatedStats = {};
+    compTeams.forEach(t => {
+      teamCalculatedStats[t.id] = {
+        giocate: 0,
+        pts: 0,
+        w: 0,
+        d: 0,
+        l: 0,
+        totFanta: 0,
+        gf: 0,
+        gs: 0
+      };
+    });
+
+    Object.keys(classificaDbNode).forEach(gwKey => {
+      const gwObj = classificaDbNode[gwKey];
+      if (gwObj && typeof gwObj === 'object') {
+        Object.keys(gwObj).forEach(teamId => {
+          const stats = gwObj[teamId];
+          if (!teamCalculatedStats[teamId]) {
+            teamCalculatedStats[teamId] = { giocate: 0, pts: 0, w: 0, d: 0, l: 0, totFanta: 0, gf: 0, gs: 0 };
+          }
+          teamCalculatedStats[teamId].giocate += 1;
+          teamCalculatedStats[teamId].pts += Number(stats.punti || 0);
+          teamCalculatedStats[teamId].w += Number(stats.vittoria || 0);
+          teamCalculatedStats[teamId].d += Number(stats.pareggio || 0);
+          teamCalculatedStats[teamId].l += Number(stats.sconfitta || 0);
+          teamCalculatedStats[teamId].totFanta += Number(stats.punteggiofanta || 0);
+          teamCalculatedStats[teamId].gf += Number(stats.golFatti || 0);
+          teamCalculatedStats[teamId].gs += Number(stats.golSubiti || 0);
+        });
+      }
+    });
 
     // 1) CASO CAMPIONATO STANDARD
     if (compType === 'campionato') {
       compTeams.sort((a, b) => {
-        const ptsA = (a.competitions && a.competitions[compId]?.pts) !== undefined ? a.competitions[compId].pts : (a.pts || 0);
-        const ptsB = (b.competitions && b.competitions[compId]?.pts) !== undefined ? b.competitions[compId].pts : (b.pts || 0);
-        return ptsB - ptsA;
+        const statsA = teamCalculatedStats[a.id] || {};
+        const statsB = teamCalculatedStats[b.id] || {};
+        const ptsDiff = (statsB.pts || 0) - (statsA.pts || 0);
+        if (ptsDiff !== 0) return ptsDiff;
+        // Secondo criterio: totale punteggio fanta
+        return (statsB.totFanta || 0) - (statsA.totFanta || 0);
       });
-      contentDiv.innerHTML = this.renderTabellaClassica(compTeams, compId);
+      contentDiv.innerHTML = this.renderTabellaClassica(compTeams, compId, null, teamCalculatedStats);
     } 
     
     // 2) CASO TORNEO MISTO
@@ -102,9 +141,11 @@ export const ClassificaPage = {
               });
 
               listaSquadreGirone.sort((a, b) => {
-                const ptsA = (a.competitions && a.competitions[compId]?.pts) !== undefined ? a.competitions[compId].pts : (a.pts || 0);
-                const ptsB = (b.competitions && b.competitions[compId]?.pts) !== undefined ? b.competitions[compId].pts : (b.pts || 0);
-                return ptsB - ptsA;
+                const statsA = teamCalculatedStats[a.id] || {};
+                const statsB = teamCalculatedStats[b.id] || {};
+                const ptsDiff = (statsB.pts || 0) - (statsA.pts || 0);
+                if (ptsDiff !== 0) return ptsDiff;
+                return (statsB.totFanta || 0) - (statsA.totFanta || 0);
               });
 
               const numQualificati = parseInt(compData.qualificatiFaseFinale) || 2;
@@ -114,7 +155,7 @@ export const ClassificaPage = {
               if (listaSquadreGirone.length > 0) {
                 html += this.renderTabellaClassica(listaSquadreGirone, compId, (index) => {
                   return index < numQualificati ? 'background: rgba(80,227,194,0.08); border-left: 4px solid var(--accent);' : '';
-                });
+                }, teamCalculatedStats);
               } else {
                 html += `<div class="card" style="text-align:center; color:var(--text2); padding:1rem;">Nessuna squadra trovata per questo girone.</div>`;
               }
@@ -134,9 +175,11 @@ export const ClassificaPage = {
     // 3) CASO CAMPIONATO MISTO-SPECIALE
     else if (compType === 'misto-speciale') {
       compTeams.sort((a, b) => {
-        const ptsA = (a.competitions && a.competitions[compId]?.pts) !== undefined ? a.competitions[compId].pts : (a.pts || 0);
-        const ptsB = (b.competitions && b.competitions[compId]?.pts) !== undefined ? b.competitions[compId].pts : (b.pts || 0);
-        return ptsB - ptsA;
+        const statsA = teamCalculatedStats[a.id] || {};
+        const statsB = teamCalculatedStats[b.id] || {};
+        const ptsDiff = (statsB.pts || 0) - (statsA.pts || 0);
+        if (ptsDiff !== 0) return ptsDiff;
+        return (statsB.totFanta || 0) - (statsA.totFanta || 0);
       });
 
       this.renderModoConTabellone(actionsDiv, contentDiv, compData, state, () => {
@@ -158,7 +201,7 @@ export const ClassificaPage = {
           if (pos <= 6) return 'background: rgba(74,144,226,0.08); border-left: 4px solid var(--accent2);';
           if (pos <= 10) return 'background: rgba(80,227,194,0.08); border-left: 4px solid var(--accent);';
           return 'background: rgba(255,107,107,0.08); border-left: 4px solid var(--accent3);';
-        });
+        }, teamCalculatedStats);
 
         html += '</div>';
         return html;
@@ -175,33 +218,29 @@ export const ClassificaPage = {
     }
   },
 
-  renderTabellaClassica(teamsList, compId, rowStyleCallback = null) {
+  renderTabellaClassica(teamsList, compId, rowStyleCallback = null, teamCalculatedStats = {}) {
     let html = `
       <div class="card" style="padding:0; overflow:hidden; border:1px solid var(--border); margin-bottom: 1rem;">
         <div style="overflow-x:auto;">
-          <table style="width:100%; border-collapse:collapse; font-size:0.85rem; min-width:420px;">
+          <table style="width:100%; border-collapse:collapse; font-size:0.85rem; min-width:550px;">
             <thead>
               <tr style="background:var(--bg2); border-bottom:1px solid var(--border);">
-                <th style="padding:0.75rem; text-align:center; width:45px; color:var(--text3);">Pos</th>
+                <th style="padding:0.75rem; text-align:center; width:40px; color:var(--text3);">Pos</th>
                 <th style="padding:0.75rem; text-align:left;">Squadra</th>
-                <th style="padding:0.75rem; text-align:center; width:50px;">G</th>
-                <th style="padding:0.75rem; text-align:center; width:50px; color:#4cd137;">V</th>
-                <th style="padding:0.75rem; text-align:center; width:50px; color:var(--text2);">N</th>
-                <th style="padding:0.75rem; text-align:center; width:50px; color:var(--accent3);">P</th>
-                <th style="padding:0.75rem; text-align:center; width:65px; color:var(--accent); font-weight:bold;">PT</th>
+                <th style="padding:0.75rem; text-align:center; width:45px;">G</th>
+                <th style="padding:0.75rem; text-align:center; width:45px; color:#4cd137;">V</th>
+                <th style="padding:0.75rem; text-align:center; width:45px; color:var(--text2);">N</th>
+                <th style="padding:0.75rem; text-align:center; width:45px; color:var(--accent3);">P</th>
+                <th style="padding:0.75rem; text-align:center; width:70px; color:var(--text2);">GF:GS</th>
+                <th style="padding:0.75rem; text-align:center; width:90px; color:var(--accent2); font-weight:bold;">TOT. FANTA</th>
+                <th style="padding:0.75rem; text-align:center; width:55px; color:var(--accent); font-weight:bold;">PT</th>
               </tr>
             </thead>
             <tbody>
     `;
 
     teamsList.forEach((t, idx) => {
-      const cData = (t.competitions && t.competitions[compId]) || {};
-      const pts = cData.pts !== undefined ? cData.pts : (t.pts || 0);
-      const w = cData.w !== undefined ? cData.w : (t.w || 0);
-      const d = cData.d !== undefined ? cData.d : (t.d || 0);
-      const l = cData.l !== undefined ? cData.l : (t.l || 0);
-      const giocate = w + d + l;
-
+      const stats = teamCalculatedStats[t.id] || { giocate: 0, pts: 0, w: 0, d: 0, l: 0, totFanta: 0, gf: 0, gs: 0 };
       const customStyle = rowStyleCallback ? rowStyleCallback(idx) : '';
 
       const logoHTML = t.logo 
@@ -215,11 +254,13 @@ export const ClassificaPage = {
             ${logoHTML}
             <span style="font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${t.name}</span>
           </td>
-          <td style="padding:0.75rem; text-align:center; color:var(--text2);">${giocate}</td>
-          <td style="padding:0.75rem; text-align:center; color:var(--text2);">${w}</td>
-          <td style="padding:0.75rem; text-align:center; color:var(--text2);">${d}</td>
-          <td style="padding:0.75rem; text-align:center; color:var(--text2);">${l}</td>
-          <td style="padding:0.75rem; text-align:center; font-weight:bold; color:var(--accent); font-family:'DM Mono',monospace; font-size:0.9rem;">${pts}</td>
+          <td style="padding:0.75rem; text-align:center; color:var(--text2);">${stats.giocate}</td>
+          <td style="padding:0.75rem; text-align:center; color:var(--text2);">${stats.w}</td>
+          <td style="padding:0.75rem; text-align:center; color:var(--text2);">${stats.d}</td>
+          <td style="padding:0.75rem; text-align:center; color:var(--text2);">${stats.l}</td>
+          <td style="padding:0.75rem; text-align:center; color:var(--text2); font-size:0.8rem;">${stats.gf}:${stats.gs}</td>
+          <td style="padding:0.75rem; text-align:center; font-weight:bold; color:var(--accent2); font-family:'DM Mono',monospace; font-size:0.85rem;">${stats.totFanta.toFixed(1)}</td>
+          <td style="padding:0.75rem; text-align:center; font-weight:bold; color:var(--accent); font-family:'DM Mono',monospace; font-size:0.9rem;">${stats.pts}</td>
         </tr>
       `;
     });
@@ -275,7 +316,6 @@ export const ClassificaPage = {
         const nameHome = isHomePending ? `✨ ${m.homeId.replace("VINCENTE_", "")}` : (teamHome ? teamHome.name : m.homeId);
         const nameAway = isAwayPending ? `✨ ${m.awayId.replace("VINCENTE_", "")}` : (teamAway ? teamAway.name : m.awayId);
 
-        // --- GESTIONE LOGHI DINAMICI SQUADRA IN CASA ---
         let logoHomeHTML = `🏠`;
         if (!isHomePending) {
           logoHomeHTML = teamHome && teamHome.logo
@@ -283,7 +323,6 @@ export const ClassificaPage = {
             : `<span style="font-size:1rem; flex-shrink:0; width:20px; text-align:center;">🛡️</span>`;
         }
 
-        // --- GESTIONE LOGHI DINAMICI SQUADRA IN TRASFERTA ---
         let logoAwayHTML = `🚀`;
         if (!isAwayPending) {
           logoAwayHTML = teamAway && teamAway.logo
