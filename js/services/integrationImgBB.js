@@ -106,3 +106,90 @@ export async function uploadImageToImgBB(file) {
     throw error;
   }
 }
+
+/**
+ * Carica uno SFONDO su ImgBB: ritaglia al centro in formato smartphone (9:19.5),
+ * ridimensiona a 1080x2340px e applica una compressione JPEG leggera (qualità 90%).
+ * 
+ * @param {File} file - Il file preso dall'input HTML
+ * @returns {Promise<string>} - L'URL diretto dell'immagine caricata
+ */
+export async function uploadBackgroundToImgBB(file) {
+  if (!file) throw new Error("Nessun file selezionato per l'upload.");
+
+  const TARGET_WIDTH = 1080;
+  const TARGET_HEIGHT = 2340;
+  const TARGET_RATIO = TARGET_WIDTH / TARGET_HEIGHT;
+
+  // 1. Ritaglio centrale e ridimensionamento tramite Canvas
+  const compressedBlob = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+
+      img.onload = () => {
+        const imgRatio = img.width / img.height;
+        let sx = 0, sy = 0, sWidth = img.width, sHeight = img.height;
+
+        // Ritaglio centrale (Center Crop) per adattare l'immagine alle proporzioni dello smartphone
+        if (imgRatio > TARGET_RATIO) {
+          sWidth = img.height * TARGET_RATIO;
+          sx = (img.width - sWidth) / 2;
+        } else {
+          sHeight = img.width / TARGET_RATIO;
+          sy = (img.height - sHeight) / 2;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = TARGET_WIDTH;
+        canvas.height = TARGET_HEIGHT;
+
+        const ctx = canvas.getContext('2d');
+
+        // Sfondo bianco di sicurezza per evitare trasparenze nere nel JPEG
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, TARGET_WIDTH, TARGET_HEIGHT);
+
+        // Disegna la porzione ritagliata ridimensionandola al target
+        ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, TARGET_WIDTH, TARGET_HEIGHT);
+
+        // Genera il file JPEG con qualità 90%
+        canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.90);
+      };
+
+      img.onerror = (err) => reject(err);
+    };
+
+    reader.onerror = (err) => reject(err);
+  });
+
+  // 2. Preparazione FormData e Invio a ImgBB usando la costante IMGBB_API_KEY già presente nel file
+  const fileName = file.name.replace(/\.[^/.]+$/, "") + "_bg.jpg";
+  const formData = new FormData();
+  formData.append('image', compressedBlob, fileName);
+
+  try {
+    const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      throw new Error(`Errore di rete durante l'upload: ${response.status}`);
+    }
+
+    const resData = await response.json();
+
+    if (resData.success && resData.data && resData.data.url) {
+      return resData.data.url;
+    } else {
+      throw new Error("Il server ImgBB ha rifiutato il caricamento.");
+    }
+  } catch (error) {
+    console.error("Errore in uploadBackgroundToImgBB:", error);
+    throw error;
+  }
+}
