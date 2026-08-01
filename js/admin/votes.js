@@ -146,7 +146,7 @@ export const VotesSection = {
                  class="input-login player-vote-input" 
                  data-pid="${p.id}" 
                  value="${currentVote}" 
-                 placeholder="N.V." 
+                 placeholder="6" 
                  style="margin-bottom:0; padding: .4rem .5rem; font-size:.8rem;">
         </div>
       `;
