@@ -28,6 +28,63 @@
   --text2: #94a3b8;    /* Testo secondario */
   --text3: #475569;    
 }
+
+/* ==================== HEADER COMPATTO GLASS ==================== */
+#app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.8rem !important; 
+  height: 48px !important; /* Altezza super compatta per mobile */
+  background: rgba(26, 30, 36, 0.72) !important; /* Effetto trasparenza */
+  backdrop-filter: blur(12px) -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.header-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.25rem !important;
+  letter-spacing: 1px;
+  background: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1;
+  margin: 0;
+}
+
+#userCompSelect {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: rgba(255, 255, 255, 0.07) !important;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.5rem center !important;
+  background-size: 0.75rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 14px !important;
+  color: var(--text) !important;
+  font-family: 'DM Sans', sans-serif !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  padding: 0.25rem 1.5rem 0.25rem 0.65rem !important;
+  height: 28px !important;
+  outline: none !important;
+  max-width: 130px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .field-player select {
   -webkit-appearance: none;
   appearance: none;
@@ -61,7 +118,6 @@ body {
   color: var(--text);
   -webkit-user-select: none;
   user-select: none;
-  /* Transizione fluida per il cambio immagine di sfondo */
   transition: background 0.3s ease-in-out, background-color 0.3s ease-in-out; 
 }
 
@@ -74,10 +130,6 @@ body {
   position: relative;
   padding-top: env(safe-area-inset-top, 0px); 
   box-sizing: border-box;
-}
-
-#app-header {
-  flex-shrink: 0;
 }
 
 #dynamic-pages-container {
@@ -191,12 +243,13 @@ body {
 <body>
 
 <div id="app">
-  <div id="app-header" style="display:none; padding: .8rem 1rem; background: var(--card); border-bottom: 1px solid rgba(255,255,255,0.05); align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1000;">
-    <div style="display: flex; align-items: center; gap: .5rem;">
+  <!-- HEADER MODIFICATO E COMPATTO -->
+  <div id="app-header" style="display:none;">
+    <div class="header-brand">
       <div id="app-global-navbar-logo-container" style="flex-shrink:0; display:flex; align-items:center; justify-content:center;"></div>
-      <div class="logo" style="font-size: 1.4rem; margin: 0;">FANTACAZZ</div>
+      <div class="header-title">FANTACAZZ</div>
     </div>
-    <select id="userCompSelect" class="select-rose" style="width: auto; padding: .4rem .6rem; margin: 0; font-weight: 500;" onchange="window._handleCompetitionChange(this.value)">
+    <select id="userCompSelect" onchange="window._handleCompetitionChange(this.value)">
       <option value="fantacazz">🏆 Caricamento...</option>
     </select>
   </div>
@@ -360,7 +413,6 @@ function caricaDatiCompetizione(compId) {
     gestisciSwitchLive(liveAttivo);
   });
 
-  // 🟢 ASCOLTATORE DEDICATO PER LO SFONDO PERSONALIZZATO DELLA COMPETIZIONE
   onValue(ref(db, `competitions/${compId}/backgroundImage`), snap => {
     const bgUrl = snap.val();
     if (bgUrl && bgUrl.trim() !== "") {
@@ -434,7 +486,7 @@ function gestisciSwitchLive(liveAttivo) {
 window._handleCompetitionChange = function(newCompetitionId) {
   if (!newCompetitionId) return;
   window.STATE.currentCompetition = newCompetitionId;
-  window.STATE.activeCompetitionId = newCompetitionId; // Allineamento per file esterni (home.js)
+  window.STATE.activeCompetitionId = newCompetitionId;
   window.showToast(`Competizione modificata in: ${newCompetitionId.toUpperCase()}`, 'ok');
   
   const calSelect = document.getElementById('calGwSelect');
@@ -568,7 +620,6 @@ window.doTeamSelection = function() {
 onValue(ref(db, 'competitions'), snap => {
   const comps = snap.val() || {};
   
-  // Manteniamo le chiavi originali iniettando l'id all'interno di ciascun oggetto
   const list = Object.entries(comps).map(([key, val]) => {
     return { ...val, id: key };
   });
@@ -626,7 +677,7 @@ function bootApp() {
 function refreshUI() {
   if (!window.STATE.booted || !window.STATE.user) return;
 
-  // AGGIORNAMENTO DINAMICO LOGO NAVBAR SUPERIORE CORRETTO CON STRING CASTING
+  // AGGIORNAMENTO LOGO NAVBAR (COMPATTO 24px)
   const globalNavbarLogoContainer = document.getElementById('app-global-navbar-logo-container');
   if (globalNavbarLogoContainer) {
     const currentCompId = window.STATE.currentCompetition || window.STATE.activeCompetitionId;
@@ -634,11 +685,11 @@ function refreshUI() {
 
     if (compData && compData.logo && compData.logo.trim() !== "") {
       globalNavbarLogoContainer.innerHTML = `
-        <img src="${compData.logo}" style="height:28px; width:28px; object-fit:contain; border-radius:4px; background:var(--bg3); padding:2px;" onerror="this.src=''; this.innerHTML='🏆';" alt="Logo Comp">
+        <img src="${compData.logo}" style="height:24px; width:24px; object-fit:contain;" onerror="this.outerHTML='<div style=\'width:24px; height:24px; background:rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:.75rem;\'>🏆</div>';" alt="Logo Comp">
       `;
     } else {
       globalNavbarLogoContainer.innerHTML = `
-        <div style="width:28px; height:28px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:.9rem; color:var(--text3)">🏆</div>
+        <div style="width:24px; height:24px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:.75rem; color:var(--gold)">🏆</div>
       `;
     }
   }
@@ -656,11 +707,9 @@ function refreshUI() {
     const currentCompId = window.STATE.currentCompetition;
     const compData = window.STATE.competitions.find(c => String(c.id) === String(currentCompId));
     
-    // Fallback sicuro se l'oggetto o la mappa non esistono ancora
     const associazioni = compData ? (compData.associazioniGwReali || compData.associazioniGwRealiMap || {}) : {};
     const gwCorrenteReale = window.STATE.giornataRealeCorrente;
 
-    // Controllo più sicuro: verifica che gwCorrenteReale non sia null o undefined (accetta anche lo 0)
     if (gwCorrenteReale === null || gwCorrenteReale === undefined || Object.keys(associazioni).length === 0) {
       const container = document.getElementById('live-match-container');
       if (container) {
@@ -674,7 +723,7 @@ function refreshUI() {
     LiveMatchModule.init(db, myTeamId, currentCompId);
     LiveMatchModule.startLiveTracking(gwCorrenteReale, associazioni);
   }
-} // Chiude correttamente refreshUI
+}
 
 window.goPage = function(name, btn) {
   if (window.STATE.currentPage === 'live' && name !== 'live') {
