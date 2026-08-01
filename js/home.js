@@ -30,19 +30,6 @@ export const HomePage = {
           </div>
         </div>
 
-        <div class="card" style="padding:1rem 1.25rem; margin-bottom:1.5rem; background:var(--card); border: 1px solid rgba(255,255,255,0.08);">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div>
-              <div class="label" style="margin:0;">Lega e Competizione attiva</div>
-              <div id="homeActiveCompName" style="font-size:1rem; font-weight:600; color:var(--text); margin-top:.1rem;">Nessuna</div>
-            </div>
-            <div style="text-align:right;">
-              <div class="label" style="margin:0;">Giornata di Lega</div>
-              <div id="homeActiveCompGw" style="font-family:'DM Mono',monospace; font-size:1.1rem; font-weight:600; color:var(--gold); margin-top:.1rem;">GW --</div>
-            </div>
-          </div>
-        </div>
-
         <div class="sec" style="margin-bottom:.6rem;">🎯 Prossimo Turno</div>
         <div id="homeNextMatch" style="margin-bottom:1.5rem;">
           <div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Nessun match programmato.</div>
