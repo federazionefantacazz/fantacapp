@@ -38,7 +38,8 @@
   padding: 0.35rem 0.8rem !important; 
   height: 48px !important; /* Altezza super compatta per mobile */
   background: rgba(26, 30, 36, 0.72) !important; /* Effetto trasparenza */
-  backdrop-filter: blur(12px) -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: none !important;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
   position: sticky;
@@ -193,6 +194,7 @@ body {
   height: calc(64px + env(safe-area-inset-bottom));
   background: var(--bg2);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-top: none;
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
   display: flex;
@@ -437,6 +439,7 @@ function caricaDatiCompetizione(compId) {
     }
   });
 
+  /* AGGIORNATO: Mappatura completa delle variabili CSS del tema */
   onValue(ref(db, `competitions/${compId}/theme`), snap => {
     const theme = snap.val();
     const styleTag = document.getElementById('dynamic-theme');
@@ -454,6 +457,8 @@ function caricaDatiCompetizione(compId) {
           ${theme.gold ? `--gold: ${theme.gold};` : ''}
           ${theme.text ? `--text: ${theme.text};` : ''}
           ${theme.text2 ? `--text2: ${theme.text2};` : ''}
+          ${theme.text3 ? `--text3: ${theme.text3};` : ''}
+          ${theme.navInactive ? `--nav-inactive: ${theme.navInactive};` : ''}
         }
       `;
     } else if (styleTag) {
@@ -508,7 +513,7 @@ window._handleCompetitionChange = function(newCompetitionId) {
   refreshUI();
 };
 
-onValue(ref(db,  'votes'), snap => { 
+onValue(ref(db, 'votes'), snap => { 
   window.STATE.votes = snap.val() || {}; 
   refreshUI(); 
 });
