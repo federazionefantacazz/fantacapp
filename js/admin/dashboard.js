@@ -55,7 +55,7 @@ export const DashboardSection = {
             🧮 Calcolatore Risultati Giornata (Salvataggio Master)
           </div>
           <p style="font-size: .8rem; color: var(--text2); margin-bottom: 1rem;">
-            Elabora i fantavoti, calcola i punteggi delle squadre, congela i match di questa giornata e aggiorna la classifica della giornata.
+            Elabora i fantavoti, calcola i punteggi delle squadre, congela i match di questa giornata e aggiorna la classifica o il tabellone.
           </p>
           
           <div style="display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1rem;">
@@ -158,28 +158,33 @@ export const DashboardSection = {
       try {
         window.toast("Esecuzione calcolo master e congelamento giornata...", "info");
 
-        // 1. Recupero Voti
+        // 1. Recupero dati competizione
+        const compSnap = await get(ref(this.db, `competitions/${compId}`));
+        if (!compSnap.exists()) return window.toast("Competizione non trovata!", "err");
+        const compData = compSnap.val();
+
+        // 2. Recupero Voti Globale
         const votesSnap = await get(ref(this.db, `votes/${gwId}`));
         if (!votesSnap.exists()) {
           return window.toast(`Nessun voto inserito per la giornata ${gwId.toUpperCase()}!`, "err");
         }
         const votiGiocatori = votesSnap.val();
 
-        // 2. Recupero Match
+        // 3. Recupero Match della giornata
         const matchesSnap = await get(ref(this.db, `competitions/${compId}/matches/${gwId}/couples`));
         if (!matchesSnap.exists()) {
           return window.toast("Nessun match trovato per questa giornata in questa competizione.", "err");
         }
         const couples = matchesSnap.val();
 
-        // 3. Recupero Lineups
+        // 4. Recupero Lineups della giornata
         const lineupsSnap = await get(ref(this.db, `competitions/${compId}/matches/${gwId}/lineups`));
         const allLineups = lineupsSnap.exists() ? lineupsSnap.val() : {};
 
         const updates = {};
         const mappaFantavotiLocali = {};
 
-        // 4. Calcolo Fantavoti
+        // 5. Calcolo Voti Giocatori
         Object.keys(votiGiocatori).forEach(playerId => {
           const datiVoto = votiGiocatori[playerId];
           if (datiVoto && datiVoto.voto !== undefined) {
@@ -189,7 +194,7 @@ export const DashboardSection = {
           }
         });
 
-        // 5. Elaborazione Match e Classifica
+        // 6. Elaborazione Risultati Match di Giornata
         Object.keys(couples).forEach(matchKey => {
           const match = couples[matchKey];
           const homeTeamId = match.homeId || match.home || match.idHome;
@@ -208,47 +213,182 @@ export const DashboardSection = {
           updates[`${basePath}/goalAway`] = gAway;
           updates[`${basePath}/finished`] = true;
 
-          // Calcolo V/N/P e punti
-          let puntiHome = 0, puntiAway = 0;
-          let vHome = 0, dHome = 0, lHome = 0;
-          let vAway = 0, dAway = 0, lAway = 0;
+          // Aggiornamento Classifica Standard (se NON è a eliminazione diretta pura)
+          if (compData.type !== 'diretta') {
+            let puntiHome = 0, puntiAway = 0;
+            let vHome = 0, dHome = 0, lHome = 0;
+            let vAway = 0, dAway = 0, lAway = 0;
 
-          if (gHome > gAway) {
-            puntiHome = 3; vHome = 1;
-            puntiAway = 0; lAway = 1;
-          } else if (gHome < gAway) {
-            puntiHome = 0; lHome = 1;
-            puntiAway = 3; vAway = 1;
-          } else {
-            puntiHome = 1; dHome = 1;
-            puntiAway = 1; dAway = 1;
-          }
+            if (gHome > gAway) {
+              puntiHome = 3; vHome = 1; puntiAway = 0; lAway = 1;
+            } else if (gHome < gAway) {
+              puntiHome = 0; lHome = 1; puntiAway = 3; vAway = 1;
+            } else {
+              puntiHome = 1; dHome = 1; puntiAway = 1; dAway = 1;
+            }
 
-          if (homeTeamId) {
-            const classHomePath = `competitions/${compId}/classifica/${gwId}/${homeTeamId}`;
-            updates[`${classHomePath}/punteggiofanta`] = ptHome;
-            updates[`${classHomePath}/punti`] = puntiHome;
-            updates[`${classHomePath}/golFatti`] = gHome;
-            updates[`${classHomePath}/golSubiti`] = gAway;
-            updates[`${classHomePath}/vittoria`] = vHome;
-            updates[`${classHomePath}/pareggio`] = dHome;
-            updates[`${classHomePath}/sconfitta`] = lHome;
-          }
+            if (homeTeamId) {
+              const classHomePath = `competitions/${compId}/classifica/${gwId}/${homeTeamId}`;
+              updates[`${classHomePath}/punteggiofanta`] = ptHome;
+              updates[`${classHomePath}/punti`] = puntiHome;
+              updates[`${classHomePath}/golFatti`] = gHome;
+              updates[`${classHomePath}/golSubiti`] = gAway;
+              updates[`${classHomePath}/vittoria`] = vHome;
+              updates[`${classHomePath}/pareggio`] = dHome;
+              updates[`${classHomePath}/sconfitta`] = lHome;
+            }
 
-          if (awayTeamId) {
-            const classAwayPath = `competitions/${compId}/classifica/${gwId}/${awayTeamId}`;
-            updates[`${classAwayPath}/punteggiofanta`] = ptAway;
-            updates[`${classAwayPath}/punti`] = puntiAway;
-            updates[`${classAwayPath}/golFatti`] = gAway;
-            updates[`${classAwayPath}/golSubiti`] = gHome;
-            updates[`${classAwayPath}/vittoria`] = vAway;
-            updates[`${classAwayPath}/pareggio`] = dAway;
-            updates[`${classAwayPath}/sconfitta`] = lAway;
+            if (awayTeamId) {
+              const classAwayPath = `competitions/${compId}/classifica/${gwId}/${awayTeamId}`;
+              updates[`${classAwayPath}/punteggiofanta`] = ptAway;
+              updates[`${classAwayPath}/punti`] = puntiAway;
+              updates[`${classAwayPath}/golFatti`] = gAway;
+              updates[`${classAwayPath}/golSubiti`] = gHome;
+              updates[`${classAwayPath}/vittoria`] = vAway;
+              updates[`${classAwayPath}/pareggio`] = dAway;
+              updates[`${classAwayPath}/sconfitta`] = lAway;
+            }
           }
         });
 
+        // 7. GESTIONE SPECIALIZZATA TABELLONE ELIMINAZIONE DIRETTA (`type === "diretta"`)
+        if (compData.type === 'diretta' && compData.tabelloneStructure && compData.tabelloneStructure.fasi) {
+          const tabellone = compData.tabelloneStructure;
+          const isAndataRitorno = tabellone.tipoScontro === 'andata_ritorno' || tabellone.modalita === 'andata_ritorno';
+          const allMatchesSnap = await get(ref(this.db, `competitions/${compId}/matches`));
+          const allMatches = allMatchesSnap.exists() ? allMatchesSnap.val() : {};
+
+          // Includiamo i risultati appena calcolati
+          allMatches[gwId] = allMatches[gwId] || { couples: {} };
+          Object.keys(couples).forEach(matchKey => {
+            const match = couples[matchKey];
+            const homeTeamId = match.homeId || match.home || match.idHome;
+            const awayTeamId = match.awayId || match.away || match.idAway;
+            
+            const ptHome = CalcoloMatchService.calcolaTotaleSquadra(allLineups, homeTeamId, mappaFantavotiLocali);
+            const ptAway = CalcoloMatchService.calcolaTotaleSquadra(allLineups, awayTeamId, mappaFantavotiLocali);
+
+            allMatches[gwId].couples[matchKey] = {
+              ...match,
+              punteggioFinaleHome: ptHome,
+              punteggioFinaleAway: ptAway,
+              goalHome: CalcoloMatchService.calcolaGol(ptHome),
+              goalAway: CalcoloMatchService.calcolaGol(ptAway),
+              finished: true
+            };
+          });
+
+          const fasi = tabellone.fasi;
+          const fasiKeys = Object.keys(fasi); // es. ["fase_1_diretta", "fase_2_diretta"]
+
+          fasiKeys.forEach((faseKey, index) => {
+            const faseObj = fasi[faseKey];
+            const matchList = faseObj.matchList || [];
+
+            matchList.forEach((m) => {
+              const matchId = m.id; // es: "tf1_m1"
+              let vincenteId = null;
+
+              if (!isAndataRitorno) {
+                // --- SOLO ANDATA ---
+                // Cerca la partita con id pari a matchId tra tutte le giornate
+                let foundMatch = null;
+                Object.keys(allMatches).forEach(gw => {
+                  const couplesGw = allMatches[gw].couples || {};
+                  if (couplesGw[matchId] && couplesGw[matchId].finished) {
+                    foundMatch = couplesGw[matchId];
+                  }
+                });
+
+                if (foundMatch) {
+                  const gH = Number(foundMatch.goalHome || 0);
+                  const gA = Number(foundMatch.goalAway || 0);
+                  const ptH = Number(foundMatch.punteggioFinaleHome || 0);
+                  const ptA = Number(foundMatch.punteggioFinaleAway || 0);
+
+                  if (gH > gA) vincenteId = foundMatch.homeId || foundMatch.home;
+                  else if (gA > gH) vincenteId = foundMatch.awayId || foundMatch.away;
+                  else {
+                    // Parità di gol: vince chi ha più fantapunti
+                    if (ptH > ptA) vincenteId = foundMatch.homeId || foundMatch.home;
+                    else if (ptA > ptH) vincenteId = foundMatch.awayId || foundMatch.away;
+                    else vincenteId = foundMatch.homeId || foundMatch.home; // Fallback padrone di casa
+                  }
+                }
+              } else {
+                // --- ANDATA E RITORNO ---
+                // Cerca la gara d'andata (es: tf1_m1) e quella di ritorno (es: tf1_m1_ritorno)
+                let matchAndata = null;
+                let matchRitorno = null;
+
+                Object.keys(allMatches).forEach(gw => {
+                  const couplesGw = allMatches[gw].couples || {};
+                  if (couplesGw[matchId] && couplesGw[matchId].finished) {
+                    matchAndata = couplesGw[matchId];
+                  }
+                  if (couplesGw[`${matchId}_ritorno`] && couplesGw[`${matchId}_ritorno`].finished) {
+                    matchRitorno = couplesGw[`${matchId}_ritorno`];
+                  }
+                });
+
+                // Solo se sia l'Andata che il Ritorno sono FINITI
+                if (matchAndata && matchRitorno) {
+                  const hId = matchAndata.homeId || matchAndata.home;
+                  const aId = matchAndata.awayId || matchAndata.away;
+
+                  let totGolH = Number(matchAndata.goalHome || 0);
+                  let totGolA = Number(matchAndata.goalAway || 0);
+                  let totPtH = Number(matchAndata.punteggioFinaleHome || 0);
+                  let totPtA = Number(matchAndata.punteggioFinaleAway || 0);
+
+                  // Nel ritorno i ruoli si invertono: Home è aId e Away è hId
+                  if ((matchRitorno.homeId || matchRitorno.home) === aId) {
+                    totGolA += Number(matchRitorno.goalHome || 0);
+                    totGolH += Number(matchRitorno.goalAway || 0);
+                    totPtA += Number(matchRitorno.punteggioFinaleHome || 0);
+                    totPtH += Number(matchRitorno.punteggioFinaleAway || 0);
+                  } else {
+                    totGolH += Number(matchRitorno.goalHome || 0);
+                    totGolA += Number(matchRitorno.goalAway || 0);
+                    totPtH += Number(matchRitorno.punteggioFinaleHome || 0);
+                    totPtA += Number(matchRitorno.punteggioFinaleAway || 0);
+                  }
+
+                  if (totGolH > totGolA) vincenteId = hId;
+                  else if (totGolA > totGolH) vincenteId = aId;
+                  else {
+                    // Parità di gol aggregati: spareggio sui fantapunti totali
+                    if (totPtH > totPtA) vincenteId = hId;
+                    else if (totPtA > totPtH) vincenteId = aId;
+                    else vincenteId = hId;
+                  }
+                }
+              }
+
+              // Se abbiamo determinato un vincente, aggiorniamo i placeholder "VINCENTE_*" nella fase successiva
+              if (vincenteId && fasiKeys[index + 1]) {
+                const nextFaseKey = fasiKeys[index + 1];
+                const nextMatchList = fasi[nextFaseKey].matchList || [];
+
+                nextMatchList.forEach((nextM, nextMIndex) => {
+                  const targetPlaceholder = `VINCENTE_${matchId}`;
+                  const basePathNext = `competitions/${compId}/tabelloneStructure/fasi/${nextFaseKey}/matchList/${nextMIndex}`;
+
+                  if (nextM.homeId === targetPlaceholder) {
+                    updates[`${basePathNext}/homeId`] = vincenteId;
+                  }
+                  if (nextM.awayId === targetPlaceholder) {
+                    updates[`${basePathNext}/awayId`] = vincenteId;
+                  }
+                });
+              }
+            });
+          });
+        }
+
+        // 8. Applicazione Atomica degli Aggiornamenti
         await update(ref(this.db), updates);
-        window.toast(`🎯 Giornata ${gwId.toUpperCase()} salvata e classifica aggiornata correttamente!`, "ok");
+        window.toast(`🎯 Giornata ${gwId.toUpperCase()} salvata e dati aggiornati correttamente!`, "ok");
 
       } catch (err) {
         console.error(err);
