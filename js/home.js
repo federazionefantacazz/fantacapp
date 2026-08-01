@@ -5,7 +5,6 @@ export const HomePage = {
       <div class="page" id="page-home" style="padding-top: 1.5rem;">
         <div class="app-header" style="margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; position: relative;">
           <div style="width: 32px;"></div> 
-          <!-- 🟢 Aggiunto id="homeHeaderTitle" per aggiornare dinamicamente il nome -->
           <div class="logo" id="homeHeaderTitle" style="font-size: 2rem; letter-spacing: 2px; text-transform: uppercase; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(100% - 80px);">FANTACAZZ</div>
           <button onclick="window.doFirebaseLogout()" style="background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; -webkit-tap-highlight-color: transparent;" title="Disconnetti">
             <svg viewBox="0 0 24 24" width="22" height="22" stroke="var(--accent3)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
@@ -16,19 +15,55 @@ export const HomePage = {
           </button>
         </div>
 
-        <div id="home-status-banner" style="margin-bottom: 1.2rem;"></div>
+        <!-- 🟢 NUOVA CARD STRUTTURATA (INFO + TROFEI + BOX ANTEPRIMA WIP) -->
+        <div class="card" style="margin-bottom: 1.2rem; background: linear-gradient(135deg, var(--card) 0%, rgba(80,227,194,0.06) 100%); border: 1px solid rgba(255,255,255,0.08); padding: 1.25rem;">
+          <div style="display: flex; gap: 1rem; align-items: stretch;">
+            
+            <!-- Colonna Sinistra: Dettagli Squadra + Trofei -->
+            <div style="flex: 1.2; display: flex; flex-direction: column; justify-content: space-between; min-width: 0;">
+              
+              <!-- Top: Logo + Nomi + Punti -->
+              <div>
+                <div style="display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.8rem;">
+                  <div id="userTeamLogo" style="flex-shrink: 0;"></div>
+                  <div style="flex: 1; min-width: 0;">
+                    <div class="label" style="margin: 0; font-size: 0.68rem;">La mia squadra</div>
+                    <h3 id="homeTeamName" style="font-family: 'Bebas Neue', sans-serif; font-size: 1.7rem; letter-spacing: 0.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -3px; line-height: 1.1;">Caricamento...</h3>
+                    <p id="homeTeamOwner" style="font-size: 0.75rem; color: var(--text2); margin-top: -1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">...</p>
+                  </div>
+                </div>
 
-        <div class="card" style="margin-bottom: 1.2rem; background: linear-gradient(135deg, var(--card) 0%, rgba(80,227,194,0.06) 100%); border: 1px solid rgba(255,255,255,0.08);">
-          <div style="display:flex; align-items:center; gap:.8rem;">
-            <div id="userTeamLogo" style="flex-shrink:0;"></div>
-            <div style="flex:1; min-width:0;">
-              <div class="label" style="margin:0;">La mia squadra</div>
-              <h3 id="homeTeamName" style="font-family:'Bebas Neue',sans-serif; font-size:1.6rem; letter-spacing:0.5px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:-2px;">Caricamento...</h3>
-              <p id="homeTeamOwner" style="font-size:.78rem; color:var(--text2); margin-top:-2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">...</p>
+                <div style="display: flex; align-items: baseline; gap: 0.4rem; margin-top: 0.4rem;">
+                  <span style="font-size: 0.72rem; color: var(--text2); text-transform: uppercase; font-weight: 600;">Totale Punti:</span>
+                  <span id="homeTeamPts" style="font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; color: var(--accent); line-height: 1;">0.0</span>
+                </div>
+              </div>
+
+              <!-- Bottom: Sezione Trofei -->
+              <div style="margin-top: 1rem; padding-top: 0.8rem; border-top: 1px dashed rgba(255,255,255,0.1);">
+                <div class="label" style="margin-bottom: 0.4rem; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase;">🏆 Palmarès / Trofei</div>
+                <div id="homeTeamTrophies" style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+                  <span style="font-size: 0.75rem; color: var(--text3); font-style: italic;">Nessun trofeo</span>
+                </div>
+              </div>
+
             </div>
-            <div id="homeTeamPts" style="font-family:'Bebas Neue',sans-serif; font-size:2.2rem; color:var(--accent); line-height:1; padding-left:.5rem; text-align:right;">0.0</div>
+
+            <!-- Colonna Destra: Box Anteprima WIP -->
+            <div style="flex: 0.9; min-width: 110px; background: rgba(0,0,0,0.25); border: 1.5px dashed rgba(255,255,255,0.15); border-radius: 10px; padding: 0.75rem; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; position: relative; overflow: hidden;">
+              <div style="position: absolute; top: 6px; right: 6px; background: var(--accent2); color: #fff; font-size: 0.55rem; font-weight: 700; padding: 1px 5px; border-radius: 4px; letter-spacing: 0.5px;">WIP</div>
+              
+              <div id="homePreviewBox">
+                <div style="font-size: 1.5rem; margin-bottom: 0.2rem; opacity: 0.8;">📊</div>
+                <div style="font-size: 0.72rem; font-weight: 600; color: var(--text); line-height: 1.2;">Anteprima</div>
+                <div style="font-size: 0.62rem; color: var(--text3); margin-top: 3px;">Modulo / Stats</div>
+              </div>
+            </div>
+
           </div>
         </div>
+		
+        <div id="home-status-banner" style="margin-bottom: 1.2rem;"></div>
 
         <div class="sec" style="margin-bottom:.6rem;">🎯 Prossimo Turno</div>
         <div id="homeNextMatch" style="margin-bottom:1.5rem;">
@@ -50,8 +85,7 @@ export const HomePage = {
     const tn = document.getElementById('homeTeamName');
     const to = document.getElementById('homeTeamOwner');
     const tp = document.getElementById('homeTeamPts');
-    const tl = document.getElementById('homeActiveCompName');
-    const tg = document.getElementById('homeActiveCompGw');
+    const trophiesContainer = document.getElementById('homeTeamTrophies');
     const nm = document.getElementById('homeNextMatch');
     const lv = document.getElementById('homeLastVotes');
     const teamLogoContainer = document.getElementById('userTeamLogo');
@@ -120,25 +154,39 @@ export const HomePage = {
       if (to) to.textContent = `Patron: ${myTeam.owner || "Sconosciuto"}`;
       if (tp) tp.textContent = (myTeam.pts !== undefined) ? myTeam.pts.toFixed(1) : "0.0";
       
+      // Logo Squadra (Aumentato leggermente a 52x52px)
       if (teamLogoContainer) {
         if (myTeam.logo) {
-          teamLogoContainer.innerHTML = `<img src="${myTeam.logo}" style="width:44px; height:44px; object-fit:contain; border-radius:8px; background:var(--bg3); padding:2px; border:1px solid rgba(255,255,255,0.08);" onerror="this.src=''; this.innerHTML='🛡️';" alt="Logo">`;
+          teamLogoContainer.innerHTML = `<img src="${myTeam.logo}" style="width:52px; height:52px; object-fit:contain; border-radius:8px; background:var(--bg3); padding:2px; border:1px solid rgba(255,255,255,0.08);" onerror="this.src=''; this.innerHTML='🛡️';" alt="Logo">`;
         } else {
-          teamLogoContainer.innerHTML = `<div style="width:44px; height:44px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:1.3rem; color:var(--text2)">${myTeam.emoji || '🛡️'}</div>`;
+          teamLogoContainer.innerHTML = `<div style="width:52px; height:52px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:1.5rem; color:var(--text2)">${myTeam.emoji || '🛡️'}</div>`;
         }
       }
+
+      // 🏆 Rendering Trofei Dinamici
+      if (trophiesContainer) {
+        if (myTeam.trophies && Array.isArray(myTeam.trophies) && myTeam.trophies.length > 0) {
+          trophiesContainer.innerHTML = myTeam.trophies.map(tr => `
+            <span style="font-size: 1rem;" title="${tr.name || 'Trofeo'}">${tr.icon || '🏆'}</span>
+          `).join('');
+        } else if (myTeam.trophiesCount) {
+          // Fallback se c'è solo un contatore numerico
+          trophiesContainer.innerHTML = `<span style="font-size:0.85rem; font-weight:bold; color:var(--gold);">🏆 x${myTeam.trophiesCount}</span>`;
+        } else {
+          trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3); font-style: italic;">Nessun trofeo in bacheca</span>`;
+        }
+      }
+
     } else {
       if (tn) tn.textContent = "Spettatore";
       if (to) to.textContent = STATE.user.email;
       if (tp) tp.textContent = "0.0";
-      if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:44px; height:44px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:1.3rem; color:var(--text2)">👁️</div>`;
+      if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:52px; height:52px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:1.5rem; color:var(--text2)">👁️</div>`;
+      if (trophiesContainer) trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3);">--</span>`;
     }
 
     // 🟢 INFO COMPETIZIONE ATTIVA E PROSSIMO MATCH
     if (comp) {
-      if (tl) tl.textContent = comp.name || comp.id.toUpperCase();
-      if (tg) tg.textContent = comp.status ? `GW ${comp.status.currentGW || 1}` : "GW 1";
-      
       const currentGwNum = comp.status ? (comp.status.currentGW || 1) : 1;
       const allMatches = STATE.matches || {};
       const gwMatches = allMatches[currentGwNum] || [];
@@ -167,8 +215,6 @@ export const HomePage = {
         if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Riposo o nessun match trovato per questa GW.</div>`;
       }
     } else {
-      if (tl) tl.textContent = "Nessuna";
-      if (tg) tg.textContent = "GW --";
       if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Seleziona una competizione dal menu in alto.</div>`;
     }
 
