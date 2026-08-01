@@ -61,15 +61,16 @@ export const HomePage = {
 		
         <div id="home-status-banner" style="margin-bottom: 1.2rem;"></div>
 
-        <!-- 🟢 CAMBIATO DA "🎯 Prossimo Turno" A "Prossimo Avversario" -->
+        <!-- PROSSIMO AVVERSARIO -->
         <div class="sec" style="margin-bottom:.6rem;">Prossimo Avversario</div>
         <div id="homeNextMatch" style="margin-bottom:1.5rem;">
           <div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Nessun match programmato.</div>
         </div>
 
-        <div class="sec" style="margin-bottom:.6rem;">🗞️ Ultimi Voti Rilasciati</div>
-        <div class="scroll-voti" id="homeLastVotes">
-          <div style="text-align:center; color:var(--text3); padding:1.5rem; font-size:.85rem; width:100%;">Nessun voto inserito.</div>
+        <!-- 🟢 NUOVA SEZIONE: GIOCATORI ON FIRE -->
+        <div class="sec" id="onFireTitle" style="margin-bottom:.6rem;">🔥 Giocatori On Fire</div>
+        <div class="scroll-voti" id="homeOnFirePlayers">
+          <div style="text-align:center; color:var(--text3); padding:1.5rem; font-size:.85rem; width:100%;">Nessun dato sulle prestazioni disponibile.</div>
         </div>
       </div>
     `;
@@ -84,10 +85,11 @@ export const HomePage = {
     const tp = document.getElementById('homeTeamPts');
     const trophiesContainer = document.getElementById('homeTeamTrophies');
     const nm = document.getElementById('homeNextMatch');
-    const lv = document.getElementById('homeLastVotes');
+    const onFireContainer = document.getElementById('homeOnFirePlayers');
+    const onFireTitle = document.getElementById('onFireTitle');
     const teamLogoContainer = document.getElementById('userTeamLogo');
 
-    // Helper per ottenere l'HTML del logo (immagini o fallback emoji)
+    // Helper per ottenere l'HTML del logo
     const getLogoHtml = (team, size = 28) => {
       if (!team) return `<span style="font-size:${size * 0.7}px;">🛡️</span>`;
       if (team.logo) {
@@ -117,8 +119,8 @@ export const HomePage = {
     }
 
     // 🟢 BANNER GIORNATA REALE
+    const realGw = STATE.giornataRealeCorrente || STATE.currentRealGW || STATE.status?.currentGW || 0;
     if (banner) {
-      const realGw = STATE.giornataRealeCorrente || STATE.currentRealGW || STATE.status?.currentGW || 0;
       if (realGw === 0) {
         banner.innerHTML = `
           <div class="card card-sm" style="border-left: 4px solid var(--accent2); background: rgba(100, 116, 139, 0.1); padding: .75rem 1rem; margin-bottom: 0;">
@@ -160,6 +162,10 @@ export const HomePage = {
       if (to) to.textContent = `Patron: ${myTeam.owner || "Sconosciuto"}`;
       if (tp) tp.textContent = (myTeam.pts !== undefined) ? myTeam.pts.toFixed(1) : "0.0";
       
+      if (onFireTitle) {
+        onFireTitle.textContent = `🔥 Giocatori ${myTeam.name || ''} On Fire`;
+      }
+
       if (teamLogoContainer) {
         if (myTeam.logo) {
           teamLogoContainer.innerHTML = `<img src="${myTeam.logo}" style="width:52px; height:52px; object-fit:contain; border-radius:8px; background:var(--bg3); padding:2px; border:1px solid rgba(255,255,255,0.08);" onerror="this.src=''; this.innerHTML='🛡️';" alt="Logo">`;
@@ -184,11 +190,12 @@ export const HomePage = {
       if (tn) tn.textContent = "Spettatore";
       if (to) to.textContent = STATE.user.email;
       if (tp) tp.textContent = "0.0";
+      if (onFireTitle) onFireTitle.textContent = `🔥 Giocatori On Fire`;
       if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:52px; height:52px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:1.5rem; color:var(--text2)">👁️</div>`;
       if (trophiesContainer) trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3);">--</span>`;
     }
 
-    // 🟢 NUOVA STRUTTURA: PROSSIMO AVVERSARIO (LOGO SQUADRA 1 vs SQUADRA 2 LOGO)
+    // PROSSIMO AVVERSARIO
     if (comp) {
       const currentGwNum = comp.status ? (comp.status.currentGW || 1) : 1;
       const allMatches = STATE.matches || {};
@@ -223,56 +230,80 @@ export const HomePage = {
       if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Seleziona una competizione dal menu in alto.</div>`;
     }
 
-    // 🟢 ULTIMI VOTI RILASCIATI
-    if (STATE.votes) {
-      if (lv) {
-        let playersList = [];
-        if (STATE.players) {
-          playersList = Array.isArray(STATE.players) ? STATE.players : Object.values(STATE.players);
-        }
-
-        const currentGwKey = comp && comp.status ? `gw${comp.status.currentGW}` : null;
-        
-        let targetVotes = {};
-        if (currentGwKey && STATE.votes[currentGwKey]) {
-          targetVotes = STATE.votes[currentGwKey];
-        } else {
-          const keys = Object.keys(STATE.votes);
-          if (keys.length > 0) {
-            const lastKey = keys.sort((a, b) => b.localeCompare(a, undefined, {numeric: true}))[0];
-            targetVotes = STATE.votes[lastKey] || {};
-          }
-        }
-
-        const vArr = Object.entries(targetVotes);
-
-        if (vArr.length > 0) {
-          lv.innerHTML = vArr.map(([pid, rawVal]) => {
-            const p = playersList.find(x => x.id === pid) || { name: pid, role: 'C', club: '' };
-            const val = Number(rawVal) || 0;
-
-            let customStyle = 'padding: .2rem .5rem; border-radius: 6px; font-weight: bold; font-family: "DM Mono", monospace; ';
-            if (val >= 7) customStyle += 'background: rgba(80, 227, 194, 0.15); color: var(--accent);';
-            else if (val < 5.5) customStyle += 'background: rgba(255, 107, 107, 0.15); color: var(--accent3);';
-            else customStyle += 'background: rgba(255, 255, 255, 0.08); color: var(--text);';
-
-            return `
-              <div class="pcard" style="background:var(--card2); border: 1px solid rgba(255,255,255,0.05);">
-                <div class="rbadge r${p.role}">${p.role}</div>
-                <div class="pi">
-                  <div class="pn" style="color:var(--text);">${p.name}</div>
-                  <div class="pm" style="color:var(--text2);">${p.club}</div>
-                </div>
-                <div style="${customStyle}">${val.toFixed(1)}</div>
-              </div>
-            `;
-          }).join('');
-        } else {
-          lv.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1.5rem; font-size:.85rem; width:100%;">Nessun voto rilasciato per questa giornata.</div>`;
-        }
+    // 🟢 CALCOLO GIOCATORI ON FIRE (Ultime 4 Giornate Reali)
+    if (onFireContainer) {
+      let playersList = [];
+      if (STATE.players) {
+        playersList = Array.isArray(STATE.players) ? STATE.players : Object.values(STATE.players);
       }
-    } else {
-      if (lv) lv.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1.5rem; font-size:.85rem; width:100%;">Nessun voto rilasciato al momento.</div>`;
+
+      // Filtra i giocatori per la squadra dell'utente (se la squadra esiste ed ha dei giocatori)
+      let targetPlayers = playersList;
+      if (myTeam && myTeam.players && Array.isArray(myTeam.players) && myTeam.players.length > 0) {
+        targetPlayers = playersList.filter(p => myTeam.players.includes(p.id) || myTeam.players.some(tp => tp.id === p.id || tp === p.id));
+      }
+
+      // Determina le ultime 4 giornate reali disponibili da STATE.votes
+      const allVotes = STATE.votes || {};
+      let targetGwKeys = [];
+
+      if (realGw > 0) {
+        for (let i = realGw; i > Math.max(0, realGw - 4); i--) {
+          targetGwKeys.push(`gw${i}`);
+        }
+      } else {
+        // Fallback in assenza di realGw: prendi le ultime 4 giornate presenti nei voti
+        targetGwKeys = Object.keys(allVotes)
+          .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
+          .slice(0, 4);
+      }
+
+      // Calcolo media ultimi 4 voti per ciascun giocatore
+      const stats = targetPlayers.map(p => {
+        let sum = 0;
+        let count = 0;
+
+        targetGwKeys.forEach(gwKey => {
+          if (allVotes[gwKey] && allVotes[gwKey][p.id] !== undefined) {
+            const v = Number(allVotes[gwKey][p.id]);
+            if (!isNaN(v) && v > 0) {
+              sum += v;
+              count++;
+            }
+          }
+        });
+
+        const avg = count > 0 ? sum / count : 0;
+        return { player: p, avg, count };
+      }).filter(item => item.count > 0); // Considera solo giocatori con almeno un voto nelle ultime 4 giornate
+
+      // Ordina per media decrescente e prendi i Top 5
+      stats.sort((a, b) => b.avg - a.avg);
+      const top5 = stats.slice(0, 5);
+
+      if (top5.length > 0) {
+        onFireContainer.innerHTML = top5.map(({ player: p, avg, count }) => {
+          let customStyle = 'padding: .2rem .5rem; border-radius: 6px; font-weight: bold; font-family: "DM Mono", monospace; ';
+          if (avg >= 7) customStyle += 'background: rgba(80, 227, 194, 0.15); color: var(--accent);';
+          else if (avg < 6) customStyle += 'background: rgba(255, 107, 107, 0.15); color: var(--accent3);';
+          else customStyle += 'background: rgba(255, 255, 255, 0.08); color: var(--text);';
+
+          return `
+            <div class="pcard" style="background:var(--card2); border: 1px solid rgba(255,255,255,0.05); margin-bottom: 0.4rem;">
+              <div class="rbadge r${p.role}">${p.role}</div>
+              <div class="pi" style="flex:1; min-width:0;">
+                <div class="pn" style="color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.name}</div>
+                <div class="pm" style="color:var(--text2); font-size:0.7rem;">${p.club} • ${count} pres. nelle ultime 4</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="${customStyle}">${avg.toFixed(2)}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        onFireContainer.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1.5rem; font-size:.85rem; width:100%;">Nessun voto registrato nelle ultime 4 giornate.</div>`;
+      }
     }
   }
 };
