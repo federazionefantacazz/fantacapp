@@ -109,7 +109,6 @@ export const ClassificaPage = {
         const statsB = teamCalculatedStats[b.id] || {};
         const ptsDiff = (statsB.pts || 0) - (statsA.pts || 0);
         if (ptsDiff !== 0) return ptsDiff;
-        // Secondo criterio: totale punteggio fanta
         return (statsB.totFanta || 0) - (statsA.totFanta || 0);
       });
       contentDiv.innerHTML = this.renderTabellaClassica(compTeams, compId, null, teamCalculatedStats);
@@ -211,7 +210,7 @@ export const ClassificaPage = {
     // 4) CASO ELIMINAZIONE DIRETTA PURA
     else if (compType === 'diretta') {
       if (compData.tabelloneStructure) {
-        contentDiv.innerHTML = this.renderStrutturaTabelloneGrafico(compData.tabelloneStructure, state);
+        contentDiv.innerHTML = this.renderStrutturaTabelloneGrafico(compData.tabelloneStructure, state, compData);
       } else {
         contentDiv.innerHTML = `<div class="card" style="text-align:center; color:var(--text2); padding:2rem;">🛡️ Nessun tabellone ad eliminazione diretta generato dal pannello Admin.</div>`;
       }
@@ -282,7 +281,7 @@ export const ClassificaPage = {
 
     htmlContenuto += `<div id="view-dati-tabellone" style="display:none; overflow-x:auto; padding-top:0.5rem;">`;
     if (compData.tabelloneStructure) {
-      htmlContenuto += this.renderStrutturaTabelloneGrafico(compData.tabelloneStructure, state);
+      htmlContenuto += this.renderStrutturaTabelloneGrafico(compData.tabelloneStructure, state, compData);
     } else {
       htmlContenuto += `<div class="card" style="text-align:center; color:var(--text2); padding:1.5rem;">⚠️ Il tabellone ad eliminazione non è ancora stato generato dall'Amministratore per questa fase.</div>`;
     }
@@ -291,7 +290,7 @@ export const ClassificaPage = {
     contentDiv.innerHTML = htmlContenuto;
   },
 
-  renderStrutturaTabelloneGrafico(tabelloneStructure, state) {
+  renderStrutturaTabelloneGrafico(tabelloneStructure, state, compData = {}) {
     if (!tabelloneStructure || !tabelloneStructure.fasi) {
       return `<div class="card" style="text-align:center; color:var(--text2);">Struttura tabellone non disponibile.</div>`;
     }
@@ -300,21 +299,139 @@ export const ClassificaPage = {
     const chiaviFasi = Object.keys(fasi).sort();
     const teamsGlobal = state.teams || [];
 
+    // Mappa globale delle giornate e delle partite salvate in Firebase per questa competizione
+    const matchesMap = compData.matches || {};
+
+    const modalita = tabelloneStructure.regolaIncontri || tabelloneStructure.tipoScontro || tabelloneStructure.modalita;
+    const isAndataRitorno = modalita === 'andata-ritorno' || modalita === 'andata_ritorno';
+
+    // Struttura ausiliaria per mappare ogni matchId alle relative partite di Andata e Ritorno
+    const matchResultsMap = {};
+
+    Object.keys(matchesMap).forEach(gwKey => {
+      const couples = matchesMap[gwKey].couples || {};
+      Object.keys(couples).forEach(cKey => {
+        const matchData = couples[cKey];
+        if (!matchData) return;
+
+        if (cKey.endsWith('_ritorno')) {
+          const baseId = cKey.replace('_ritorno', '');
+          matchResultsMap[baseId] = matchResultsMap[baseId] || {};
+          matchResultsMap[baseId].ritorno = matchData;
+        } else {
+          matchResultsMap[cKey] = matchResultsMap[cKey] || {};
+          matchResultsMap[cKey].andata = matchData;
+        }
+      });
+    });
+
+    // Mappa dinamica per calcolare quali squadre passano il turno (SOLO a match completamente disputato)
+    const resolvedWinners = {};
+
+    chiaviFasi.forEach((faseKey) => {
+      const faseObj = fasi[faseKey];
+      const matchList = faseObj.matchList || [];
+
+      matchList.forEach((m) => {
+        const matchId = m.id;
+        const res = matchResultsMap[matchId] || {};
+        const isFinale = faseObj.nomeFase && faseObj.nomeFase.toLowerCase().includes('final') && !faseObj.nomeFase.toLowerCase().includes('semi');
+
+        let vincenteId = null;
+
+        if (!isAndataRitorno || isFinale) {
+          // --- SOLO ANDATA ---
+          if (res.andata && res.andata.finished) {
+            const gH = Number(res.andata.goalHome ?? res.andata.homeScore ?? 0);
+            const gA = Number(res.andata.goalAway ?? res.andata.awayScore ?? 0);
+            const ptH = Number(res.andata.punteggioFinaleHome || 0);
+            const ptA = Number(res.andata.punteggioFinaleAway || 0);
+
+            const teamH = res.andata.homeId || res.andata.home;
+            const teamA = res.andata.awayId || res.andata.away;
+
+            if (gH > gA) vincenteId = teamH;
+            else if (gA > gH) vincenteId = teamA;
+            else {
+              if (ptH > ptA) vincenteId = teamH;
+              else if (ptA > ptH) vincenteId = teamA;
+              else vincenteId = teamH;
+            }
+          }
+        } else {
+          // --- ANDATA E RITORNO ---
+          // Il vincente viene decretato ESCLUSIVAMENTE se sia l'Andata che il Ritorno sono finiti
+          if (res.andata && res.andata.finished && res.ritorno && res.ritorno.finished) {
+            const teamAndataCasa = res.andata.homeId || res.andata.home;
+            const teamAndataFuori = res.andata.awayId || res.andata.away;
+
+            let totGolCasa = Number(res.andata.goalHome ?? res.andata.homeScore ?? 0);
+            let totGolFuori = Number(res.andata.goalAway ?? res.andata.awayScore ?? 0);
+            let totPtCasa = Number(res.andata.punteggioFinaleHome || 0);
+            let totPtFuori = Number(res.andata.punteggioFinaleAway || 0);
+
+            const rHomeId = res.ritorno.homeId || res.ritorno.home;
+
+            // Inversione ruoli al ritorno
+            if (rHomeId === teamAndataFuori) {
+              totGolFuori += Number(res.ritorno.goalHome ?? res.ritorno.homeScore ?? 0);
+              totGolCasa += Number(res.ritorno.goalAway ?? res.ritorno.awayScore ?? 0);
+              totPtFuori += Number(res.ritorno.punteggioFinaleHome || 0);
+              totPtCasa += Number(res.ritorno.punteggioFinaleAway || 0);
+            } else {
+              totGolCasa += Number(res.ritorno.goalHome ?? res.ritorno.homeScore ?? 0);
+              totGolFuori += Number(res.ritorno.goalAway ?? res.ritorno.awayScore ?? 0);
+              totPtCasa += Number(res.ritorno.punteggioFinaleHome || 0);
+              totPtFuori += Number(res.ritorno.punteggioFinaleAway || 0);
+            }
+
+            if (totGolCasa > totGolFuori) vincenteId = teamAndataCasa;
+            else if (totGolFuori > totGolCasa) vincenteId = teamAndataFuori;
+            else {
+              if (totPtCasa > totPtFuori) vincenteId = teamAndataCasa;
+              else if (totPtFuori > totPtCasa) vincenteId = teamAndataFuori;
+              else vincenteId = teamAndataCasa;
+            }
+          }
+        }
+
+        if (vincenteId) {
+          resolvedWinners[`VINCENTE_${matchId}`] = vincenteId;
+        }
+      });
+    });
+
     let htmlAlbero = `<div style="display: flex; gap: 1.5rem; padding: 0.5rem 0; min-width: max-content; align-items: center;">`;
 
-    htmlAlbero += chiaviFasi.map((chiave, indexFase) => {
+    htmlAlbero += chiaviFasi.map((chiave) => {
       const faseObj = fasi[chiave];
-      const matchArray = faseObj.matchList || [];
+      const matchList = faseObj.matchList || [];
+      const isFinale = faseObj.nomeFase && faseObj.nomeFase.toLowerCase().includes('final') && !faseObj.nomeFase.toLowerCase().includes('semi');
 
-      const htmlIncontri = matchArray.map(m => {
-        const teamHome = teamsGlobal.find(t => String(t.id) === m.homeId);
-        const teamAway = teamsGlobal.find(t => String(t.id) === m.awayId);
+      const htmlIncontri = matchList.map(m => {
+        let homeIdActual = m.homeId;
+        let awayIdActual = m.awayId;
+
+        // Se un id è un segnaposto (es: VINCENTE_tf1_m1), verifichiamo se è stato già risolto
+        if (homeIdActual && homeIdActual.startsWith("VINCENTE_")) {
+          if (resolvedWinners[homeIdActual]) {
+            homeIdActual = resolvedWinners[homeIdActual];
+          }
+        }
+        if (awayIdActual && awayIdActual.startsWith("VINCENTE_")) {
+          if (resolvedWinners[awayIdActual]) {
+            awayIdActual = resolvedWinners[awayIdActual];
+          }
+        }
+
+        const teamHome = teamsGlobal.find(t => String(t.id) === String(homeIdActual));
+        const teamAway = teamsGlobal.find(t => String(t.id) === String(awayIdActual));
         
-        const isHomePending = m.homeId.startsWith("VINCENTE_");
-        const isAwayPending = m.awayId.startsWith("VINCENTE_");
+        const isHomePending = !teamHome && String(homeIdActual).startsWith("VINCENTE_");
+        const isAwayPending = !teamAway && String(awayIdActual).startsWith("VINCENTE_");
 
-        const nameHome = isHomePending ? `✨ ${m.homeId.replace("VINCENTE_", "")}` : (teamHome ? teamHome.name : m.homeId);
-        const nameAway = isAwayPending ? `✨ ${m.awayId.replace("VINCENTE_", "")}` : (teamAway ? teamAway.name : m.awayId);
+        const nameHome = isHomePending ? `✨ ${homeIdActual.replace("VINCENTE_", "")}` : (teamHome ? teamHome.name : homeIdActual);
+        const nameAway = isAwayPending ? `✨ ${awayIdActual.replace("VINCENTE_", "")}` : (teamAway ? teamAway.name : awayIdActual);
 
         let logoHomeHTML = `🏠`;
         if (!isHomePending) {
@@ -330,19 +447,50 @@ export const ClassificaPage = {
             : `<span style="font-size:1rem; flex-shrink:0; width:20px; text-align:center;">🛡️</span>`;
         }
 
+        // Recuperiamo i dati e i punteggi effettivi per Andata e Ritorno
+        const res = matchResultsMap[m.id] || {};
+        
+        // Punteggi Andata
+        let strAndata = 'A: -';
+        if (res.andata && res.andata.finished) {
+          const gH = res.andata.goalHome ?? res.andata.homeScore ?? 0;
+          const gA = res.andata.goalAway ?? res.andata.awayScore ?? 0;
+          strAndata = `A: ${gH}-${gA}`;
+        }
+
+        // Punteggi Ritorno (visualizzati solo se il torneo e la fase lo prevedono)
+        let strRitorno = '';
+        if (isAndataRitorno && !isFinale) {
+          if (res.ritorno && res.ritorno.finished) {
+            const gH = res.ritorno.goalHome ?? res.ritorno.homeScore ?? 0;
+            const gA = res.ritorno.goalAway ?? res.ritorno.awayScore ?? 0;
+            // Mostriamo i gol nell'ordine del match di Andata (per non confondere gli utenti)
+            const rHomeId = res.ritorno.homeId || res.ritorno.home;
+            const teamAndataCasa = res.andata?.homeId || res.andata?.home;
+
+            if (res.andata && rHomeId !== teamAndataCasa) {
+              strRitorno = ` | R: ${gA}-${gH}`;
+            } else {
+              strRitorno = ` | R: ${gH}-${gA}`;
+            }
+          } else {
+            strRitorno = ` | R: -`;
+          }
+        }
+
         return `
-          <div style="background: var(--bg2); border: 1px solid var(--border); padding: .6rem; border-radius: 6px; font-size: .8rem; width: 200px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
-            <div style="color:var(--text3); font-size:0.6rem; font-weight:bold; margin-bottom:4px; display:flex; justify-content:between;">
+          <div style="background: var(--bg2); border: 1px solid var(--border); padding: .6rem; border-radius: 6px; font-size: .8rem; width: 220px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
+            <div style="color:var(--text3); font-size:0.65rem; font-weight:bold; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
               <span>🆔 ${m.id.toUpperCase()}</span>
-              ${m.gironeProvenienza ? `<span style="color:var(--gold); margin-left:auto;">${m.gironeProvenienza}</span>` : ''}
+              <span style="color:var(--accent); font-family:'DM Mono',monospace;">${strAndata}${strRitorno}</span>
             </div>
             <div style="padding: 2px 0; color:#fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display:flex; align-items:center; gap:0.4rem;">
               ${logoHomeHTML}
-              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${nameHome}</span>
+              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; ${isHomePending ? 'color:var(--text2); font-style:italic;' : ''}">${nameHome}</span>
             </div>
             <div style="padding: 2px 0; color:var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display:flex; align-items:center; gap:0.4rem;">
               ${logoAwayHTML}
-              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${nameAway}</span>
+              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; ${isAwayPending ? 'color:var(--text2); font-style:italic;' : ''}">${nameAway}</span>
             </div>
           </div>
         `;
