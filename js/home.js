@@ -196,39 +196,48 @@ export const HomePage = {
     }
 
     // PROSSIMO AVVERSARIO
-    if (comp) {
-      const currentGwNum = comp.status ? (comp.status.currentGW || 1) : 1;
-      const allMatches = STATE.matches || {};
-      const gwMatches = allMatches[currentGwNum] || [];
-      const myMatch = gwMatches.find(m => m.homeId === STATE.user.id || m.awayId === STATE.user.id);
+	if (comp) {
+	  // 1. Recupera la giornata reale corrente (default a 1 se non specificata)
+	  const realGw = STATE.giornataRealeCorrente || STATE.currentRealGW || STATE.status?.currentGW || 1;
+	  
+	  // 2. Trova la giornata interna (GW) della competizione tramite la mappatura associazioniGwReali
+	  const assoc = comp.associazioniGwReali || {};
+	  const targetGwKey = assoc[String(realGw)] || `gw${realGw}`; // Es. "gw1", "gw2", ecc.
 
-      if (myMatch) {
-        const tHome = teamsList.find(t => t.id === myMatch.homeId) || { name: myMatch.homeId };
-        const tAway = teamsList.find(t => t.id === myMatch.awayId) || { name: myMatch.awayId };
-        
-        if (nm) {
-          nm.innerHTML = `
-            <div class="card card-sm" style="background:var(--bg2); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; gap:0.75rem; padding:0.85rem 1rem;">
-              <div style="display:flex; align-items:center; gap:0.5rem; min-width:0; flex:1; justify-content:flex-end;">
-                ${getLogoHtml(tHome, 28)}
-                <span style="font-size:0.85rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tHome.name}</span>
-              </div>
+	  // 3. Estrai le partite della giornata selezionata
+	  const gwData = (comp.matches && comp.matches[targetGwKey]) ? comp.matches[targetGwKey] : null;
+	  const couples = gwData ? (gwData.couples || []) : [];
 
-              <div style="font-family:'Bebas Neue',sans-serif; font-size:1.2rem; color:var(--text2); letter-spacing:1px; flex-shrink:0;">VS</div>
+	  // 4. Cerca il match dell'utente loggato
+	  const myMatch = couples.find(m => m.homeId === STATE.user.id || m.awayId === STATE.user.id);
 
-              <div style="display:flex; align-items:center; gap:0.5rem; min-width:0; flex:1; justify-content:flex-start;">
-                <span style="font-size:0.85rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tAway.name}</span>
-                ${getLogoHtml(tAway, 28)}
-              </div>
-            </div>
-          `;
-        }
-      } else {
-        if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Riposo o nessun match trovato per questa GW.</div>`;
-      }
-    } else {
-      if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Seleziona una competizione dal menu in alto.</div>`;
-    }
+	  if (myMatch) {
+		const tHome = teamsList.find(t => t.id === myMatch.homeId) || { name: myMatch.homeId };
+		const tAway = teamsList.find(t => t.id === myMatch.awayId) || { name: myMatch.awayId };
+		
+		if (nm) {
+		  nm.innerHTML = `
+			<div class="card card-sm" style="background:var(--bg2); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; gap:0.75rem; padding:0.85rem 1rem;">
+			  <div style="display:flex; align-items:center; gap:0.5rem; min-width:0; flex:1; justify-content:flex-end;">
+				${getLogoHtml(tHome, 28)}
+				<span style="font-size:0.85rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tHome.name}</span>
+			  </div>
+
+			  <div style="font-family:'Bebas Neue',sans-serif; font-size:1.2rem; color:var(--text2); letter-spacing:1px; flex-shrink:0;">VS</div>
+
+			  <div style="display:flex; align-items:center; gap:0.5rem; min-width:0; flex:1; justify-content:flex-start;">
+				<span style="font-size:0.85rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tAway.name}</span>
+				${getLogoHtml(tAway, 28)}
+			  </div>
+			</div>
+		  `;
+		}
+	  } else {
+		if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Riposo o nessun match trovato per la ${realGw}ª Giornata Reale (${targetGwKey.toUpperCase()}).</div>`;
+	  }
+	} else {
+	  if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Seleziona una competizione dal menu in alto.</div>`;
+	}
 
     // 🟢 CALCOLO GIOCATORI ON FIRE (Ultime 4 Giornate Reali)
     if (onFireContainer) {
