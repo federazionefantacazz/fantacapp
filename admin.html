@@ -280,7 +280,7 @@ function refreshAll() {
   if (ClassificaSection && typeof ClassificaSection.render === 'function') ClassificaSection.render(state);
   if (CalendarioSection && typeof CalendarioSection.render === 'function') CalendarioSection.render(state);
   if (CompetizioniSection && typeof CompetizioniSection.render === 'function') CompetizioniSection.render(state);
-  if (ThemesSection && typeof ThemesSection.render === 'function') ThemesSection.render({});
+  if (ThemesSection && typeof ThemesSection.render === 'function') ThemesSection.render(state);
 }
 
 /* ─── Gestione della Navigazione Sincronizzata ──────────────────────────── */
