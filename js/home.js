@@ -17,31 +17,26 @@ export const HomePage = {
 
         <!-- CARD SQUADRA (INFO + TROFEI + ANTEPRIMA WIP) -->
         <div class="card" style="margin-bottom: 1.2rem; background: linear-gradient(135deg, var(--card) 0%, rgba(80,227,194,0.06) 100%); border: 1px solid rgba(255,255,255,0.08); padding: 1.25rem;">
+          
+          <!-- RIGA SUPERIORE: INFO SQUADRA + BOX WIP -->
           <div style="display: flex; gap: 1rem; align-items: stretch;">
             
-            <!-- Colonna Sinistra: Dettagli Squadra + Trofei -->
+            <!-- Colonna Sinistra: Dettagli Squadra -->
             <div style="flex: 1.2; display: flex; flex-direction: column; justify-content: space-between; min-width: 0;">
               <div>
-                <div style="display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.8rem;">
-                  <div id="userTeamLogo" style="flex-shrink: 0;"></div>
+                <div style="display: flex; align-items: flex-start; gap: 0.8rem; margin-bottom: 0.8rem;">
+                  <div id="userTeamLogo" style="flex-shrink: 0; margin-top: 2px;"></div>
                   <div style="flex: 1; min-width: 0;">
                     <div class="label" style="margin: 0; font-size: 0.68rem;">La mia squadra</div>
-                    <h3 id="homeTeamName" style="font-family: 'Bebas Neue', sans-serif; font-size: 1.7rem; letter-spacing: 0.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -3px; line-height: 1.1;">Caricamento...</h3>
-                    <p id="homeTeamOwner" style="font-size: 0.75rem; color: var(--text2); margin-top: -1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">...</p>
+                    <!-- Nome squadra sbloccato per leggersi interamente -->
+                    <h3 id="homeTeamName" style="font-family: 'Bebas Neue', sans-serif; font-size: 1.7rem; letter-spacing: 0.5px; color: var(--text); margin-top: -3px; line-height: 1.1; word-break: break-word;">Caricamento...</h3>
+                    <p id="homeTeamOwner" style="font-size: 0.75rem; color: var(--text2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">...</p>
                   </div>
                 </div>
 
                 <div style="display: flex; align-items: baseline; gap: 0.4rem; margin-top: 0.4rem;">
                   <span style="font-size: 0.72rem; color: var(--text2); text-transform: uppercase; font-weight: 600;">Totale Punti:</span>
                   <span id="homeTeamPts" style="font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; color: var(--accent); line-height: 1;">0.0</span>
-                </div>
-              </div>
-
-              <!-- Sezione Trofei -->
-              <div style="margin-top: 1rem; padding-top: 0.8rem; border-top: 1px dashed rgba(255,255,255,0.1);">
-                <div class="label" style="margin-bottom: 0.4rem; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase;">🏆 Palmarès / Trofei</div>
-                <div id="homeTeamTrophies" style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
-                  <span style="font-size: 0.75rem; color: var(--text3); font-style: italic;">Nessun trofeo</span>
                 </div>
               </div>
             </div>
@@ -57,6 +52,15 @@ export const HomePage = {
             </div>
 
           </div>
+
+          <!-- RIGA INFERIORE: SEZIONE TROFEI / PALMARÈS (FULL WIDTH SOTTO AI DUE BOX) -->
+          <div style="margin-top: 1rem; padding-top: 0.8rem; border-top: 1px dashed rgba(255,255,255,0.1); width: 100%;">
+            <div class="label" style="margin-bottom: 0.4rem; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase;">🏆 Palmarès / Trofei</div>
+            <div id="homeTeamTrophies" style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+              <span style="font-size: 0.75rem; color: var(--text3); font-style: italic;">Nessun trofeo</span>
+            </div>
+          </div>
+
         </div>
 		
         <div id="home-status-banner" style="margin-bottom: 1.2rem;"></div>
@@ -190,54 +194,54 @@ export const HomePage = {
       if (tn) tn.textContent = "Spettatore";
       if (to) to.textContent = STATE.user.email;
       if (tp) tp.textContent = "0.0";
-      if (onFireTitle) onFireTitle.textContent = `🔥 Giocatori On Fire`;
+      if (onFireTitle) onFireTitle.textContent = `Giocatori On Fire!!`;
       if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:52px; height:52px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:1.5rem; color:var(--text2)">👁️</div>`;
       if (trophiesContainer) trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3);">--</span>`;
     }
 
     // PROSSIMO AVVERSARIO
-	if (comp) {
-	  // 1. Recupera la giornata reale corrente (default a 1 se non specificata)
-	  const realGw = STATE.giornataRealeCorrente || STATE.currentRealGW || STATE.status?.currentGW || 1;
-	  
-	  // 2. Trova la giornata interna (GW) della competizione tramite la mappatura associazioniGwReali
-	  const assoc = comp.associazioniGwReali || {};
-	  const targetGwKey = assoc[String(realGw)] || `gw${realGw}`; // Es. "gw1", "gw2", ecc.
+    if (comp) {
+      // 1. Recupera la giornata reale corrente (default a 1 se non specificata)
+      const realGw = STATE.giornataRealeCorrente || STATE.currentRealGW || STATE.status?.currentGW || 1;
+      
+      // 2. Trova la giornata interna (GW) della competizione tramite la mappatura associazioniGwReali
+      const assoc = comp.associazioniGwReali || {};
+      const targetGwKey = assoc[String(realGw)] || `gw${realGw}`;
 
-	  // 3. Estrai le partite della giornata selezionata
-	  const gwData = (comp.matches && comp.matches[targetGwKey]) ? comp.matches[targetGwKey] : null;
-	  const couples = gwData ? (gwData.couples || []) : [];
+      // 3. Estrai le partite della giornata selezionata
+      const gwData = (comp.matches && comp.matches[targetGwKey]) ? comp.matches[targetGwKey] : null;
+      const couples = gwData ? (gwData.couples || []) : [];
 
-	  // 4. Cerca il match dell'utente loggato
-	  const myMatch = couples.find(m => m.homeId === STATE.user.id || m.awayId === STATE.user.id);
+      // 4. Cerca il match dell'utente loggato
+      const myMatch = couples.find(m => m.homeId === STATE.user.id || m.awayId === STATE.user.id);
 
-	  if (myMatch) {
-		const tHome = teamsList.find(t => t.id === myMatch.homeId) || { name: myMatch.homeId };
-		const tAway = teamsList.find(t => t.id === myMatch.awayId) || { name: myMatch.awayId };
-		
-		if (nm) {
-		  nm.innerHTML = `
-			<div class="card card-sm" style="background:var(--bg2); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; gap:0.75rem; padding:0.85rem 1rem;">
-			  <div style="display:flex; align-items:center; gap:0.5rem; min-width:0; flex:1; justify-content:flex-end;">
-				${getLogoHtml(tHome, 28)}
-				<span style="font-size:0.85rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tHome.name}</span>
-			  </div>
+      if (myMatch) {
+        const tHome = teamsList.find(t => t.id === myMatch.homeId) || { name: myMatch.homeId };
+        const tAway = teamsList.find(t => t.id === myMatch.awayId) || { name: myMatch.awayId };
+        
+        if (nm) {
+          nm.innerHTML = `
+            <div class="card card-sm" style="background:var(--bg2); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; gap:0.75rem; padding:0.85rem 1rem;">
+              <div style="display:flex; align-items:center; gap:0.5rem; min-width:0; flex:1; justify-content:flex-end;">
+                ${getLogoHtml(tHome, 28)}
+                <span style="font-size:0.85rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tHome.name}</span>
+              </div>
 
-			  <div style="font-family:'Bebas Neue',sans-serif; font-size:1.2rem; color:var(--text2); letter-spacing:1px; flex-shrink:0;">VS</div>
+              <div style="font-family:'Bebas Neue',sans-serif; font-size:1.2rem; color:var(--text2); letter-spacing:1px; flex-shrink:0;">VS</div>
 
-			  <div style="display:flex; align-items:center; gap:0.5rem; min-width:0; flex:1; justify-content:flex-start;">
-				<span style="font-size:0.85rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tAway.name}</span>
-				${getLogoHtml(tAway, 28)}
-			  </div>
-			</div>
-		  `;
-		}
-	  } else {
-		if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Riposo o nessun match trovato per la ${realGw}ª Giornata Reale (${targetGwKey.toUpperCase()}).</div>`;
-	  }
-	} else {
-	  if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Seleziona una competizione dal menu in alto.</div>`;
-	}
+              <div style="display:flex; align-items:center; gap:0.5rem; min-width:0; flex:1; justify-content:flex-start;">
+                <span style="font-size:0.85rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tAway.name}</span>
+                ${getLogoHtml(tAway, 28)}
+              </div>
+            </div>
+          `;
+        }
+      } else {
+        if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Riposo o nessun match trovato per la ${realGw}ª Giornata Reale (${targetGwKey.toUpperCase()}).</div>`;
+      }
+    } else {
+      if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Seleziona una competizione dal menu in alto.</div>`;
+    }
 
     // 🟢 CALCOLO GIOCATORI ON FIRE (Ultime 4 Giornate Reali)
     if (onFireContainer) {
