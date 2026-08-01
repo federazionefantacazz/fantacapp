@@ -39,7 +39,8 @@ export const VotesSection = {
             ${gwOptions}
           </select>
         </div>
-        <div style="margin-top: auto;">
+        <div style="margin-top: auto; display: flex; gap: .5rem;">
+          <button class="btn" id="btnFillDefaultVotes" style="background-color: var(--accent2, #ff9800); color: #fff;">⚡ Imposta tutti a 6</button>
           <button class="btn btn-green" id="btnSaveVotes">💾 Salva Voti Sezione</button>
         </div>
       </div>
@@ -51,12 +52,10 @@ export const VotesSection = {
     </div>`;
   },
 
-  // Invocato dal ciclo globale refreshAll
   render({ PLAYERS, competitions }) {
     this.cachedPlayers = PLAYERS || [];
     this.cachedCompetitions = competitions || [];
 
-    // Popola il selettore delle competizioni se vuoto
     const compSelector = document.getElementById('voteCompSelector');
     if (compSelector && compSelector.options.length <= 1 && this.cachedCompetitions.length > 0) {
       this.cachedCompetitions.forEach(c => {
@@ -72,7 +71,6 @@ export const VotesSection = {
       }
     }
 
-    // Mantiene allineato il selettore GW con lo stato interno
     const gwSelector = document.getElementById('voteGwSelector');
     if (gwSelector && parseInt(gwSelector.value) !== selectedGW) {
       gwSelector.value = selectedGW;
@@ -83,10 +81,9 @@ export const VotesSection = {
     this.renderLocal();
   },
 
-  // Sottoscrizione in tempo reale ai voti
   listenToVotes() {
     if (!databaseRef) return;
-    if (unsubscribeVotes) return; // evita di ri-sottoscriversi se già attivo
+    if (unsubscribeVotes) return;
 
     const votesRef = ref(databaseRef, `votes`);
     unsubscribeVotes = onValue(votesRef, snap => {
@@ -114,11 +111,26 @@ export const VotesSection = {
       });
     }
 
+    // Tasto per impostare tutti i campi a 6 fisici
+    const fillBtn = document.getElementById('btnFillDefaultVotes');
+    if (fillBtn && !fillBtn.dataset.hasListener) {
+      fillBtn.dataset.hasListener = "true";
+      fillBtn.addEventListener('click', () => this.fillAllWithSix());
+    }
+
     const saveBtn = document.getElementById('btnSaveVotes');
     if (saveBtn && !saveBtn.dataset.hasListener) {
       saveBtn.dataset.hasListener = "true";
       saveBtn.addEventListener('click', () => this.saveVotesToFirebase());
     }
+  },
+
+  fillAllWithSix() {
+    const inputs = document.querySelectorAll('.player-vote-input');
+    inputs.forEach(input => {
+      input.value = "6";
+    });
+    window.toast("Tutti i calciatori impostati su 6! Ricorda di salvare.", "info");
   },
 
   renderLocal() {
@@ -139,8 +151,8 @@ export const VotesSection = {
     }
 
     container.innerHTML = playersList.map(p => {
-      // Estrae il voto effettivo dall'oggetto del giocatore se esiste
       const playerData = gVotes[p.id];
+      // Se esiste già un voto salvato nel DB per questa giornata usiamo quello
       const currentVote = (playerData && playerData.voto !== undefined && playerData.voto !== null) 
         ? playerData.voto 
         : "";
@@ -153,7 +165,6 @@ export const VotesSection = {
                  class="input-login player-vote-input" 
                  data-pid="${p.id}" 
                  value="${currentVote}" 
-                 placeholder="Voto" 
                  style="margin-bottom:0; padding: .4rem .5rem; font-size:.8rem;">
         </div>
       `;
@@ -163,7 +174,6 @@ export const VotesSection = {
   async saveVotesToFirebase() {
     if (!databaseRef) return window.toast("Database non inizializzato!", "err");
     
-    // Legge DIRETTAMENTE la giornata selezionata dal menu al momento del click
     const gwSelector = document.getElementById('voteGwSelector');
     const targetGW = gwSelector ? parseInt(gwSelector.value) : selectedGW;
     
@@ -187,12 +197,10 @@ export const VotesSection = {
     });
 
     try {
-      // Salva sulla giornata reale indicata nel selettore GW
+      // Salva nel path corretto (es: votes/gw2)
       await set(ref(databaseRef, `votes/gw${targetGW}`), updatedVotes);
       
-      // Aggiorna la variabile di stato locale
       selectedGW = targetGW;
-      
       window.toast(`Voti salvati con successo per GW ${targetGW}!`, "ok");
     } catch (err) {
       console.error(err);
