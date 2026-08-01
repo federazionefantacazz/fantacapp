@@ -6,13 +6,13 @@
 <meta name="theme-color" content="#0a0f1e">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Fantacazz">
+<meta name="apple-mobile-web-app-title" content="Fantacapp">
 <link rel="manifest" href="manifest.json">
 <link class="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<title>Fantacazz</title>
+<title>Fantacapp</title>
 <style>
 :root {
   --bg: #1a1e24;       /* Sfondo principale */
@@ -26,7 +26,8 @@
   --gold: #f5a623;     /* Oro ambrato */
   --text: #e2e8f0;     /* Testo chiaro */
   --text2: #94a3b8;    /* Testo secondario */
-  --text3: #475569;    
+  --text3: #475569;
+  --nav-inactive: #64748b; /* Colore dedicato ai tab inattivi */
 }
 
 /* ==================== HEADER COMPATTO GLASS ==================== */
@@ -38,8 +39,8 @@
   height: 48px !important; /* Altezza super compatta per mobile */
   background: rgba(26, 30, 36, 0.72) !important; /* Effetto trasparenza */
   backdrop-filter: blur(12px) -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  border-bottom: none !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
   position: sticky;
   top: 0;
   z-index: 1000;
@@ -138,7 +139,7 @@ body {
   overflow-y: scroll !important;
   -webkit-overflow-scrolling: touch !important;
   width: 100% !important;
-  padding: 0.5rem 1rem calc(75px + env(safe-area-inset-bottom, 16px)) 1rem !important;
+  padding: 0.5rem 1rem calc(80px + env(safe-area-inset-bottom, 16px)) 1rem !important;
   box-sizing: border-box;
 }
 
@@ -165,10 +166,11 @@ body {
 
 .logo{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:1px;background:linear-gradient(45deg, #fff, var(--text2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .sec{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:0.5px;color:var(--text);margin-bottom:.8rem;display:flex;align-items:center;gap:.4rem}
-.card{background:var(--card);border:1px solid rgba(255,255,255,0.05);border-radius:16px;padding:1rem;margin-bottom:1rem;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
+.card{background:var(--card);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:1rem;margin-bottom:1rem;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
 .label{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;margin-bottom:.4rem}
-.pcard{background:var(--card2);border-radius:12px;padding:.5rem .75rem;display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem}
-.rbadge{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;flex-shrink:0}
+.pcard{background:var(--card2);border-radius:12px;padding:.5rem .75rem;display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem;transition:background .15s ease}
+.pcard:active{background:rgba(255,255,255,0.04)}
+.rbadge{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15)}
 .rP{background:#4a5568}.rD{background:#0077ff}.rC{background:#00e5a0;color:#0a0f1e}.rA{background:#ff4757}
 .pi{flex:1;min-width:0}
 .pn{font-size:.9rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
@@ -182,17 +184,20 @@ body {
 .input-login{background:var(--bg2);border-color:rgba(255,255,255,0.15);margin-bottom:1rem;user-select:text !important;-webkit-user-select:text !important;}
 .link-toggle{color:var(--accent2);font-size:.8rem;text-decoration:none;display:inline-block;margin-top:1rem;cursor:pointer}
 
+/* ==================== BOTTOM NAV RIDISEGNATA ==================== */
 #nav {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  height: calc(60px + env(safe-area-inset-bottom));
-  background: var(--card);
+  height: calc(64px + env(safe-area-inset-bottom));
+  background: var(--bg2);
   backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  border-top: none;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
   display: flex;
   justify-content: space-around;
+  align-items: center;
   padding-top: .5rem;
   padding-bottom: env(safe-area-inset-bottom);
   z-index: 999;
@@ -201,16 +206,18 @@ body {
 .nav-btn {
   background: none;
   border: none;
-  color: var(--text2);
+  color: var(--nav-inactive);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: .25rem;
+  gap: .2rem;
   font-family: 'DM Sans', sans-serif;
-  font-size: .58rem !important;
+  font-size: .6rem !important;
   font-weight: 500;
   cursor: pointer;
-  width: 16.6% !important;
+  padding: .4rem .55rem;
+  border-radius: 14px;
+  transition: color .25s ease, background .25s ease, transform .25s cubic-bezier(.4,0,.2,1), box-shadow .25s ease;
 }
 
 .nav-btn svg {
@@ -221,15 +228,18 @@ body {
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: all 0.2s;
+  transition: transform 0.25s ease;
 }
 
 .nav-btn.active {
-  color: var(--text);
+  color: var(--accent);
+  background: rgba(80, 227, 194, 0.14);
+  transform: translateY(-4px);
+  box-shadow: 0 4px 14px rgba(80, 227, 194, 0.18);
 }
 
 .nav-btn.active svg {
-  transform: translateY(-2px);
+  transform: scale(1.05);
 }
 
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
@@ -247,15 +257,15 @@ body {
   <div id="app-header" style="display:none;">
     <div class="header-brand">
       <div id="app-global-navbar-logo-container" style="flex-shrink:0; display:flex; align-items:center; justify-content:center;"></div>
-      <div class="header-title">FANTACAZZ</div>
+      <div class="header-title">FANTACAPP</div>
     </div>
     <select id="userCompSelect" onchange="window._handleCompetitionChange(this.value)">
-      <option value="fantacazz">🏆 Caricamento...</option>
+      <option value="fantacazz">Caricamento...</option>
     </select>
   </div>
 
   <div id="page-login">
-    <div class="logo" style="font-size:3rem; margin-bottom:2rem;">FANTACAZZ</div>
+    <div class="logo" style="font-size:3rem; margin-bottom:2rem;">FANTACAPP</div>
     
     <div class="card" id="box-firebase-login">
       <div class="label" style="text-align:left;">Email</div>
@@ -639,7 +649,7 @@ onValue(ref(db, 'competitions'), snap => {
         window.STATE.activeCompetitionId = list[0].id;
         caricaDatiCompetizione(list[0].id);
       }
-      userSelect.innerHTML = list.map(c => `<option value="${c.id}" ${String(window.STATE.currentCompetition) === String(c.id) ? 'selected' : ''}>🏆 ${c.name || c.id}</option>`).join('');
+      userSelect.innerHTML = list.map(c => `<option value="${c.id}" ${String(window.STATE.currentCompetition) === String(c.id) ? 'selected' : ''}>${c.name || c.id}</option>`).join('');
     }
   }
   refreshUI();
