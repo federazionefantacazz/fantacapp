@@ -251,14 +251,16 @@ export const DashboardSection = {
           }
         });
 
-        // 7. GESTIONE SPECIALIZZATA TABELLONE ELIMINAZIONE DIRETTA (`type === "diretta"`)
-        if (compData.type === 'diretta' && compData.tabelloneStructure && compData.tabelloneStructure.fasi) {
+        // 7. GESTIONE TABELLONE ED ELIMINAZIONE DIRETTA (Avanzamento Vincenti)
+        if ((compData.type === 'diretta' || compData.type === 'misto' || compData.type === 'misto-speciale') && compData.tabelloneStructure && compData.tabelloneStructure.fasi) {
           const tabellone = compData.tabelloneStructure;
-          const isAndataRitorno = tabellone.tipoScontro === 'andata_ritorno' || tabellone.modalita === 'andata_ritorno';
+          const regola = tabellone.regolaIncontri || tabellone.tipoScontro || tabellone.modalita;
+          const isAndataRitorno = regola === 'andata-ritorno' || regola === 'andata_ritorno';
+          
           const allMatchesSnap = await get(ref(this.db, `competitions/${compId}/matches`));
           const allMatches = allMatchesSnap.exists() ? allMatchesSnap.val() : {};
 
-          // Includiamo i risultati appena calcolati
+          // Includiamo temporaneamente i risultati calcolati nello step 6 per consentire la valutazione immediata
           allMatches[gwId] = allMatches[gwId] || { couples: {} };
           Object.keys(couples).forEach(matchKey => {
             const match = couples[matchKey];
@@ -279,19 +281,18 @@ export const DashboardSection = {
           });
 
           const fasi = tabellone.fasi;
-          const fasiKeys = Object.keys(fasi); // es. ["fase_1_diretta", "fase_2_diretta"]
+          const fasiKeys = Object.keys(fasi).sort();
 
           fasiKeys.forEach((faseKey, index) => {
             const faseObj = fasi[faseKey];
             const matchList = faseObj.matchList || [];
 
             matchList.forEach((m) => {
-              const matchId = m.id; // es: "tf1_m1"
+              const matchId = m.id; // es: "tf1_m2"
               let vincenteId = null;
 
               if (!isAndataRitorno) {
                 // --- SOLO ANDATA ---
-                // Cerca la partita con id pari a matchId tra tutte le giornate
                 let foundMatch = null;
                 Object.keys(allMatches).forEach(gw => {
                   const couplesGw = allMatches[gw].couples || {};
@@ -301,23 +302,21 @@ export const DashboardSection = {
                 });
 
                 if (foundMatch) {
-                  const gH = Number(foundMatch.goalHome || 0);
-                  const gA = Number(foundMatch.goalAway || 0);
+                  const gH = Number(foundMatch.goalHome ?? foundMatch.homeScore ?? 0);
+                  const gA = Number(foundMatch.goalAway ?? foundMatch.awayScore ?? 0);
                   const ptH = Number(foundMatch.punteggioFinaleHome || 0);
                   const ptA = Number(foundMatch.punteggioFinaleAway || 0);
 
                   if (gH > gA) vincenteId = foundMatch.homeId || foundMatch.home;
                   else if (gA > gH) vincenteId = foundMatch.awayId || foundMatch.away;
                   else {
-                    // Parità di gol: vince chi ha più fantapunti
                     if (ptH > ptA) vincenteId = foundMatch.homeId || foundMatch.home;
                     else if (ptA > ptH) vincenteId = foundMatch.awayId || foundMatch.away;
-                    else vincenteId = foundMatch.homeId || foundMatch.home; // Fallback padrone di casa
+                    else vincenteId = foundMatch.homeId || foundMatch.home;
                   }
                 }
               } else {
                 // --- ANDATA E RITORNO ---
-                // Cerca la gara d'andata (es: tf1_m1) e quella di ritorno (es: tf1_m1_ritorno)
                 let matchAndata = null;
                 let matchRitorno = null;
 
@@ -331,25 +330,24 @@ export const DashboardSection = {
                   }
                 });
 
-                // Solo se sia l'Andata che il Ritorno sono FINITI
+                // Avanza solo quando SIA l'Andata CHE il Ritorno sono terminati
                 if (matchAndata && matchRitorno) {
                   const hId = matchAndata.homeId || matchAndata.home;
                   const aId = matchAndata.awayId || matchAndata.away;
 
-                  let totGolH = Number(matchAndata.goalHome || 0);
-                  let totGolA = Number(matchAndata.goalAway || 0);
+                  let totGolH = Number(matchAndata.goalHome ?? matchAndata.homeScore ?? 0);
+                  let totGolA = Number(matchAndata.goalAway ?? matchAndata.awayScore ?? 0);
                   let totPtH = Number(matchAndata.punteggioFinaleHome || 0);
                   let totPtA = Number(matchAndata.punteggioFinaleAway || 0);
 
-                  // Nel ritorno i ruoli si invertono: Home è aId e Away è hId
                   if ((matchRitorno.homeId || matchRitorno.home) === aId) {
-                    totGolA += Number(matchRitorno.goalHome || 0);
-                    totGolH += Number(matchRitorno.goalAway || 0);
+                    totGolA += Number(matchRitorno.goalHome ?? matchRitorno.homeScore ?? 0);
+                    totGolH += Number(matchRitorno.goalAway ?? matchRitorno.awayScore ?? 0);
                     totPtA += Number(matchRitorno.punteggioFinaleHome || 0);
                     totPtH += Number(matchRitorno.punteggioFinaleAway || 0);
                   } else {
-                    totGolH += Number(matchRitorno.goalHome || 0);
-                    totGolA += Number(matchRitorno.goalAway || 0);
+                    totGolH += Number(matchRitorno.goalHome ?? matchRitorno.homeScore ?? 0);
+                    totGolA += Number(matchRitorno.goalAway ?? matchRitorno.awayScore ?? 0);
                     totPtH += Number(matchRitorno.punteggioFinaleHome || 0);
                     totPtA += Number(matchRitorno.punteggioFinaleAway || 0);
                   }
@@ -357,7 +355,6 @@ export const DashboardSection = {
                   if (totGolH > totGolA) vincenteId = hId;
                   else if (totGolA > totGolH) vincenteId = aId;
                   else {
-                    // Parità di gol aggregati: spareggio sui fantapunti totali
                     if (totPtH > totPtA) vincenteId = hId;
                     else if (totPtA > totPtH) vincenteId = aId;
                     else vincenteId = hId;
@@ -365,28 +362,48 @@ export const DashboardSection = {
                 }
               }
 
-              // Se abbiamo determinato un vincente, aggiorniamo i placeholder "VINCENTE_*" nella fase successiva
-              if (vincenteId && fasiKeys[index + 1]) {
-                const nextFaseKey = fasiKeys[index + 1];
-                const nextMatchList = fasi[nextFaseKey].matchList || [];
+              // Se abbiamo identificato la vincente, aggiorniamo SIA il tabellone SIA il calendario (matches)!
+              if (vincenteId) {
+                const targetPlaceholder = `VINCENTE_${matchId}`;
 
-                nextMatchList.forEach((nextM, nextMIndex) => {
-                  const targetPlaceholder = `VINCENTE_${matchId}`;
-                  const basePathNext = `competitions/${compId}/tabelloneStructure/fasi/${nextFaseKey}/matchList/${nextMIndex}`;
+                // A) Aggiorna la struttura visiva del tabellone per le fasi successive
+                if (fasiKeys[index + 1]) {
+                  const nextFaseKey = fasiKeys[index + 1];
+                  const nextMatchList = fasi[nextFaseKey].matchList || [];
 
-                  if (nextM.homeId === targetPlaceholder) {
-                    updates[`${basePathNext}/homeId`] = vincenteId;
-                  }
-                  if (nextM.awayId === targetPlaceholder) {
-                    updates[`${basePathNext}/awayId`] = vincenteId;
-                  }
+                  nextMatchList.forEach((nextM, nextMIndex) => {
+                    const basePathNext = `competitions/${compId}/tabelloneStructure/fasi/${nextFaseKey}/matchList/${nextMIndex}`;
+
+                    if (nextM.homeId === targetPlaceholder) {
+                      updates[`${basePathNext}/homeId`] = vincenteId;
+                    }
+                    if (nextM.awayId === targetPlaceholder) {
+                      updates[`${basePathNext}/awayId`] = vincenteId;
+                    }
+                  });
+                }
+
+                // B) Aggiorna LE PARTITE NEL CALENDARIO REALE (matches -> gwX -> couples)
+                Object.keys(allMatches).forEach(gKey => {
+                  const couplesGw = allMatches[gKey].couples || {};
+                  Object.keys(couplesGw).forEach(cKey => {
+                    const coupleObj = couplesGw[cKey];
+                    const couplePath = `competitions/${compId}/matches/${gKey}/couples/${cKey}`;
+
+                    if (coupleObj.homeId === targetPlaceholder) {
+                      updates[`${couplePath}/homeId`] = vincenteId;
+                    }
+                    if (coupleObj.awayId === targetPlaceholder) {
+                      updates[`${couplePath}/awayId`] = vincenteId;
+                    }
+                  });
                 });
               }
             });
           });
         }
 
-        // 8. Applicazione Atomica degli Aggiornamenti
+        // 8. Applicazione Atomica degli Aggiornamenti su Firebase
         await update(ref(this.db), updates);
         window.toast(`🎯 Giornata ${gwId.toUpperCase()} salvata e dati aggiornati correttamente!`, "ok");
 
