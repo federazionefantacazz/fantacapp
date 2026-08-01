@@ -115,7 +115,7 @@ export const HomePage = {
       STATE.activeCompetitionId = competitionsList[0].id;
     }
 
-    const comp = competitionsList.find(c => String(c.id) === String(activeId || STATE.activeCompetitionId));
+    const comp = competitionsList.find(c => c && String(c.id) === String(activeId || STATE.activeCompetitionId));
 
     // 🟢 AGGIORNAMENTO TITOLO HEADER
     if (headerTitle) {
@@ -159,7 +159,7 @@ export const HomePage = {
     if (STATE.teams) {
       teamsList = Array.isArray(STATE.teams) ? STATE.teams : Object.values(STATE.teams);
     }
-    const myTeam = teamsList.find(t => t.id === STATE.user.id);
+    const myTeam = teamsList.find(t => t && t.id === STATE.user.id);
 
     if (myTeam) {
       if (tn) tn.textContent = myTeam.name || "Senza Nome";
@@ -179,9 +179,14 @@ export const HomePage = {
       }
 
       if (trophiesContainer) {
-        if (myTeam.trophies && Array.isArray(myTeam.trophies) && myTeam.trophies.length > 0) {
-          trophiesContainer.innerHTML = myTeam.trophies.map(tr => `
-            <span style="font-size: 1rem;" title="${tr.name || 'Trofeo'}">${tr.icon || '🏆'}</span>
+        let trophiesList = [];
+        if (myTeam.trophies) {
+          trophiesList = Array.isArray(myTeam.trophies) ? myTeam.trophies : Object.values(myTeam.trophies);
+        }
+
+        if (trophiesList.length > 0) {
+          trophiesContainer.innerHTML = trophiesList.map(tr => `
+            <span style="font-size: 1rem;" title="${(tr && tr.name) || 'Trofeo'}">${(tr && tr.icon) || '🏆'}</span>
           `).join('');
         } else if (myTeam.trophiesCount) {
           trophiesContainer.innerHTML = `<span style="font-size:0.85rem; font-weight:bold; color:var(--gold);">🏆 x${myTeam.trophiesCount}</span>`;
@@ -202,22 +207,27 @@ export const HomePage = {
     // PROSSIMO AVVERSARIO
     if (comp) {
       // 1. Recupera la giornata reale corrente (default a 1 se non specificata)
-      const realGw = STATE.giornataRealeCorrente || STATE.currentRealGW || STATE.status?.currentGW || 1;
+      const currentRealGw = STATE.giornataRealeCorrente || STATE.currentRealGW || STATE.status?.currentGW || 1;
       
       // 2. Trova la giornata interna (GW) della competizione tramite la mappatura associazioniGwReali
       const assoc = comp.associazioniGwReali || {};
-      const targetGwKey = assoc[String(realGw)] || `gw${realGw}`;
+      const targetGwKey = assoc[String(currentRealGw)] || `gw${currentRealGw}`;
 
-      // 3. Estrai le partite della giornata selezionata
+      // 3. Estrai le partite della giornata selezionata e forza l'array sicuro
       const gwData = (comp.matches && comp.matches[targetGwKey]) ? comp.matches[targetGwKey] : null;
-      const couples = gwData ? (gwData.couples || []) : [];
+      let couplesList = [];
+      if (gwData && gwData.couples) {
+        couplesList = Array.isArray(gwData.couples) 
+          ? gwData.couples 
+          : Object.values(gwData.couples);
+      }
 
       // 4. Cerca il match dell'utente loggato
-      const myMatch = couples.find(m => m.homeId === STATE.user.id || m.awayId === STATE.user.id);
+      const myMatch = couplesList.find(m => m && (m.homeId === STATE.user.id || m.awayId === STATE.user.id));
 
       if (myMatch) {
-        const tHome = teamsList.find(t => t.id === myMatch.homeId) || { name: myMatch.homeId };
-        const tAway = teamsList.find(t => t.id === myMatch.awayId) || { name: myMatch.awayId };
+        const tHome = teamsList.find(t => t && t.id === myMatch.homeId) || { name: myMatch.homeId };
+        const tAway = teamsList.find(t => t && t.id === myMatch.awayId) || { name: myMatch.awayId };
         
         if (nm) {
           nm.innerHTML = `
@@ -237,7 +247,7 @@ export const HomePage = {
           `;
         }
       } else {
-        if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Riposo o nessun match trovato per la ${realGw}ª Giornata Reale (${targetGwKey.toUpperCase()}).</div>`;
+        if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Riposo o nessun match trovato per la ${currentRealGw}ª Giornata Reale (${targetGwKey.toUpperCase()}).</div>`;
       }
     } else {
       if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Seleziona una competizione dal menu in alto.</div>`;
@@ -252,8 +262,11 @@ export const HomePage = {
 
       // Filtra i giocatori per la squadra dell'utente (se la squadra esiste ed ha dei giocatori)
       let targetPlayers = playersList;
-      if (myTeam && myTeam.players && Array.isArray(myTeam.players) && myTeam.players.length > 0) {
-        targetPlayers = playersList.filter(p => myTeam.players.includes(p.id) || myTeam.players.some(tp => tp.id === p.id || tp === p.id));
+      if (myTeam && myTeam.players) {
+        const teamPlayersArray = Array.isArray(myTeam.players) ? myTeam.players : Object.values(myTeam.players);
+        if (teamPlayersArray.length > 0) {
+          targetPlayers = playersList.filter(p => p && (teamPlayersArray.includes(p.id) || teamPlayersArray.some(tp => (tp && tp.id === p.id) || tp === p.id)));
+        }
       }
 
       // Determina le ultime 4 giornate reali disponibili da STATE.votes
@@ -273,6 +286,7 @@ export const HomePage = {
 
       // Calcolo media ultimi 4 voti per ciascun giocatore
       const stats = targetPlayers.map(p => {
+        if (!p) return null;
         let sum = 0;
         let count = 0;
 
@@ -288,7 +302,7 @@ export const HomePage = {
 
         const avg = count > 0 ? sum / count : 0;
         return { player: p, avg, count };
-      }).filter(item => item.count > 0); // Considera solo giocatori con almeno un voto nelle ultime 4 giornate
+      }).filter(item => item && item.count > 0); // Considera solo giocatori con almeno un voto nelle ultime 4 giornate
 
       // Ordina per media decrescente e prendi i Top 5
       stats.sort((a, b) => b.avg - a.avg);
