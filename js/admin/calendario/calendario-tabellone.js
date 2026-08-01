@@ -5,7 +5,7 @@
  * Include la trasformazione dell'albero in giornate reali su Firebase.
  */
 
-import { getDatabase, ref, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, update, set, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { CalendarioState } from './calendario-state.js';
 import { CalendarioUI } from './calendario-ui.js';
 
@@ -23,12 +23,13 @@ function nomeFaseDaCount(count) {
 
 /**
  * Genera l'albero completo per una competizione a eliminazione diretta pura.
+ * Corretto: crea ESATTAMENTE il numero di fasi necessarie senza turni extra.
  */
 function costruisciAlberoDiretta(squadreTabellone) {
   const strutturaFasi = {};
   const count = squadreTabellone.length;
 
-  // Fase di partenza (fase_1)
+  // Fase 1: Incontri iniziali
   const matchPartenza = [];
   for (let i = 0; i < count; i += 2) {
     matchPartenza.push({
@@ -37,30 +38,34 @@ function costruisciAlberoDiretta(squadreTabellone) {
       awayId: i + 1 < count ? squadreTabellone[i + 1] : "BYE / RIPOSO"
     });
   }
-  strutturaFasi["fase_1_diretta"] = { nomeFase: nomeFaseDaCount(count), matchList: matchPartenza };
 
-  // Round successivi (segnaposto)
-  let currentMatchCount = matchPartenza.length;
+  let numMatchAttuali = matchPartenza.length;
+  strutturaFasi["fase_1_diretta"] = { 
+    nomeFase: nomeFaseDaCount(count), 
+    matchList: matchPartenza 
+  };
+
+  // Fasi successive (Semifinali, Finale, ecc.)
   let step = 2;
-  while (currentMatchCount > 1) {
-    const nextMatchCount = Math.floor(currentMatchCount / 2);
-    if (nextMatchCount < 1) break;
-
+  while (numMatchAttuali > 1) {
+    const numNextMatches = Math.floor(numMatchAttuali / 2);
     const nextMatches = [];
-    for (let k = 1; k <= nextMatchCount; k++) {
+
+    for (let k = 1; k <= numNextMatches; k++) {
       nextMatches.push({
         id: `tf${step}_m${k}`,
         homeId: `VINCENTE_tf${step - 1}_m${(k * 2) - 1}`,
         awayId: `VINCENTE_tf${step - 1}_m${k * 2}`
       });
     }
-    
+
     const nomi = { 4: "Quarti di Finale", 2: "Semifinali", 1: "Finale" };
     strutturaFasi[`fase_${step}_diretta`] = {
-      nomeFase: nomi[nextMatchCount] || "Fase Successiva",
+      nomeFase: nomi[numNextMatches] || `Fase ${step}`,
       matchList: nextMatches
     };
-    currentMatchCount = nextMatchCount;
+
+    numMatchAttuali = numNextMatches;
     step++;
   }
 
@@ -88,7 +93,6 @@ function costruisciAlberoMisto(comp) {
     }
   });
 
-  // Accoppiamento Quarti: Prime vs Seconde senza ripetere lo stesso girone
   const matchQuarti = [];
   const secondeUsate = new Set();
 
@@ -191,7 +195,6 @@ function costruisciMatchDaAlbero(strutturaAlberofasi, playoffMode, startGwIndex 
     // Turno Andata (o Gara Secca)
     const couplesAndata = {};
     fase.matchList.forEach(m => {
-      // Per la diretta, usiamo l'id del match pulito come chiave per compatibilità con il calcolatore
       const matchKey = m.id;
       couplesAndata[matchKey] = {
         id: matchKey,
@@ -210,7 +213,7 @@ function costruisciMatchDaAlbero(strutturaAlberofasi, playoffMode, startGwIndex 
     matchesFaseFinaleNode[`gw${globalGwCounter}`] = { couples: couplesAndata };
     globalGwCounter++;
 
-    // Turno Ritorno (Solo se 'andata-ritorno' E non è la finale/finalissima)
+    // Turno Ritorno (Solo se 'andata-ritorno' E NON è la finale/finalissima)
     if (playoffMode === 'andata-ritorno' && !isFinaleSecca) {
       const couplesRitorno = {};
       fase.matchList.forEach(m => {
@@ -220,7 +223,7 @@ function costruisciMatchDaAlbero(strutturaAlberofasi, playoffMode, startGwIndex 
           phaseKey: chiaveFase,
           phaseName: fase.nomeFase,
           type: "ELIMINAZIONE_DIRETTA_RITORNO",
-          homeId: m.awayId, // Inversione campo
+          homeId: m.awayId,
           awayId: m.homeId,
           homeScore: null,
           awayScore: null,
@@ -249,7 +252,7 @@ window.creaTabelloneFaseFinale = async function () {
   }
 
   const playoffModeSelect = document.getElementById('playoffRotationType');
-  const playoffMode = playoffModeSelect ? playoffModeSelect.value : 'diretta';
+  const playoffMode = playoffModeSelect ? playoffModeSelect.value : 'andata-ritorno';
   const totalTeams = CalendarioState.getTeamIdsCompetizione(comp);
 
   let strutturaAlberofasi = {};
@@ -273,20 +276,32 @@ window.creaTabelloneFaseFinale = async function () {
 
     const database = CalendarioState.db || getDatabase();
 
-    // Calcolo della prima giornata disponibile (se c'erano già giornate di girone)
+    // Per il tipo "diretta" si parte da gw1. Per i tipi "misto" si contano le giornate di girone esistenti
     let startGw = 1;
-    const currentMatchesSnap = await get(ref(database, `competitions/${targetCompId}/matches`));
-    if (currentMatchesSnap.exists()) {
-      const existingGws = Object.keys(currentMatchesSnap.val())
-        .filter(k => /^gw\d+$/i.test(k))
-        .map(k => parseInt(k.replace(/\D/g, ''), 10));
-      
-      if (existingGws.length > 0) {
-        startGw = Math.max(...existingGws) + 1;
+    if (comp.type !== 'diretta') {
+      const currentMatchesSnap = await get(ref(database, `competitions/${targetCompId}/matches`));
+      if (currentMatchesSnap.exists()) {
+        const matchesData = currentMatchesSnap.val();
+        const existingGws = Object.keys(matchesData)
+          .filter(k => /^gw\d+$/i.test(k))
+          .map(k => parseInt(k.replace(/\D/g, ''), 10));
+        
+        if (existingGws.length > 0) {
+          // Filtra mantenendo solo le giornate della Regular Season (gironi)
+          startGw = Math.max(...existingGws) + 1;
+        }
       }
     }
 
     const matchesFaseFinaleNode = costruisciMatchDaAlbero(strutturaAlberofasi, playoffMode, startGw);
+
+    // Se stiamo rigenerando una 'diretta', ripristiniamo da zero l'intero nodo matches per eliminare residui vecchi
+    if (comp.type === 'diretta') {
+      await set(ref(database, `competitions/${targetCompId}/matches`), matchesFaseFinaleNode);
+    } else {
+      // Per il misto uniamo le nuove giornate della fase finale senza cancellare i gironi
+      await update(ref(database, `competitions/${targetCompId}/matches`), matchesFaseFinaleNode);
+    }
 
     await update(ref(database, `competitions/${targetCompId}`), {
       tabelloneStructure: {
@@ -296,13 +311,15 @@ window.creaTabelloneFaseFinale = async function () {
       }
     });
 
-    // Scrive le giornate in formato gw1, gw2, ecc.
-    await update(ref(database, `competitions/${targetCompId}/matches`), matchesFaseFinaleNode);
-
     window.toast?.("🏆 Tabellone e Turni ad eliminazione salvati con successo!", "ok");
 
     comp.tabelloneStructure = { fasi: strutturaAlberofasi };
-    CalendarioUI.updateBadgeDinamici(targetCompId);
+    if (CalendarioUI && CalendarioUI.updateBadgeDinamici) {
+      CalendarioUI.updateBadgeDinamici(targetCompId);
+    }
+
+    // Forza un refresh completo dell'interfaccia per rimuovere i menu a tendina vecchi
+    if (window.refreshAll) window.refreshAll();
 
   } catch (err) {
     console.error(err);
