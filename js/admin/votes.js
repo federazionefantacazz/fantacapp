@@ -8,6 +8,9 @@ let databaseRef = null;
 let unsubscribeVotes = null;
 
 export const VotesSection = {
+  cachedPlayers: [],
+  cachedCompetitions: [],
+
   init(db) {
     databaseRef = db;
   },
@@ -53,7 +56,7 @@ export const VotesSection = {
     this.cachedPlayers = PLAYERS || [];
     this.cachedCompetitions = competitions || [];
 
-    // Popola il selettore delle competizioni se non è già stato fatto
+    // Popola il selettore delle competizioni se vuoto
     const compSelector = document.getElementById('voteCompSelector');
     if (compSelector && compSelector.options.length <= 1 && this.cachedCompetitions.length > 0) {
       this.cachedCompetitions.forEach(c => {
@@ -63,27 +66,27 @@ export const VotesSection = {
         compSelector.appendChild(opt);
       });
       
-      // Di default seleziona la prima competizione disponibile se non vi è una selezione precedente dell'utente
       if (!selectedCompId && this.cachedCompetitions.length > 0) {
         selectedCompId = this.cachedCompetitions[0].id;
         compSelector.value = selectedCompId;
-        this.listenToVotes();
       }
     }
 
+    // Mantiene allineato il selettore GW con lo stato interno
+    const gwSelector = document.getElementById('voteGwSelector');
+    if (gwSelector && parseInt(gwSelector.value) !== selectedGW) {
+      gwSelector.value = selectedGW;
+    }
+
+    this.listenToVotes();
     this.setupListeners();
     this.renderLocal();
   },
 
-  // Sottoscrizione in tempo reale ai voti della competizione selezionata nel menu interno
+  // Sottoscrizione in tempo reale ai voti
   listenToVotes() {
-    if (!databaseRef || !selectedCompId) {
-      localVotes = {};
-      this.renderLocal();
-      return;
-    }
-
-    if (unsubscribeVotes) unsubscribeVotes();
+    if (!databaseRef) return;
+    if (unsubscribeVotes) return; // evita di ri-sottoscriversi se già attivo
 
     const votesRef = ref(databaseRef, `votes`);
     unsubscribeVotes = onValue(votesRef, snap => {
@@ -98,7 +101,7 @@ export const VotesSection = {
       compSelector.dataset.hasListener = "true";
       compSelector.addEventListener('change', (e) => {
         selectedCompId = e.target.value;
-        this.listenToVotes();
+        this.renderLocal();
       });
     }
 
@@ -136,7 +139,11 @@ export const VotesSection = {
     }
 
     container.innerHTML = playersList.map(p => {
-      const currentVote = gVotes[p.id] !== undefined ? gVotes[p.id] : "";
+      // Estrae il voto effettivo dall'oggetto del giocatore se esiste
+      const playerData = gVotes[p.id];
+      const currentVote = (playerData && playerData.voto !== undefined && playerData.voto !== null) 
+        ? playerData.voto 
+        : "";
       
       return `
         <div class="vote-item" style="flex-direction: column; align-items: flex-start; gap: 0.5rem;">
@@ -146,7 +153,7 @@ export const VotesSection = {
                  class="input-login player-vote-input" 
                  data-pid="${p.id}" 
                  value="${currentVote}" 
-                 placeholder="6" 
+                 placeholder="Voto" 
                  style="margin-bottom:0; padding: .4rem .5rem; font-size:.8rem;">
         </div>
       `;
@@ -155,7 +162,15 @@ export const VotesSection = {
 
   async saveVotesToFirebase() {
     if (!databaseRef) return window.toast("Database non inizializzato!", "err");
-    if (!selectedCompId) return window.toast("Seleziona prima una competizione!", "err");
+    
+    // Legge DIRETTAMENTE la giornata selezionata dal menu al momento del click
+    const gwSelector = document.getElementById('voteGwSelector');
+    const targetGW = gwSelector ? parseInt(gwSelector.value) : selectedGW;
+    
+    const compSelector = document.getElementById('voteCompSelector');
+    const targetCompId = compSelector ? compSelector.value : selectedCompId;
+
+    if (!targetCompId) return window.toast("Seleziona prima una competizione!", "err");
 
     const inputs = document.querySelectorAll('.player-vote-input');
     const updatedVotes = {};
@@ -165,19 +180,20 @@ export const VotesSection = {
       const val = input.value.trim();
       
       if (val !== "") {
-          // Creiamo un nuovo oggetto unico per questo specifico giocatore
-          const structureVote = {
-            voto: parseFloat(val)
-          };
-          updatedVotes[pId] = structureVote;
+        updatedVotes[pId] = {
+          voto: parseFloat(val)
+        };
       }
-      
     });
 
     try {
-      // Salva nel percorso mirato scelto liberamente dall'utente
-      await set(ref(databaseRef, `votes/gw${selectedGW}`), updatedVotes);
-      window.toast(`Voti salvati con successo per ${selectedCompId.toUpperCase()} (GW ${selectedGW})!`, "ok");
+      // Salva sulla giornata reale indicata nel selettore GW
+      await set(ref(databaseRef, `votes/gw${targetGW}`), updatedVotes);
+      
+      // Aggiorna la variabile di stato locale
+      selectedGW = targetGW;
+      
+      window.toast(`Voti salvati con successo per GW ${targetGW}!`, "ok");
     } catch (err) {
       console.error(err);
       window.toast("Errore durante il salvataggio dei voti", "err");
