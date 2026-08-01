@@ -166,7 +166,7 @@ export const HomePage = {
       if (tp) tp.textContent = (myTeam.pts !== undefined) ? myTeam.pts.toFixed(1) : "0.0";
       
       if (onFireTitle) {
-        onFireTitle.textContent = `🔥 Giocatori ${myTeam.name || ''} On Fire`;
+        onFireTitle.textContent = `Giocatori ${myTeam.name || ''} On Fire`;
       }
 
       if (teamLogoContainer) {
@@ -198,7 +198,7 @@ export const HomePage = {
       if (tn) tn.textContent = "Spettatore";
       if (to) to.textContent = STATE.user.email;
       if (tp) tp.textContent = "0.0";
-      if (onFireTitle) onFireTitle.textContent = `Giocatori On Fire!!`;
+      if (onFireTitle) onFireTitle.textContent = `Giocatori On Fire`;
       if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:52px; height:52px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:1.5rem; color:var(--text2)">👁️</div>`;
       if (trophiesContainer) trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3);">--</span>`;
     }
