@@ -260,7 +260,7 @@ export const DashboardSection = {
           const allMatchesSnap = await get(ref(this.db, `competitions/${compId}/matches`));
           const allMatches = allMatchesSnap.exists() ? allMatchesSnap.val() : {};
 
-          // Includiamo temporaneamente i risultati calcolati nello step 6 per consentire la valutazione immediata
+          // Includiamo i dati appena calcolati per la giornata corrente
           allMatches[gwId] = allMatches[gwId] || { couples: {} };
           Object.keys(couples).forEach(matchKey => {
             const match = couples[matchKey];
@@ -310,6 +310,7 @@ export const DashboardSection = {
                   if (gH > gA) vincenteId = foundMatch.homeId || foundMatch.home;
                   else if (gA > gH) vincenteId = foundMatch.awayId || foundMatch.away;
                   else {
+                    // In caso di parità di gol, vince chi ha il fantapunteggio più alto
                     if (ptH > ptA) vincenteId = foundMatch.homeId || foundMatch.home;
                     else if (ptA > ptH) vincenteId = foundMatch.awayId || foundMatch.away;
                     else vincenteId = foundMatch.homeId || foundMatch.home;
@@ -330,43 +331,52 @@ export const DashboardSection = {
                   }
                 });
 
-                // Avanza solo quando SIA l'Andata CHE il Ritorno sono terminati
                 if (matchAndata && matchRitorno) {
-                  const hId = matchAndata.homeId || matchAndata.home;
-                  const aId = matchAndata.awayId || matchAndata.away;
+                  // Identifichiamo formalmente chi gioca in casa all'andata e chi fuori
+                  const teamAndataCasa = matchAndata.homeId || matchAndata.home;
+                  const teamAndataFuori = matchAndata.awayId || matchAndata.away;
 
-                  let totGolH = Number(matchAndata.goalHome ?? matchAndata.homeScore ?? 0);
-                  let totGolA = Number(matchAndata.goalAway ?? matchAndata.awayScore ?? 0);
-                  let totPtH = Number(matchAndata.punteggioFinaleHome || 0);
-                  let totPtA = Number(matchAndata.punteggioFinaleAway || 0);
+                  // Gol e Fantapunti totalizzati nell'Andata
+                  let totGolCasa = Number(matchAndata.goalHome ?? matchAndata.homeScore ?? 0);
+                  let totGolFuori = Number(matchAndata.goalAway ?? matchAndata.awayScore ?? 0);
+                  let totPtCasa = Number(matchAndata.punteggioFinaleHome || 0);
+                  let totPtFuori = Number(matchAndata.punteggioFinaleAway || 0);
 
-                  if ((matchRitorno.homeId || matchRitorno.home) === aId) {
-                    totGolA += Number(matchRitorno.goalHome ?? matchRitorno.homeScore ?? 0);
-                    totGolH += Number(matchRitorno.goalAway ?? matchRitorno.awayScore ?? 0);
-                    totPtA += Number(matchRitorno.punteggioFinaleHome || 0);
-                    totPtH += Number(matchRitorno.punteggioFinaleAway || 0);
+                  // Al RITORNO i ruoli si invertono:
+                  // Chi ha giocato fuori all'andata (teamAndataFuori) ora gioca in casa (goalHome al ritorno).
+                  // Chi ha giocato in casa all'andata (teamAndataCasa) ora gioca fuori (goalAway al ritorno).
+                  const rHomeId = matchRitorno.homeId || matchRitorno.home;
+
+                  if (rHomeId === teamAndataFuori) {
+                    totGolFuori += Number(matchRitorno.goalHome ?? matchRitorno.homeScore ?? 0);
+                    totGolCasa += Number(matchRitorno.goalAway ?? matchRitorno.awayScore ?? 0);
+                    totPtFuori += Number(matchRitorno.punteggioFinaleHome || 0);
+                    totPtCasa += Number(matchRitorno.punteggioFinaleAway || 0);
                   } else {
-                    totGolH += Number(matchRitorno.goalHome ?? matchRitorno.homeScore ?? 0);
-                    totGolA += Number(matchRitorno.goalAway ?? matchRitorno.awayScore ?? 0);
-                    totPtH += Number(matchRitorno.punteggioFinaleHome || 0);
-                    totPtA += Number(matchRitorno.punteggioFinaleAway || 0);
+                    // Fallback di sicurezza nel caso i campi fossero ribaltati a DB
+                    totGolCasa += Number(matchRitorno.goalHome ?? matchRitorno.homeScore ?? 0);
+                    totGolFuori += Number(matchRitorno.goalAway ?? matchRitorno.awayScore ?? 0);
+                    totPtCasa += Number(matchRitorno.punteggioFinaleHome || 0);
+                    totPtFuori += Number(matchRitorno.punteggioFinaleAway || 0);
                   }
 
-                  if (totGolH > totGolA) vincenteId = hId;
-                  else if (totGolA > totGolH) vincenteId = aId;
+                  // Valutazione esito globale aggregato
+                  if (totGolCasa > totGolFuori) vincenteId = teamAndataCasa;
+                  else if (totGolFuori > totGolCasa) vincenteId = teamAndataFuori;
                   else {
-                    if (totPtH > totPtA) vincenteId = hId;
-                    else if (totPtA > totPtH) vincenteId = aId;
-                    else vincenteId = hId;
+                    // Parità di gol aggregati: spareggio sui fantapunti complessivi
+                    if (totPtCasa > totPtFuori) vincenteId = teamAndataCasa;
+                    else if (totPtFuori > totPtCasa) vincenteId = teamAndataFuori;
+                    else vincenteId = teamAndataCasa;
                   }
                 }
               }
 
-              // Se abbiamo identificato la vincente, aggiorniamo SIA il tabellone SIA il calendario (matches)!
+              // Se abbiamo determinato un vincente, aggiorniamo sia il Tabellone sia il Calendario (Matches)
               if (vincenteId) {
                 const targetPlaceholder = `VINCENTE_${matchId}`;
 
-                // A) Aggiorna la struttura visiva del tabellone per le fasi successive
+                // A) Aggiorna la struttura visuale del tabellone (per le fasi successive)
                 if (fasiKeys[index + 1]) {
                   const nextFaseKey = fasiKeys[index + 1];
                   const nextMatchList = fasi[nextFaseKey].matchList || [];
@@ -383,7 +393,7 @@ export const DashboardSection = {
                   });
                 }
 
-                // B) Aggiorna LE PARTITE NEL CALENDARIO REALE (matches -> gwX -> couples)
+                // B) Aggiorna le vere partite a calendario (matches -> gwX -> couples) rispettando il luogo casa/fuori
                 Object.keys(allMatches).forEach(gKey => {
                   const couplesGw = allMatches[gKey].couples || {};
                   Object.keys(couplesGw).forEach(cKey => {
@@ -403,7 +413,7 @@ export const DashboardSection = {
           });
         }
 
-        // 8. Applicazione Atomica degli Aggiornamenti su Firebase
+        // 8. Applicazione Atomica degli Aggiornamenti
         await update(ref(this.db), updates);
         window.toast(`🎯 Giornata ${gwId.toUpperCase()} salvata e dati aggiornati correttamente!`, "ok");
 
