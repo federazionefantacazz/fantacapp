@@ -71,8 +71,7 @@ export const HomePage = {
           <div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Nessun match programmato.</div>
         </div>
 
-        <!-- 🟢 NUOVA SEZIONE: GIOCATORI ON FIRE -->
-        <div class="sec" id="onFireTitle" style="margin-bottom:.6rem;">Giocatori On Fire</div>
+        <div class="sec" id="onFireTitle" style="margin-bottom:.6rem;">Giocatori On Fire <i class="ri-fire-fill" style="color: #ff4757;"></i></div>
         <div class="scroll-voti" id="homeOnFirePlayers">
           <div style="text-align:center; color:var(--text3); padding:1.5rem; font-size:.85rem; width:100%;">Nessun dato sulle prestazioni disponibile.</div>
         </div>
