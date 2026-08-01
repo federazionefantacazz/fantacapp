@@ -2,8 +2,8 @@ export const HomePage = {
   // 1. Metodo che genera lo scheletro HTML della pagina interna
   renderHTML(STATE = {}) {
     return `
-      <div class="page" id="page-home" style="padding-top: 1.5rem;">
-        <div class="app-header" style="margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; position: relative;">
+      <div class="page" id="page-home" style="padding-top: 1rem;">
+        <div class="app-header" style="margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; position: relative;">
           <div style="width: 32px;"></div> 
           <div class="logo" id="homeHeaderTitle" style="font-size: 2rem; letter-spacing: 2px; text-transform: uppercase; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(100% - 80px);">FANTACAZZ</div>
           <button onclick="window.doFirebaseLogout()" style="background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; -webkit-tap-highlight-color: transparent;" title="Disconnetti">
@@ -15,14 +15,12 @@ export const HomePage = {
           </button>
         </div>
 
-        <!-- 🟢 NUOVA CARD STRUTTURATA (INFO + TROFEI + BOX ANTEPRIMA WIP) -->
+        <!-- CARD SQUADRA (INFO + TROFEI + ANTEPRIMA WIP) -->
         <div class="card" style="margin-bottom: 1.2rem; background: linear-gradient(135deg, var(--card) 0%, rgba(80,227,194,0.06) 100%); border: 1px solid rgba(255,255,255,0.08); padding: 1.25rem;">
           <div style="display: flex; gap: 1rem; align-items: stretch;">
             
             <!-- Colonna Sinistra: Dettagli Squadra + Trofei -->
             <div style="flex: 1.2; display: flex; flex-direction: column; justify-content: space-between; min-width: 0;">
-              
-              <!-- Top: Logo + Nomi + Punti -->
               <div>
                 <div style="display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.8rem;">
                   <div id="userTeamLogo" style="flex-shrink: 0;"></div>
@@ -39,20 +37,18 @@ export const HomePage = {
                 </div>
               </div>
 
-              <!-- Bottom: Sezione Trofei -->
+              <!-- Sezione Trofei -->
               <div style="margin-top: 1rem; padding-top: 0.8rem; border-top: 1px dashed rgba(255,255,255,0.1);">
                 <div class="label" style="margin-bottom: 0.4rem; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase;">🏆 Palmarès / Trofei</div>
                 <div id="homeTeamTrophies" style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
                   <span style="font-size: 0.75rem; color: var(--text3); font-style: italic;">Nessun trofeo</span>
                 </div>
               </div>
-
             </div>
 
             <!-- Colonna Destra: Box Anteprima WIP -->
             <div style="flex: 0.9; min-width: 110px; background: rgba(0,0,0,0.25); border: 1.5px dashed rgba(255,255,255,0.15); border-radius: 10px; padding: 0.75rem; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; position: relative; overflow: hidden;">
               <div style="position: absolute; top: 6px; right: 6px; background: var(--accent2); color: #fff; font-size: 0.55rem; font-weight: 700; padding: 1px 5px; border-radius: 4px; letter-spacing: 0.5px;">WIP</div>
-              
               <div id="homePreviewBox">
                 <div style="font-size: 1.5rem; margin-bottom: 0.2rem; opacity: 0.8;">📊</div>
                 <div style="font-size: 0.72rem; font-weight: 600; color: var(--text); line-height: 1.2;">Anteprima</div>
@@ -65,7 +61,8 @@ export const HomePage = {
 		
         <div id="home-status-banner" style="margin-bottom: 1.2rem;"></div>
 
-        <div class="sec" style="margin-bottom:.6rem;">🎯 Prossimo Turno</div>
+        <!-- 🟢 CAMBIATO DA "🎯 Prossimo Turno" A "Prossimo Avversario" -->
+        <div class="sec" style="margin-bottom:.6rem;">Prossimo Avversario</div>
         <div id="homeNextMatch" style="margin-bottom:1.5rem;">
           <div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Nessun match programmato.</div>
         </div>
@@ -90,6 +87,15 @@ export const HomePage = {
     const lv = document.getElementById('homeLastVotes');
     const teamLogoContainer = document.getElementById('userTeamLogo');
 
+    // Helper per ottenere l'HTML del logo (immagini o fallback emoji)
+    const getLogoHtml = (team, size = 28) => {
+      if (!team) return `<span style="font-size:${size * 0.7}px;">🛡️</span>`;
+      if (team.logo) {
+        return `<img src="${team.logo}" style="width:${size}px; height:${size}px; object-fit:contain; border-radius:4px; flex-shrink:0;" onerror="this.outerHTML='🛡️';" alt="Logo">`;
+      }
+      return `<span style="font-size:${size * 0.7}px; flex-shrink:0;">${team.emoji || '🛡️'}</span>`;
+    };
+
     // 🟢 COMPATIBILITÀ DIZIONARIO/ARRAY FIREBASE
     let competitionsList = [];
     if (STATE.competitions) {
@@ -105,12 +111,12 @@ export const HomePage = {
 
     const comp = competitionsList.find(c => String(c.id) === String(activeId || STATE.activeCompetitionId));
 
-    // 🟢 AGGIORNAMENTO TITOLO HEADER CON NOME COMPETIZIONE
+    // 🟢 AGGIORNAMENTO TITOLO HEADER
     if (headerTitle) {
       headerTitle.textContent = (comp && comp.name) ? comp.name : "FANTACAZZ";
     }
 
-    // 🟢 AGGIORNAMENTO BANNER GIORNATA REALE
+    // 🟢 BANNER GIORNATA REALE
     if (banner) {
       const realGw = STATE.giornataRealeCorrente || STATE.currentRealGW || STATE.status?.currentGW || 0;
       if (realGw === 0) {
@@ -154,7 +160,6 @@ export const HomePage = {
       if (to) to.textContent = `Patron: ${myTeam.owner || "Sconosciuto"}`;
       if (tp) tp.textContent = (myTeam.pts !== undefined) ? myTeam.pts.toFixed(1) : "0.0";
       
-      // Logo Squadra (Aumentato leggermente a 52x52px)
       if (teamLogoContainer) {
         if (myTeam.logo) {
           teamLogoContainer.innerHTML = `<img src="${myTeam.logo}" style="width:52px; height:52px; object-fit:contain; border-radius:8px; background:var(--bg3); padding:2px; border:1px solid rgba(255,255,255,0.08);" onerror="this.src=''; this.innerHTML='🛡️';" alt="Logo">`;
@@ -163,14 +168,12 @@ export const HomePage = {
         }
       }
 
-      // 🏆 Rendering Trofei Dinamici
       if (trophiesContainer) {
         if (myTeam.trophies && Array.isArray(myTeam.trophies) && myTeam.trophies.length > 0) {
           trophiesContainer.innerHTML = myTeam.trophies.map(tr => `
             <span style="font-size: 1rem;" title="${tr.name || 'Trofeo'}">${tr.icon || '🏆'}</span>
           `).join('');
         } else if (myTeam.trophiesCount) {
-          // Fallback se c'è solo un contatore numerico
           trophiesContainer.innerHTML = `<span style="font-size:0.85rem; font-weight:bold; color:var(--gold);">🏆 x${myTeam.trophiesCount}</span>`;
         } else {
           trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3); font-style: italic;">Nessun trofeo in bacheca</span>`;
@@ -185,7 +188,7 @@ export const HomePage = {
       if (trophiesContainer) trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3);">--</span>`;
     }
 
-    // 🟢 INFO COMPETIZIONE ATTIVA E PROSSIMO MATCH
+    // 🟢 NUOVA STRUTTURA: PROSSIMO AVVERSARIO (LOGO SQUADRA 1 vs SQUADRA 2 LOGO)
     if (comp) {
       const currentGwNum = comp.status ? (comp.status.currentGW || 1) : 1;
       const allMatches = STATE.matches || {};
@@ -193,20 +196,22 @@ export const HomePage = {
       const myMatch = gwMatches.find(m => m.homeId === STATE.user.id || m.awayId === STATE.user.id);
 
       if (myMatch) {
-        const tHome = teamsList.find(t => t.id === myMatch.homeId) || { name: myMatch.homeId, emoji: '🏠' };
-        const tAway = teamsList.find(t => t.id === myMatch.awayId) || { name: myMatch.awayId, emoji: '🚀' };
+        const tHome = teamsList.find(t => t.id === myMatch.homeId) || { name: myMatch.homeId };
+        const tAway = teamsList.find(t => t.id === myMatch.awayId) || { name: myMatch.awayId };
         
         if (nm) {
           nm.innerHTML = `
-            <div class="card card-sm" style="background:var(--bg2); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:space-between; text-align:center; padding:1rem 1.25rem;">
-              <div style="flex:1; text-align:right; min-width:0;">
-                <div style="font-size:1.1rem; margin-bottom:.1rem;">${tHome.emoji || '⚽'}</div>
-                <div style="font-size:.85rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tHome.name}</div>
+            <div class="card card-sm" style="background:var(--bg2); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; gap:0.75rem; padding:0.85rem 1rem;">
+              <div style="display:flex; align-items:center; gap:0.5rem; min-width:0; flex:1; justify-content:flex-end;">
+                ${getLogoHtml(tHome, 28)}
+                <span style="font-size:0.85rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tHome.name}</span>
               </div>
-              <div style="font-family:'Bebas Neue',sans-serif; font-size:1.4rem; color:var(--text2); padding:0 1.25rem; letter-spacing:1px;">VS</div>
-              <div style="flex:1; text-align:left; min-width:0;">
-                <div style="font-size:1.1rem; margin-bottom:.1rem;">${tAway.emoji || '⚽'}</div>
-                <div style="font-size:.85rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tAway.name}</div>
+
+              <div style="font-family:'Bebas Neue',sans-serif; font-size:1.2rem; color:var(--text2); letter-spacing:1px; flex-shrink:0;">VS</div>
+
+              <div style="display:flex; align-items:center; gap:0.5rem; min-width:0; flex:1; justify-content:flex-start;">
+                <span style="font-size:0.85rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tAway.name}</span>
+                ${getLogoHtml(tAway, 28)}
               </div>
             </div>
           `;
