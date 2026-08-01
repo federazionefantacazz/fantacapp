@@ -5,7 +5,7 @@
  * Include la trasformazione dell'albero in giornate reali su Firebase.
  */
 
-import { getDatabase, ref, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { CalendarioState } from './calendario-state.js';
 import { CalendarioUI } from './calendario-ui.js';
 
@@ -28,7 +28,7 @@ function costruisciAlberoDiretta(squadreTabellone) {
   const strutturaFasi = {};
   const count = squadreTabellone.length;
 
-  // Fase di partenza
+  // Fase di partenza (fase_1)
   const matchPartenza = [];
   for (let i = 0; i < count; i += 2) {
     matchPartenza.push({
@@ -43,15 +43,18 @@ function costruisciAlberoDiretta(squadreTabellone) {
   let currentMatchCount = matchPartenza.length;
   let step = 2;
   while (currentMatchCount > 1) {
-    const nextMatchCount = Math.ceil(currentMatchCount / 2);
+    const nextMatchCount = Math.floor(currentMatchCount / 2);
+    if (nextMatchCount < 1) break;
+
     const nextMatches = [];
     for (let k = 1; k <= nextMatchCount; k++) {
       nextMatches.push({
         id: `tf${step}_m${k}`,
         homeId: `VINCENTE_tf${step - 1}_m${(k * 2) - 1}`,
-        awayId: (k * 2) <= currentMatchCount ? `VINCENTE_tf${step - 1}_m${k * 2}` : "BYE"
+        awayId: `VINCENTE_tf${step - 1}_m${k * 2}`
       });
     }
+    
     const nomi = { 4: "Quarti di Finale", 2: "Semifinali", 1: "Finale" };
     strutturaFasi[`fase_${step}_diretta`] = {
       nomeFase: nomi[nextMatchCount] || "Fase Successiva",
@@ -69,7 +72,7 @@ function costruisciAlberoDiretta(squadreTabellone) {
  */
 function costruisciAlberoMisto(comp) {
   const numQualificatePerGirone = parseInt(comp.qualificatiFaseFinale) || 2;
-  const gironiKeys = Object.keys(comp.strutturaGironi);
+  const gironiKeys = Object.keys(comp.strutturaGironi || {});
 
   if (numQualificatePerGirone !== 2 || gironiKeys.length !== 4) {
     throw new Error("Questa automazione supporta il formato standard: 4 gironi con 2 qualificate ciascuno (Totale 8 squadre per i Quarti)!");
@@ -93,7 +96,6 @@ function costruisciAlberoMisto(comp) {
     const prima = primeClassificate[i];
     let abbinata = secondeClassificate.find(s => !secondeUsate.has(s.id) && s.girone !== prima.girone);
 
-    // Fallback: ignora il vincolo di girone se non trovata
     if (!abbinata) {
       abbinata = secondeClassificate.find(s => !secondeUsate.has(s.id));
     }
@@ -132,7 +134,7 @@ function costruisciAlberoMisto(comp) {
  */
 function costruisciAlberoMistoSpeciale(totalTeams) {
   if (totalTeams.length < 10) {
-    throw new Error("Il Misto Speciale richiede la presenza di almeno 10/12 squadre posizionate!");
+    throw new Error("Il Misto Speciale richiede la presenza di almeno 10 squadre!");
   }
 
   const pos = [...totalTeams];
@@ -169,24 +171,30 @@ function costruisciAlberoMistoSpeciale(totalTeams) {
 }
 
 /**
- * Trasforma l'albero delle fasi in giornate reali di Firebase (`matches`).
+ * Trasforma l'albero delle fasi in giornate reali di Firebase (`gw1`, `gw2`, ...).
  */
-function costruisciMatchDaAlbero(strutturaAlberofasi, playoffMode) {
+function costruisciMatchDaAlbero(strutturaAlberofasi, playoffMode, startGwIndex = 1) {
   const matchesFaseFinaleNode = {};
-  let globalGwCounter = 1;
+  let globalGwCounter = startGwIndex;
 
   const chiaviFasiOrdinate = Object.keys(strutturaAlberofasi).sort();
 
   chiaviFasiOrdinate.forEach(chiaveFase => {
     const fase = strutturaAlberofasi[chiaveFase];
     const nomeLower = fase.nomeFase.toLowerCase();
-    const isFinaleSecca = nomeLower.includes("finale") && !nomeLower.includes("quarti") && !nomeLower.includes("semi");
+    
+    // Riconosce sia "Finale" che "Finalissima"
+    const isFinaleSecca = (nomeLower.includes("finale") || nomeLower.includes("finalissima")) 
+                          && !nomeLower.includes("quarti") 
+                          && !nomeLower.includes("semi");
 
     // Turno Andata (o Gara Secca)
     const couplesAndata = {};
     fase.matchList.forEach(m => {
-      couplesAndata[`match_a_${m.id}`] = {
-        id: `match_a_${m.id}`,
+      // Per la diretta, usiamo l'id del match pulito come chiave per compatibilità con il calcolatore
+      const matchKey = m.id;
+      couplesAndata[matchKey] = {
+        id: matchKey,
         phaseKey: chiaveFase,
         phaseName: fase.nomeFase,
         type: isFinaleSecca ? "FINALE" : "ELIMINAZIONE_DIRETTA",
@@ -195,22 +203,24 @@ function costruisciMatchDaAlbero(strutturaAlberofasi, playoffMode) {
         homeScore: null,
         awayScore: null,
         finished: false,
-        label: `${fase.nomeFase} - Andata`
+        label: isFinaleSecca ? fase.nomeFase : `${fase.nomeFase} - Andata`
       };
     });
-    matchesFaseFinaleNode[`gw_playoff_${globalGwCounter}`] = { couples: couplesAndata };
+
+    matchesFaseFinaleNode[`gw${globalGwCounter}`] = { couples: couplesAndata };
     globalGwCounter++;
 
-    // Turno Ritorno (se richiesto e non è la finalissima)
+    // Turno Ritorno (Solo se 'andata-ritorno' E non è la finale/finalissima)
     if (playoffMode === 'andata-ritorno' && !isFinaleSecca) {
       const couplesRitorno = {};
       fase.matchList.forEach(m => {
-        couplesRitorno[`match_r_${m.id}`] = {
-          id: `match_r_${m.id}`,
+        const matchKeyRitorno = `${m.id}_ritorno`;
+        couplesRitorno[matchKeyRitorno] = {
+          id: matchKeyRitorno,
           phaseKey: chiaveFase,
           phaseName: fase.nomeFase,
           type: "ELIMINAZIONE_DIRETTA_RITORNO",
-          homeId: m.awayId, // Campi invertiti per il ritorno
+          homeId: m.awayId, // Inversione campo
           awayId: m.homeId,
           homeScore: null,
           awayScore: null,
@@ -218,7 +228,8 @@ function costruisciMatchDaAlbero(strutturaAlberofasi, playoffMode) {
           label: `${fase.nomeFase} - Ritorno`
         };
       });
-      matchesFaseFinaleNode[`gw_playoff_${globalGwCounter}`] = { couples: couplesRitorno };
+
+      matchesFaseFinaleNode[`gw${globalGwCounter}`] = { couples: couplesRitorno };
       globalGwCounter++;
     }
   });
@@ -237,7 +248,8 @@ window.creaTabelloneFaseFinale = async function () {
     return window.toast?.("Impossibile creare un tabellone per una competizione di tipo Campionato standard!", "err");
   }
 
-  const playoffMode = document.getElementById('playoffRotationType').value;
+  const playoffModeSelect = document.getElementById('playoffRotationType');
+  const playoffMode = playoffModeSelect ? playoffModeSelect.value : 'diretta';
   const totalTeams = CalendarioState.getTeamIdsCompetizione(comp);
 
   let strutturaAlberofasi = {};
@@ -259,9 +271,23 @@ window.creaTabelloneFaseFinale = async function () {
       strutturaAlberofasi = costruisciAlberoMistoSpeciale(totalTeams);
     }
 
-    const matchesFaseFinaleNode = costruisciMatchDaAlbero(strutturaAlberofasi, playoffMode);
-
     const database = CalendarioState.db || getDatabase();
+
+    // Calcolo della prima giornata disponibile (se c'erano già giornate di girone)
+    let startGw = 1;
+    const currentMatchesSnap = await get(ref(database, `competitions/${targetCompId}/matches`));
+    if (currentMatchesSnap.exists()) {
+      const existingGws = Object.keys(currentMatchesSnap.val())
+        .filter(k => /^gw\d+$/i.test(k))
+        .map(k => parseInt(k.replace(/\D/g, ''), 10));
+      
+      if (existingGws.length > 0) {
+        startGw = Math.max(...existingGws) + 1;
+      }
+    }
+
+    const matchesFaseFinaleNode = costruisciMatchDaAlbero(strutturaAlberofasi, playoffMode, startGw);
+
     await update(ref(database, `competitions/${targetCompId}`), {
       tabelloneStructure: {
         tipoGenerato: comp.type,
@@ -269,6 +295,8 @@ window.creaTabelloneFaseFinale = async function () {
         fasi: strutturaAlberofasi
       }
     });
+
+    // Scrive le giornate in formato gw1, gw2, ecc.
     await update(ref(database, `competitions/${targetCompId}/matches`), matchesFaseFinaleNode);
 
     window.toast?.("🏆 Tabellone e Turni ad eliminazione salvati con successo!", "ok");
