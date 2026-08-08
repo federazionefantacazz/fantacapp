@@ -290,7 +290,7 @@ body {
     </div>
 
     <div class="card" id="box-select-team" style="display:none;">
-      <div class="label" style="color:var(--accent); margin-bottom:.8rem; font-size:.8rem;">✓ Autenticato con successo!</div>
+      <div class="label" style="color:var(--accent); margin-bottom:.8rem; font-size:.8rem;">Autenticato con successo!</div>
       <div class="label">Associa la tua squadra di questa competizione</div>
       <select id="loginSelect" class="select-rose" style="margin-bottom:1.5rem; background:var(--bg2);">
         <option value="">Caricamento squadre...</option>
@@ -609,7 +609,7 @@ function populateLoginDropdown() {
 
   let optionsHTML = '<option value="">Scegli la tua squadra...</option>';
   window.STATE.teams.forEach(t => {
-    optionsHTML += `<option value="${t.id}">🛡️ ${t.name} (${t.owner || 'Nessun proprietario'})</option>`;
+    optionsHTML += `<option value="${t.id}">${t.name} (${t.owner || 'Nessun proprietario'})</option>`;
   });
   select.innerHTML = optionsHTML;
 }
@@ -647,7 +647,7 @@ onValue(ref(db, 'competitions'), snap => {
   const userSelect = document.getElementById('userCompSelect');
   if (userSelect) {
     if (list.length === 0) {
-      userSelect.innerHTML = `<option value="">⚠️ Nessun torneo nel DB</option>`;
+      userSelect.innerHTML = `<option value="">Nessun torneo nel DB</option>`;
       window.STATE.currentCompetition = '';
       window.STATE.activeCompetitionId = '';
     } else {
@@ -702,11 +702,11 @@ function refreshUI() {
 
     if (compData && compData.logo && compData.logo.trim() !== "") {
       globalNavbarLogoContainer.innerHTML = `
-        <img src="${compData.logo}" style="height:24px; width:24px; object-fit:contain;" onerror="this.outerHTML='<div style=\'width:24px; height:24px; background:rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:.75rem;\'>🏆</div>';" alt="Logo Comp">
+        <img src="${compData.logo}" style="height:24px; width:24px; object-fit:contain;" onerror="this.outerHTML='<div style=\'width:24px; height:24px; background:rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:.75rem;\'></div>';" alt="Logo Comp">
       `;
     } else {
       globalNavbarLogoContainer.innerHTML = `
-        <div style="width:24px; height:24px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:.75rem; color:var(--gold)">🏆</div>
+        <div style="width:24px; height:24px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:.75rem; color:var(--gold)"><i class="ri-trophy-line"></i></div>
       `;
     }
   }
