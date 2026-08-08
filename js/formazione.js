@@ -17,7 +17,7 @@ export const FormazionePage = {
           </select>
         </div>
 
-        <div class="label" style="margin-bottom: .5rem; color: var(--accent); display: flex; align-items: center; gap: 0.4rem;"><i class="ri-t-shirt-line"></i> TITOLARI (RETTANGOLO DI GIOCO)</div>
+        <div class="label" style="margin-bottom: .5rem; color: var(--accent); display: flex; align-items: center; gap: 0.4rem;"><i class="ri-t-shirt-line"></i> TITOLARI (RECTANGOLO DI GIOCO)</div>
         
         <div class="soccer-field" id="soccer-field-container">
           <div class="field-lines">
@@ -28,7 +28,12 @@ export const FormazionePage = {
         </div>
 
         <div class="label" style="margin-bottom: .5rem; color: var(--gold); margin-top: 1.5rem; display: flex; align-items: center; gap: 0.4rem;"><i class="ri-user-shared-line"></i> PANCHINA (1 P | 2 D | 2 C | 2 A)</div>
-        <div id="panchina-slots" style="display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1.5rem;"></div>
+        <div id="panchina-slots" style="display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1rem;"></div>
+
+        <div class="card card-sm" style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.8rem; background: var(--bg2);">
+          <input type="checkbox" id="save-all-comps" checked style="width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer;">
+          <label for="save-all-comps" class="label" style="margin: 0; cursor: pointer; color: var(--text);">Salva per tutte le competizioni</label>
+        </div>
         
         <button class="btn btn-green" style="width: 100%; padding: .8rem; margin-bottom:2rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" id="btn-save-lineup"><i class="ri-save-line"></i> Salva Formazione</button>
 
@@ -98,8 +103,8 @@ export const FormazionePage = {
         }
         .player-name-label {
           margin-top: 8px;
-          background: #0a0f1e;
-          color: #fff;
+          background: var(--bg2, #0a0f1e);
+          color: var(--text, #fff);
           font-size: 0.7rem;
           font-weight: 600;
           padding: 3px 8px;
@@ -284,8 +289,8 @@ export const FormazionePage = {
 
           if (!val) {
             labelEl.textContent = 'Scegli';
-            labelEl.style.color = '#fff';
-            labelEl.style.borderColor = 'rgba(255,255,255,0.12)';
+            labelEl.style.color = '';
+            labelEl.style.borderColor = '';
           } else {
             const selectedText = e.target.options[e.target.selectedIndex].text;
             labelEl.textContent = selectedText.split(' (')[0];
@@ -353,38 +358,44 @@ export const FormazionePage = {
     titS.forEach(s => { if(s.value) titIds.push(s.value); });
     panS.forEach(s => { if(s.value) panIds.push(s.value); });
 
-    if (titIds.length < 11) { 
-      window.showToast(`Inserisci tutti gli 11 titolari sul campo!`, 'err'); 
+    if (titIds.length < 11 || panIds.length < 7) { 
+      window.showToast(`Completa tutta la formazione (titolari e panchina) prima di salvare!`, 'err'); 
       return; 
     }
     
-    const compId = STATE.currentCompetition;
-    const compData = STATE.competitions?.find ? STATE.competitions.find(c => c.id === compId) : null;
-    const associazioni = compData ? (compData.associazioniGwReali || {}) : {};
-    
-    const entry = Object.entries(associazioni).find(([k, v]) => String(v).trim() === String(gwReale).trim());
-    const gwCompetizione = entry ? entry[0] : `gw${gwReale}`;
+    const saveAllChecked = document.getElementById('save-all-comps')?.checked;
+    const competitionsToSave = [];
+
+    if (saveAllChecked && Array.isArray(STATE.competitions)) {
+      STATE.competitions.forEach(c => competitionsToSave.push(c));
+    } else {
+      const currentCompId = STATE.currentCompetition;
+      const currentCompData = STATE.competitions?.find ? STATE.competitions.find(c => c.id === currentCompId) : null;
+      if (currentCompData) competitionsToSave.push(currentCompData);
+    }
 
     try {
-      const path = `competitions/${compId}/matches/${gwCompetizione}/lineups/${STATE.user.id}`;
-      
-      const dataToSave = {
-        teamId: STATE.user.id, 
-        modulo, 
-        titolari: titIds, 
-        panchina: panIds, 
-        timestamp: Date.now()
-      };
-      
-      await window._saveNode(path, dataToSave);
+      for (const comp of competitionsToSave) {
+        const compId = comp.id;
+        const associazioni = comp.associazioniGwReali || {};
+        const entry = Object.entries(associazioni).find(([k, v]) => String(v).trim() === String(gwReale).trim());
+        const gwCompetizione = entry ? entry[0] : `gw${gwReale}`;
 
-      if (STATE.competitions) {
-        const cIndex = STATE.competitions.findIndex ? STATE.competitions.findIndex(c => c.id === compId) : -1;
-        if (cIndex !== -1) {
-          if (!STATE.competitions[cIndex].lineups) STATE.competitions[cIndex].lineups = {};
-          if (!STATE.competitions[cIndex].lineups[gwCompetizione]) STATE.competitions[cIndex].lineups[gwCompetizione] = {};
-          STATE.competitions[cIndex].lineups[gwCompetizione][STATE.user.id] = dataToSave;
-        }
+        const path = `competitions/${compId}/matches/${gwCompetizione}/lineups/${STATE.user.id}`;
+        
+        const dataToSave = {
+          teamId: STATE.user.id, 
+          modulo, 
+          titolari: titIds, 
+          panchina: panIds, 
+          timestamp: Date.now()
+        };
+        
+        await window._saveNode(path, dataToSave);
+
+        if (!comp.lineups) comp.lineups = {};
+        if (!comp.lineups[gwCompetizione]) comp.lineups[gwCompetizione] = {};
+        comp.lineups[gwCompetizione][STATE.user.id] = dataToSave;
       }
 
       window.showToast('Formazione salvata con successo!', 'ok');
