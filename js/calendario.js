@@ -38,7 +38,14 @@ export const CalendarioPage = {
 
     if (!matchesNode || Object.keys(matchesNode).length === 0) {
       select.innerHTML = '<option value="">Nessun turno disponibile</option>';
-      container.innerHTML = `<div style="text-align:center; padding:2rem; color:var(--text3); font-size:.85rem; background:var(--bg2); border-radius:12px; border:1px solid rgba(255,255,255,0.05);">🗓️ Nessun calendario generato.</div>`;
+      
+      // Sostituita l'emoji con Remix Icon
+      container.innerHTML = `
+        <div style="text-align:center; padding:2.5rem 1rem; color:var(--text3); font-size:.9rem; background:var(--bg2); border-radius:12px; border:1px solid rgba(255,255,255,0.05); display:flex; flex-direction:column; align-items:center; gap:0.5rem;">
+          <i class="ri-calendar-close-line" style="font-size:2rem; color:var(--text2);"></i>
+          <span>Nessun calendario generato.</span>
+        </div>
+      `;
       return;
     }
 
@@ -85,7 +92,7 @@ export const CalendarioPage = {
       const turnMatches = Array.isArray(couplesObj) ? couplesObj : Object.values(couplesObj);
       const currentTeams = STATE.teams || [];
 
-      // Generiamo le card usando il componente appena importato
+      // Generiamo le card usando il componente importato
       container.innerHTML = turnMatches.map(match => createMatchCardResult(match, currentTeams)).join('');
     };
 
