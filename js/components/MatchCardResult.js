@@ -37,9 +37,9 @@ export const createMatchCardResult = (match, teamsList = []) => {
     ? `<div style="font-size:.65rem; color:var(--text2); text-align:center; margin-top:.3rem; white-space:nowrap;">${match.punteggioFinaleHome ?? 0} - ${match.punteggioFinaleAway ?? 0} pt</div>` 
     : '';
 
-  // Gestione etichetta girone/playoff
+  // Etichetta girone/playoff con Remix Icon
   const labelText = match.label || match.girone;
-  const labelHTML = labelText ? `<div style="font-size:.65rem; color:var(--gold); font-weight:bold; text-transform:uppercase; margin-bottom:.5rem;">📍 ${labelText}</div>` : '';
+  const labelHTML = labelText ? `<div style="font-size:.65rem; color:var(--gold); font-weight:bold; text-transform:uppercase; margin-bottom:.5rem; display:flex; align-items:center; gap:0.2rem;"><i class="ri-map-pin-line"></i> ${labelText}</div>` : '';
 
   return `
     <div class="card card-sm match-card-result" style="background:var(--card); border:1px solid rgba(255,255,255,0.05); display:flex; flex-direction:column; padding:1rem;">
