@@ -12,7 +12,7 @@ export const ClassificaPage = {
     return `
       <div id="page-classifica" class="page">
         <div class="sec">
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          <i class="ri-bar-chart-2-line" style="font-size: 24px;"></i>
           <span id="classifica-title">Classifica</span>
         </div>
         
@@ -342,7 +342,7 @@ export const ClassificaPage = {
       `;
     }).join(`
       <div style="display:flex; align-items:center; color:var(--text3); padding-top:1.5rem;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        <i class="ri-arrow-right-s-line" style="font-size: 18px;"></i>
       </div>
     `);
 
