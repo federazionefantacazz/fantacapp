@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-v1.0.53'; // Incrementa questo numero ogni volta che fai modifiche ai file .js o .html
+const CACHE_NAME = 'fantacapp-pwa-v1.0.54'; // Incrementa questo numero ogni volta che fai modifiche ai file .js o .html
 
 // 1. Array pulito: includiamo solo l'app utente per tenerla fulminea ed evitare blocchi sull'admin
 const ASSETS_TO_CACHE = [
@@ -9,15 +9,22 @@ const ASSETS_TO_CACHE = [
   './icons/icon-512.png',
   './icons/logo-federazione.jpg',
   
-  // Servizi e Pagine Utente
+  // Servizi
   './js/services/integrationImgBB.js',
   './js/services/calcoloMatch.js',
+
+  // Componenti
+  './js/components/MatchCardResult.js',
+  './js/components/MatchCardVS.js',
+  
+  // Pagine Utente
   './js/calendario.js',
+  './js/classifica.js',
+  './js/firebase-config.js',
   './js/formazione.js',
   './js/home.js',
+  './js/liveMatch.js',
   './js/mercato.js',
-  './js/firebase-config.js',
-  './js/classifica.js',
   './js/teams.js'
   
 ];
