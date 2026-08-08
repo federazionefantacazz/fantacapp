@@ -17,7 +17,7 @@ export const FormazionePage = {
           </select>
         </div>
 
-        <div class="label" style="margin-bottom: .5rem; color: var(--accent);">👕 TITOLARI (RETTANGOLO DI GIOCO)</div>
+        <div class="label" style="margin-bottom: .5rem; color: var(--accent); display: flex; align-items: center; gap: 0.4rem;"><i class="ri-t-shirt-line"></i> TITOLARI (RETTANGOLO DI GIOCO)</div>
         
         <div class="soccer-field" id="soccer-field-container">
           <div class="field-lines">
@@ -27,10 +27,10 @@ export const FormazionePage = {
           <div id="titolari-field-slots"></div>
         </div>
 
-        <div class="label" style="margin-bottom: .5rem; color: var(--gold); margin-top: 1.5rem;">🪑 PANCHINA (1 P | 2 D | 2 C | 2 A)</div>
+        <div class="label" style="margin-bottom: .5rem; color: var(--gold); margin-top: 1.5rem; display: flex; align-items: center; gap: 0.4rem;"><i class="ri-user-shared-line"></i> PANCHINA (1 P | 2 D | 2 C | 2 A)</div>
         <div id="panchina-slots" style="display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1.5rem;"></div>
         
-        <button class="btn btn-green" style="width: 100%; padding: .8rem; margin-bottom:2rem;" id="btn-save-lineup">💾 Salva Formazione</button>
+        <button class="btn btn-green" style="width: 100%; padding: .8rem; margin-bottom:2rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" id="btn-save-lineup"><i class="ri-save-line"></i> Salva Formazione</button>
 
         <style>
         .soccer-field {
@@ -122,7 +122,6 @@ export const FormazionePage = {
     if (!modSelect) return;
     
     if (!window._formazioneInitialized) {
-      // Ascolta il cambio modulo manuale dell'utente
       modSelect.addEventListener('change', () => this.buildSlots(STATE, true));
       
       const saveBtn = document.getElementById('btn-save-lineup');
@@ -143,7 +142,7 @@ export const FormazionePage = {
     this.buildSlots(STATE);
   },
 
- buildSlots(STATE, userChangedModulo = false) {
+  buildSlots(STATE, userChangedModulo = false) {
     if (!STATE || !STATE.user || !STATE.players || STATE.players.length === 0) return;
 
     const modSelect = document.getElementById('f-modulo');
@@ -153,14 +152,11 @@ export const FormazionePage = {
     const userId = STATE.user.id;
     const compId = STATE.currentCompetition;
     
-    // 1. Identifichiamo la chiave della giornata (es: gw1)
     const compData = STATE.competitions?.find ? STATE.competitions.find(c => c.id === compId) : null;
     const associazioni = compData ? (compData.associazioniGwReali || {}) : {};
     const entry = Object.entries(associazioni).find(([k, v]) => String(v).trim() === String(gwReale).trim());
     const gwCompetizione = entry ? entry[0] : `gw${gwReale}`;
 
-    // 2. NUOVA LOGICA DI LETTURA:
-    // Cerchiamo la formazione nel nuovo percorso: matches -> gw -> lineups -> userId
     let savedLineup = null;
     
     if (compData && compData.matches?.[gwCompetizione]?.lineups?.[userId]) {
@@ -169,7 +165,6 @@ export const FormazionePage = {
         savedLineup = STATE.competitions[compId].matches[gwCompetizione].lineups[userId];
     }
 
-    // Il resto della funzione rimane identico:
     if (savedLineup && savedLineup.modulo && !userChangedModulo) {
         modSelect.value = savedLineup.modulo;
     }
@@ -177,7 +172,6 @@ export const FormazionePage = {
     const modulo = modSelect.value;
     const [def, mid, att] = modulo.split('-').map(Number);
     
-    // ... (continua con il resto del codice che non cambia)
     const miaRosa = STATE.players.filter(p => {
         const pTeamId = String(p.teamId || p.team || '');
         const uId = String(userId || '');
@@ -190,7 +184,7 @@ export const FormazionePage = {
     this.drawFieldTitolari(def, mid, att, miaRosa, savedTitolariIds);
     const schemaPan = [{role:'P', count:1}, {role:'D', count:2}, {role:'C', count:2}, {role:'A', count:2}];
     this.drawSchemaPanchina('panchina-slots', schemaPan, 'pan', miaRosa, savedPanchinaIds);
-},
+  },
 
   drawFieldTitolari(def, mid, att, rosa, savedIds) {
     const container = document.getElementById('titolari-field-slots');
@@ -214,10 +208,8 @@ export const FormazionePage = {
         const x = count === 1 ? 50 : (100 / (count + 1)) * i;
         const slotId = `tit-${reparto.role}-${i}`;
         
-        // Filtra i giocatori disponibili per questo ruolo
         const ops = rosa.filter(p => p.role === reparto.role);
 
-        // Controlla se c'è un ID salvato disponibile per questo slot specifico di ruolo
         let preselectedId = "";
         let preselectedText = "Scegli";
         let isSelected = false;
@@ -309,7 +301,6 @@ export const FormazionePage = {
         const slotId = `${prefix}-${item.role}-${i}`;
         const ops = rosa.filter(p => p.role === item.role);
 
-        // Troviamo il giocatore pre-selezionato in panchina per questo specifico ruolo ed indice
         let preselectedId = "";
         if (savedIds && savedIds.length > 0) {
           const ruoloSavedIds = savedIds.filter(id => {
@@ -372,12 +363,10 @@ export const FormazionePage = {
     const compData = STATE.competitions?.find ? STATE.competitions.find(c => c.id === compId) : null;
     const associazioni = compData ? (compData.associazioniGwReali || {}) : {};
     
-    // TRADUZIONE: Calcoliamo la chiave corretta di destinazione della competizione (es. gw1) partendo dalla giornata reale (es. 8)
     const entry = Object.entries(associazioni).find(([k, v]) => String(v).trim() === String(gwReale).trim());
     const gwCompetizione = entry ? entry[0] : `gw${gwReale}`;
 
     try {
-      // Salviamo nel nodo corretto tradotto
       const path = `competitions/${compId}/matches/${gwCompetizione}/lineups/${STATE.user.id}`;
       
       const dataToSave = {
@@ -390,7 +379,6 @@ export const FormazionePage = {
       
       await window._saveNode(path, dataToSave);
 
-      // Aggiorniamo al volo anche lo STATE locale usando la stessa struttura
       if (STATE.competitions) {
         const cIndex = STATE.competitions.findIndex ? STATE.competitions.findIndex(c => c.id === compId) : -1;
         if (cIndex !== -1) {
