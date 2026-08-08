@@ -5,17 +5,17 @@ export const MercatoPage = {
         <div class="sec" style="margin-top:1.2rem">Mercato</div>
         
         <div style="display: flex; gap: .5rem; margin-bottom: 1.5rem; background: var(--bg2); padding: .4rem; border-radius: 12px;">
-          <button class="btn tab-btn btn-green" id="tab-scambi" style="padding: .5rem; font-size: .8rem; width: 50%;">
-            🤝 Scambi Utenti
+          <button class="btn tab-btn btn-green" id="tab-scambi" style="padding: .5rem; font-size: .8rem; width: 50%; display: flex; align-items: center; justify-content: center; gap: 0.4rem;">
+            <i class="ri-exchange-line"></i> Scambi Utenti
           </button>
-          <button class="btn tab-btn btn-outline" id="tab-gestione" style="padding: .5rem; font-size: .8rem; width: 50%;">
-            ⚙️ Gestione Rosa
+          <button class="btn tab-btn btn-outline" id="tab-gestione" style="padding: .5rem; font-size: .8rem; width: 50%; display: flex; align-items: center; justify-content: center; gap: 0.4rem;">
+            <i class="ri-settings-3-line"></i> Gestione Rosa
           </button>
         </div>
 
         <div id="subpage-scambi" class="market-subpage">
           <div class="card">
-            <div class="label" style="color: var(--accent); margin-bottom: .6rem;">Proponi uno Scambio</div>
+            <div class="label" style="color: var(--accent); margin-bottom: .6rem; display: flex; align-items: center; gap: 0.4rem;"><i class="ri-add-circle-line"></i> Proponi uno Scambio</div>
             <p style="font-size: .85rem; color: var(--text2); margin-bottom: 1rem;">
               Seleziona un fanta-allenatore per avviare la trattativa di scambio dei cartellini.
             </p>
@@ -25,12 +25,12 @@ export const MercatoPage = {
               <option value="">Caricamento utenti...</option>
             </select>
 
-            <button class="btn btn-outline" id="btn-apri-trattativa" style="width: 100%;">
-              Inizia Trattativa
+            <button class="btn btn-outline" id="btn-apri-trattativa" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.4rem;">
+              <i class="ri-arrow-right-up-line"></i> Inizia Trattativa
             </button>
           </div>
           
-          <div class="label" style="margin-bottom: .5rem;">Trattative in Corso</div>
+          <div class="label" style="margin-bottom: .5rem; display: flex; align-items: center; gap: 0.4rem;"><i class="ri-time-line"></i> Trattative in Corso</div>
           <div id="lista-trattative">
             <div style="text-align: center; color: var(--text3); font-size: .8rem; padding: 1rem;">
               Nessuna trattativa attiva al momento.
@@ -40,7 +40,7 @@ export const MercatoPage = {
 
         <div id="subpage-gestione" class="market-subpage" style="display: none;">
           <div class="card" style="text-align: center; padding: 2.5rem 1.5rem; border: 1px dashed var(--accent3);">
-            <div style="font-size: 2.5rem; margin-bottom: .8rem;">🔒</div>
+            <div style="font-size: 2.5rem; margin-bottom: .8rem; color: var(--accent3);"><i class="ri-lock-line"></i></div>
             <div class="label" style="color: var(--accent3); font-size: .9rem; margin-bottom: .5rem;">Sessione Chiusa</div>
             <p style="font-size: .8rem; color: var(--text2); line-height: 1.4;">
               Acquisti e svincoli dal mercato degli svincolati sono momentaneamente **disattivati** dall'amministratore della lega.
@@ -79,7 +79,17 @@ export const MercatoPage = {
     btnScambi.addEventListener('click', () => {
       // Attiva tab scambi
       btnScambi.className = "btn tab-btn btn-green";
+      btnScambi.style.display = "flex";
+      btnScambi.style.alignItems = "center";
+      btnScambi.style.justifyContent = "center";
+      btnScambi.style.gap = "0.4rem";
+
       btnGestione.className = "btn tab-btn btn-outline";
+      btnGestione.style.display = "flex";
+      btnGestione.style.alignItems = "center";
+      btnGestione.style.justifyContent = "center";
+      btnGestione.style.gap = "0.4rem";
+
       subScambi.style.display = "block";
       subGestione.style.display = "none";
     });
@@ -87,7 +97,17 @@ export const MercatoPage = {
     btnGestione.addEventListener('click', () => {
       // Attiva tab gestione
       btnScambi.className = "btn tab-btn btn-outline";
+      btnScambi.style.display = "flex";
+      btnScambi.style.alignItems = "center";
+      btnScambi.style.justifyContent = "center";
+      btnScambi.style.gap = "0.4rem";
+
       btnGestione.className = "btn tab-btn btn-green";
+      btnGestione.style.display = "flex";
+      btnGestione.style.alignItems = "center";
+      btnGestione.style.justifyContent = "center";
+      btnGestione.style.gap = "0.4rem";
+
       subScambi.style.display = "none";
       subGestione.style.display = "block";
     });
@@ -108,7 +128,7 @@ export const MercatoPage = {
 
     select.innerHTML = '<option value="">-- Scegli Sfidante --</option>' + 
       avversari.map(t => `
-        <option value="${t.id}">${t.emoji || '⚽'} ${t.name} (${t.owner})</option>
+        <option value="${t.id}">${t.name} (${t.owner})</option>
       `).join('');
   }
 };
