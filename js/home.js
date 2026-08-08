@@ -1,4 +1,3 @@
-import { fitText } from './services/utilityService.js';
 import { createMatchCardVS } from './components/MatchCardVS.js';
 
 export const HomePage = {
@@ -17,49 +16,46 @@ export const HomePage = {
           </button>
         </div>
 
-        <!-- CARD SQUADRA -->
+        <!-- CARD SQUADRA (LAYOUT A COLONNA RIPULITO) -->
         <div class="card" style="margin-bottom: 1.2rem; background: linear-gradient(135deg, var(--card) 0%, rgba(80,227,194,0.06) 100%); border: 1px solid rgba(255,255,255,0.08); padding: 1.25rem;">
-          <div style="display: flex; gap: 1rem; align-items: stretch;">
-            
-            <div style="flex: 1.2; display: flex; flex-direction: column; justify-content: space-between; min-width: 0;">
-              <div>
-                <div style="display: flex; align-items: flex-start; gap: 0.8rem; margin-bottom: 0.8rem;">
-                  <div id="userTeamLogo" style="flex-shrink: 0; margin-top: 2px;"></div>
-                  <div style="flex: 1; min-width: 0; overflow: hidden;">
-                    <div class="label" style="margin: 0; font-size: 0.68rem;">La mia squadra</div>
-                    <h3 id="homeTeamName" style="font-family: 'Bebas Neue', sans-serif; font-size: 1.7rem; letter-spacing: 0.5px; color: var(--text); margin-top: -3px; line-height: 1.1; white-space: nowrap;">Caricamento...</h3>
-                    <p id="homeTeamOwner" style="font-size: 0.75rem; color: var(--text2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">...</p>
-                  </div>
-                </div>
-
-                <div style="display: flex; align-items: baseline; gap: 0.4rem; margin-top: 0.4rem;">
-                  <span style="font-size: 0.72rem; color: var(--text2); text-transform: uppercase; font-weight: 600;">Totale Punti:</span>
-                  <span id="homeTeamPts" style="font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; color: var(--accent); line-height: 1;">0.0</span>
-                </div>
-              </div>
+          
+          <!-- RIGA PRINCIPALE: LOGO + NOME SQUADRA -->
+          <div style="display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1rem; min-width: 0;">
+            <div id="userTeamLogo" style="flex-shrink: 0;"></div>
+            <div style="flex: 1; min-width: 0; overflow: hidden;">
+              <div class="label" style="margin: 0; font-size: 0.68rem;">La mia squadra</div>
+              <h3 id="homeTeamName" style="font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 0.5px; color: var(--text); margin: 0; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Caricamento...</h3>
+              <p id="homeTeamOwner" style="font-size: 0.75rem; color: var(--text2); margin: 2px 0 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">...</p>
             </div>
-
-            <div style="flex: 0.9; min-width: 110px; background: rgba(0,0,0,0.25); border: 1.5px dashed rgba(255,255,255,0.15); border-radius: 10px; padding: 0.75rem; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; position: relative; overflow: hidden;">
-              <div style="position: absolute; top: 6px; right: 6px; background: var(--accent2); color: #fff; font-size: 0.55rem; font-weight: 700; padding: 1px 5px; border-radius: 4px; letter-spacing: 0.5px;">WIP</div>
-              <div id="homePreviewBox">
-                <div style="font-size: 1.5rem; margin-bottom: 0.2rem; opacity: 0.8;"><i class="ri-bar-chart-box-line" style="font-size: 1.5rem; color: var(--text);"></i></div>
-                <div style="font-size: 0.72rem; font-weight: 600; color: var(--text); line-height: 1.2;">Anteprima</div>
-                <div style="font-size: 0.62rem; color: var(--text3); margin-top: 3px;">Modulo / Stats</div>
-              </div>
-            </div>
-
           </div>
 
-          <div style="margin-top: 1rem; padding-top: 0.8rem; border-top: 1px dashed rgba(255,255,255,0.1); width: 100%;">
+          <!-- RIGA SOTTOSTANTE: INFO PUNTI + BOX WIP -->
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: 0.8rem; border-top: 1px dashed rgba(255,255,255,0.1);">
+            <div style="display: flex; align-items: baseline; gap: 0.4rem;">
+              <span style="font-size: 0.72rem; color: var(--text2); text-transform: uppercase; font-weight: 600;">Totale Punti:</span>
+              <span id="homeTeamPts" style="font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; color: var(--accent); line-height: 1;">0.0</span>
+            </div>
+
+            <!-- Box Anteprima WIP Spostato Sotto -->
+            <div style="background: rgba(0,0,0,0.25); border: 1.5px dashed rgba(255,255,255,0.15); border-radius: 8px; padding: 0.4rem 0.8rem; display: flex; align-items: center; gap: 0.5rem; position: relative;">
+              <div style="font-size: 1rem;">📊</div>
+              <div style="font-size: 0.7rem; font-weight: 600; color: var(--text);">Anteprima WIP</div>
+            </div>
+          </div>
+
+          <!-- RIGA TROFEI / PALMARÈS -->
+          <div style="margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed rgba(255,255,255,0.1); width: 100%;">
             <div class="label" style="margin-bottom: 0.4rem; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase;"><i class="ri-trophy-line"></i> Palmarès / Trofei</div>
             <div id="homeTeamTrophies" style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
               <span style="font-size: 0.75rem; color: var(--text3); font-style: italic;">Nessun trofeo</span>
             </div>
           </div>
+
         </div>
         
         <div id="home-status-banner" style="margin-bottom: 1.2rem;"></div>
 
+        <!-- PROSSIMO AVVERSARIO -->
         <div class="sec" style="margin-bottom:.6rem;">Prossimo Avversario</div>
         <div id="homeNextMatch" style="margin-bottom:1.5rem;">
           <div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Nessun match programmato.</div>
@@ -139,10 +135,7 @@ export const HomePage = {
     const myTeam = teamsList.find(t => t && t.id === STATE.user.id);
 
     if (myTeam) {
-      if (tn) {
-        tn.textContent = myTeam.name || "Senza Nome";
-        fitText(tn, 1.7, 0.95);
-      }
+      if (tn) tn.textContent = myTeam.name || "Senza Nome";
       if (to) to.textContent = `Patron: ${myTeam.owner || "Sconosciuto"}`;
       if (tp) tp.textContent = (myTeam.pts !== undefined) ? myTeam.pts.toFixed(1) : "0.0";
       
@@ -176,10 +169,7 @@ export const HomePage = {
       }
 
     } else {
-      if (tn) {
-        tn.textContent = "Spettatore";
-        fitText(tn, 1.7, 0.95);
-      }
+      if (tn) tn.textContent = "Spettatore";
       if (to) to.textContent = STATE.user.email;
       if (tp) tp.textContent = "0.0";
       if (onFireTitle) onFireTitle.textContent = `Giocatori On Fire`;
