@@ -12,6 +12,7 @@ const ASSETS_TO_CACHE = [
   // Servizi
   './js/services/integrationImgBB.js',
   './js/services/calcoloMatch.js',
+  './js/services/classificaService.js',
 
   // Componenti
   './js/components/MatchCardResult.js',
