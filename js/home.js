@@ -1,3 +1,27 @@
+// Helper per ridimensionare il font se il testo supera la larghezza del contenitore
+const fitText = (element, maxFontSize = 1.7, minFontSize = 0.95) => {
+  if (!element) return;
+  
+  // Imposta la dimensione iniziale e blocca il testo su una riga per misurarlo
+  let currentSize = maxFontSize;
+  element.style.fontSize = `${currentSize}rem`;
+  element.style.whiteSpace = 'nowrap';
+
+  const parentWidth = element.parentElement ? element.parentElement.clientWidth : element.clientWidth;
+
+  // Riduce progressivamente il font se il testo straborda
+  while (element.scrollWidth > parentWidth && currentSize > minFontSize) {
+    currentSize -= 0.05;
+    element.style.fontSize = `${currentSize}rem`;
+  }
+
+  // Se è troppo lungo anche con il font minimo, mette i puntini di sospensione (...)
+  if (element.scrollWidth > parentWidth) {
+    element.style.overflow = 'hidden';
+    element.style.textOverflow = 'ellipsis';
+  }
+};
+
 export const HomePage = {
   // 1. Metodo che genera lo scheletro HTML della pagina interna
   renderHTML(STATE = {}) {
@@ -26,10 +50,12 @@ export const HomePage = {
               <div>
                 <div style="display: flex; align-items: flex-start; gap: 0.8rem; margin-bottom: 0.8rem;">
                   <div id="userTeamLogo" style="flex-shrink: 0; margin-top: 2px;"></div>
-                  <div style="flex: 1; min-width: 0;">
+                  <div style="flex: 1; min-width: 0; overflow: hidden;">
                     <div class="label" style="margin: 0; font-size: 0.68rem;">La mia squadra</div>
-                    <!-- Nome squadra sbloccato per leggersi interamente -->
-                    <h3 id="homeTeamName" style="font-family: 'Bebas Neue', sans-serif; font-size: 1.7rem; letter-spacing: 0.5px; color: var(--text); margin-top: -3px; line-height: 1.1; word-break: break-word;">Caricamento...</h3>
+                    
+                    <!-- NOME SQUADRA -->
+                    <h3 id="homeTeamName" style="font-family: 'Bebas Neue', sans-serif; font-size: 1.7rem; letter-spacing: 0.5px; color: var(--text); margin-top: -3px; line-height: 1.1; white-space: nowrap;">Caricamento...</h3>
+                    
                     <p id="homeTeamOwner" style="font-size: 0.75rem; color: var(--text2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">...</p>
                   </div>
                 </div>
@@ -53,7 +79,7 @@ export const HomePage = {
 
           </div>
 
-          <!-- RIGA INFERIORE: SEZIONE TROFEI / PALMARÈS (FULL WIDTH SOTTO AI DUE BOX) -->
+          <!-- RIGA INFERIORE: SEZIONE TROFEI / PALMARÈS -->
           <div style="margin-top: 1rem; padding-top: 0.8rem; border-top: 1px dashed rgba(255,255,255,0.1); width: 100%;">
             <div class="label" style="margin-bottom: 0.4rem; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase;">🏆 Palmarès / Trofei</div>
             <div id="homeTeamTrophies" style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
@@ -161,7 +187,11 @@ export const HomePage = {
     const myTeam = teamsList.find(t => t && t.id === STATE.user.id);
 
     if (myTeam) {
-      if (tn) tn.textContent = myTeam.name || "Senza Nome";
+      if (tn) {
+        tn.textContent = myTeam.name || "Senza Nome";
+        // 🚀 Ridimensiona il font se il nome della squadra è troppo lungo
+        fitText(tn, 1.7, 0.95);
+      }
       if (to) to.textContent = `Patron: ${myTeam.owner || "Sconosciuto"}`;
       if (tp) tp.textContent = (myTeam.pts !== undefined) ? myTeam.pts.toFixed(1) : "0.0";
       
@@ -195,7 +225,10 @@ export const HomePage = {
       }
 
     } else {
-      if (tn) tn.textContent = "Spettatore";
+      if (tn) {
+        tn.textContent = "Spettatore";
+        fitText(tn, 1.7, 0.95);
+      }
       if (to) to.textContent = STATE.user.email;
       if (tp) tp.textContent = "0.0";
       if (onFireTitle) onFireTitle.textContent = `Giocatori On Fire`;
@@ -205,14 +238,10 @@ export const HomePage = {
 
     // PROSSIMO AVVERSARIO
     if (comp) {
-      // 1. Recupera la giornata reale corrente (default a 1 se non specificata)
       const currentRealGw = STATE.giornataRealeCorrente || STATE.currentRealGW || STATE.status?.currentGW || 1;
-      
-      // 2. Trova la giornata interna (GW) della competizione tramite la mappatura associazioniGwReali
       const assoc = comp.associazioniGwReali || {};
       const targetGwKey = assoc[String(currentRealGw)] || `gw${currentRealGw}`;
 
-      // 3. Estrai le partite della giornata selezionata e forza l'array sicuro
       const gwData = (comp.matches && comp.matches[targetGwKey]) ? comp.matches[targetGwKey] : null;
       let couplesList = [];
       if (gwData && gwData.couples) {
@@ -221,7 +250,6 @@ export const HomePage = {
           : Object.values(gwData.couples);
       }
 
-      // 4. Cerca il match dell'utente loggato
       const myMatch = couplesList.find(m => m && (m.homeId === STATE.user.id || m.awayId === STATE.user.id));
 
       if (myMatch) {
@@ -259,7 +287,6 @@ export const HomePage = {
         playersList = Array.isArray(STATE.players) ? STATE.players : Object.values(STATE.players);
       }
 
-      // Filtra i giocatori per la squadra dell'utente (se la squadra esiste ed ha dei giocatori)
       let targetPlayers = playersList;
       if (myTeam && myTeam.players) {
         const teamPlayersArray = Array.isArray(myTeam.players) ? myTeam.players : Object.values(myTeam.players);
@@ -268,7 +295,6 @@ export const HomePage = {
         }
       }
 
-      // Determina le ultime 4 giornate reali disponibili da STATE.votes
       const allVotes = STATE.votes || {};
       let targetGwKeys = [];
 
@@ -277,13 +303,11 @@ export const HomePage = {
           targetGwKeys.push(`gw${i}`);
         }
       } else {
-        // Fallback in assenza di realGw: prendi le ultime 4 giornate presenti nei voti
         targetGwKeys = Object.keys(allVotes)
           .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
           .slice(0, 4);
       }
 
-      // Calcolo media ultimi 4 voti per ciascun giocatore
       const stats = targetPlayers.map(p => {
         if (!p) return null;
         let sum = 0;
@@ -301,9 +325,8 @@ export const HomePage = {
 
         const avg = count > 0 ? sum / count : 0;
         return { player: p, avg, count };
-      }).filter(item => item && item.count > 0); // Considera solo giocatori con almeno un voto nelle ultime 4 giornate
+      }).filter(item => item && item.count > 0);
 
-      // Ordina per media decrescente e prendi i Top 5
       stats.sort((a, b) => b.avg - a.avg);
       const top5 = stats.slice(0, 5);
 
