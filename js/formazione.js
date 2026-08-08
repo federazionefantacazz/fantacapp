@@ -184,6 +184,27 @@ export const FormazionePage = {
     this.drawFieldTitolari(def, mid, att, miaRosa, savedTitolariIds);
     const schemaPan = [{role:'P', count:1}, {role:'D', count:2}, {role:'C', count:2}, {role:'A', count:2}];
     this.drawSchemaPanchina('panchina-slots', schemaPan, 'pan', miaRosa, savedPanchinaIds);
+
+    this.refreshAllDropdowns(miaRosa);
+  },
+
+  refreshAllDropdowns(rosa) {
+    const allSelects = document.querySelectorAll('#titolari-field-slots select, #panchina-slots select');
+    const selectedIds = Array.from(allSelects).map(s => s.value).filter(Boolean);
+
+    allSelects.forEach(sel => {
+      const currentVal = sel.value;
+      const role = sel.dataset.role;
+      const ops = rosa.filter(p => p.role === role);
+
+      let html = `<option value="">-- ${role} --</option>`;
+      ops.forEach(p => {
+        if (selectedIds.includes(p.id) && p.id !== currentVal) return;
+        const isSelected = p.id === currentVal ? 'selected' : '';
+        html += `<option value="${p.id}" ${isSelected}>${p.name} (${p.club})</option>`;
+      });
+      sel.innerHTML = html;
+    });
   },
 
   drawFieldTitolari(def, mid, att, rosa, savedIds) {
@@ -248,7 +269,7 @@ export const FormazionePage = {
             ${preselectedText}
           </div>
           
-          <select id="${slotId}" data-label-target="label-${slotId}" class="field-select">
+          <select id="${slotId}" data-role="${reparto.role}" data-label-target="label-${slotId}" class="field-select">
             <option value="">-- ${reparto.role} --</option>
             ${ops.map(p => `<option value="${p.id}" ${p.id === preselectedId ? 'selected' : ''}>${p.name} (${p.club})</option>`).join('')}
           </select>
@@ -265,27 +286,13 @@ export const FormazionePage = {
             labelEl.textContent = 'Scegli';
             labelEl.style.color = '#fff';
             labelEl.style.borderColor = 'rgba(255,255,255,0.12)';
-            return;
-          }
-
-          const allSelects = document.querySelectorAll('#titolari-field-slots select, #panchina-slots select');
-          let isDuplicate = false;
-          allSelects.forEach(s => {
-            if (s.id !== slotId && s.value === val) isDuplicate = true;
-          });
-
-          if (isDuplicate) {
-            window.showToast('Calciatore già inserito!', 'err');
-            e.target.value = '';
-            labelEl.textContent = 'Scegli';
-            labelEl.style.color = '#fff';
-            labelEl.style.borderColor = 'rgba(255,255,255,0.12)';
           } else {
             const selectedText = e.target.options[e.target.selectedIndex].text;
             labelEl.textContent = selectedText.split(' (')[0];
             labelEl.style.color = 'var(--accent)';
             labelEl.style.borderColor = 'var(--accent)';
           }
+          this.refreshAllDropdowns(rosa);
         });
       }
     });
@@ -318,7 +325,7 @@ export const FormazionePage = {
         div.innerHTML = `
           <div class="rbadge r${item.role}" style="width:24px;height:24px;font-size:.65rem;border-radius:5px">${item.role}</div>
           <div style="flex:1;">
-            <select id="${slotId}" class="select-rose" style="padding:.4rem .6rem;font-size:.8rem;background:var(--bg2);">
+            <select id="${slotId}" data-role="${item.role}" class="select-rose" style="padding:.4rem .6rem;font-size:.8rem;background:var(--bg2);">
               <option value="">-- Seleziona ${item.role} --</option>
               ${ops.map(p => `<option value="${p.id}" ${p.id === preselectedId ? 'selected' : ''}>${p.name} (${p.club})</option>`).join('')}
             </select>
@@ -327,15 +334,7 @@ export const FormazionePage = {
         container.appendChild(div);
 
         div.querySelector('select').addEventListener('change', (e) => {
-          const val = e.target.value; 
-          if(!val) return;
-          const all = document.querySelectorAll('#titolari-field-slots select, #panchina-slots select');
-          let dup = false;
-          all.forEach(s => { if(s.id !== slotId && s.value === val) dup = true; });
-          if(dup) { 
-            window.showToast('Calciatore già inserito!', 'err'); 
-            e.target.value = ''; 
-          }
+          this.refreshAllDropdowns(rosa);
         });
       }
     });
