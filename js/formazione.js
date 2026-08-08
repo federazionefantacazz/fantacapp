@@ -17,7 +17,7 @@ export const FormazionePage = {
           </select>
         </div>
 
-        <div class="label" style="margin-bottom: .5rem; color: var(--accent); display: flex; align-items: center; gap: 0.4rem;"><i class="ri-t-shirt-line"></i> TITOLARI (RECTANGOLO DI GIOCO)</div>
+        <div class="label" style="margin-bottom: .5rem; color: var(--accent); display: flex; align-items: center; gap: 0.4rem;"><i class="ri-t-shirt-line"></i> TITOLARI (RETTANGOLO DI GIOCO)</div>
         
         <div class="soccer-field" id="soccer-field-container">
           <div class="field-lines">
@@ -42,11 +42,20 @@ export const FormazionePage = {
           position: relative;
           width: 100%;
           height: 480px;
-          background: linear-gradient(to bottom, #2e3541, #232932);
-          border: 2px solid rgba(255, 255, 255, 0.08);
+          background: 
+            repeating-linear-gradient(
+              to bottom,
+              rgba(34, 139, 34, 0.85),
+              rgba(34, 139, 34, 0.85) 40px,
+              rgba(28, 115, 28, 0.85) 40px,
+              rgba(28, 115, 28, 0.85) 80px
+            ),
+            radial-gradient(circle at center, rgba(0,0,0,0) 40%, rgba(0,0,0,0.35) 100%);
+          background-color: #228b22;
+          border: 3px solid rgba(255, 255, 255, 0.3);
           border-radius: 20px;
           overflow: hidden;
-          box-shadow: inset 0 0 30px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3);
+          box-shadow: inset 0 0 40px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.3);
         }
         .field-lines {
           position: absolute;
@@ -54,23 +63,32 @@ export const FormazionePage = {
           pointer-events: none;
         }
         .field-lines::before {
-          content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 2px;
-          background: rgba(255, 255, 255, 0.2);
+          content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 3px;
+          background: rgba(255, 255, 255, 0.6);
+          box-shadow: 0 0 4px rgba(0,0,0,0.3);
         }
         .field-center-circle {
           position: absolute; top: 50%; left: 50%; width: 100px; height: 100px;
-          border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 50%;
+          border: 3px solid rgba(255, 255, 255, 0.6); border-radius: 50%;
+          transform: translate(-50%, -50%);
+          box-shadow: 0 0 4px rgba(0,0,0,0.3);
+        }
+        .field-center-circle::after {
+          content: ''; position: absolute; top: 50%; left: 50%; width: 6px; height: 6px;
+          background: rgba(255, 255, 255, 0.6); border-radius: 50%;
           transform: translate(-50%, -50%);
         }
         .field-penalty-box {
           position: absolute; bottom: 0; left: 50%; width: 180px; height: 70px;
-          border: 2px solid rgba(255, 255, 255, 0.2); border-bottom: none;
+          border: 3px solid rgba(255, 255, 255, 0.6); border-bottom: none;
           transform: translateX(-50%);
+          box-shadow: 0 0 4px rgba(0,0,0,0.3);
         }
         .field-lines::after {
           content: ''; position: absolute; top: 0; left: 50%; width: 180px; height: 70px;
-          border: 2px solid rgba(255, 255, 255, 0.15); border-top: none;
+          border: 3px solid rgba(255, 255, 255, 0.6); border-top: none;
           transform: translateX(-50%);
+          box-shadow: 0 0 4px rgba(0,0,0,0.3);
         }
         .field-player {
           position: absolute;
@@ -82,15 +100,16 @@ export const FormazionePage = {
           z-index: 10;
         }
         .player-shirt {
-          width: 42px; height: 42px;
+          width: 44px; height: 44px;
           border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
-          font-size: 0.85rem; font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.5px;
+          font-size: 0.9rem; font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.5px;
           color: #fff;
-          box-shadow: 0 4px 10px rgba(0,0,0,0.4);
-          border: 2px solid rgba(255,255,255,0.2);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.3);
+          border: 2px solid #ffffff;
           transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
           cursor: pointer;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.5);
         }
         .field-player:active .player-shirt {
           transform: translateY(2px);
@@ -98,22 +117,23 @@ export const FormazionePage = {
         }
         .field-player select {
           position: absolute;
-          top: 0; left: 0; width: 100%; height: 42px;
+          top: 0; left: 0; width: 100%; height: 44px;
           opacity: 0; cursor: pointer; z-index: 12;
         }
         .player-name-label {
-          margin-top: 8px;
-          background: var(--bg2, #0a0f1e);
-          color: var(--text, #fff);
+          margin-top: 6px;
+          background: rgba(10, 15, 30, 0.85);
+          backdrop-filter: blur(4px);
+          color: #fff;
           font-size: 0.7rem;
           font-weight: 600;
           padding: 3px 8px;
           border-radius: 6px;
-          max-width: 85px;
+          max-width: 90px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          border: 1px solid rgba(255,255,255,0.12);
+          border: 1px solid rgba(255,255,255,0.2);
           text-align: center;
           box-shadow: 0 3px 6px rgba(0,0,0,0.4);
         }
