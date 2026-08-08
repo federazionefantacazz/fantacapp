@@ -8,16 +8,12 @@ export const HomePage = {
           <div style="width: 32px;"></div> 
           <div class="logo" id="homeHeaderTitle" style="font-size: 2rem; letter-spacing: 2px; text-transform: uppercase; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(100% - 80px);">FANTACAZZ</div>
           <button onclick="window.doFirebaseLogout()" style="background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; -webkit-tap-highlight-color: transparent;" title="Disconnetti">
-            <svg viewBox="0 0 24 24" width="22" height="22" stroke="var(--accent3)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-              <polyline points="16 17 21 12 16 7"></polyline>
-              <line x1="21" y1="12" x2="9" y2="12"></line>
-            </svg>
+            <i class="ri-logout-box-r-line" style="font-size: 1.35rem; color: var(--accent3);"></i>
           </button>
         </div>
 
         <!-- CARD SQUADRA (LAYOUT A COLONNA RIPULITO) -->
-        <div class="card" style="margin-bottom: 1.2rem; background: linear-gradient(135deg, var(--card) 0%, rgba(80,227,194,0.06) 100%); border: 1px solid rgba(255,255,255,0.08); padding: 1.25rem;">
+        <div class="card" style="margin-bottom: 1.2rem; background: linear-gradient(135deg, var(--card) 0%, color-mix(in srgb, var(--accent) 6%, transparent) 100%); border: 1px solid rgba(255,255,255,0.08); padding: 1.25rem;">
           
           <!-- RIGA PRINCIPALE: LOGO + NOME SQUADRA -->
           <div style="display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1rem; min-width: 0;">
@@ -113,7 +109,7 @@ export const HomePage = {
         `;
       } else {
         banner.innerHTML = `
-          <div class="card card-sm" style="border-left: 4px solid var(--accent); background: rgba(80, 227, 194, 0.08); padding: .75rem 1rem; margin-bottom: 0;">
+          <div class="card card-sm" style="border-left: 4px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); padding: .75rem 1rem; margin-bottom: 0;">
             <div style="display: flex; align-items: center; gap: .6rem;">
               <i class="ri-football-line" style="font-size: 1.2rem; color: var(--accent);"></i>
               <div>
@@ -147,7 +143,7 @@ export const HomePage = {
         if (myTeam.logo) {
           teamLogoContainer.innerHTML = `<img src="${myTeam.logo}" style="width:100px; height:100px; object-fit:contain; border-radius:8px; background:var(--bg3); padding:2px; border:1px solid rgba(255,255,255,0.08);" onerror="this.src=''; this.innerHTML='<i class=\\'ri-shield-fill\\' style=\\'font-size:1.5rem; color:var(--text2);\\'></i>';" alt="Logo">`;
         } else {
-          teamLogoContainer.innerHTML = `<div style="width:52px; height:52px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-shield-fill" style="font-size:1.5rem; color:var(--text2)"></i></div>`;
+          teamLogoContainer.innerHTML = `<div style="width:100px; height:100px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-shield-fill" style="font-size:1.5rem; color:var(--text2)"></i></div>`;
         }
       }
 
@@ -249,7 +245,7 @@ export const HomePage = {
       if (top5.length > 0) {
         onFireContainer.innerHTML = top5.map(({ player: p, avg, count }) => {
           let customStyle = 'padding: .2rem .5rem; border-radius: 6px; font-weight: bold; font-family: "DM Mono", monospace; ';
-          if (avg >= 7) customStyle += 'background: rgba(80, 227, 194, 0.15); color: var(--accent);';
+          if (avg >= 7) customStyle += 'background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent);';
           else if (avg < 6) customStyle += 'background: rgba(255, 107, 107, 0.15); color: var(--accent3);';
           else customStyle += 'background: rgba(255, 255, 255, 0.08); color: var(--text);';
 
