@@ -1,16 +1,18 @@
+import { createMatchCardResult } from './components/MatchCardResult.js';
+
 export const CalendarioPage = {
   renderHTML() {
     return `
       <div class="page" id="page-calendario">
         <div class="sec" style="margin-top:1.2rem">Calendario Incontri</div>
         
-        <div class="card card-sm" style="margin-bottom:1rem;">
+        <div class="card card-sm" style="margin-bottom:1rem; border:1px solid rgba(255,255,255,0.08); background:var(--bg2);">
           <div class="label" style="margin-bottom:.4rem;">Seleziona Turno di Gioco</div>
           <select id="calGwSelect" class="select-rose"></select>
         </div>
 
         <div class="label" id="calGwTitle" style="margin-bottom:.5rem; color:var(--accent);">GIORNATA DI CAMPIONATO</div>
-        <div id="calendarMatchesContainer" style="display:flex; flex-direction:column; gap:.5rem;"></div>
+        <div id="calendarMatchesContainer" style="display:flex; flex-direction:column; gap:.5rem; padding-bottom:2rem;"></div>
       </div>
     `;
   },
@@ -31,12 +33,12 @@ export const CalendarioPage = {
     const currentCompId = STATE.currentCompetition;
     const currentCompData = STATE.competitions ? STATE.competitions.find(c => c.id === currentCompId) : null;
     
-    // Recupera la mappa delle giornate /competitions/{idComp}/matches/{gwN}
+    // Recupera la mappa delle giornate
     const matchesNode = STATE.matches || (currentCompData ? currentCompData.matches : null);
 
     if (!matchesNode || Object.keys(matchesNode).length === 0) {
       select.innerHTML = '<option value="">Nessun turno disponibile</option>';
-      container.innerHTML = `<div style="text-align:center; padding:2rem; color:var(--text2); font-size:.85rem;">🗓️ Nessun calendario generato.</div>`;
+      container.innerHTML = `<div style="text-align:center; padding:2rem; color:var(--text3); font-size:.85rem; background:var(--bg2); border-radius:12px; border:1px solid rgba(255,255,255,0.05);">🗓️ Nessun calendario generato.</div>`;
       return;
     }
 
@@ -51,6 +53,7 @@ export const CalendarioPage = {
       return numA - numB;
     });
 
+    // Popola la select se cambia la competizione
     if (select.dataset.currentComp !== currentCompId || select.options.length !== giornateEstraibili.length) {
       select.dataset.currentComp = currentCompId;
       select.innerHTML = giornateEstraibili.map(gwKey => {
@@ -67,76 +70,23 @@ export const CalendarioPage = {
       select.value = previousUserSelection;
     }
 
-    // Funzione ricerca Team tollerante a stringhe/numeri (es "1" vs 1)
-    const getTeamData = (teamId, teamsArray) => {
-      if (!teamsArray || !Array.isArray(teamsArray) || !teamId) return { name: teamId || "...", logo: null };
-      const team = teamsArray.find(t => String(t.id) === String(teamId));
-      return team || { name: teamId, logo: null };
-    };
-
     const drawSelectedTurn = () => {
       const selectedGW = select.value;
       if (!selectedGW || !matchesNode[selectedGW]) return;
 
       if (titleEl) {
-        // Usa direttamente CalendarioPage per evitare perdite del `this`
         const compName = CalendarioPage._selectedCompName(currentCompData);
         const turnNum = selectedGW.replace('gw_playoff_', '').replace('gw', '');
         titleEl.textContent = `${compName} — TURNO ${turnNum}`;
       }
 
-      // Estrae la mappa/oggetto `couples` ({ m1: {...}, m2: {...}, m5: {...} })
+      // Estrae le partite della giornata selezionata
       const couplesObj = matchesNode[selectedGW]?.couples || matchesNode[selectedGW] || {};
       const turnMatches = Array.isArray(couplesObj) ? couplesObj : Object.values(couplesObj);
-
       const currentTeams = STATE.teams || [];
 
-      container.innerHTML = turnMatches.map(match => {
-        const teamHome = getTeamData(match.homeId, currentTeams);
-        const teamAway = getTeamData(match.awayId, currentTeams);
-        
-        const logoHomeHTML = teamHome.logo 
-          ? `<img src="${teamHome.logo}" style="width:32px; height:32px; object-fit:contain; border-radius:4px; flex-shrink:0;">` 
-          : `<div style="width:32px; height:32px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:1rem; color:var(--text3); flex-shrink:0;">🛡️</div>`;
-          
-        const logoAwayHTML = teamAway.logo 
-          ? `<img src="${teamAway.logo}" style="width:32px; height:32px; object-fit:contain; border-radius:4px; flex-shrink:0;">` 
-          : `<div style="width:32px; height:32px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:1rem; color:var(--text3); flex-shrink:0;">🛡️</div>`;
-        
-        // Mappatura corretta con le chiavi del tuo DB: goalHome e goalAway
-        const isFinished = match.finished === true;
-        const scoreHome = (isFinished || match.goalHome != null) ? match.goalHome : '-';
-        const scoreAway = (isFinished || match.goalAway != null) ? match.goalAway : '-';
-        
-        // Etichetta opzionale (se presente)
-        const labelText = match.label || match.girone;
-        const labelHTML = labelText ? `<div style="font-size:.65rem; color:var(--gold); font-weight:bold; text-transform:uppercase; margin-bottom:.2rem;">📍 ${labelText}</div>` : '';
-
-        // Sottotitolo coi punti totali (opzionale, es: "0 - 72 pt")
-        const pointsHTML = isFinished && (match.punteggioFinaleHome != null || match.punteggioFinaleAway != null) 
-          ? `<div style="font-size:.65rem; color:var(--text2); text-align:center; margin-top:.2rem;">${match.punteggioFinaleHome ?? 0} - ${match.punteggioFinaleAway ?? 0} pt</div>` 
-          : '';
-
-        return `
-          <div class="pcard" style="padding:1rem; display:flex; flex-direction:column; gap:0.2rem;">
-            ${labelHTML}
-            <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
-              <div style="width:40%; display:flex; align-items:center; gap:.5rem; min-width:0;">
-                ${logoHomeHTML}
-                <div style="font-size:.85rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${teamHome.name}</div>
-              </div>
-              <div style="width:20%; text-align:center;">
-                <div style="font-family:'DM Mono',monospace; font-size:1.1rem; font-weight:600; background:var(--bg3); padding:.2rem .4rem; border-radius:6px; color:#fff;">${scoreHome}:${scoreAway}</div>
-                ${pointsHTML}
-              </div>
-              <div style="width:40%; display:flex; align-items:center; justify-content:flex-end; gap:.5rem; min-width:0;">
-                <div style="font-size:.85rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right;">${teamAway.name}</div>
-                ${logoAwayHTML}
-              </div>
-            </div>
-          </div>
-        `;
-      }).join('');
+      // Generiamo le card usando il componente appena importato
+      container.innerHTML = turnMatches.map(match => createMatchCardResult(match, currentTeams)).join('');
     };
 
     select.onchange = drawSelectedTurn;
