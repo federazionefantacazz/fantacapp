@@ -1,4 +1,5 @@
 import { createMatchCardVS } from './components/MatchCardVS.js';
+import { renderAnteprimaClassificaStandard } from './components/AnteprimaClassificaStandard.js';
 
 export const HomePage = {
   renderHTML(STATE = {}) {
@@ -25,17 +26,16 @@ export const HomePage = {
             </div>
           </div>
 
-          <!-- RIGA SOTTOSTANTE: INFO PUNTI + BOX WIP -->
+          <!-- RIGA SOTTOSTANTE: INFO PUNTI + BOX ANTEPRIMA CLASSIFICA -->
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: 0.8rem; border-top: 1px dashed rgba(255,255,255,0.1);">
             <div style="display: flex; align-items: baseline; gap: 0.4rem;">
               <span style="font-size: 0.72rem; color: var(--text2); text-transform: uppercase; font-weight: 600;">Totale Punti:</span>
               <span id="homeTeamPts" style="font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; color: var(--accent); line-height: 1;">0.0</span>
             </div>
 
-            <!-- Box Anteprima WIP Spostato Sotto -->
-            <div style="background: rgba(0,0,0,0.25); border: 1.5px dashed rgba(255,255,255,0.15); border-radius: 8px; padding: 0.4rem 0.8rem; display: flex; align-items: center; gap: 0.5rem; position: relative;">
-              <div style="font-size: 1rem;">📊</div>
-              <div style="font-size: 0.7rem; font-weight: 600; color: var(--text);">Anteprima WIP</div>
+            <!-- Box Anteprima Classifica Dinamico -->
+            <div id="homeMiniClassificaWip" style="background: rgba(0,0,0,0.25); border: 1.5px dashed rgba(255,255,255,0.15); border-radius: 8px; padding: 0.4rem 0.8rem; display: flex; align-items: center; width: 100%; max-width: 200px;">
+              <div style="font-size: 0.7rem; font-weight: 600; color: var(--text2);">Caricamento...</div>
             </div>
           </div>
 
@@ -76,6 +76,7 @@ export const HomePage = {
     const onFireContainer = document.getElementById('homeOnFirePlayers');
     const onFireTitle = document.getElementById('onFireTitle');
     const teamLogoContainer = document.getElementById('userTeamLogo');
+    const wipBox = document.getElementById('homeMiniClassificaWip'); // Contenitore dell'anteprima
 
     let competitionsList = [];
     if (STATE.competitions) {
@@ -147,6 +148,12 @@ export const HomePage = {
         }
       }
 
+      // --- INSERIMENTO COMPONENTE ANTEPRIMA CLASSIFICA ---
+      if (wipBox && comp) {
+        wipBox.innerHTML = renderAnteprimaClassificaStandard(comp, teamsList, myTeam.id);
+      }
+      // ----------------------------------------------------
+
       if (trophiesContainer) {
         let trophiesList = [];
         if (myTeam.trophies) {
@@ -171,6 +178,7 @@ export const HomePage = {
       if (onFireTitle) onFireTitle.textContent = `Giocatori On Fire`;
       if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:52px; height:52px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-eye-line" style="font-size:1.5rem; color:var(--text2)"></i></div>`;
       if (trophiesContainer) trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3);">--</span>`;
+      if (wipBox) wipBox.innerHTML = `<div style="font-size: 0.7rem; color: var(--text3);">Non associato a una squadra.</div>`;
     }
 
     if (comp) {
