@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-v1.0.54'; // Incrementa questo numero ogni volta che fai modifiche ai file .js o .html
+const CACHE_NAME = 'fantacapp-pwa-v1.0.55'; // Incrementa questo numero ogni volta che fai modifiche ai file .js o .html
 
 // 1. Array pulito: includiamo solo l'app utente per tenerla fulminea ed evitare blocchi sull'admin
 const ASSETS_TO_CACHE = [
@@ -13,8 +13,10 @@ const ASSETS_TO_CACHE = [
   './js/services/integrationImgBB.js',
   './js/services/calcoloMatch.js',
   './js/services/classificaService.js',
+  './js/services/settingsService.js',
 
   // Componenti
+  './js/components/AnteprimaClassificaStandard.js',
   './js/components/AnteprimaClassificaStandard.js',
   './js/components/MatchCardResult.js',
   './js/components/MatchCardVS.js',
