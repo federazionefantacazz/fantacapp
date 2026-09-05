@@ -173,8 +173,8 @@ export const ClassificaPage = {
               <tr style="background:var(--bg2); border-bottom:1px solid var(--border);">
                 <th style="padding:0.75rem; text-align:center; width:40px; color:var(--text3);">Pos</th>
                 <th style="padding:0.75rem; text-align:left;">Squadra</th>
-                <th style="padding:0.75rem; text-align:center; width:90px; color:var(--accent2); font-weight:bold;">TOT. FANTA</th>
                 <th style="padding:0.75rem; text-align:center; width:55px; color:var(--accent); font-weight:bold;">PT</th>
+                <th style="padding:0.75rem; text-align:center; width:130px; color:var(--accent2); font-weight:bold;">TOT PUNTI FANTAVOTO</th>
                 <th style="padding:0.75rem; text-align:center; width:45px;">G</th>
                 <th style="padding:0.75rem; text-align:center; width:45px; color:#4cd137;">V</th>
                 <th style="padding:0.75rem; text-align:center; width:45px; color:var(--text2);">N</th>
@@ -201,8 +201,8 @@ export const ClassificaPage = {
             ${logoHTML}
             <span style="font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${t.name}</span>
           </td>
-          <td style="padding:0.75rem; text-align:center; font-weight:bold; color:var(--accent2); font-family:'DM Mono',monospace; font-size:0.85rem;">${stats.totFanta.toFixed(1)}</td>
           <td style="padding:0.75rem; text-align:center; font-weight:bold; color:var(--accent); font-family:'DM Mono',monospace; font-size:0.9rem;">${stats.pts}</td>
+          <td style="padding:0.75rem; text-align:center; font-weight:bold; color:var(--accent2); font-family:'DM Mono',monospace; font-size:0.85rem;">${stats.totFanta.toFixed(1)}</td>
           <td style="padding:0.75rem; text-align:center; color:var(--text2);">${stats.giocate}</td>
           <td style="padding:0.75rem; text-align:center; color:var(--text2);">${stats.w}</td>
           <td style="padding:0.75rem; text-align:center; color:var(--text2);">${stats.d}</td>
