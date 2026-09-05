@@ -26,10 +26,11 @@ export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId) {
     subset.push({ team: sortedTeams[myIndex + 1], pos: myIndex + 2 });
   }
 
-  // Nota: Sostituisci "navigateTo('classifica')" o l'istruzione che usi nella tua app per cambiare pagina 
-  // (es. window.location.hash = '#classifica' oppure una funzione globale tipo changePage('classifica')).
   return `
-    <div onclick="if(typeof window.navigateTo === 'function') { window.navigateTo('classifica'); } else { window.location.hash = '#classifica'; }" 
+    <div onclick="
+      const btnClassifica = document.querySelector('button[onclick*=\\'classifica\\']');
+      window.goPage('classifica', btnClassifica);
+    " 
          style="display: flex; flex-direction: column; gap: 0.3rem; width: 100%; cursor: pointer; transition: transform 0.1s ease;"
          onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'"
          title="Clicca per visualizzare la classifica completa">
