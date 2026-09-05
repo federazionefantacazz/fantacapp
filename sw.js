@@ -15,6 +15,7 @@ const ASSETS_TO_CACHE = [
   './js/services/classificaService.js',
 
   // Componenti
+  './js/components/AnteprimaClassificaStandard.js',
   './js/components/MatchCardResult.js',
   './js/components/MatchCardVS.js',
   
