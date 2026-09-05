@@ -21,16 +21,16 @@ export const TeamsPage = {
         </div>
 
         <div id="team-detail-view" style="display:none; margin-top:1.2rem; animation: fadeIn 0.25s ease-out;">
-          <div style="display:flex; justify-content:between; align-items:center; margin-bottom:1.5rem; gap:1rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; gap:1rem;">
             <button class="btn btn-outline" onclick="window.backToTeamsList()" style="width:auto; padding:.5rem 1rem; font-size:.8rem; display:inline-flex; align-items:center; gap:.4rem; margin:0;">
               <svg viewBox="0 0 24 24" style="width:16px; height:16px; stroke:currentColor; stroke-width:2; fill:none;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
               Lista
             </button>
             
-            <h2 id="team-detail-title" style="font-family:'Bebas Neue',sans-serif; font-size:1.6rem; color:#fff; flex:1; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin:0;">Rosa</h2>
+            <h2 id="team-detail-title" style="font-family:'Bebas Neue',sans-serif; font-size:1.6rem; color:var(--text); flex:1; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin:0;">Rosa</h2>
             
             <button class="btn btn-green" id="btn-info-club" style="width:auto; padding:.5rem 1rem; font-size:.8rem; display:inline-flex; align-items:center; gap:.4rem; margin:0;">
-              ℹ️ Info Club
+              Info Club
             </button>
           </div>
           
@@ -38,8 +38,8 @@ export const TeamsPage = {
         </div>
 
         <div id="club-info-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(10,15,30,0.85); backdrop-filter:blur(8px); z-index:2000; padding:2rem 1.5rem; box-sizing:border-box; align-items:center; justify-content:center;">
-          <div class="card" style="width:100%; max-width:450px; max-height:85vh; overflow-y:auto; position:relative; background:var(--bg2); border:1px solid rgba(255,255,255,0.1); animation: fadeIn 0.2s ease-out;">
-            <button class="btn btn-outline" id="close-info-modal" style="position:absolute; top:1rem; right:1rem; width:auto; padding:.4rem .6rem; font-size:.75rem;">✕ Chiudi</button>
+          <div class="card" style="width:100%; max-width:450px; max-height:85vh; overflow-y:auto; position:relative; background:var(--card); border:1px solid rgba(255,255,255,0.1); animation: fadeIn 0.2s ease-out;">
+            <button class="btn btn-outline" id="close-info-modal" style="position:absolute; top:1rem; right:1rem; width:auto; padding:.4rem .6rem; font-size:.75rem;">Chiudi</button>
             <div id="club-info-content" style="margin-top:1.5rem;"></div>
           </div>
         </div>
@@ -65,7 +65,6 @@ export const TeamsPage = {
 
     container.innerHTML = sortedTeams.map(t => {
       const logoUrl = t.logo || 'icons/icon-192.png';
-      const emojiBadge = t.emoji || '🛡️';
 
       return `
         <div class="card" onclick="window.openTeamDetail('${t.id}')" style="display:flex; align-items:center; gap:1.25rem; padding:1rem; background:var(--card); cursor:pointer; transition:transform 0.15s, background-color 0.15s;">
@@ -74,8 +73,7 @@ export const TeamsPage = {
           </div>
           <div style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; gap:0.4rem;">
-              <span style="font-size:1rem;">${emojiBadge}</span>
-              <h3 style="font-size:1.1rem; font-weight:600; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin:0;">${t.name}</h3>
+              <h3 style="font-size:1.1rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin:0;">${t.name}</h3>
             </div>
             <p style="font-size:.72rem; color:var(--text2); margin-top:2px;">Proprietario: <span style="color:var(--accent); font-weight:500;">${t.owner || 'Nessuno'}</span></p>
           </div>
@@ -103,7 +101,7 @@ export const TeamsPage = {
     const team = STATE.teams.find(t => t.id === teamId);
     if (!team) return;
 
-    if (titleView) titleView.innerHTML = `${team.emoji || '⚽'} ${team.name}`;
+    if (titleView) titleView.innerHTML = `${team.name}`;
 
     // Configura il click sul bottone Info Club in alto a destra
     if (btnInfo) {
@@ -120,7 +118,7 @@ export const TeamsPage = {
     if (pageContainer) pageContainer.scrollTop = 0;
   },
 
-  // Generazione della Rosa (Logica ereditata e ottimizzata da rose.js)
+  // Generazione della Rosa
   drawRosa(teamId, STATE) {
     const container = document.getElementById('team-roster-container');
     if (!container) return;
@@ -135,7 +133,7 @@ export const TeamsPage = {
     roster.forEach(p => { if(roles[p.role]) roles[p.role].push(p); });
 
     let html = '';
-    const names = {'P':'🧤 Portieri', 'D':'🛡️ Difensori', 'C':'🪄 Centrocampisti', 'A':'🏹 Attaccanti'};
+    const names = {'P':'Portieri', 'D':'Difensori', 'C':'Centrocampisti', 'A':'Attaccanti'};
     
     Object.keys(roles).forEach(rk => {
       if(roles[rk].length === 0) return;
@@ -156,7 +154,7 @@ export const TeamsPage = {
     container.innerHTML = html;
   },
 
-  // Mostra il modal con la storia e i trofei (Ex vista di dettaglio Teams.js)
+  // Mostra il modal con la storia e i trofei
   openInfoModal(team) {
     const modal = document.getElementById('club-info-modal');
     const content = document.getElementById('club-info-content');
@@ -173,7 +171,6 @@ export const TeamsPage = {
         <div style="display:flex; flex-direction:column; gap:.5rem;">
           ${team.trophies.map(trophy => `
             <div style="background:var(--bg3); border:1px solid rgba(255,255,255,0.04); padding:.6rem .8rem; border-radius:8px; display:flex; align-items:center; gap:.6rem;">
-              <span style="font-size:1.3rem;">🏆</span>
               <div style="text-align:left;">
                 <div style="font-size:.85rem; font-weight:600; color:var(--gold);">${trophy.title || 'Competizione'}</div>
                 <div style="font-size:.72rem; color:var(--text2);">Stagione / Anno: ${trophy.year || '—'}</div>
@@ -189,8 +186,8 @@ export const TeamsPage = {
         <div style="width:90px; height:90px; background:var(--bg2); border-radius:20px; border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; overflow:hidden; margin:0 auto 1rem auto;">
           <img src="${logoUrl}" alt="Logo XL" style="width:100%; height:100%; object-fit:contain;" onerror="this.src='icons/icon-192.png'">
         </div>
-        <h2 style="font-family:'Bebas Neue',sans-serif; font-size:2rem; color:#fff; margin-bottom:0.2rem;">
-          ${team.emoji || '🛡️'} ${team.name}
+        <h2 style="font-family:'Bebas Neue',sans-serif; font-size:2rem; color:var(--text); margin-bottom:0.2rem;">
+          ${team.name}
         </h2>
         <div style="font-size:.75rem; text-transform:uppercase; color:var(--text2);">
           Allenatore: <span style="color:var(--text); font-weight:500;">${team.owner || 'Senza Proprietario'}</span>
@@ -200,14 +197,14 @@ export const TeamsPage = {
         </p>
       </div>
 
-      <div class="card" style="margin-bottom:1rem; background:var(--card2); text-align:left;">
+      <div class="card" style="margin-bottom:1rem; background:var(--card); text-align:left;">
         <div class="label">Storia del Club & Descrizione</div>
         <p style="font-size:.85rem; color:var(--text); line-height:1.4; margin-top:.4rem; white-space:pre-line;">
           ${descriptionText}
         </p>
       </div>
 
-      <div class="card" style="background:var(--card2); text-align:left;">
+      <div class="card" style="background:var(--card); text-align:left;">
         <div class="label" style="color:var(--gold)">Palmarès & Coppe Vinte</div>
         <div style="margin-top:.6rem;">
           ${trophiesHTML}
