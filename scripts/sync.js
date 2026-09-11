@@ -1,92 +1,127 @@
 /**
  * ─────────────────────────────────────────────────────────────────────
- *  fantacalcio-sync  ·  sync.js
+ *  fantacalcio-sync  ·  sync.js (Web Service HTML per Render.com)
  *
  *  Fetcha i voti live tramite la libreria esterna fantacalcio-voti-live
- *  e li scrive su Firebase via REST API.
- *
- *  Uso diretto:
- *    node sync.js              → 1 fetch e basta
- *    node sync.js --interval 60  → loop continuo ogni 60 secondi
- *
- *  Env richieste (GitHub Secrets):
- *    FIREBASE_DB_URL   es. https://mio-progetto-default-rtdb.europe-west1.firebasedatabase.app
- *    FIREBASE_API_KEY  chiave web dell'app Firebase (per auth anonima)
- *
- *  Struttura Firebase scritta:
- *    /votes/gw{N}/{playerId} = { voto: 7.5 }
- *    /status/lastSync        = "2025-01-15T20:31:00Z"
- *    /status/live            = true | false
+ *  e li scrive su Firebase via REST API. Include un mini server HTTP
+ *  con interfaccia HTML per rimanere attivo ed essere triggerato gratis.
  * ─────────────────────────────────────────────────────────────────────
  */
 
 import { execSync } from 'child_process';
 import fetch from 'node-fetch';
+import http from 'http';
 
-// ── Parametri CLI ────────────────────────────────____________________
-const args        = process.argv.slice(2);
-const intervalSec = parseInt(getArg(args, '--interval', '0'));
-const gwOverride  = process.env.GIORNATA_OVERRIDE?.trim() || getArg(args, '--gw', '');
-
-// ── Env ────────────────────────────────________________──────────────
-const FIREBASE_DB_URL  = process.env.FIREBASE_DB_URL;
-const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY;
+// ── Parametri & Env ──────────────────────────────────────────────────
+const PORT              = process.env.PORT || 10000;
+const gwOverride        = process.env.GIORNATA_OVERRIDE?.trim() || '';
+const FIREBASE_DB_URL   = process.env.FIREBASE_DB_URL;
+const FIREBASE_API_KEY  = process.env.FIREBASE_API_KEY;
 
 if (!FIREBASE_DB_URL) {
-  console.error('❌  FIREBASE_DB_URL non impostata. Aggiungila come GitHub Secret.');
+  console.error('❌  FIREBASE_DB_URL non impostata. Aggiungila nelle Environment Variables.');
   process.exit(1);
 }
 
-async function main() {
-  const loopCount = parseInt(getArg(args, '--loop', '1'));
-  console.log(`\n🚀  fantacalcio-sync avviato | loop=${loopCount}  interval=${intervalSec}s`);
+// Ultimo stato in memoria per mostrarlo nella pagina HTML
+let lastSyncStatus = {
+  time: 'Mai eseguito',
+  status: 'In attesa...',
+  success: false
+};
 
-  for (let i = 0; i < loopCount; i++) {
-    if (i > 0) {
-      console.log(`\n⏳  Attendo ${intervalSec}s prima del prossimo ciclo…`);
-      await sleep(intervalSec * 1000);
-    }
-
-    console.log(`\n── Ciclo ${i + 1}/${loopCount}  ${new Date().toISOString()} ──`);
-    try {
-      await runSync();
-    } catch (err) {
-      console.error('❌  Errore nel ciclo:', err.message);
-    }
+// ── Server HTTP con interfaccia HTML per Render ───────────────────────
+const server = http.createServer(async (req, res) => {
+  // Rotta principale con HTML informativo e interattivo
+  if (req.url === '/' || req.url === '/index.html') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(`
+      <!DOCTYPE html>
+      <html lang="it">
+      <head>
+        <meta charset="UTF-8">
+        <title>Fantacalcio Sync Live</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; padding: 40px; display: flex; justify-content: center; }
+          .card { background: #1e293b; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); width: 100%; max-width: 500px; }
+          h1 { font-size: 22px; margin-bottom: 10px; color: #38bdf8; }
+          p { color: #94a3b8; font-size: 14px; }
+          .badge { display: inline-block; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 13px; margin-top: 15px; }
+          .badge.ok { background: #065f46; color: #34d399; }
+          .badge.wait { background: #78350f; color: #fbbf24; }
+          button { background: #0284c7; color: white; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 20px; transition: background 0.2s; }
+          button:hover { background: #0369a1; }
+          .footer { margin-top: 20px; font-size: 12px; color: #64748b; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <h1>⚽ Fantacalcio Sync Live</h1>
+          <p>Servizio di sincronizzazione voti attivo su Render.com</p>
+          <hr style="border:0; border-top:1px solid #334155; margin: 20px 0;">
+          <p><strong>Ultimo aggiornamento:</strong> ${lastSyncStatus.time}</p>
+          <p><strong>Stato:</strong> ${lastSyncStatus.status}</p>
+          <div>
+            <span class="badge ${lastSyncStatus.success ? 'ok' : 'wait'}">
+              ${lastSyncStatus.success ? '● Operativo / Sincronizzato' : '○ In attesa di trigger'}
+            </span>
+          </div>
+          <form action="/sync" method="POST">
+            <button type="submit">Forza Sincronizzazione Ora</button>
+          </form>
+          <div class="footer">Configurato per l'uso con cron-job.org</div>
+        </div>
+      </body>
+      </html>
+    `);
+    return;
   }
 
-  console.log('\n✅  Tutti i cicli completati.');
-}
+  // Rotta di attivazione del sync (supporta sia GET che POST)
+  if (req.url === '/sync') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(`
+      <h2>🚀 Sincronizzazione avviata in background!</h2>
+      <p>Controlla i log di Render per i dettagli. <a href="/">Torna alla home</a></p>
+    `);
+    
+    console.log(`\n🚀  Trigger HTTP ricevuto ${new Date().toISOString()}`);
+    runSync().catch(err => console.error('❌  Errore nel ciclo:', err.message));
+    return;
+  }
 
-// ────────────────────────────────────────────────────────────────────
-//  SINGOLO CICLO DI SYNC
-// ────────────────────────────────────────────────────────────────────
+  // 404 per qualsiasi altro percorso
+  res.writeHead(404, { 'Content-Type': 'text/plain' });
+  res.end('Not Found');
+});
+
+server.listen(PORT, () => {
+  console.log(`\n🌐  Server HTTP con interfaccia HTML avviato sulla porta ${PORT}`);
+});
+
+// ── SINGOLO CICLO DI SYNC ────────────────────────────────────────────
 async function runSync() {
+  const timestamp = new Date().toISOString();
   try {
-    // 1) Leggi giornata corrente da Firebase (config/currentGW o status/currentRealGW)
-    const gw = gwOverride
-      ? parseInt(gwOverride)
-      : await readCurrentGW();
-
+    const gw = gwOverride ? parseInt(gwOverride) : await readCurrentGW();
     console.log(`📅  Giornata target: GW ${gw}`);
 
-    // 2) Fetch tramite la libreria fantacalcio-voti-live
     const players = fetchPlayersViaLib(gw);
     if (!players.length) {
       console.warn('⚠️   Nessun dato ricevuto dalla libreria. Giornata non ancora iniziata?');
       await writeStatus(gw, false);
+      lastSyncStatus = { time: timestamp, status: `GW ${gw}: Nessun dato (forse non iniziata)`, success: false };
       return;
     }
 
     console.log(`📥  Ricevuti ${players.length} calciatori dalla libreria`);
 
-    // 3) Costruisci mappa voti
-    const votes    = {};
-    let   withVote = 0;
-    let   isLive   = false;
+    const votes = {};
+    let withVote = 0;
+    let isLive = false;
 
     for (const p of players) {
-      const id   = String(p.IdCalciatore ?? p.id ?? p.Id ?? '');
+      const id = String(p.IdCalciatore ?? p.id ?? p.Id ?? '');
       const voto = parseFloat(p.MediaVoto ?? p.Voto ?? p.voto ?? 0);
 
       if (!id || isNaN(voto) || voto <= 0) continue;
@@ -94,7 +129,6 @@ async function runSync() {
       votes[id] = { voto: Math.round(voto * 10) / 10 };
       withVote++;
 
-      // Considera "live" se almeno una partita è in corso
       if (p.Status === 'live' || p.InGioco === true || p.InCampo === true) {
         isLive = true;
       }
@@ -102,17 +136,19 @@ async function runSync() {
 
     console.log(`📊  ${withVote} calciatori con voto assegnato  |  live=${isLive}`);
 
-    // 4) Scrivi su Firebase
     if (withVote > 0) {
       await writeVotes(gw, votes);
       await writeStatus(gw, isLive);
       console.log(`✅  Firebase aggiornato → votes/gw${gw}`);
+      lastSyncStatus = { time: timestamp, status: `GW ${gw}: Aggiornati ${withVote} voti (Live: ${isLive})`, success: true };
     } else {
       console.warn('⚠️   Nessun voto utile trovato, Firebase non aggiornato.');
+      lastSyncStatus = { time: timestamp, status: `GW ${gw}: Nessun voto utile trovato`, success: false };
     }
 
   } catch (err) {
     console.error('❌  Errore nel ciclo di sync:', err.message);
+    lastSyncStatus = { time: timestamp, status: `Errore: ${err.message}`, success: false };
   }
 }
 
@@ -124,12 +160,10 @@ function fetchPlayersViaLib(gw) {
     console.log(`⚙️   Esecuzione tool fantacalcio-voti-live per la GW ${gw}...`);
     const stdout = execSync(`npx fantacalcio-voti-live ${gw}`, {
       encoding: 'utf8',
-      maxBuffer: 10 * 1024 * 1024 // 10MB di buffer per sicurezza
+      maxBuffer: 10 * 1024 * 1024
     });
 
     const trimmed = stdout.trim();
-    
-    // Se la libreria ha stampato un messaggio di testo (es. "couldn't get...") invece di un JSON
     if (!trimmed.startsWith('[') && !trimmed.startsWith('{')) {
       console.warn(`⚠️   Messaggio dal tool: "${trimmed}"`);
       return [];
@@ -208,19 +242,3 @@ async function fbPatch(path, data) {
     throw new Error(`Firebase PATCH /${path} → HTTP ${res.status}: ${body}`);
   }
 }
-
-// ── Utility ──────────────────────────────────────────────────────────
-function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms));
-}
-
-function getArg(args, flag, def) {
-  const i = args.indexOf(flag);
-  return i !== -1 && args[i + 1] ? args[i + 1] : def;
-}
-
-// ── Avvio ─────────────────────────────────────────────────────────────
-main().catch(err => {
-  console.error('💥  Errore fatale:', err);
-  process.exit(1);
-});
