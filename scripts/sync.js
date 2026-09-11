@@ -37,33 +37,25 @@ if (!FIREBASE_DB_URL) {
   process.exit(1);
 }
 
-// ────────────────────────────────────────────────────────────────────
-//  MAIN (Loop continuo per evitare lo stop)
-// ────────────────────────────────────────────────────────────────────
 async function main() {
-  console.log(`\n🚀  fantacalcio-sync avviato | interval=${intervalSec}s (Loop continuo attivo)`);
+  const loopCount = parseInt(getArg(args, '--loop', '1'));
+  console.log(`\n🚀  fantacalcio-sync avviato | loop=${loopCount}  interval=${intervalSec}s`);
 
-  let cycle = 1;
+  for (let i = 0; i < loopCount; i++) {
+    if (i > 0) {
+      console.log(`\n⏳  Attendo ${intervalSec}s prima del prossimo ciclo…`);
+      await sleep(intervalSec * 1000);
+    }
 
-  while (true) {
-    console.log(`\n── Ciclo ${cycle}  ${new Date().toISOString()} ──`);
-    
+    console.log(`\n── Ciclo ${i + 1}/${loopCount}  ${new Date().toISOString()} ──`);
     try {
       await runSync();
     } catch (err) {
-      console.error('❌  Errore critico non gestito nel ciclo:', err.message);
+      console.error('❌  Errore nel ciclo:', err.message);
     }
-
-    // Se non è specificato un intervallo, esegue una sola volta ed esce (utile per test singoli)
-    if (intervalSec <= 0) {
-      console.log('\n✅  Esecuzione singola completata.');
-      break;
-    }
-
-    console.log(`\n⏳  Attendo ${intervalSec}s prima del prossimo ciclo…`);
-    await sleep(intervalSec * 1000);
-    cycle++;
   }
+
+  console.log('\n✅  Tutti i cicli completati.');
 }
 
 // ────────────────────────────────────────────────────────────────────
