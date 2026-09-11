@@ -1,0 +1,15 @@
+{
+  "name": "fantacalcio-sync",
+  "version": "1.0.0",
+  "description": "Sync voti live da fantacalcio.it → Firebase",
+  "main": "sync.js",
+  "type": "module",
+  "scripts": {
+    "start": "node sync.js",
+    "loop":  "node sync.js --loop 5 --interval 60",
+    "once":  "node sync.js --loop 1"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  }
+}
