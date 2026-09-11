@@ -8,7 +8,7 @@
     "start": "node sync.js"
   },
   "dependencies": {
-    "fantacalcio-voti-live": "latest",
+    "fantacalcio-voti-live": "github:FabioLuporini/fantacalcio-voti-live",
     "node-fetch": "^3.3.2"
   }
 }
