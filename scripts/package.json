@@ -10,7 +10,7 @@
     "once": "node sync.js"
   },
   "dependencies": {
-    "fantacalcio-voti-live": "latest",
+    "fantacalcio-voti-live": "git+https://github.com/andregri/fantacalcio-voti-live.git",
     "node-fetch": "^3.3.2"
   }
 }
