@@ -2,8 +2,8 @@
  * ─────────────────────────────────────────────────────────────────────
  *  fantacalcio-sync  ·  sync.js
  *
- *  Fetcha i voti live da fantacalcio.it e li scrive su Firebase
- *  via REST API (nessun SDK, zero dipendenze pesanti).
+ *  Fetcha i voti live tramite la libreria esterna fantacalcio-voti-live
+ *  e li scrive su Firebase via REST API.
  *
  *  Uso diretto:
  *    node sync.js              → 1 fetch e basta
@@ -20,6 +20,7 @@
  * ─────────────────────────────────────────────────────────────────────
  */
 
+import { execSync } from 'child_process';
 import fetch from 'node-fetch';
 
 // ── Parametri CLI ────────────────────────────────____________________
@@ -27,7 +28,7 @@ const args        = process.argv.slice(2);
 const intervalSec = parseInt(getArg(args, '--interval', '0'));
 const gwOverride  = process.env.GIORNATA_OVERRIDE?.trim() || getArg(args, '--gw', '');
 
-// ── Env ──────────────────────────────────────────────────────────────
+// ── Env ────────────────────────────────________________──────────────
 const FIREBASE_DB_URL  = process.env.FIREBASE_DB_URL;
 const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY;
 
@@ -35,14 +36,6 @@ if (!FIREBASE_DB_URL) {
   console.error('❌  FIREBASE_DB_URL non impostata. Aggiungila come GitHub Secret.');
   process.exit(1);
 }
-
-// ── Fantacalcio.it endpoint ──────────────────────────────────────────
-const FC_BASE    = 'https://www.fantacalcio.it/api/v1/Giornata';
-const FC_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (compatible; FantacalcioSync/1.0)',
-  'Referer':    'https://www.fantacalcio.it/',
-  'Accept':     'application/json',
-};
 
 // ────────────────────────────────────────────────────────────────────
 //  MAIN (Loop continuo per evitare lo stop)
@@ -85,15 +78,15 @@ async function runSync() {
 
     console.log(`📅  Giornata target: GW ${gw}`);
 
-    // 2) Fetch live da fantacalcio.it
-    const players = await fetchLiveFromFC(gw);
+    // 2) Fetch tramite la libreria fantacalcio-voti-live
+    const players = fetchPlayersViaLib(gw);
     if (!players.length) {
-      console.warn('⚠️   Nessun dato ricevuto dall\'API. Giornata non ancora iniziata?');
+      console.warn('⚠️   Nessun dato ricevuto dalla libreria. Giornata non ancora iniziata?');
       await writeStatus(gw, false);
       return;
     }
 
-    console.log(`📥  Ricevuti ${players.length} calciatori dall'API`);
+    console.log(`📥  Ricevuti ${players.length} calciatori dalla libreria`);
 
     // 3) Costruisci mappa voti
     const votes    = {};
@@ -101,8 +94,8 @@ async function runSync() {
     let   isLive   = false;
 
     for (const p of players) {
-      const id   = String(p.IdCalciatore ?? p.id ?? '');
-      const voto = parseFloat(p.MediaVoto ?? p.Voto ?? 0);
+      const id   = String(p.IdCalciatore ?? p.id ?? p.Id ?? '');
+      const voto = parseFloat(p.MediaVoto ?? p.Voto ?? p.voto ?? 0);
 
       if (!id || isNaN(voto) || voto <= 0) continue;
 
@@ -132,85 +125,22 @@ async function runSync() {
 }
 
 // ────────────────────────────────────────────────────────────────────
-//  FANTACALCIO.IT  —  strategia a cascata
+//  FETCH TRAMITE LIBRERIA ESTERNA (npx fantacalcio-voti-live)
 // ────────────────────────────────────────────────────────────────────
-async function fetchLiveFromFC(gw) {
-  // ── Tentativo 1: endpoint LIVE ────────────────────────────────────
-  const liveUrl = `${FC_BASE}/${gw}/live`;
-  console.log(`🌐  GET ${liveUrl}  (tentativo live)`);
-
+function fetchPlayersViaLib(gw) {
   try {
-    const liveRes = await fetch(liveUrl, { headers: FC_HEADERS, timeout: 15000 });
+    console.log(`⚙️   Esecuzione tool fantacalcio-voti-live per la GW ${gw}...`);
+    const stdout = execSync(`npx fantacalcio-voti-live ${gw}`, {
+      encoding: 'utf8',
+      maxBuffer: 10 * 1024 * 1024 // 10MB di buffer per sicurezza
+    });
 
-    if (liveRes.ok) {
-      const json    = await liveRes.json();
-      const players = extractPlayers(json);
-
-      if (players.length > 0) {
-        console.log(`✅  Endpoint /live OK — ${players.length} calciatori`);
-        return players;
-      }
-
-      console.warn('⚠️   /live risponde 200 ma con 0 calciatori → provo /voti');
-    } else if (liveRes.status === 404) {
-      console.warn(`⚠️   /live → 404 (nessuna partita in corso) → provo /voti`);
-    } else {
-      console.warn(`⚠️   /live → HTTP ${liveRes.status} → provo /voti`);
-    }
+    const json = JSON.parse(stdout);
+    return Array.isArray(json) ? json : (json.data ?? json.Data ?? json.players ?? []);
   } catch (err) {
-    console.warn(`⚠️   /live → errore di rete (${err.message}) → provo /voti`);
+    console.warn(`⚠️   Impossibile recuperare i dati tramite tool: ${err.message}`);
+    return [];
   }
-
-  // ── Tentativo 2: endpoint VOTI (definitivi post-partita) ──────────
-  const votiUrl = `${FC_BASE}/${gw}/voti`;
-  console.log(`🌐  GET ${votiUrl}  (tentativo voti definitivi)`);
-
-  const votiRes = await fetch(votiUrl, { headers: FC_HEADERS, timeout: 15000 });
-
-  if (!votiRes.ok) {
-    throw new Error(
-      `/voti → HTTP ${votiRes.status}. ` +
-      `Né /live né /voti disponibili per GW ${gw}. ` +
-      `La giornata potrebbe non essere ancora iniziata.`
-    );
-  }
-
-  const json    = await votiRes.json();
-  const players = extractPlayers(json);
-
-  if (players.length > 0) {
-    console.log(`✅  Endpoint /voti OK — ${players.length} calciatori (voti definitivi)`);
-  } else {
-    console.warn('⚠️   /voti risponde 200 ma con 0 calciatori. Giornata non disponibile.');
-  }
-
-  return players;
-}
-
-/**
- * Normalizza la risposta dell'API fantacalcio.it in un array piatto.
- */
-function extractPlayers(json) {
-  if (Array.isArray(json)) return json;
-
-  const data = json.data ?? json.Data ?? json.players ?? json;
-
-  if (data && typeof data === 'object' && !Array.isArray(data)) {
-    const players = [];
-    for (const match of Object.values(data)) {
-      if (Array.isArray(match)) {
-        players.push(...match);
-      } else {
-        if (Array.isArray(match.home)) players.push(...match.home);
-        if (Array.isArray(match.away)) players.push(...match.away);
-        if (Array.isArray(match.squadra1)) players.push(...match.squadra1);
-        if (Array.isArray(match.squadra2)) players.push(...match.squadra2);
-      }
-    }
-    return players;
-  }
-
-  return Array.isArray(data) ? data : [];
 }
 
 // ────────────────────────────────────────────────────────────────────
