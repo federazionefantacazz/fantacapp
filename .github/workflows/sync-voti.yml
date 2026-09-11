@@ -1,0 +1,43 @@
+name: Sync Voti Live Fantacalcio
+
+on:
+  # GitHub Actions minimo: ogni 5 minuti
+  # Lo script interno fa il polling ogni minuto per 5 volte
+  schedule:
+    - cron: '*/5 * * * *'
+
+  # Trigger manuale dall'admin (bottone "Avvia Sync" nella UI)
+  workflow_dispatch:
+    inputs:
+      giornata:
+        description: 'Numero giornata (lascia vuoto = auto)'
+        required: false
+        default: ''
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6   # un po' più di 5 per sicurezza
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: scripts/package.json
+
+      - name: Install dipendenze
+        working-directory: scripts
+        run: npm ci
+
+      - name: Sync voti ogni minuto (5 cicli)
+        working-directory: scripts
+        env:
+          FIREBASE_DB_URL:    ${{ secrets.FIREBASE_DB_URL }}
+          FIREBASE_API_KEY:   ${{ secrets.FIREBASE_API_KEY }}
+          GIORNATA_OVERRIDE:  ${{ github.event.inputs.giornata }}
+        run: node sync.js --loop 5 --interval 60
