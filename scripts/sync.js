@@ -127,6 +127,14 @@ function fetchPlayersViaLib(gw) {
       maxBuffer: 10 * 1024 * 1024 // 10MB di buffer per sicurezza
     });
 
+    const trimmed = stdout.trim();
+    
+    // Se la libreria ha stampato un messaggio di testo (es. "couldn't get...") invece di un JSON
+    if (!trimmed.startsWith('[') && !trimmed.startsWith('{')) {
+      console.warn(`⚠️   Messaggio dal tool: "${trimmed}"`);
+      return [];
+    }
+
     const json = JSON.parse(stdout);
     return Array.isArray(json) ? json : (json.data ?? json.Data ?? json.players ?? []);
   } catch (err) {
