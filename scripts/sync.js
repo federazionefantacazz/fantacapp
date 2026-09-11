@@ -7,7 +7,7 @@
  *
  *  Uso diretto:
  *    node sync.js              → 1 fetch e basta
- *    node sync.js --loop 5 --interval 60  → 5 fetch, 1 al minuto
+ *    node sync.js --interval 60  → loop continuo ogni 60 secondi
  *
  *  Env richieste (GitHub Secrets):
  *    FIREBASE_DB_URL   es. https://mio-progetto-default-rtdb.europe-west1.firebasedatabase.app
@@ -22,9 +22,8 @@
 
 import fetch from 'node-fetch';
 
-// ── Parametri CLI ────────────────────────────────────────────────────
+// ── Parametri CLI ────────────────────────────────____________________
 const args        = process.argv.slice(2);
-const loopCount   = parseInt(getArg(args, '--loop',     '1'));
 const intervalSec = parseInt(getArg(args, '--interval', '0'));
 const gwOverride  = process.env.GIORNATA_OVERRIDE?.trim() || getArg(args, '--gw', '');
 
@@ -46,22 +45,32 @@ const FC_HEADERS = {
 };
 
 // ────────────────────────────────────────────────────────────────────
-//  MAIN
+//  MAIN (Loop continuo per evitare lo stop)
 // ────────────────────────────────────────────────────────────────────
 async function main() {
-  console.log(`\n🚀  fantacalcio-sync  |  loop=${loopCount}  interval=${intervalSec}s`);
+  console.log(`\n🚀  fantacalcio-sync avviato | interval=${intervalSec}s (Loop continuo attivo)`);
 
-  for (let i = 0; i < loopCount; i++) {
-    if (i > 0) {
-      console.log(`\n⏳  Attendo ${intervalSec}s prima del prossimo ciclo…`);
-      await sleep(intervalSec * 1000);
+  let cycle = 1;
+
+  while (true) {
+    console.log(`\n── Ciclo ${cycle}  ${new Date().toISOString()} ──`);
+    
+    try {
+      await runSync();
+    } catch (err) {
+      console.error('❌  Errore critico non gestito nel ciclo:', err.message);
     }
 
-    console.log(`\n── Ciclo ${i + 1}/${loopCount}  ${new Date().toISOString()} ──`);
-    await runSync();
-  }
+    // Se non è specificato un intervallo, esegue una sola volta ed esce (utile per test singoli)
+    if (intervalSec <= 0) {
+      console.log('\n✅  Esecuzione singola completata.');
+      break;
+    }
 
-  console.log('\n✅  Tutti i cicli completati.');
+    console.log(`\n⏳  Attendo ${intervalSec}s prima del prossimo ciclo…`);
+    await sleep(intervalSec * 1000);
+    cycle++;
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -100,8 +109,8 @@ async function runSync() {
       votes[id] = { voto: Math.round(voto * 10) / 10 };
       withVote++;
 
-      // Se almeno un giocatore ha un voto != sv è in corso/conclusa
-      if (p.Status === 'live' || p.InCampo === true || p.Status === 'played') {
+      // Considera "live" se almeno una partita è in corso
+      if (p.Status === 'live' || p.InGioco === true || p.InCampo === true) {
         isLive = true;
       }
     }
@@ -119,41 +128,98 @@ async function runSync() {
 
   } catch (err) {
     console.error('❌  Errore nel ciclo di sync:', err.message);
-    // Non rilanciare: il workflow deve continuare con i cicli successivi
   }
 }
 
 // ────────────────────────────────────────────────────────────────────
-//  FANTACALCIO.IT
+//  FANTACALCIO.IT  —  strategia a cascata
 // ────────────────────────────────────────────────────────────────────
 async function fetchLiveFromFC(gw) {
-  const url = `${FC_BASE}/${gw}/live`;
-  console.log(`🌐  GET ${url}`);
+  // ── Tentativo 1: endpoint LIVE ────────────────────────────────────
+  const liveUrl = `${FC_BASE}/${gw}/live`;
+  console.log(`🌐  GET ${liveUrl}  (tentativo live)`);
 
-  const res = await fetch(url, { headers: FC_HEADERS, timeout: 15000 });
+  try {
+    const liveRes = await fetch(liveUrl, { headers: FC_HEADERS, timeout: 15000 });
 
-  if (!res.ok) {
-    throw new Error(`fantacalcio.it risponde HTTP ${res.status}`);
+    if (liveRes.ok) {
+      const json    = await liveRes.json();
+      const players = extractPlayers(json);
+
+      if (players.length > 0) {
+        console.log(`✅  Endpoint /live OK — ${players.length} calciatori`);
+        return players;
+      }
+
+      console.warn('⚠️   /live risponde 200 ma con 0 calciatori → provo /voti');
+    } else if (liveRes.status === 404) {
+      console.warn(`⚠️   /live → 404 (nessuna partita in corso) → provo /voti`);
+    } else {
+      console.warn(`⚠️   /live → HTTP ${liveRes.status} → provo /voti`);
+    }
+  } catch (err) {
+    console.warn(`⚠️   /live → errore di rete (${err.message}) → provo /voti`);
   }
 
-  const json = await res.json();
+  // ── Tentativo 2: endpoint VOTI (definitivi post-partita) ──────────
+  const votiUrl = `${FC_BASE}/${gw}/voti`;
+  console.log(`🌐  GET ${votiUrl}  (tentativo voti definitivi)`);
 
-  // Struttura risposta: { data: [...] } oppure array diretto
-  return Array.isArray(json)
-    ? json
-    : (json.data ?? json.Data ?? json.players ?? []);
+  const votiRes = await fetch(votiUrl, { headers: FC_HEADERS, timeout: 15000 });
+
+  if (!votiRes.ok) {
+    throw new Error(
+      `/voti → HTTP ${votiRes.status}. ` +
+      `Né /live né /voti disponibili per GW ${gw}. ` +
+      `La giornata potrebbe non essere ancora iniziata.`
+    );
+  }
+
+  const json    = await votiRes.json();
+  const players = extractPlayers(json);
+
+  if (players.length > 0) {
+    console.log(`✅  Endpoint /voti OK — ${players.length} calciatori (voti definitivi)`);
+  } else {
+    console.warn('⚠️   /voti risponde 200 ma con 0 calciatori. Giornata non disponibile.');
+  }
+
+  return players;
+}
+
+/**
+ * Normalizza la risposta dell'API fantacalcio.it in un array piatto.
+ */
+function extractPlayers(json) {
+  if (Array.isArray(json)) return json;
+
+  const data = json.data ?? json.Data ?? json.players ?? json;
+
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    const players = [];
+    for (const match of Object.values(data)) {
+      if (Array.isArray(match)) {
+        players.push(...match);
+      } else {
+        if (Array.isArray(match.home)) players.push(...match.home);
+        if (Array.isArray(match.away)) players.push(...match.away);
+        if (Array.isArray(match.squadra1)) players.push(...match.squadra1);
+        if (Array.isArray(match.squadra2)) players.push(...match.squadra2);
+      }
+    }
+    return players;
+  }
+
+  return Array.isArray(data) ? data : [];
 }
 
 // ────────────────────────────────────────────────────────────────────
 //  FIREBASE REST (nessun SDK)
 // ────────────────────────────────────────────────────────────────────
 
-/** Legge la giornata corrente (prova due percorsi) */
 async function readCurrentGW() {
-  // Prima prova status/currentRealGW (come nel tuo admin)
   let gw = await fbGet('status/currentRealGW');
   if (!gw || isNaN(parseInt(gw))) {
-    // Fallback: config/currentGW
     gw = await fbGet('config/currentGW');
   }
   const parsed = parseInt(gw);
@@ -164,13 +230,10 @@ async function readCurrentGW() {
   return parsed;
 }
 
-/** Scrive tutti i voti della giornata */
 async function writeVotes(gw, votes) {
-  // PUT sovrascrive l'intera chiave — tutti i voti della GW in un colpo solo
   await fbPut(`votes/gw${gw}`, votes);
 }
 
-/** Aggiorna stato live e timestamp ultimo sync */
 async function writeStatus(gw, isLive) {
   await fbPatch('status', {
     live:       isLive,
@@ -182,7 +245,6 @@ async function writeStatus(gw, isLive) {
 // ── Firebase REST helpers ────────────────────────────────────────────
 
 function fbUrl(path) {
-  // Se c'è un API Key usa autenticazione anonima (non richiede regole aperte)
   const base = `${FIREBASE_DB_URL}/${path}.json`;
   return FIREBASE_API_KEY ? `${base}?key=${FIREBASE_API_KEY}` : base;
 }
