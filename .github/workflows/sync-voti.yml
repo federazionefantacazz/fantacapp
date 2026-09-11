@@ -32,7 +32,7 @@ jobs:
 
       - name: Install dipendenze
         working-directory: scripts
-        run: npm ci
+        run: npm install
 
       - name: Sync voti ogni minuto (5 cicli)
         working-directory: scripts
