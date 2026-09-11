@@ -6,10 +6,11 @@
   "type": "module",
   "scripts": {
     "start": "node sync.js",
-    "loop":  "node sync.js --loop 5 --interval 60",
-    "once":  "node sync.js --loop 1"
+    "loop": "node sync.js --interval 60",
+    "once": "node sync.js"
   },
   "dependencies": {
+    "fantacalcio-voti-live": "latest",
     "node-fetch": "^3.3.2"
   }
 }
