@@ -48,21 +48,29 @@
   z-index: 1000;
 }
 
-.header-brand {
+.header-left {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 
-.header-title {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.25rem !important;
-  letter-spacing: 1px;
-  background: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  line-height: 1;
-  margin: 0;
+.logout-header-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  transition: background 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.logout-header-btn:active {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 #userCompSelect {
@@ -82,7 +90,7 @@
   padding: 0.25rem 1.5rem 0.25rem 0.65rem !important;
   height: 28px !important;
   outline: none !important;
-  max-width: 130px;
+  max-width: 160px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -256,16 +264,18 @@ body {
 <body>
 
 <div id="app">
-  <!-- HEADER MODIFICATO E COMPATTO -->
+  <!-- HEADER MODIFICATO: SELETTORE A SINISTRA, LOGOUT A DESTRA -->
   <div id="app-header" style="display:none;">
-    <div class="header-brand">
+    <div class="header-left">
       <div id="app-global-navbar-logo-container" style="flex-shrink:0; display:flex; align-items:center; justify-content:center;"></div>
-      <div class="header-title">FANTACAPP</div>
+      <select id="userCompSelect" onchange="window._handleCompetitionChange(this.value)" style="background-color: var(--bg2) !important; color: var(--text) !important;">
+        <option value="fantacazz">Caricamento...</option>
+      </select>
     </div>
-    <select id="userCompSelect" onchange="window._handleCompetitionChange(this.value)" style="background-color: var(--bg2) !important;
-  color: var(--text) !important;">
-      <option value="fantacazz">Caricamento...</option>
-    </select>
+
+    <button class="logout-header-btn" onclick="window.doFirebaseLogout()" title="Disconnetti">
+      <i class="ri-logout-box-r-line" style="font-size: 1.35rem; color: var(--accent3);"></i>
+    </button>
   </div>
 
   <div id="page-login">
