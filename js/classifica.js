@@ -106,7 +106,7 @@ export const ClassificaPage = {
               
               if (sortedGirone.length > 0) {
                 html += this.renderTabellaClassica(sortedGirone, compId, (index) => {
-                  return index < numQualificati ? 'background: rgba(80,227,194,0.08); border-left: 4px solid var(--accent);' : '';
+                  return index < numQualificati ? 'border-left: 4px solid var(--accent);' : '';
                 }, teamCalculatedStats);
               } else {
                 html += `<div class="card" style="text-align:center; color:var(--text2); padding:1rem;">Nessuna squadra trovata per questo girone.</div>`;
@@ -131,9 +131,9 @@ export const ClassificaPage = {
       this.renderModoConTabellone(actionsDiv, contentDiv, compData, state, () => {
         let html = `
           <div id="view-dati-classifica">
-            <div class="card" style="font-size:0.75rem; display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:0.5rem; margin-bottom:1rem; background:var(--bg2); border:1px solid var(--border);">
-              <div style="display:flex; align-items:center; gap:0.5rem;"><i class="ri-medal-fill" style="color:var(--gold);"></i> <span style="color:var(--text);">Oro: Ai quarti scontrano play off</span></div>
-              <div style="display:flex; align-items:center; gap:0.5rem;"><i class="ri-medal-fill" style="color:var(--accent2);"></i> <span style="color:var(--text);">Blu: Scontrano ai quarti un degno avv.</span></div>
+            <div class="card" style="font-size:0.75rem; display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:0.5rem; margin-bottom:1rem; background:var(--bg2); border:1px solid rgba(255,255,255,0.08);">
+              <div style="display:flex; align-items:center; gap:0.5rem;"><i class="ri-medal-fill" style="color:var(--gold);"></i> <span style="color:var(--text);">Oro: Quarti scontrano play off</span></div>
+              <div style="display:flex; align-items:center; gap:0.5rem;"><i class="ri-medal-fill" style="color:var(--accent2);"></i> <span style="color:var(--text);">Blu: Degno avversario</span></div>
               <div style="display:flex; align-items:center; gap:0.5rem;"><i class="ri-medal-fill" style="color:var(--accent);"></i> <span style="color:var(--text);">Verde: Play off</span></div>
               <div style="display:flex; align-items:center; gap:0.5rem;"><i class="ri-close-circle-fill" style="color:var(--accent3);"></i> <span style="color:var(--text);">Rosso: Eliminato</span></div>
             </div>
@@ -143,10 +143,10 @@ export const ClassificaPage = {
 
         html += this.renderTabellaClassica(top12, compId, (index) => {
           const pos = index + 1;
-          if (pos <= 2) return 'background: rgba(245,166,35,0.08); border-left: 4px solid var(--gold);';
-          if (pos <= 6) return 'background: rgba(74,144,226,0.08); border-left: 4px solid var(--accent2);';
-          if (pos <= 10) return 'background: rgba(80,227,194,0.08); border-left: 4px solid var(--accent);';
-          return 'background: rgba(255,107,107,0.08); border-left: 4px solid var(--accent3);';
+          if (pos <= 2) return 'border-left: 4px solid var(--gold);';
+          if (pos <= 6) return 'border-left: 4px solid var(--accent2);';
+          if (pos <= 10) return 'border-left: 4px solid var(--accent);';
+          return 'border-left: 4px solid var(--accent3);';
         }, teamCalculatedStats);
 
         html += '</div>';
@@ -166,24 +166,22 @@ export const ClassificaPage = {
 
   renderTabellaClassica(teamsList, compId, rowStyleCallback = null, teamCalculatedStats = {}) {
     let html = `
-      <div class="card" style="padding:0; overflow:hidden; border:1px solid var(--border); margin-bottom: 1rem;">
-        <div style="overflow-x:auto;">
-          <table style="width:100%; border-collapse:collapse; font-size:0.85rem; min-width:600px;">
-            <thead>
-              <tr style="background:var(--bg2); border-bottom:1px solid var(--border);">
-                <th style="padding:0.75rem; text-align:center; width:40px; color:var(--text3);">Pos</th>
-                <th style="padding:0.75rem; text-align:left;">Squadra</th>
-                <th style="padding:0.75rem; text-align:center; width:55px; color:var(--accent); font-weight:bold;">PT</th>
-                <th style="padding:0.75rem; text-align:center; width:130px; color:var(--accent2); font-weight:bold;">TOT PUNTI FANTAVOTO</th>
-                <th style="padding:0.75rem; text-align:center; width:45px;">G</th>
-                <th style="padding:0.75rem; text-align:center; width:45px; color:#4cd137;">V</th>
-                <th style="padding:0.75rem; text-align:center; width:45px; color:var(--text2);">N</th>
-                <th style="padding:0.75rem; text-align:center; width:45px; color:var(--accent3);">P</th>
-                <th style="padding:0.75rem; text-align:center; width:45px; color:var(--text2);">GF</th>
-                <th style="padding:0.75rem; text-align:center; width:45px; color:var(--text2);">GS</th>
-              </tr>
-            </thead>
-            <tbody>
+      <div class="card" style="padding:0; overflow:hidden; border:1px solid rgba(255,255,255,0.08); border-radius:14px; margin-bottom: 1rem; background: var(--card);">
+        <!-- INTESTAZIONE COLONNE STATISTICHE USANDO LE VARIABILI DEL TEMA -->
+        <div style="background: var(--card2); color: var(--text); border-bottom: 1px solid rgba(255,255,255,0.08); padding: 0.6rem 0.8rem; display: flex; align-items: center; justify-content: flex-end; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 250px; text-align: center;">
+            <span style="width:24px;">G</span>
+            <span style="width:24px;">V</span>
+            <span style="width:24px;">N</span>
+            <span style="width:24px;">P</span>
+            <span style="width:26px;">Gf</span>
+            <span style="width:26px;">Gs</span>
+            <span style="width:30px; color: var(--accent);">Pt</span>
+            <span style="width:50px; text-align:right;">Pt Totali</span>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column;">
     `;
 
     teamsList.forEach((t, idx) => {
@@ -191,29 +189,40 @@ export const ClassificaPage = {
       const customStyle = rowStyleCallback ? rowStyleCallback(idx) : '';
 
       const logoHTML = t.logo 
-        ? `<img src="${t.logo}" alt="Logo ${t.name}" style="width:32px; height:32px; object-fit:contain; border-radius:4px; flex-shrink:0;">`
-        : `<div style="width:32px; height:32px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:1rem; color:var(--text3); flex-shrink:0;"><i class="ri-shield-line"></i></div>`;
+        ? `<img src="${t.logo}" alt="Logo ${t.name}" style="width:26px; height:26px; object-fit:contain; border-radius:4px; flex-shrink:0;">`
+        : `<div style="width:26px; height:26px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.85rem; color:var(--text3); flex-shrink:0;"><i class="ri-shield-line"></i></div>`;
+
+      // Colore speciale dinamico basato sul tema
+      const isLast = idx === teamsList.length - 1 && teamsList.length > 5;
+      const fantaPtsColor = isLast ? 'var(--accent3)' : (idx === 0 ? 'var(--accent)' : 'var(--text2)');
 
       html += `
-        <tr style="border-bottom:1px solid var(--border); ${customStyle}">
-          <td style="padding:0.75rem; text-align:center; font-weight:600; color:var(--text2);">${idx + 1}</td>
-          <td style="padding:0.75rem; display:flex; align-items:center; gap:0.5rem; border:none;">
+        <div style="padding: 0.65rem 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.05); background: var(--bg2); ${customStyle}">
+          <!-- RIGA 1: POSIZIONE + LOGO + NOME SQUADRA -->
+          <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.35rem;">
+            <span style="font-weight: 700; color: var(--accent2); font-size: 0.95rem; min-width: 18px; text-align: center;">${idx + 1}</span>
             ${logoHTML}
-            <span style="font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${t.name}</span>
-          </td>
-          <td style="padding:0.75rem; text-align:center; font-weight:bold; color:var(--accent); font-family:'DM Mono',monospace; font-size:0.9rem;">${stats.pts}</td>
-          <td style="padding:0.75rem; text-align:center; font-weight:bold; color:var(--accent2); font-family:'DM Mono',monospace; font-size:0.85rem;">${stats.totFanta.toFixed(1)}</td>
-          <td style="padding:0.75rem; text-align:center; color:var(--text2);">${stats.giocate}</td>
-          <td style="padding:0.75rem; text-align:center; color:var(--text2);">${stats.w}</td>
-          <td style="padding:0.75rem; text-align:center; color:var(--text2);">${stats.d}</td>
-          <td style="padding:0.75rem; text-align:center; color:var(--text2);">${stats.l}</td>
-          <td style="padding:0.75rem; text-align:center; color:var(--text2);">${stats.gf}</td>
-          <td style="padding:0.75rem; text-align:center; color:var(--text2);">${stats.gs}</td>
-        </tr>
+            <span style="font-weight: 600; color: var(--text); font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">${t.name}</span>
+          </div>
+
+          <!-- RIGA 2: GRIGLIA DATI / NUMERI -->
+          <div style="display: flex; align-items: center; justify-content: flex-end; font-size: 0.8rem; font-family: 'DM Mono', monospace;">
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 250px; text-align: center; color: var(--text2);">
+              <span style="width:24px;">${stats.giocate}</span>
+              <span style="width:24px;">${stats.w}</span>
+              <span style="width:24px;">${stats.d}</span>
+              <span style="width:24px;">${stats.l}</span>
+              <span style="width:26px;">${stats.gf}</span>
+              <span style="width:26px;">${stats.gs}</span>
+              <span style="width:30px; font-weight: 700; color: var(--accent); font-size: 0.95rem;">${stats.pts}</span>
+              <span style="width:50px; text-align:right; font-weight: 600; color: ${fantaPtsColor};">${stats.totFanta.toFixed(1)}</span>
+            </div>
+          </div>
+        </div>
       `;
     });
 
-    html += `</tbody></table></div></div>`;
+    html += `</div></div>`;
     return html;
   },
 
@@ -279,7 +288,7 @@ export const ClassificaPage = {
         const isAwayPending = !teamAway && String(awayIdActual).startsWith("VINCENTE_");
 
         const nameHome = isHomePending ? `${homeIdActual.replace("VINCENTE_", "")}` : (teamHome ? teamHome.name : homeIdActual);
-        const nameAway = isAwayPending ? `${awayIdActual.replace("VINCENTE_", "")}` : (teamAway ? teamAway.name : awayIdActual);
+        const nameAway = isAwayPending ? `${awayIdActual.replace("VINCENTE_", "")}` : (teamAway ? teamAway.name : awayIdAway);
 
         let logoHomeHTML = !isHomePending && teamHome?.logo
           ? `<img src="${teamHome.logo}" alt="" style="width:20px; height:20px; object-fit:contain; border-radius:2px; flex-shrink:0;">`
@@ -313,12 +322,12 @@ export const ClassificaPage = {
         }
 
         return `
-          <div style="background: var(--bg2); border: 1px solid var(--border); padding: .6rem; border-radius: 6px; font-size: .8rem; width: 220px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
+          <div style="background: var(--bg2); border: 1px solid rgba(255,255,255,0.08); padding: .6rem; border-radius: 6px; font-size: .8rem; width: 220px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
             <div style="color:var(--text3); font-size:0.65rem; font-weight:bold; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
               <span><i class="ri-hashtag"></i> ${m.id.toUpperCase()}</span>
               <span style="color:var(--accent); font-family:'DM Mono',monospace;">${strAndata}${strRitorno}</span>
             </div>
-            <div style="padding: 2px 0; color:#fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display:flex; align-items:center; gap:0.4rem;">
+            <div style="padding: 2px 0; color:var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display:flex; align-items:center; gap:0.4rem;">
               ${logoHomeHTML}
               <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; ${isHomePending ? 'color:var(--text2); font-style:italic;' : ''}">${nameHome}</span>
             </div>
@@ -332,7 +341,7 @@ export const ClassificaPage = {
 
       return `
         <div style="display: flex; flex-direction: column; align-items: center;">
-          <div style="background: var(--card2); color: var(--accent); padding: .3rem .6rem; font-family:'Bebas Neue',sans-serif; font-size:1rem; border-radius:4px; margin-bottom:0.75rem; border:1px solid var(--border);">
+          <div style="background: var(--card2); color: var(--accent); padding: .3rem .6rem; font-family:'Bebas Neue',sans-serif; font-size:1rem; border-radius:4px; margin-bottom:0.75rem; border:1px solid rgba(255,255,255,0.08);">
             ${faseObj.nomeFase.toUpperCase()}
           </div>
           <div style="display: flex; flex-direction: column; justify-content: center;">
