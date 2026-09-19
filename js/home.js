@@ -4,14 +4,7 @@ import { renderAnteprimaClassificaStandard } from './components/AnteprimaClassif
 export const HomePage = {
   renderHTML(STATE = {}) {
     return `
-      <div class="page" id="page-home" style="padding-top: 1rem;">
-        <div class="app-header" style="margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; position: relative;">
-          <div style="width: 32px;"></div> 
-          <div class="logo" id="homeHeaderTitle" style="font-size: 2rem; letter-spacing: 2px; text-transform: uppercase; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(100% - 80px);">FANTACAZZ</div>
-          <button onclick="window.doFirebaseLogout()" style="background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; -webkit-tap-highlight-color: transparent;" title="Disconnetti">
-            <i class="ri-logout-box-r-line" style="font-size: 1.35rem; color: var(--accent3);"></i>
-          </button>
-        </div>
+      <div class="page" id="page-home" style="padding-top: 0.5rem;">
 
         <!-- CARD SQUADRA (LAYOUT A COLONNA RIPULITO) -->
         <div class="card" style="margin-bottom: 1.2rem; background: linear-gradient(135deg, var(--card) 0%, color-mix(in srgb, var(--accent) 6%, transparent) 100%); border: 1px solid rgba(255,255,255,0.08); padding: 1.25rem;">
@@ -67,7 +60,6 @@ export const HomePage = {
 
   render(STATE) {
     const banner = document.getElementById('home-status-banner');
-    const headerTitle = document.getElementById('homeHeaderTitle');
     const tn = document.getElementById('homeTeamName');
     const to = document.getElementById('homeTeamOwner');
     const tp = document.getElementById('homeTeamPts');
@@ -76,7 +68,7 @@ export const HomePage = {
     const onFireContainer = document.getElementById('homeOnFirePlayers');
     const onFireTitle = document.getElementById('onFireTitle');
     const teamLogoContainer = document.getElementById('userTeamLogo');
-    const wipBox = document.getElementById('homeMiniClassificaWip'); // Contenitore dell'anteprima
+    const wipBox = document.getElementById('homeMiniClassificaWip');
 
     let competitionsList = [];
     if (STATE.competitions) {
@@ -89,10 +81,6 @@ export const HomePage = {
     }
 
     const comp = competitionsList.find(c => c && String(c.id) === String(activeId || STATE.activeCompetitionId));
-
-    if (headerTitle) {
-      headerTitle.textContent = (comp && comp.name) ? comp.name : "FANTACAZZ";
-    }
 
     const realGw = STATE.giornataRealeCorrente || STATE.currentRealGW || STATE.status?.currentGW || 0;
     if (banner) {
@@ -254,7 +242,7 @@ export const HomePage = {
         onFireContainer.innerHTML = top5.map(({ player: p, avg, count }) => {
           let customStyle = 'padding: .2rem .5rem; border-radius: 6px; font-weight: bold; font-family: "DM Mono", monospace; ';
           if (avg >= 7) customStyle += 'background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent);';
-          else if (avg < 6) customStyle += 'background: rgba(255, 107, 107, 0.15); color: var(--accent3);';
+          if (avg < 6) customStyle += 'background: rgba(255, 107, 107, 0.15); color: var(--accent3);';
           else customStyle += 'background: rgba(255, 255, 255, 0.08); color: var(--text);';
 
           return `
