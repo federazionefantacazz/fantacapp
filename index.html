@@ -346,6 +346,7 @@ import { MercatoPage } from './js/mercato.js';
 import { TeamsPage } from './js/teams.js';
 import { LiveMatchModule } from "./js/liveMatch.js";
 import { ClassificaPage } from './js/classifica.js';
+import { AssetPreloader } from './js/services/assetPreloader.js';
 
 window.STATE = { 
   user: null, 
@@ -361,12 +362,9 @@ window.STATE = {
   booted: false 
 };
 
-const preloadedLogos = new Set();
-
 onValue(ref(db, 'teams'), snap => {
   const raw = snap.val() || {};
   window.STATE.teams = Object.values(raw).sort((a,b) => b.pts - a.pts);
-  globalPreloadLogos(window.STATE.teams);
 
   if (window.STATE.user) {
     const foundCurrentTeam = window.STATE.teams.find(t => t.id === window.STATE.user.id);
@@ -394,22 +392,6 @@ onAuthStateChanged(auth, firebaseUser => {
     document.getElementById('box-select-team').style.display = 'none';
   }
 });
-
-function globalPreloadLogos(teams) {
-  if (!teams || !Array.isArray(teams)) return;
-  const urls = [...new Set(teams.map(t => t.logo).filter(Boolean))];
-  urls.forEach((url, index) => {
-    if (preloadedLogos.has(url)) return;
-    setTimeout(() => {
-      const img = new Image();
-      img.crossOrigin = "anonymous"; 
-      img.onload = () => {
-        preloadedLogos.add(url);
-      };
-      img.src = url;
-    }, index * 60);
-  });
-}
 
 onValue(ref(db, 'status/currentRealGW'), snap => { 
   const val = snap.val();
@@ -451,7 +433,7 @@ function caricaDatiCompetizione(compId) {
     }
   });
 
-  /* AGGIORNATO: Mappatura completa delle variabili CSS del tema */
+  /* Mappatura completa delle variabili CSS del tema */
   onValue(ref(db, `competitions/${compId}/theme`), snap => {
     const theme = snap.val();
     const styleTag = document.getElementById('dynamic-theme');
@@ -532,6 +514,12 @@ onValue(ref(db, 'votes'), snap => {
 
 onValue(ref(db, 'players'), snap => {
   window.STATE.players = Object.values(snap.val() || {});
+  
+  // Avvio Sincronizzazione mirata quando i giocatori sono stati caricati
+  if (window.STATE.booted && window.STATE.user) {
+    AssetPreloader.startSync(window.STATE);
+  }
+
   refreshUI();
 });
 
@@ -697,6 +685,9 @@ function bootApp() {
 
   const header = document.getElementById('app-header');
   if (header) header.style.display = 'flex';
+
+  // Avvio Preloader Sincronizzazione
+  AssetPreloader.startSync(window.STATE);
 
   window.goPage('home', document.querySelector('.nav-btn'));
 }
