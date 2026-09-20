@@ -1,6 +1,6 @@
-const CACHE_NAME = 'fantacapp-pwa-v1.0.0.4'; // Incrementa questo numero ogni volta che fai modifiche ai file .js o .html
+const CACHE_NAME = 'fantacapp-pwa-v1.0.0.5'; // Incrementa ad ogni modifica dei file statici
 
-// 1. Array pulito: includiamo solo l'app utente per tenerla fulminea ed evitare blocchi sull'admin
+// 1. Array pulito e aggiornato
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -14,10 +14,11 @@ const ASSETS_TO_CACHE = [
   './js/services/calcoloMatch.js',
   './js/services/classificaService.js',
   './js/services/settingsService.js',
+  './js/services/assetPreloader.js', // <-- Aggiunto
 
   // Componenti
   './js/components/AnteprimaClassificaStandard.js',
-  './js/components/AnteprimaClassificaStandard.js',
+  './js/components/AnteprimaClassificaTabellone.js',
   './js/components/MatchCardResult.js',
   './js/components/MatchCardVS.js',
   
@@ -30,18 +31,16 @@ const ASSETS_TO_CACHE = [
   './js/liveMatch.js',
   './js/mercato.js',
   './js/teams.js'
-  
 ];
 
-// Installazione: salva i file statici nella cache locale (Bypassando i file mancanti)
+// Installazione: salva i file statici nella cache locale
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
         console.log('Inizializzazione cache PWA avanzata...');
         
-        // Modifica robusta: scarica i file uno ad uno. 
-        // Se un file fallisce, viene segnalato in console ma non blocca l'app!
+        // Scarica i file uno ad uno: un eventuale 404 non blocca l'installazione
         return Promise.all(
           ASSETS_TO_CACHE.map(url => {
             return cache.add(url).catch(err => {
@@ -54,7 +53,7 @@ self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-// Attivazione: fa tabula rasa delle vecchie cache quando aggiorni la versione
+// Attivazione: rimuove le vecchie versioni della cache
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(cacheNames => {
@@ -73,28 +72,29 @@ self.addEventListener('activate', event => {
 
 // Fetch: Gestione intelligente della rete e della cache
 self.addEventListener('fetch', event => {
+  // Ignora richieste non GET (es. POST, PUT)
+  if (event.request.method !== 'GET') return;
+
   const url = event.request.url;
 
-  // SICUREZZA: Non toccare MAI le chiamate a Firebase, l'autenticazione o le API esterne di ImgBB
+  // SICUREZZA: Ignora chiamate a Firebase, Auth, CDN o rotte Admin
   if (
     url.includes('firebasedatabase.app') || 
     url.includes('googleapis.com') || 
     url.includes('imgbb.com') || 
-    url.includes('i.ibb.co') || // Server dove risiedono fisicamente le immagini di ImgBB
-    url.includes('admin.html') || // Lascia che i file admin si carichino sempre da internet in tempo reale
+    url.includes('i.ibb.co') || 
+    url.includes('admin.html') || 
     url.includes('/js/admin/')
   ) {
-    return; // Passa direttamente alla rete senza salvare in cache
+    return; // Passa direttamente alla rete
   }
 
-  // STRATEGIA INTERGARA: Cache-First per i file locali inseriti nell'array (Massima velocità)
+  // STRATEGIA: Cache-First per i file statici della PWA
   event.respondWith(
     caches.match(event.request).then(cachedResponse => {
       if (cachedResponse) {
-        return cachedResponse; // Se il file JS/HTML è in cache, dallo istantaneamente
+        return cachedResponse;
       }
-      
-      // Se non è in cache (es. una nuova icona o risorsa non tracciata), scaricala da internet
       return fetch(event.request);
     })
   );
