@@ -1,6 +1,6 @@
 import { ref, update, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-// IMPORTA IL SERVIZIO CENTRALIZZATO PER L'UPLOAD IMGBB
-import { uploadImageToImgBB } from "../services/integrationImgBB.js"; 
+// IMPORTA SIA uploadImageToImgBB SIA LA NUOVA FUNZIONE PER GLI URL
+import { uploadImageToImgBB, uploadUrlToImgBB } from "../services/integrationImgBB.js"; 
 
 export const PlayersSection = {
   _filter: '',
@@ -144,7 +144,7 @@ export const PlayersSection = {
       }
     };
 
-    // AGGIORNA CAMPIONCINI STANDARD USANDO IL SERVIZIO CENTRALIZZATO
+    // AGGIORNA CAMPIONCINI STANDARD USANDO LA NUOVA FUNZIONE uploadUrlToImgBB
     window.updateStandardPhotosImgBB = async () => {
       if (!window.PLAYERS || window.PLAYERS.length === 0) {
         if (typeof window.toast === 'function') window.toast("Nessun giocatore nel database!", "err");
@@ -177,8 +177,8 @@ export const PlayersSection = {
         }
 
         try {
-          // Utilizza la funzione centralizzata passando l'URL
-          const finalImgUrl = await uploadImageToImgBB(fantacalcioUrl);
+          // Usiamo la nuova funzione specifica per gli URL trasmettendo anche il nome del file
+          const finalImgUrl = await uploadUrlToImgBB(fantacalcioUrl, `campioncino_${player.id}`);
 
           if (finalImgUrl) {
             // Salvataggio su Firebase sotto 'photoStandard'
@@ -261,7 +261,6 @@ export const PlayersSection = {
     }
 
     tbody.innerHTML = filtered.slice(0, 50).map(p => {
-      // Priorità alla foto personalizzata, altrimenti usa quella standard
       const imgUrl = p.photoPersonal || p.photoStandard || '';
       const imgHTML = imgUrl 
         ? `<img src="${imgUrl}" alt="${p.name}" style="width:32px; height:32px; object-fit:contain; border-radius:4px;">`
