@@ -112,7 +112,7 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
       <div id="mobileSyncStatus" style="font-size: 0.7rem; color: var(--accent)">🟢 Connesso</div>
     </div>
   </div>
-   
+    
   <div class="sidebar">
     <div class="logo">Fantacazz<span>Pannello Patron</span></div>
     <div class="nav-links-container"></div>
@@ -130,7 +130,10 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
     <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Dashboard
   </button>
   <button class="snav" data-sec="teams">
-    <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>Squadre
+    <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 010 7.75"/></svg>Squadre
+  </button>
+  <button class="snav" data-sec="trofei">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>Trofei
   </button>
   <button class="snav" data-sec="players">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>Giocatori
@@ -164,6 +167,7 @@ import { db, auth, ref, onValue, set, update, onAuthStateChanged, signInWithEmai
 // Importazione di tutti i sottomoduli amministrativi
 import { DashboardSection }     from './js/admin/dashboard.js';
 import { TeamsSection }         from './js/admin/teams.js';
+import { TrofeiSection }        from './js/admin/trofei.js';
 import { PlayersSection }       from './js/admin/players.js';
 import { VotesSection }         from './js/admin/votes.js';
 import { MercatoSection }       from './js/admin/mercato.js';
@@ -178,6 +182,7 @@ const ADMIN_EMAIL = "carminedemarzo@outlook.it";
 /* ─── Stato globale applicativo ────────────────────────────────────────── */
 let TEAMS = [];
 window.PLAYERS = []; 
+window.TROPHIES = [];
 let MATCHES = {};
 let CURRENT_GW = 1;
 let CURRENT_REAL_GW = 0; 
@@ -222,6 +227,7 @@ function initAdminApp() {
   // Inizializzazione sicura di ogni modulo passando il db centralizzato
   if (DashboardSection && typeof DashboardSection.init === 'function') DashboardSection.init(db);
   if (TeamsSection && typeof TeamsSection.init === 'function') TeamsSection.init(db);
+  if (TrofeiSection && typeof TrofeiSection.init === 'function') TrofeiSection.init(db);
   if (PlayersSection && typeof PlayersSection.init === 'function') PlayersSection.init(db); 
   if (VotesSection && typeof VotesSection.init === 'function') VotesSection.init(db);
   if (MercatoSection && typeof MercatoSection.init === 'function') MercatoSection.init(db);
@@ -240,6 +246,7 @@ function initAdminApp() {
     container.innerHTML = `
       ${typeof DashboardSection.renderHTML === 'function' ? DashboardSection.renderHTML() : ''}
       ${typeof TeamsSection.renderHTML === 'function' ? TeamsSection.renderHTML() : ''}
+      ${typeof TrofeiSection.renderHTML === 'function' ? TrofeiSection.renderHTML() : ''}
       ${typeof PlayersSection.renderHTML === 'function' ? PlayersSection.renderHTML() : ''}
       ${typeof VotesSection.renderHTML === 'function' ? VotesSection.renderHTML() : ''}
       ${typeof MercatoSection.renderHTML === 'function' ? MercatoSection.renderHTML() : ''}
@@ -268,12 +275,14 @@ function refreshAll() {
     CURRENT_GW, 
     CURRENT_REAL_GW, 
     LIVE: LIVE,
-    competitions 
+    competitions,
+    trophies: window.TROPHIES
   };
   
   // Renderizzazione sicura e condizionale elemento per elemento
   if (DashboardSection && typeof DashboardSection.render === 'function') DashboardSection.render(state);
   if (TeamsSection && typeof TeamsSection.render === 'function') TeamsSection.render(state);
+  if (TrofeiSection && typeof TrofeiSection.render === 'function') TrofeiSection.render(state);
   if (PlayersSection && typeof PlayersSection.render === 'function') PlayersSection.render(state);
   if (VotesSection && typeof VotesSection.render === 'function') VotesSection.render(state);
   if (MercatoSection && typeof MercatoSection.render === 'function') MercatoSection.render(state);
@@ -326,6 +335,12 @@ function startFirebaseSubscriptions() {
 
   onValue(ref(db, 'status/live'), snap => {
     LIVE = snap.val() !== null ? snap.val() : false;
+    refreshAll();
+  });
+
+  onValue(ref(db, 'trophies'), snap => {
+    const raw = snap.val() || {};
+    window.TROPHIES = Object.keys(raw).map(key => ({ id: key, ...raw[key] }));
     refreshAll();
   });
 
