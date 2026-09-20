@@ -195,34 +195,37 @@ export async function uploadBackgroundToImgBB(file) {
 }
 
 /**
- * Scarica un'immagine da un URL remoto (es. Fantacalcio) gestendo il CORS, 
- * la comprime mantenendo la trasparenza e la carica su ImgBB.
+ * Invia l'URL remoto dell'immagine direttamente a ImgBB senza fare la fetch da browser.
+ * Evita blocchi CORS e errori 403.
  * 
- * @param {string} imageUrl - L'URL remoto dell'immagine
- * @param {string} customFileName - Nome personalizzato per il file (es: 'radunovic_3')
+ * @param {string} imageUrl - L'URL remoto dell'immagine (es. Fantacalcio)
  * @returns {Promise<string>} - L'URL finale generato da ImgBB
  */
-export async function uploadUrlToImgBB(imageUrl, customFileName = 'campioncino') {
+export async function uploadUrlToImgBB(imageUrl) {
   if (!imageUrl) throw new Error("URL immagine mancante.");
 
   if (IMGBB_API_KEY === 'INSERISCI_QUI_LA_TUA_CHIAVE_API') {
     throw new Error("Configura la tua API Key di ImgBB nel file integrationImgBB.js!");
   }
 
-  // Utilizziamo un proxy CORS per scaricare l'immagine senza blocchi dal browser
-  const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(imageUrl)}`;
+  // Prepara il form data passando direttamente l'URL dell'immagine
+  const formData = new FormData();
+  formData.append('image', imageUrl);
 
-  const response = await fetch(proxyUrl);
+  const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+    method: 'POST',
+    body: formData
+  });
+
   if (!response.ok) {
-    throw new Error(`Impossibile scaricare l'immagine dall'URL fornito (Status ${response.status})`);
+    throw new Error(`Errore di rete durante l'upload su ImgBB: ${response.status}`);
   }
 
-  // Convertiamo la risposta in un Blob
-  const blob = await response.blob();
+  const resData = await response.json();
 
-  // Creiamo un oggetto File partendo dal Blob in modo che sia 100% compatibile con la tua funzione esistente
-  const file = new File([blob], `${customFileName}.png`, { type: blob.type || 'image/png' });
-
-  // Sfruttiamo direttamente uploadImageToImgBB per la compressione e l'upload
-  return await uploadImageToImgBB(file);
+  if (resData && resData.success && resData.data && resData.data.url) {
+    return resData.data.url;
+  } else {
+    throw new Error("Il server ImgBB ha rifiutato il caricamento dell'URL.");
+  }
 }
