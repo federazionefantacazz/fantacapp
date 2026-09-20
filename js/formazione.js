@@ -99,32 +99,52 @@ export const FormazionePage = {
           width: 80px;
           z-index: 10;
         }
+
+        /* Stili base per la sagoma/slot del calciatore */
         .player-shirt {
-          width: 44px; height: 44px;
-          border-radius: 50%;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 0.9rem; font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.5px;
+          width: 50px; 
+          height: 56px;
+          display: flex; 
+          align-items: center; 
+          justify-content: center;
+          font-size: 0.9rem; 
+          font-family: 'Bebas Neue', sans-serif; 
+          letter-spacing: 0.5px;
           color: #fff;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.3);
-          border: 2px solid #ffffff;
-          transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
+          transition: transform 0.1s ease-out, filter 0.1s ease-out;
           cursor: pointer;
           text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-          overflow: hidden;
-          background-size: cover;
-          background-position: center;
+          background-repeat: no-repeat;
+          background-position: center bottom;
         }
+
+        /* Quando ha la foto PNG: nessuna maschera circolare, nessun bordo */
+        .player-shirt.has-png {
+          border-radius: 0;
+          border: none;
+          box-shadow: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+          background-size: contain;
+        }
+
+        /* Quando è vuoto o senza foto: forma a cerchio con bordo */
+        .player-shirt.is-circle {
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          border: 2px solid #ffffff;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.3);
+        }
+
         .field-player:active .player-shirt {
           transform: translateY(2px);
-          box-shadow: 0 2px 4px rgba(0,0,0,0.4);
         }
         .field-player select {
           position: absolute;
-          top: 0; left: 0; width: 100%; height: 44px;
+          top: 0; left: 0; width: 100%; height: 56px;
           opacity: 0; cursor: pointer; z-index: 12;
         }
         .player-name-label {
-          margin-top: 6px;
+          margin-top: 2px;
           background: rgba(10, 15, 30, 0.85);
           backdrop-filter: blur(4px);
           color: #fff;
@@ -291,13 +311,14 @@ export const FormazionePage = {
         playerDiv.style.left = `${x}%`;
         playerDiv.style.top = `${y}%`;
 
-        // Se è presente la foto, applica l'immagine come background e nasconde la lettera del ruolo
+        // Se c'è la foto, mostra il PNG pulito. Altrimenti usa il cerchietto colorato col ruolo.
+        const shirtClass = photoUrl ? 'player-shirt has-png' : 'player-shirt is-circle';
         const shirtStyle = photoUrl 
-          ? `background-image: url('${photoUrl}'); background-size: cover; background-position: center; font-size: 0;`
-          : `background: ${bgShirt}; color: #fff;`;
+          ? `background-image: url('${photoUrl}'); background-size: contain; background-repeat: no-repeat; font-size: 0;`
+          : `background: ${bgShirt}; color: #fff; font-size: 0.9rem;`;
 
         playerDiv.innerHTML = `
-          <div class="player-shirt" id="shirt-${slotId}" style="${shirtStyle}">
+          <div class="${shirtClass}" id="shirt-${slotId}" style="${shirtStyle}">
             ${photoUrl ? '' : reparto.role}
           </div>
           <div class="player-name-label" id="label-${slotId}" style="${isSelected ? 'color: var(--accent); border-color: var(--accent);' : ''}">
@@ -323,6 +344,7 @@ export const FormazionePage = {
             labelEl.textContent = 'Scegli';
             labelEl.style.color = '';
             labelEl.style.borderColor = '';
+            shirtEl.className = 'player-shirt is-circle';
             shirtEl.style.backgroundImage = 'none';
             shirtEl.style.background = bgShirt;
             shirtEl.style.fontSize = '0.9rem';
@@ -336,12 +358,15 @@ export const FormazionePage = {
             labelEl.style.borderColor = 'var(--accent)';
 
             if (pPhoto) {
+              shirtEl.className = 'player-shirt has-png';
               shirtEl.style.backgroundImage = `url('${pPhoto}')`;
-              shirtEl.style.backgroundSize = 'cover';
-              shirtEl.style.backgroundPosition = 'center';
+              shirtEl.style.backgroundSize = 'contain';
+              shirtEl.style.backgroundRepeat = 'no-repeat';
+              shirtEl.style.backgroundPosition = 'center bottom';
               shirtEl.style.fontSize = '0';
               shirtEl.textContent = '';
             } else {
+              shirtEl.className = 'player-shirt is-circle';
               shirtEl.style.backgroundImage = 'none';
               shirtEl.style.background = bgShirt;
               shirtEl.style.fontSize = '0.9rem';
@@ -387,8 +412,8 @@ export const FormazionePage = {
         div.style.gap = '0.5rem';
 
         const imgHtml = currentPhoto 
-          ? `<img id="img-${slotId}" src="${currentPhoto}" style="width:26px; height:26px; object-fit:contain; border-radius:4px; flex-shrink:0;">`
-          : `<div id="img-${slotId}" style="width:26px; height:26px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.65rem; color:var(--text3); flex-shrink:0;"><i class="ri-user-3-line"></i></div>`;
+          ? `<img id="img-${slotId}" src="${currentPhoto}" style="width:28px; height:28px; object-fit:contain; flex-shrink:0;">`
+          : `<div id="img-${slotId}" style="width:28px; height:28px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.65rem; color:var(--text3); flex-shrink:0;"><i class="ri-user-3-line"></i></div>`;
 
         div.innerHTML = `
           <div class="rbadge r${item.role}" style="width:24px;height:24px;font-size:.65rem;border-radius:5px;flex-shrink:0;">${item.role}</div>
@@ -411,9 +436,9 @@ export const FormazionePage = {
 
           if (imgEl) {
             if (pPhoto) {
-              imgEl.outerHTML = `<img id="${imgTargetId}" src="${pPhoto}" style="width:26px; height:26px; object-fit:contain; border-radius:4px; flex-shrink:0;">`;
+              imgEl.outerHTML = `<img id="${imgTargetId}" src="${pPhoto}" style="width:28px; height:28px; object-fit:contain; flex-shrink:0;">`;
             } else {
-              imgEl.outerHTML = `<div id="${imgTargetId}" style="width:26px; height:26px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.65rem; color:var(--text3); flex-shrink:0;"><i class="ri-user-3-line"></i></div>`;
+              imgEl.outerHTML = `<div id="${imgTargetId}" style="width:28px; height:28px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.65rem; color:var(--text3); flex-shrink:0;"><i class="ri-user-3-line"></i></div>`;
             }
           }
 
