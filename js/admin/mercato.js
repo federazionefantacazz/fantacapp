@@ -3,6 +3,7 @@ import { ref, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-
 export const MercatoSection = {
   db: null,
   rawPlayers: [],
+  selectedTeamId: null, // Mantiene in memoria l'ultima squadra selezionata
 
   init(databaseInstance) {
     this.db = databaseInstance;
@@ -50,7 +51,6 @@ export const MercatoSection = {
   },
 
   render({ PLAYERS, TEAMS }) {
-    // Salviamo lo stato locale dei giocatori per ricavare l'ID dal testo cercato
     this.rawPlayers = PLAYERS;
 
     this._populateInputs(PLAYERS, TEAMS);
@@ -62,16 +62,26 @@ export const MercatoSection = {
     const tSelect = document.getElementById('mTeamSelect');
     if (!dlPlayers || !tSelect) return;
 
+    // Se l'utente ha già selezionato manualmente una squadra nel select, la memorizziamo prima di ridisegnare
+    if (tSelect.value) {
+      this.selectedTeamId = tSelect.value;
+    }
+
     // 1. Popola la lista di ricerca dei soli calciatori svincolati
     const svincolati = PLAYERS.filter(p => !p.teamId && p.name).sort((a, b) => a.name.localeCompare(b.name));
     dlPlayers.innerHTML = svincolati.map(p =>
       `<option value="${p.name} (${p.role} - ${p.club || 'Svincolato'})"></option>`
     ).join('');
 
-    // 2. Ripristinato il popolamento del select classico delle fanta-squadre usando l'ID nativo
+    // 2. Popola il select delle fanta-squadre
     tSelect.innerHTML = TEAMS.map(t =>
       `<option value="${t.id}">${t.emoji || '⚽'} ${t.name}</option>`
     ).join('');
+
+    // 3. Ripristina l'ultima squadra selezionata se ancora presente tra i team
+    if (this.selectedTeamId && TEAMS.some(t => t.id === this.selectedTeamId)) {
+      tSelect.value = this.selectedTeamId;
+    }
   },
 
   _renderTable(PLAYERS, TEAMS) {
@@ -100,13 +110,16 @@ export const MercatoSection = {
 
   async assignPlayerToTeam() {
     const playerInputValue = document.getElementById('mPlayerSearch').value.trim();
-    const tId = document.getElementById('mTeamSelect').value; // Recupera direttamente l'ID dal select classico
+    const tSelect = document.getElementById('mTeamSelect');
+    const tId = tSelect ? tSelect.value : null;
 
     if (!playerInputValue || !tId) {
       return window.toast("Compila il campo del giocatore e seleziona una squadra!", "err");
     }
 
-    // Risaliamo all'ID del giocatore verificando se il testo digitato inizia con il suo nome reale
+    // Salva la squadra scelta nello stato locale
+    this.selectedTeamId = tId;
+
     const targetPlayer = this.rawPlayers.find(p => !p.teamId && playerInputValue.startsWith(p.name));
 
     if (!targetPlayer) {
@@ -116,7 +129,7 @@ export const MercatoSection = {
     try {
       await update(ref(this.db, 'players/' + targetPlayer.id), { teamId: tId });
       
-      // Resetta solo il campo di ricerca del giocatore per il prossimo inserimento
+      // Resetta solo il campo del giocatore
       document.getElementById('mPlayerSearch').value = "";
       
       window.toast("Giocatore assegnato con successo!", "ok");
