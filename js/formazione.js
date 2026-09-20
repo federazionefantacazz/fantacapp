@@ -110,6 +110,9 @@ export const FormazionePage = {
           transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
           cursor: pointer;
           text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+          overflow: hidden;
+          background-size: cover;
+          background-position: center;
         }
         .field-player:active .player-shirt {
           transform: translateY(2px);
@@ -259,6 +262,7 @@ export const FormazionePage = {
         let preselectedId = "";
         let preselectedText = "Scegli";
         let isSelected = false;
+        let photoUrl = "";
 
         if (savedIds && savedIds.length > 0) {
           const ruoloSavedIds = savedIds.filter(id => {
@@ -272,6 +276,7 @@ export const FormazionePage = {
             if (pObj) {
               preselectedText = pObj.name;
               isSelected = true;
+              photoUrl = pObj.photoPersonal || pObj.photoStandard || '';
             }
           }
         }
@@ -286,15 +291,20 @@ export const FormazionePage = {
         playerDiv.style.left = `${x}%`;
         playerDiv.style.top = `${y}%`;
 
+        // Se è presente la foto, applica l'immagine come background e nasconde la lettera del ruolo
+        const shirtStyle = photoUrl 
+          ? `background-image: url('${photoUrl}'); background-size: cover; background-position: center; font-size: 0;`
+          : `background: ${bgShirt}; color: #fff;`;
+
         playerDiv.innerHTML = `
-          <div class="player-shirt" style="background: ${bgShirt}; color: #fff;">
-            ${reparto.role}
+          <div class="player-shirt" id="shirt-${slotId}" style="${shirtStyle}">
+            ${photoUrl ? '' : reparto.role}
           </div>
           <div class="player-name-label" id="label-${slotId}" style="${isSelected ? 'color: var(--accent); border-color: var(--accent);' : ''}">
             ${preselectedText}
           </div>
           
-          <select id="${slotId}" data-role="${reparto.role}" data-label-target="label-${slotId}" class="field-select">
+          <select id="${slotId}" data-role="${reparto.role}" data-label-target="label-${slotId}" data-shirt-target="shirt-${slotId}" class="field-select">
             <option value="">-- ${reparto.role} --</option>
             ${ops.map(p => `<option value="${p.id}" ${p.id === preselectedId ? 'selected' : ''}>${p.name} (${p.club})</option>`).join('')}
           </select>
@@ -305,17 +315,38 @@ export const FormazionePage = {
         playerDiv.querySelector('select').addEventListener('change', (e) => {
           const val = e.target.value;
           const labelId = e.target.dataset.labelTarget;
+          const shirtId = e.target.dataset.shirtTarget;
           const labelEl = document.getElementById(labelId);
+          const shirtEl = document.getElementById(shirtId);
 
           if (!val) {
             labelEl.textContent = 'Scegli';
             labelEl.style.color = '';
             labelEl.style.borderColor = '';
+            shirtEl.style.backgroundImage = 'none';
+            shirtEl.style.background = bgShirt;
+            shirtEl.style.fontSize = '0.9rem';
+            shirtEl.textContent = reparto.role;
           } else {
-            const selectedText = e.target.options[e.target.selectedIndex].text;
-            labelEl.textContent = selectedText.split(' (')[0];
+            const pObj = rosa.find(p => String(p.id) === String(val));
+            const pPhoto = pObj ? (pObj.photoPersonal || pObj.photoStandard || '') : '';
+
+            labelEl.textContent = pObj ? pObj.name : 'Scegli';
             labelEl.style.color = 'var(--accent)';
             labelEl.style.borderColor = 'var(--accent)';
+
+            if (pPhoto) {
+              shirtEl.style.backgroundImage = `url('${pPhoto}')`;
+              shirtEl.style.backgroundSize = 'cover';
+              shirtEl.style.backgroundPosition = 'center';
+              shirtEl.style.fontSize = '0';
+              shirtEl.textContent = '';
+            } else {
+              shirtEl.style.backgroundImage = 'none';
+              shirtEl.style.background = bgShirt;
+              shirtEl.style.fontSize = '0.9rem';
+              shirtEl.textContent = reparto.role;
+            }
           }
           this.refreshAllDropdowns(rosa);
         });
@@ -334,6 +365,8 @@ export const FormazionePage = {
         const ops = rosa.filter(p => p.role === item.role);
 
         let preselectedId = "";
+        let currentPhoto = "";
+
         if (savedIds && savedIds.length > 0) {
           const ruoloSavedIds = savedIds.filter(id => {
             const p = rosa.find(player => player.id === id);
@@ -341,16 +374,27 @@ export const FormazionePage = {
           });
           if (ruoloSavedIds[i - 1]) {
             preselectedId = ruoloSavedIds[i - 1];
+            const pObj = rosa.find(p => p.id === preselectedId);
+            if (pObj) currentPhoto = pObj.photoPersonal || pObj.photoStandard || '';
           }
         }
 
         const div = document.createElement('div');
         div.className = 'pcard'; 
         div.style.padding = '.4rem .6rem';
+        div.style.display = 'flex';
+        div.style.alignItems = 'center';
+        div.style.gap = '0.5rem';
+
+        const imgHtml = currentPhoto 
+          ? `<img id="img-${slotId}" src="${currentPhoto}" style="width:26px; height:26px; object-fit:contain; border-radius:4px; flex-shrink:0;">`
+          : `<div id="img-${slotId}" style="width:26px; height:26px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.65rem; color:var(--text3); flex-shrink:0;"><i class="ri-user-3-line"></i></div>`;
+
         div.innerHTML = `
-          <div class="rbadge r${item.role}" style="width:24px;height:24px;font-size:.65rem;border-radius:5px">${item.role}</div>
+          <div class="rbadge r${item.role}" style="width:24px;height:24px;font-size:.65rem;border-radius:5px;flex-shrink:0;">${item.role}</div>
+          ${imgHtml}
           <div style="flex:1;">
-            <select id="${slotId}" data-role="${item.role}" class="select-rose" style="padding:.4rem .6rem;font-size:.8rem;background:var(--bg2);">
+            <select id="${slotId}" data-role="${item.role}" data-img-target="img-${slotId}" class="select-rose" style="padding:.4rem .6rem;font-size:.8rem;background:var(--bg2);">
               <option value="">-- Seleziona ${item.role} --</option>
               ${ops.map(p => `<option value="${p.id}" ${p.id === preselectedId ? 'selected' : ''}>${p.name} (${p.club})</option>`).join('')}
             </select>
@@ -359,6 +403,20 @@ export const FormazionePage = {
         container.appendChild(div);
 
         div.querySelector('select').addEventListener('change', (e) => {
+          const val = e.target.value;
+          const imgTargetId = e.target.dataset.imgTarget;
+          const imgEl = document.getElementById(imgTargetId);
+          const pObj = rosa.find(p => String(p.id) === String(val));
+          const pPhoto = pObj ? (pObj.photoPersonal || pObj.photoStandard || '') : '';
+
+          if (imgEl) {
+            if (pPhoto) {
+              imgEl.outerHTML = `<img id="${imgTargetId}" src="${pPhoto}" style="width:26px; height:26px; object-fit:contain; border-radius:4px; flex-shrink:0;">`;
+            } else {
+              imgEl.outerHTML = `<div id="${imgTargetId}" style="width:26px; height:26px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.65rem; color:var(--text3); flex-shrink:0;"><i class="ri-user-3-line"></i></div>`;
+            }
+          }
+
           this.refreshAllDropdowns(rosa);
         });
       }
