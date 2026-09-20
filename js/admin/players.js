@@ -144,7 +144,7 @@ export const PlayersSection = {
       }
     };
 
-    // AGGIORNA CAMPIONCINI STANDARD USANDO IL TUO SERVIZIO INTEGRATIONIMGBB
+    // AGGIORNA CAMPIONCINI STANDARD USANDO IL SERVIZIO CENTRALIZZATO
     window.updateStandardPhotosImgBB = async () => {
       if (!window.PLAYERS || window.PLAYERS.length === 0) {
         if (typeof window.toast === 'function') window.toast("Nessun giocatore nel database!", "err");
@@ -165,13 +165,11 @@ export const PlayersSection = {
       for (let i = 0; i < total; i++) {
         const player = window.PLAYERS[i];
         
-        // Verifica validità ID
         if (!player.id || isNaN(player.id)) {
           failCount++;
           continue;
         }
 
-        // URL Fantacalcio stagione 26/27 (stagione 21)
         const fantacalcioUrl = `https://content.fantacalcio.it/web/campioncini/21/medium/${player.id}.png`;
 
         if (statusBox) {
@@ -179,36 +177,27 @@ export const PlayersSection = {
         }
 
         try {
-          // 1. Fetch dell'immagine da Fantacalcio come Blob
-          const response = await fetch(fantacalcioUrl);
-          if (!response.ok) throw new Error("Immagine Fantacalcio non trovata");
-
-          const blob = await response.blob();
-          
-          // Convertiamo il Blob in un oggetto File per passarlo a uploadImageToImgBB
-          const fileToUpload = new File([blob], `${player.id}_standard.png`, { type: 'image/png' });
-
-          // 2. Upload tramite la tua funzione centralizzata
-          const finalImgUrl = await uploadImageToImgBB(fileToUpload);
+          // Utilizza la funzione centralizzata passando l'URL
+          const finalImgUrl = await uploadImageToImgBB(fantacalcioUrl);
 
           if (finalImgUrl) {
-            // 3. Salva in Firebase under 'photoStandard'
+            // Salvataggio su Firebase sotto 'photoStandard'
             await update(ref(this._db, `players/${player.id}`), {
               photoStandard: finalImgUrl
             });
             successCount++;
           } else {
-            throw new Error("Impossibile ottenere URL da ImgBB");
+            throw new Error("Errore durante l'upload su ImgBB");
           }
 
         } catch (err) {
-          console.warn(`Errore foto per ${player.name} (ID: ${player.id})`, err);
+          console.warn(`Errore caricamento per ${player.name} (ID: ${player.id})`, err);
           failCount++;
         }
       }
 
       if (statusBox) {
-        statusBox.textContent = `Operazione completata! Caricate ${successCount} foto su ImgBB (${failCount} non trovate/fallite).`;
+        statusBox.textContent = `Completato! Caricate ${successCount} foto su ImgBB (${failCount} non trovate o fallite).`;
       }
 
       if (typeof window.toast === 'function') {
