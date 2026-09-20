@@ -1,4 +1,6 @@
 import { ref, update, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+// IMPORTA IL SERVIZIO CENTRALIZZATO PER L'UPLOAD IMGBB
+import { uploadImageToImgBB } from "../services/integrationImgBB.js"; 
 
 export const PlayersSection = {
   _filter: '',
@@ -40,12 +42,9 @@ export const PlayersSection = {
         return;
       }
 
-      // Prima conferma di sicurezza
       if (confirm("ATTENZIONE!\nStai per eliminare TUTTI i calciatori dal database.\nQuesta azione rimuoverà anche i giocatori associati alle squadre. Vuoi procedere?")) {
-        // Seconda conferma esplicita
         if (confirm("Sei assolutamente sicuro? L'azione è irreversibile e resetterà il listone.")) {
           try {
-            // Elimina (o setta a null) l'intero nodo 'players'
             await set(ref(this._db, 'players'), null);
             if (typeof window.toast === 'function') {
               window.toast("Database calciatori svuotato con successo!", "ok");
@@ -81,7 +80,9 @@ export const PlayersSection = {
             role: (p.role || p.r || 'D').toUpperCase().charAt(0),
             club: p.club || p.team || p.s || 'Svincolato',
             value: parseInt(p.value || p.q || p.fvm || 1),
-            teamId: p.teamId || null
+            teamId: p.teamId || null,
+            photoStandard: p.photoStandard || null,
+            photoPersonal: p.photoPersonal || null
           }));
         } 
         else {
@@ -111,7 +112,7 @@ export const PlayersSection = {
                   role: role,
                   club: club || 'Svincolato',
                   value: value,
-                  teamId: null 
+                  teamId: null
                 });
               }
             }
@@ -142,6 +143,78 @@ export const PlayersSection = {
         }
       }
     };
+
+    // AGGIORNA CAMPIONCINI STANDARD USANDO IL TUO SERVIZIO INTEGRATIONIMGBB
+    window.updateStandardPhotosImgBB = async () => {
+      if (!window.PLAYERS || window.PLAYERS.length === 0) {
+        if (typeof window.toast === 'function') window.toast("Nessun giocatore nel database!", "err");
+        return;
+      }
+
+      if (!confirm(`Vuoi scaricare le foto da Fantacalcio (stagione 21) per ${window.PLAYERS.length} giocatori e caricarle su ImgBB salvando 'photoStandard'?`)) {
+        return;
+      }
+
+      const statusBox = document.getElementById('campionciniStatus');
+      if (statusBox) statusBox.style.display = 'block';
+
+      let successCount = 0;
+      let failCount = 0;
+      const total = window.PLAYERS.length;
+
+      for (let i = 0; i < total; i++) {
+        const player = window.PLAYERS[i];
+        
+        // Verifica validità ID
+        if (!player.id || isNaN(player.id)) {
+          failCount++;
+          continue;
+        }
+
+        // URL Fantacalcio stagione 26/27 (stagione 21)
+        const fantacalcioUrl = `https://content.fantacalcio.it/web/campioncini/21/medium/${player.id}.png`;
+
+        if (statusBox) {
+          statusBox.textContent = `Elaborazione ${i + 1}/${total}: ${player.name}... (Caricati: ${successCount}, Errore: ${failCount})`;
+        }
+
+        try {
+          // 1. Fetch dell'immagine da Fantacalcio come Blob
+          const response = await fetch(fantacalcioUrl);
+          if (!response.ok) throw new Error("Immagine Fantacalcio non trovata");
+
+          const blob = await response.blob();
+          
+          // Convertiamo il Blob in un oggetto File per passarlo a uploadImageToImgBB
+          const fileToUpload = new File([blob], `${player.id}_standard.png`, { type: 'image/png' });
+
+          // 2. Upload tramite la tua funzione centralizzata
+          const finalImgUrl = await uploadImageToImgBB(fileToUpload);
+
+          if (finalImgUrl) {
+            // 3. Salva in Firebase under 'photoStandard'
+            await update(ref(this._db, `players/${player.id}`), {
+              photoStandard: finalImgUrl
+            });
+            successCount++;
+          } else {
+            throw new Error("Impossibile ottenere URL da ImgBB");
+          }
+
+        } catch (err) {
+          console.warn(`Errore foto per ${player.name} (ID: ${player.id})`, err);
+          failCount++;
+        }
+      }
+
+      if (statusBox) {
+        statusBox.textContent = `Operazione completata! Caricate ${successCount} foto su ImgBB (${failCount} non trovate/fallite).`;
+      }
+
+      if (typeof window.toast === 'function') {
+        window.toast(`Aggiornati ${successCount} campioncini standard!`, 'ok');
+      }
+    };
   },
 
   renderHTML() {
@@ -157,10 +230,13 @@ export const PlayersSection = {
         </p>
         <textarea id="pImportInput" class="input-login" rows="4" placeholder="Incolla qui le righe del file (es: 4312,P,Por,Maignan,Milan,16...)" style="font-family:'DM Mono',monospace; font-size:0.8rem; height:120px; resize:vertical; margin-bottom:0.75rem;"></textarea>
         
-        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem;">
           <button class="btn btn-blue" style="width:auto; padding:0.5rem 1.5rem;" onclick="window.importPlayersData()">Elabora ed Importa</button>
+          <button class="btn btn-outline" style="width:auto; padding:0.5rem 1.5rem; border-color: var(--accent);" onclick="window.updateStandardPhotosImgBB()">🖼️ Aggiorna Campioncini Standard</button>
           <button class="btn btn-red" style="width:auto; padding:0.5rem 1.5rem; background: var(--accent3);" onclick="window.clearPlayersDatabase()">❌ Svuota Intero Listone</button>
         </div>
+
+        <div id="campionciniStatus" style="display:none; font-size: 0.8rem; color: var(--accent); font-weight: 600; padding: 0.5rem; background: rgba(0,0,0,0.2); border-radius: 6px;"></div>
       </div>
 
       <div class="card">
@@ -171,7 +247,7 @@ export const PlayersSection = {
         <div class="table-wrapper" style="max-height:500px">
           <table>
             <thead>
-              <tr><th>Nome</th><th>Ruolo</th><th>Club</th><th>Valore</th><th>Azioni</th></tr>
+              <tr><th>Foto</th><th>Nome</th><th>Ruolo</th><th>Club</th><th>Valore</th><th>Azioni</th></tr>
             </thead>
             <tbody id="playersTableBody"></tbody>
           </table>
@@ -191,12 +267,20 @@ export const PlayersSection = {
     if (pFoundCount) pFoundCount.textContent = `Trovati: ${filtered.length}`;
 
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text3); padding:2rem;">Nessun calciatore nel database. Usa il box sopra per importarli.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text3); padding:2rem;">Nessun calciatore nel database. Usa il box sopra per importarli.</td></tr>`;
       return;
     }
 
-    tbody.innerHTML = filtered.slice(0, 50).map(p => `
+    tbody.innerHTML = filtered.slice(0, 50).map(p => {
+      // Priorità alla foto personalizzata, altrimenti usa quella standard
+      const imgUrl = p.photoPersonal || p.photoStandard || '';
+      const imgHTML = imgUrl 
+        ? `<img src="${imgUrl}" alt="${p.name}" style="width:32px; height:32px; object-fit:contain; border-radius:4px;">`
+        : `<div style="width:32px; height:32px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.7rem; color:var(--text3);"><i class="ri-user-3-line"></i></div>`;
+
+      return `
       <tr>
+        <td>${imgHTML}</td>
         <td><strong>${p.name}</strong></td>
         <td><span class="badge ${p.role === 'P' ? 'badge-gray' : p.role === 'D' ? 'badge-blue' : p.role === 'C' ? 'badge-green' : 'badge-red'}">${p.role}</span></td>
         <td>${p.club || 'Svincolato'}</td>
@@ -205,7 +289,8 @@ export const PlayersSection = {
           <button class="btn btn-red" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; width: auto;" onclick="window.releasePlayer('${p.id}')">Svincola</button>
         </td>
       </tr>
-    `).join('');
+      `;
+    }).join('');
   },
 
   setFilter(val) {
