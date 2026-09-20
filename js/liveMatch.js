@@ -108,15 +108,17 @@ export const LiveMatchModule = {
       if (!p) return { name: "Sconosciuto", role: "?", club: "?", voto: 0, bonus: 0, malus: 0, fv: 0, live: false };
       
       const vObj = votes[id] || {};
-      const votoPuro = vObj.voto !== undefined ? Number(vObj.voto) : 0;
-      const fantaVoto = vObj.fVoto !== undefined ? Number(vObj.fVoto) : 0;
-      
+      const votoPuro = vObj.voto !== undefined && vObj.voto !== null ? Number(vObj.voto) : 0;
+      const fantaVoto = vObj.fVoto !== undefined && vObj.fVoto !== null ? Number(vObj.fVoto) : 0;
+      const emoji = CalcoloMatchService.emojiFromBonus(vObj.bonus);
+
       return {
         name: p.name,
         role: p.role,
         club: p.club,
         voto: votoPuro,
         fv: fantaVoto,
+        emoji,
         live: !!vObj.live
       };
     };
@@ -150,20 +152,31 @@ export const LiveMatchModule = {
 
         const textColor = p.role === 'C' ? '#0a0f1e' : '#fff';
         const indicatorLive = p.live ? `<span style="color:var(--accent3); font-size:0.65rem; margin-left:4px; animation: fadeIn 1s infinite alternate;">●</span>` : "";
-        
-        let scoreText = "-";
-        if (p.fv > 0) scoreText = p.fv;
-        else if (p.voto > 0) scoreText = p.voto;
+        const emojiHTML = p.emoji ? `<span style="font-size:0.7rem; margin-left:4px;">${p.emoji}</span>` : "";
+
+        // Fantavoto in evidenza; il voto puro resta visibile ma più piccolo,
+        // solo quando differisce dal fantavoto (cioè ci sono bonus/malus).
+        let scoreMainText = "-";
+        let scoreSubText = "";
+        if (p.fv > 0) {
+          scoreMainText = p.fv.toFixed(1).replace(/\.0$/, "");
+          if (p.voto > 0 && p.voto !== p.fv) {
+            scoreSubText = `v. ${p.voto}`;
+          }
+        } else if (p.voto > 0) {
+          scoreMainText = p.voto;
+        }
 
         titolariHTML += `
           <div class="pcard" style="margin-bottom:0.4rem; padding:0.4rem 0.6rem;">
             <div class="rbadge" style="background:${badgeColor}; color:${textColor}; width:24px; height:24px; font-size:0.7rem; border-radius:6px;">${p.role}</div>
             <div class="pi">
               <div class="pn" style="font-size:0.85rem;">${p.name} ${indicatorLive}</div>
-              <div class="pm" style="font-size:0.65rem;">${p.club.toUpperCase()}</div>
+              <div class="pm" style="font-size:0.65rem;">${p.club.toUpperCase()} ${emojiHTML}</div>
             </div>
-            <div class="pr">
-              <span class="price" style="font-size:0.9rem; color:${p.live ? 'var(--accent)' : 'var(--gold)'};">${scoreText}</span>
+            <div class="pr" style="text-align:right;">
+              <span class="price" style="font-size:0.9rem; color:${p.live ? 'var(--accent)' : 'var(--gold)'};">${scoreMainText}</span>
+              ${scoreSubText ? `<div style="font-size:0.6rem; color:var(--text2);">${scoreSubText}</div>` : ""}
             </div>
           </div>
         `;
@@ -179,14 +192,15 @@ export const LiveMatchModule = {
           if (p.role === 'A') badgeColor = "rgba(255,71,87,0.4)";
 
           let scoreText = "-";
-          if (p.fv > 0) scoreText = p.fv;
+          if (p.fv > 0) scoreText = p.fv.toFixed(1).replace(/\.0$/, "");
           else if (p.voto > 0) scoreText = p.voto;
+          const emojiHTML = p.emoji ? ` ${p.emoji}` : "";
 
           panchinaHTML += `
             <div class="pcard" style="margin-bottom:0.3rem; padding:0.3rem 0.5rem; background: rgba(255,255,255,0.02); border-radius:8px;">
               <div class="rbadge" style="background:${badgeColor}; width:20px; height:20px; font-size:0.65rem; border-radius:4px;">${p.role}</div>
               <div class="pi">
-                <div class="pn" style="font-size:0.8rem; opacity:0.8;">${p.name}</div>
+                <div class="pn" style="font-size:0.8rem; opacity:0.8;">${p.name}${emojiHTML}</div>
               </div>
               <div class="pr">
                 <span style="font-size:0.8rem; font-family:'DM Mono',monospace; color:var(--text2);">${scoreText}</span>
@@ -245,3 +259,4 @@ export const LiveMatchModule = {
     `;
   }
 };
+
