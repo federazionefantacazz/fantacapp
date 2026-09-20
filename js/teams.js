@@ -82,13 +82,11 @@ export const TeamsPage = {
       `;
     }).join('');
 
-    // Se eravamo già dentro il dettaglio di una squadra durante un refresh dello STATE, aggiorna la rosa in tempo reale
     if(document.getElementById('team-detail-view')?.style.display === 'block' && this.activeTeamId) {
       this.drawRosa(this.activeTeamId, STATE);
     }
   },
 
-  // Switch di vista ed estrazione dati della squadra selezionata
   openTeamDetail(teamId, STATE) {
     this.activeTeamId = teamId;
     const listView = document.getElementById('teams-list-view');
@@ -103,12 +101,10 @@ export const TeamsPage = {
 
     if (titleView) titleView.innerHTML = `${team.name}`;
 
-    // Configura il click sul bottone Info Club in alto a destra
     if (btnInfo) {
       btnInfo.onclick = () => this.openInfoModal(team);
     }
 
-    // Renderizza i giocatori della squadra
     this.drawRosa(teamId, STATE);
 
     listView.style.display = 'none';
@@ -118,7 +114,7 @@ export const TeamsPage = {
     if (pageContainer) pageContainer.scrollTop = 0;
   },
 
-  // Generazione della Rosa
+  // Generazione della Rosa con inserimento della foto del calciatore
   drawRosa(teamId, STATE) {
     const container = document.getElementById('team-roster-container');
     if (!container) return;
@@ -141,11 +137,25 @@ export const TeamsPage = {
       html += roles[rk].sort((a,b)=>(b.price||0)-(a.price||0)).map(p => {
         const v = STATE.votes[p.id];
         const mvHtml = v ? `<span class="mv-badge ${v>=7?'mv-up':'mv-dn'}">${v.toFixed(1)}</span>` : '';
+
+        // Gestione priorità: photoPersonal -> photoStandard -> Fallback Icona
+        const photoUrl = p.photoPersonal || p.photoStandard || '';
+        const imgHtml = photoUrl
+          ? `<img src="${photoUrl}" alt="${p.name}" style="width:28px; height:28px; object-fit:contain; border-radius:4px; flex-shrink:0;">`
+          : `<div style="width:28px; height:28px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.7rem; color:var(--text3); flex-shrink:0;"><i class="ri-user-3-line"></i></div>`;
+
         return `
-          <div class="pcard">
-            <div class="rbadge r${p.role}" style="width:24px;height:24px;font-size:.6rem;border-radius:5px">${p.role}</div>
-            <div class="pi"><div class="pn">${p.name}${mvHtml}</div><div class="pm">${p.club}</div></div>
-            <div class="pr"><div class="price">${p.price||0}M</div><div class="pavg">Mv ${(p.avg||6).toFixed(1)}</div></div>
+          <div class="pcard" style="display:flex; align-items:center; gap:0.6rem;">
+            <div class="rbadge r${p.role}" style="width:24px;height:24px;font-size:.6rem;border-radius:5px;flex-shrink:0;">${p.role}</div>
+            ${imgHtml}
+            <div class="pi" style="flex:1; min-width:0;">
+              <div class="pn" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.name}${mvHtml}</div>
+              <div class="pm">${p.club}</div>
+            </div>
+            <div class="pr" style="text-align:right; flex-shrink:0;">
+              <div class="price">${p.price||0}M</div>
+              <div class="pavg">Mv ${(p.avg||6).toFixed(1)}</div>
+            </div>
           </div>
         `;
       }).join('');
@@ -154,7 +164,6 @@ export const TeamsPage = {
     container.innerHTML = html;
   },
 
-  // Mostra il modal con la storia e i trofei
   openInfoModal(team) {
     const modal = document.getElementById('club-info-modal');
     const content = document.getElementById('club-info-content');
