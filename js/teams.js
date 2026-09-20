@@ -69,7 +69,7 @@ export const TeamsPage = {
       return `
         <div class="card" onclick="window.openTeamDetail('${t.id}')" style="display:flex; align-items:center; gap:1.25rem; padding:1rem; background:var(--card); cursor:pointer; transition:transform 0.15s, background-color 0.15s;">
           <div style="width:52px; height:52px; flex-shrink:0; background:var(--bg2); border-radius:12px; border:1px solid rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; overflow:hidden;">
-            <img src="${logoUrl}" alt="Logo ${t.name}" style="width:100%; height:100%; object-fit:contain;" onerror="this.src='icons/icon-192.png'">
+            <img src="${logoUrl}" alt="Logo ${t.name}" loading="lazy" decoding="async" style="width:100%; height:100%; object-fit:contain;" onerror="this.src='icons/icon-192.png'">
           </div>
           <div style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; gap:0.4rem;">
@@ -114,7 +114,7 @@ export const TeamsPage = {
     if (pageContainer) pageContainer.scrollTop = 0;
   },
 
-  // Generazione della Rosa con inserimento della foto del calciatore
+  // Generazione della Rosa con Lazy Loading per calciatori rivali
   drawRosa(teamId, STATE) {
     const container = document.getElementById('team-roster-container');
     if (!container) return;
@@ -138,10 +138,9 @@ export const TeamsPage = {
         const v = STATE.votes[p.id];
         const mvHtml = v ? `<span class="mv-badge ${v>=7?'mv-up':'mv-dn'}">${v.toFixed(1)}</span>` : '';
 
-        // Gestione priorità: photoPersonal -> photoStandard -> Fallback Icona
         const photoUrl = p.photoPersonal || p.photoStandard || '';
         const imgHtml = photoUrl
-          ? `<img src="${photoUrl}" alt="${p.name}" style="width:28px; height:28px; object-fit:contain; border-radius:4px; flex-shrink:0;">`
+          ? `<img src="${photoUrl}" alt="${p.name}" loading="lazy" decoding="async" style="width:28px; height:28px; object-fit:contain; border-radius:4px; flex-shrink:0;">`
           : `<div style="width:28px; height:28px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.7rem; color:var(--text3); flex-shrink:0;"><i class="ri-user-3-line"></i></div>`;
 
         return `
@@ -193,7 +192,7 @@ export const TeamsPage = {
     content.innerHTML = `
       <div style="text-align:center; margin-bottom:1.5rem;">
         <div style="width:90px; height:90px; background:var(--bg2); border-radius:20px; border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; overflow:hidden; margin:0 auto 1rem auto;">
-          <img src="${logoUrl}" alt="Logo XL" style="width:100%; height:100%; object-fit:contain;" onerror="this.src='icons/icon-192.png'">
+          <img src="${logoUrl}" alt="Logo XL" loading="lazy" decoding="async" style="width:100%; height:100%; object-fit:contain;" onerror="this.src='icons/icon-192.png'">
         </div>
         <h2 style="font-family:'Bebas Neue',sans-serif; font-size:2rem; color:var(--text); margin-bottom:0.2rem;">
           ${team.name}
