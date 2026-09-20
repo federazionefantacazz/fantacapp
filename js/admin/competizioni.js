@@ -1,18 +1,17 @@
 import { ref, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-// IMPORTA IL SERVIZIO CENTRALIZZATO PER L'UPLOAD (Verifica che il percorso relativo sia corretto)
 import { uploadImageToImgBB } from "../services/integrationImgBB.js"; 
 
 let database = null;
 
 export const CompetizioniSection = {
-  currentLogoUrl: '',       // Tiene in memoria il vecchio logo se non viene cambiato in modifica
+  currentLogoUrl: '',
 
   init(db) {
     database = db;
     this.registerGlobalActions();
   },
 
-  // 1. INTERFACCIA GRAFICA DEL FORM
+  // 1. INTERFACCIA GRAFICA DEL FORM (Aggiunta Combobox Trofeo)
   renderHTML() {
     return `
     <div id="sec-crea-competizioni" class="admin-sec" style="display:none;">
@@ -26,6 +25,11 @@ export const CompetizioniSection = {
 
         <label class="label">Nome Competizione (es: Serie A Tim)</label>
         <input type="text" id="compName" class="input-login" placeholder="Nome visibile">
+
+        <label class="label">Trofeo Associato (Palmarès)</label>
+        <select id="compTrophy" class="input-login">
+          <option value="">-- Nessun Trofeo Selezionato --</option>
+        </select>
 
         <div class="label" style="font-size:.8rem; margin-top:.5rem; color:var(--text2)">Logo Competizione (.jpg, .jpeg, .png)</div>
         <input type="file" id="compLogoFile" name="compLogoFile" class="input-login" accept=".jpg, .jpeg, .png, .JPG, .JPEG, .PNG, image/jpeg, image/png" style="padding-top:.5rem;">
@@ -66,6 +70,7 @@ export const CompetizioniSection = {
             <thead>
               <tr>
                 <th>Logo</th>
+                <th>Trofeo</th>
                 <th>ID</th>
                 <th>Nome</th>
                 <th>Tipo</th>
@@ -76,7 +81,7 @@ export const CompetizioniSection = {
               </tr>
             </thead>
             <tbody id="admin-competitions-list">
-              <tr><td colspan="8" style="text-align: center;">Caricamento competizioni...</td></tr>
+              <tr><td colspan="9" style="text-align: center;">Caricamento competizioni...</td></tr>
             </tbody>
           </table>
         </div>
@@ -105,21 +110,36 @@ export const CompetizioniSection = {
     }).join('');
   },
 
-  // 2. RENDERING DELLA TABELLA CON LOGO
+  populateTrophiesDropdown(trophies = [], selectedTrophyId = '') {
+    const select = document.getElementById('compTrophy');
+    if (!select) return;
+
+    let options = `<option value="">-- Nessun Trofeo Selezionato --</option>`;
+    trophies.forEach(tr => {
+      const isSelected = String(tr.id) === String(selectedTrophyId) ? 'selected' : '';
+      options += `<option value="${tr.id}" ${isSelected}>${tr.name}</option>`;
+    });
+
+    select.innerHTML = options;
+  },
+
+  // 2. RENDERING DELLA TABELLA CON LOGO E TROFEO
   render(state) {
     const listContainer = document.getElementById('admin-competitions-list');
     if (!listContainer) return;
 
     const allTeams = state.TEAMS || window.TEAMS || [];
+    const trophies = state.trophies || window.TROPHIES || [];
     const isEditing = document.getElementById('btn-cancel-edit-comp')?.style.display === "inline-flex";
     
     if (!isEditing) {
       this.populateTeamsList(allTeams, []);
+      this.populateTrophiesDropdown(trophies, '');
     }
 
     const comps = state.competitions || [];
     if (comps.length === 0) {
-      listContainer.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text3);">Nessuna competizione creata. Usa il modulo sopra per crearne una.</td></tr>`;
+      listContainer.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text3);">Nessuna competizione creata. Usa il modulo sopra per crearne una.</td></tr>`;
       return;
     }
 
@@ -130,6 +150,13 @@ export const CompetizioniSection = {
       const gironi = c.gironi || 1;
       const qualificati = c.qualificatiFaseFinale || 0;
       const safeLogo = c.logo ? c.logo.replace(/'/g, "\\'") : '';
+      const trophyId = c.trophyId || '';
+
+      // Troviamo l'immagine del trofeo associato
+      const matchedTrophy = trophies.find(tr => tr.id === trophyId);
+      const trophyImgHtml = matchedTrophy && matchedTrophy.image
+        ? `<img src="${matchedTrophy.image}" title="${matchedTrophy.name}" style="width:32px; height:32px; object-fit:contain; border-radius:4px; vertical-align:middle;">`
+        : `<span style="font-size:1.2rem;" title="Nessun trofeo">🏆</span>`;
 
       let teamsArray = [];
       if (c.teams) {
@@ -140,11 +167,12 @@ export const CompetizioniSection = {
 
       const logoHtml = c.logo 
         ? `<img src="${c.logo}" alt="Logo" style="width:40px; height:40px; object-fit:contain; border-radius:6px; vertical-align:middle;">`
-        : `<div style="width:40px; height:40px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3); vertical-align:middle;">🏆</div>`;
+        : `<div style="width:40px; height:40px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3); vertical-align:middle;">🛡️</div>`;
 
       return `
         <tr>
           <td style="width:50px; text-align:center; vertical-align:middle;">${logoHtml}</td>
+          <td style="width:50px; text-align:center; vertical-align:middle;">${trophyImgHtml}</td>
           <td style="font-family: 'DM Mono', monospace; font-size: .8rem; color: var(--accent2); vertical-align:middle;">${c.id}</td>
           <td style="font-weight: 500; vertical-align:middle;">${c.name}</td>
           <td style="text-transform: capitalize; font-size: .8rem; vertical-align:middle;">${c.type}</td>
@@ -162,7 +190,7 @@ export const CompetizioniSection = {
           <td style="vertical-align:middle;"><span class="badge ${teamsArray.length > 0 ? 'badge-green' : 'badge-red'}">${teamsArray.length} sq.</span></td>
           <td style="text-align: right; vertical-align:middle;">
             <div style="display: inline-flex; gap: .4rem;">
-              <button class="btn btn-blue" onclick="window.caricaCompetizioneNelForm('${c.id}', '${safeName}', '${c.type}', ${gironi}, ${qualificati}, '${teamsString}', '${safeLogo}')" style="padding: .35rem .6rem; font-size: .75rem; width: auto;">
+              <button class="btn btn-blue" onclick="window.caricaCompetizioneNelForm('${c.id}', '${safeName}', '${c.type}', ${gironi}, ${qualificati}, '${teamsString}', '${safeLogo}', '${trophyId}')" style="padding: .35rem .6rem; font-size: .75rem; width: auto;">
                 ✏️ Modifica
               </button>
               <button class="btn btn-red" onclick="window.eliminaCompetizione('${c.id}', '${safeName}')" style="padding: .35rem .6rem; font-size: .75rem; width: auto;">
@@ -186,7 +214,7 @@ export const CompetizioniSection = {
     };
 
     // 3. CARICA DATI NEL FORM (MODIFICA)
-    window.caricaCompetizioneNelForm = (id, name, type, gironi, qualificati, teamsString, logo) => {
+    window.caricaCompetizioneNelForm = (id, name, type, gironi, qualificati, teamsString, logo, trophyId = '') => {
       const idInput = document.getElementById('compId');
       if (!idInput) return;
 
@@ -200,7 +228,9 @@ export const CompetizioniSection = {
       if (document.getElementById('compGironi')) document.getElementById('compGironi').value = gironi;
       if (document.getElementById('compQualificati')) document.getElementById('compQualificati').value = qualificati;
 
-      // Rigeneriamo l'elemento DOM dell'input del Logo per WebView Android
+      // Aggiorna combobox trofei con l'ID selezionato
+      CompetizioniSection.populateTrophiesDropdown(window.TROPHIES || [], trophyId);
+
       const oldInput = document.getElementById('compLogoFile');
       if (oldInput) {
         const newInput = oldInput.cloneNode(true);
@@ -251,7 +281,9 @@ export const CompetizioniSection = {
       CompetizioniSection.currentLogoUrl = '';
 
       const allTeams = window.TEAMS || [];
+      const trophies = window.TROPHIES || [];
       CompetizioniSection.populateTeamsList(allTeams, []);
+      CompetizioniSection.populateTrophiesDropdown(trophies, '');
       window.toggleCompFields('campionato');
 
       document.getElementById('form-comp-title').innerText = "Crea una nuova competizione";
@@ -267,6 +299,7 @@ export const CompetizioniSection = {
 
       const idInput = document.getElementById('compId');
       const nameInput = document.getElementById('compName');
+      const trophySelect = document.getElementById('compTrophy');
       const fileInput = document.getElementById('compLogoFile');
       if (!idInput || !nameInput) return;
 
@@ -274,6 +307,7 @@ export const CompetizioniSection = {
       const id = idInput.value.trim().toLowerCase().replace(/\s+/g, '-');
       const name = nameInput.value.trim();
       const type = document.getElementById('compType').value;
+      const trophyId = trophySelect ? trophySelect.value : '';
 
       const checkboxes = document.querySelectorAll('input[name="teamSelect"]:checked');
       const teams = Array.from(checkboxes).map(cb => cb.value).filter(val => val !== '');
@@ -289,7 +323,7 @@ export const CompetizioniSection = {
       try {
         let finalLogoUrl = isEditingMode ? CompetizioniSection.currentLogoUrl : '';
 
-        // UPLOAD LOGO
+        // UPLOAD LOGO SU IMGBB
         if (fileInput && fileInput.files && fileInput.files.length > 0) {
           const originalFile = fileInput.files[0];
           if (originalFile && originalFile.size > 0) {
@@ -300,16 +334,15 @@ export const CompetizioniSection = {
               `logo-${id || 'comp'}.${extension}`, 
               { type: mimeType }
             );
-            console.log("Inviando logo normalizzato a ImgBB:", cleanFile.name);
             finalLogoUrl = await uploadImageToImgBB(cleanFile);
           }
         }
 
-        // Configurazione del payload completo (senza backgroundImage)
         let compPayload = { 
           id: id, 
           name: name, 
           type: type,
+          trophyId: trophyId, // Salviamo il trofeo collegato
           logo: finalLogoUrl || "", 
           teams: teams
         };
