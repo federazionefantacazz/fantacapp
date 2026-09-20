@@ -12,10 +12,43 @@ export const RULE_MATCH = {
   autogol: -2,
   rigore_parato: 3,
   rigore_sbagliato: -3,
-  gol_subito: -1
+  rigore_segnato: 2,
+  gol_subito: -1,
+  porta_inviolata: 1
+};
+
+// Emoji da mostrare nel live in base al tipo di bonus/malus registrato.
+// Usata da liveMatch.js per costruire la stringa di icone accanto al voto.
+export const EMOJI_BONUS = {
+  gol: "⚽",
+  assist: "🅰️",
+  ammonizione: "🟨",
+  espulsione: "🟥",
+  autogol: "⚫",
+  rigore_parato: "🧤",
+  rigore_sbagliato: "❌",
+  rigore_segnato: "🎯",
+  gol_subito: "🥅",
+  porta_inviolata: "🛡️"
 };
 
 export const CalcoloMatchService = {
+  /**
+   * Costruisce la stringa di emoji da mostrare nel live a partire
+   * dall'oggetto bonus (es: {gol: 2, ammonizione: 1} -> "⚽⚽🟨").
+   * @param {Object} bonus - conteggio bonus/malus, es. {gol: 1, assist: 1}
+   * @returns {String} emoji concatenate, stringa vuota se nessun bonus
+   */
+  emojiFromBonus(bonus) {
+    if (!bonus) return "";
+    let out = "";
+    Object.keys(EMOJI_BONUS).forEach(evento => {
+      const quantita = parseInt(bonus[evento]) || 0;
+      out += EMOJI_BONUS[evento].repeat(quantita);
+    });
+    return out;
+  },
+
   /**
    * Calcola dinamicamente il Fantavoto di un singolo giocatore.
    * @param {Object} datiVoto - L'oggetto contenente il voto base e i vari eventi (es: {voto: 6, gol: 1, ammonizione: 1})
