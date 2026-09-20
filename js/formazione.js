@@ -100,10 +100,8 @@ export const FormazionePage = {
           z-index: 10;
         }
 
-        /* Stili base per la sagoma/slot del calciatore */
+        /* Stili base dello slot */
         .player-shirt {
-          width: 50px; 
-          height: 56px;
           display: flex; 
           align-items: center; 
           justify-content: center;
@@ -111,28 +109,32 @@ export const FormazionePage = {
           font-family: 'Bebas Neue', sans-serif; 
           letter-spacing: 0.5px;
           color: #fff;
-          transition: transform 0.1s ease-out, filter 0.1s ease-out;
+          transition: transform 0.1s ease-out;
           cursor: pointer;
           text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-          background-repeat: no-repeat;
-          background-position: center bottom;
         }
 
-        /* Quando ha la foto PNG: nessuna maschera circolare, nessun bordo */
+        /* PNG PURO (senza cerchio, senza bordo, senza sfondo) */
         .player-shirt.has-png {
-          border-radius: 0;
-          border: none;
-          box-shadow: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
-          background-size: contain;
+          width: 52px !important; 
+          height: 58px !important;
+          border-radius: 0 !important;
+          border: none !important;
+          box-shadow: none !important;
+          background-size: contain !important;
+          background-repeat: no-repeat !important;
+          background-position: center bottom !important;
+          background-color: transparent !important;
         }
 
-        /* Quando è vuoto o senza foto: forma a cerchio con bordo */
+        /* FALLBACK CERCHIO (quando lo slot è vuoto o non ha immagini) */
         .player-shirt.is-circle {
-          width: 44px;
-          height: 44px;
-          border-radius: 50%;
-          border: 2px solid #ffffff;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.3);
+          width: 44px !important;
+          height: 44px !important;
+          border-radius: 50% !important;
+          border: 2px solid #ffffff !important;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.3) !important;
+          background-image: none !important;
         }
 
         .field-player:active .player-shirt {
@@ -140,7 +142,7 @@ export const FormazionePage = {
         }
         .field-player select {
           position: absolute;
-          top: 0; left: 0; width: 100%; height: 56px;
+          top: 0; left: 0; width: 100%; height: 58px;
           opacity: 0; cursor: pointer; z-index: 12;
         }
         .player-name-label {
@@ -236,22 +238,21 @@ export const FormazionePage = {
     this.refreshAllDropdowns(miaRosa);
   },
 
+  // Disabilita semplicemente i calciatori già selezionati altrove SENZA ricreare il DOM dei select
   refreshAllDropdowns(rosa) {
     const allSelects = document.querySelectorAll('#titolari-field-slots select, #panchina-slots select');
     const selectedIds = Array.from(allSelects).map(s => s.value).filter(Boolean);
 
     allSelects.forEach(sel => {
       const currentVal = sel.value;
-      const role = sel.dataset.role;
-      const ops = rosa.filter(p => p.role === role);
-
-      let html = `<option value="">-- ${role} --</option>`;
-      ops.forEach(p => {
-        if (selectedIds.includes(p.id) && p.id !== currentVal) return;
-        const isSelected = p.id === currentVal ? 'selected' : '';
-        html += `<option value="${p.id}" ${isSelected}>${p.name} (${p.club})</option>`;
+      Array.from(sel.options).forEach(opt => {
+        if (!opt.value) return; // ignora l'opzione vuota "--"
+        if (selectedIds.includes(opt.value) && opt.value !== currentVal) {
+          opt.disabled = true;
+        } else {
+          opt.disabled = false;
+        }
       });
-      sel.innerHTML = html;
     });
   },
 
@@ -311,11 +312,10 @@ export const FormazionePage = {
         playerDiv.style.left = `${x}%`;
         playerDiv.style.top = `${y}%`;
 
-        // Se c'è la foto, mostra il PNG pulito. Altrimenti usa il cerchietto colorato col ruolo.
         const shirtClass = photoUrl ? 'player-shirt has-png' : 'player-shirt is-circle';
         const shirtStyle = photoUrl 
-          ? `background-image: url('${photoUrl}'); background-size: contain; background-repeat: no-repeat; font-size: 0;`
-          : `background: ${bgShirt}; color: #fff; font-size: 0.9rem;`;
+          ? `background-image: url('${photoUrl}');`
+          : `background-color: ${bgShirt}; color: #fff;`;
 
         playerDiv.innerHTML = `
           <div class="${shirtClass}" id="shirt-${slotId}" style="${shirtStyle}">
@@ -344,10 +344,10 @@ export const FormazionePage = {
             labelEl.textContent = 'Scegli';
             labelEl.style.color = '';
             labelEl.style.borderColor = '';
+            
+            // Ripristina stato cerchietto vuoto
             shirtEl.className = 'player-shirt is-circle';
-            shirtEl.style.backgroundImage = 'none';
-            shirtEl.style.background = bgShirt;
-            shirtEl.style.fontSize = '0.9rem';
+            shirtEl.style.cssText = `background-color: ${bgShirt}; color: #fff;`;
             shirtEl.textContent = reparto.role;
           } else {
             const pObj = rosa.find(p => String(p.id) === String(val));
@@ -358,18 +358,13 @@ export const FormazionePage = {
             labelEl.style.borderColor = 'var(--accent)';
 
             if (pPhoto) {
+              // Applica PNG pulito rimuovendo stili cerchio
               shirtEl.className = 'player-shirt has-png';
-              shirtEl.style.backgroundImage = `url('${pPhoto}')`;
-              shirtEl.style.backgroundSize = 'contain';
-              shirtEl.style.backgroundRepeat = 'no-repeat';
-              shirtEl.style.backgroundPosition = 'center bottom';
-              shirtEl.style.fontSize = '0';
+              shirtEl.style.cssText = `background-image: url('${pPhoto}');`;
               shirtEl.textContent = '';
             } else {
               shirtEl.className = 'player-shirt is-circle';
-              shirtEl.style.backgroundImage = 'none';
-              shirtEl.style.background = bgShirt;
-              shirtEl.style.fontSize = '0.9rem';
+              shirtEl.style.cssText = `background-color: ${bgShirt}; color: #fff;`;
               shirtEl.textContent = reparto.role;
             }
           }
