@@ -192,20 +192,40 @@ export const FormazionePage = {
     this.buildSlots(STATE);
   },
 
+  // Helper per calcolare la corretta giornata della COMPETIZIONE (es: gw1)
+  getGwCompetizione(compData, STATE) {
+    if (!compData) return 'gw1';
+
+    const gwReale = STATE.giornataRealeCorrente || STATE.status?.currentGW || 1;
+    const associazioni = compData.associazioniGwReali || {};
+
+    // 1. Cerca se la giornata reale corrente corrisponde a una giornata della competizione
+    const entry = Object.entries(associazioni).find(([k, v]) => String(v).trim() === String(gwReale).trim());
+    if (entry) {
+      return entry[0]; // Restituisce ad esempio "gw1"
+    }
+
+    // 2. Se la competizione ha un attributo esplicito di giornata corrente, usalo
+    if (compData.currentGw) return `gw${compData.currentGw}`;
+    if (compData.giornataCorrente) return `gw${compData.giornataCorrente}`;
+
+    // 3. Fallback sicuro: usa la prima giornata della competizione (gw1) e NON la giornata reale
+    return 'gw1';
+  },
+
   buildSlots(STATE, userChangedModulo = false) {
     if (!STATE || !STATE.user || !STATE.players || STATE.players.length === 0) return;
 
     const modSelect = document.getElementById('f-modulo');
     if (!modSelect) return;
 
-    const gwReale = STATE.giornataRealeCorrente || STATE.status?.currentGW || 1;
     const userId = STATE.user.id;
     const compId = STATE.currentCompetition;
     
     const compData = STATE.competitions?.find ? STATE.competitions.find(c => c.id === compId) : null;
-    const associazioni = compData ? (compData.associazioniGwReali || {}) : {};
-    const entry = Object.entries(associazioni).find(([k, v]) => String(v).trim() === String(gwReale).trim());
-    const gwCompetizione = entry ? entry[0] : `gw${gwReale}`;
+    
+    // Calcolo corretto della GW della competizione
+    const gwCompetizione = this.getGwCompetizione(compData, STATE);
 
     let savedLineup = null;
     
@@ -238,7 +258,6 @@ export const FormazionePage = {
     this.refreshAllDropdowns(miaRosa);
   },
 
-  // Disabilita semplicemente i calciatori già selezionati altrove SENZA ricreare il DOM dei select
   refreshAllDropdowns(rosa) {
     const allSelects = document.querySelectorAll('#titolari-field-slots select, #panchina-slots select');
     const selectedIds = Array.from(allSelects).map(s => s.value).filter(Boolean);
@@ -246,7 +265,7 @@ export const FormazionePage = {
     allSelects.forEach(sel => {
       const currentVal = sel.value;
       Array.from(sel.options).forEach(opt => {
-        if (!opt.value) return; // ignora l'opzione vuota "--"
+        if (!opt.value) return; 
         if (selectedIds.includes(opt.value) && opt.value !== currentVal) {
           opt.disabled = true;
         } else {
@@ -345,7 +364,6 @@ export const FormazionePage = {
             labelEl.style.color = '';
             labelEl.style.borderColor = '';
             
-            // Ripristina stato cerchietto vuoto
             shirtEl.className = 'player-shirt is-circle';
             shirtEl.style.cssText = `background-color: ${bgShirt}; color: #fff;`;
             shirtEl.textContent = reparto.role;
@@ -358,7 +376,6 @@ export const FormazionePage = {
             labelEl.style.borderColor = 'var(--accent)';
 
             if (pPhoto) {
-              // Applica PNG pulito rimuovendo stili cerchio
               shirtEl.className = 'player-shirt has-png';
               shirtEl.style.cssText = `background-image: url('${pPhoto}');`;
               shirtEl.textContent = '';
@@ -444,7 +461,6 @@ export const FormazionePage = {
   },
 
   async save(STATE) {
-    const gwReale = STATE.giornataRealeCorrente || STATE.status?.currentGW || 1;
     const modulo = document.getElementById('f-modulo').value;
     
     const titS = document.querySelectorAll('#titolari-field-slots select');
@@ -475,9 +491,9 @@ export const FormazionePage = {
     try {
       for (const comp of competitionsToSave) {
         const compId = comp.id;
-        const associazioni = comp.associazioniGwReali || {};
-        const entry = Object.entries(associazioni).find(([k, v]) => String(v).trim() === String(gwReale).trim());
-        const gwCompetizione = entry ? entry[0] : `gw${gwReale}`;
+        
+        // Calcola la giornata di competizione specifica per QUESTA competizione
+        const gwCompetizione = this.getGwCompetizione(comp, STATE);
 
         const path = `competitions/${compId}/matches/${gwCompetizione}/lineups/${STATE.user.id}`;
         
@@ -491,13 +507,16 @@ export const FormazionePage = {
         
         await window._saveNode(path, dataToSave);
 
-        if (!comp.lineups) comp.lineups = {};
-        if (!comp.lineups[gwCompetizione]) comp.lineups[gwCompetizione] = {};
-        comp.lineups[gwCompetizione][STATE.user.id] = dataToSave;
+        if (!comp.matches) comp.matches = {};
+        if (!comp.matches[gwCompetizione]) comp.matches[gwCompetizione] = {};
+        if (!comp.matches[gwCompetizione].lineups) comp.matches[gwCompetizione].lineups = {};
+        
+        comp.matches[gwCompetizione].lineups[STATE.user.id] = dataToSave;
       }
 
       window.showToast('Formazione salvata con successo!', 'ok');
     } catch(e) { 
+      console.error(e);
       window.showToast('Errore durante il salvataggio', 'err'); 
     }
   }
