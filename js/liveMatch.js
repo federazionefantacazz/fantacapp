@@ -1,5 +1,6 @@
 import { ref, onValue, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { CalcoloMatchService } from "./services/calcoloMatch.js";
+import { GwService } from "./services/gwService.js";
 
 export const LiveMatchModule = {
   db: null,
@@ -21,24 +22,18 @@ export const LiveMatchModule = {
     // Puliamo la giornata reale per sicurezza (es: 15 o "15")
     const numeroGwReale = String(gwReale).replace(/\D/g, '');
 
-    // 🔄 LOGICA INVERTITA PER IL TUO DB: 
-    // Cerchiamo il numero della giornata reale dentro la CHIAVE (k) pulendola da eventuali testi
-    const entry = Object.entries(associazioniGwRealiMap || {}).find(([k, v]) => {
-      const numeroChiaveMappa = String(k).replace(/\D/g, '');
-      return numeroChiaveMappa === numeroGwReale;
-    });
+    // Giornata della competizione (es. "gw2") associata alla giornata Serie A corrente
+    const gwCompetizione = GwService.getGwKey({ associazioniGwReali: associazioniGwRealiMap }, numeroGwReale);
 
-    if (!entry) {
+    if (!gwCompetizione) {
       container.innerHTML = `
         <div style="text-align:center; padding: 2rem; color:var(--text2);">
           <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">🔴 Live Match non attivo</p>
-          <p style="font-size: 0.85rem; opacity: 0.7;">Nessun match di lega pianificato per la Giornata Reale ${gwReale}.</p>
+          <p style="font-size: 0.85rem; opacity: 0.7;">Nessuna giornata di questa competizione è associata alla giornata di Serie A ${gwReale}.</p>
         </div>`;
       return;
     }
 
-    // 🔄 LA GIORNATA DI LEGA (es: "gw1") ORA SI TROVA NEL VALORE (entry[1])
-    const gwCompetizione = entry[1]; 
     container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Caricamento dati live...</p>`;
 
     if (!this.myTeamId) {
@@ -247,7 +242,7 @@ export const LiveMatchModule = {
             <span style="color: var(--accent3); animation: pulse 1.5s infinite;">🔴</span> LIVE MATCH
           </div>
           <span style="font-size: 0.85rem; background: var(--bg3); padding: 0.2rem 0.6rem; border-radius: 20px; color: var(--text2); font-weight: 500;">
-            ${gwLabel.toUpperCase()}
+            ${GwService.label(gwLabel)}
           </span>
         </div>
 
