@@ -1,3 +1,4 @@
+import { GwService } from './services/gwService.js';
 import { createMatchCardVS } from './components/MatchCardVS.js';
 import { renderAnteprimaClassificaStandard } from './components/AnteprimaClassificaStandard.js';
 
@@ -171,10 +172,10 @@ export const HomePage = {
 
     if (comp) {
       const currentRealGw = STATE.giornataRealeCorrente || STATE.currentRealGW || STATE.status?.currentGW || 1;
-      const assoc = comp.associazioniGwReali || {};
-      const targetGwKey = assoc[String(currentRealGw)] || `gw${currentRealGw}`;
+      // Giornata della competizione associata alla Serie A corrente (nessun fallback su gw{Serie A})
+      const targetGwKey = GwService.getGwKey(comp, currentRealGw);
 
-      const gwData = (comp.matches && comp.matches[targetGwKey]) ? comp.matches[targetGwKey] : null;
+      const gwData = (targetGwKey && comp.matches && comp.matches[targetGwKey]) ? comp.matches[targetGwKey] : null;
       let couplesList = [];
       if (gwData && gwData.couples) {
         couplesList = Array.isArray(gwData.couples) ? gwData.couples : Object.values(gwData.couples);
