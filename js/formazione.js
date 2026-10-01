@@ -5,6 +5,8 @@ export const FormazionePage = {
     return `
       <div class="page" id="page-formazione">
         <div class="sec" style="margin-top:1.2rem">Schiera Formazione</div>
+        <div id="f-lock-banner"></div>
+        <div id="f-editor">
         
         <div class="card card-sm" style="margin-bottom: 1rem;">
           <div class="label" style="margin-bottom: .4rem;">Seleziona Modulo</div>
@@ -37,7 +39,10 @@ export const FormazionePage = {
           <label for="save-all-comps" class="label" style="margin: 0; cursor: pointer; color: var(--text);">Salva per tutte le competizioni</label>
         </div>
         
+        <div id="f-save-info" style="font-size:.75rem; color:var(--text2); margin:-.4rem 0 1rem; line-height:1.4;"></div>
+
         <button class="btn btn-green" style="width: 100%; padding: .8rem; margin-bottom:2rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" id="btn-save-lineup"><i class="ri-save-line"></i> Salva Formazione</button>
+        </div>
 
         <style>
         .soccer-field {
@@ -200,6 +205,59 @@ export const FormazionePage = {
     return GwService.getGwKey(compData, GwService.getGwReale(STATE));
   },
 
+  // Stato della mia squadra in una competizione per la giornata Serie A corrente
+  getStatus(compData, STATE) {
+    return GwService.getTeamStatus(compData, GwService.getGwReale(STATE), STATE.user?.id);
+  },
+
+  // Mostra/nasconde il blocco e il motivo per la competizione selezionata
+  applyLock(compData, STATE) {
+    const banner = document.getElementById('f-lock-banner');
+    const editor = document.getElementById('f-editor');
+    const saveBtn = document.getElementById('btn-save-lineup');
+    const info = document.getElementById('f-save-info');
+    const modSelect = document.getElementById('f-modulo');
+    if (!banner || !editor) return true;
+
+    const status = compData ? this.getStatus(compData, STATE) : { canPlay: false, reason: 'Seleziona una competizione.' };
+    const compName = compData?.name || 'questa competizione';
+
+    if (!status.canPlay) {
+      banner.innerHTML = `
+        <div class="card card-sm" style="margin-bottom:1rem; border-left:4px solid var(--accent3, #ff4757); background:rgba(255,71,87,.08);">
+          <div style="display:flex; gap:.6rem; align-items:flex-start;">
+            <i class="ri-lock-line" style="font-size:1.3rem; color:var(--accent3, #ff4757);"></i>
+            <div>
+              <div style="font-weight:600; font-size:.9rem;">Formazione non modificabile — ${compName}</div>
+              <div style="font-size:.8rem; color:var(--text2); margin-top:2px;">${status.reason}</div>
+            </div>
+          </div>
+        </div>`;
+    } else {
+      banner.innerHTML = '';
+    }
+
+    editor.style.opacity = status.canPlay ? '' : '0.45';
+    editor.style.pointerEvents = status.canPlay ? '' : 'none';
+    if (saveBtn) saveBtn.disabled = !status.canPlay;
+    if (modSelect) modSelect.disabled = !status.canPlay;
+    editor.querySelectorAll('select, input').forEach(el => { el.disabled = !status.canPlay; });
+
+    // Riepilogo del "salva per tutte"
+    if (info) {
+      const all = Array.isArray(STATE.competitions) ? STATE.competitions : [];
+      const ok = [], no = [];
+      all.forEach(c => {
+        const st = this.getStatus(c, STATE);
+        (st.canPlay ? ok : no).push({ name: c.name || c.id, reason: st.reason, gw: st.gwKey });
+      });
+      const okTxt = ok.length ? `Verrà salvata in: ${ok.map(o => `<strong>${o.name}</strong> (${GwService.label(o.gw)})`).join(', ')}.` : '';
+      const noTxt = no.length ? `<br>Esclusa: ${no.map(o => `<strong>${o.name}</strong> — ${o.reason}`).join('<br>')}` : '';
+      info.innerHTML = `${okTxt}${noTxt}`;
+    }
+    return status.canPlay;
+  },
+
   buildSlots(STATE, userChangedModulo = false) {
     if (!STATE || !STATE.user || !STATE.players || STATE.players.length === 0) return;
 
@@ -241,6 +299,7 @@ export const FormazionePage = {
     this.drawSchemaPanchina('panchina-slots', schemaPan, 'pan', miaRosa, savedPanchinaIds);
 
     this.refreshAllDropdowns(miaRosa);
+    this.applyLock(compData, STATE);
   },
 
   refreshAllDropdowns(rosa) {
@@ -473,6 +532,14 @@ export const FormazionePage = {
       if (currentCompData) competitionsToSave.push(currentCompData);
     }
 
+    // Competizione corrente bloccata: non si salva nulla
+    const curComp = Array.isArray(STATE.competitions) ? STATE.competitions.find(c => c.id === STATE.currentCompetition) : null;
+    const curStatus = curComp ? this.getStatus(curComp, STATE) : null;
+    if (!curStatus || !curStatus.canPlay) {
+      window.showToast(curStatus?.reason || 'Formazione non modificabile.', 'err');
+      return;
+    }
+
     try {
       const saltate = [];
       let salvate = 0;
@@ -481,9 +548,10 @@ export const FormazionePage = {
         const compId = comp.id;
         
         // Giornata di competizione specifica per QUESTA competizione, ricavata dalla giornata Serie A corrente
-        const gwCompetizione = this.getGwCompetizione(comp, STATE);
-        if (!gwCompetizione) {
-          saltate.push(comp.name || compId);
+        const status = this.getStatus(comp, STATE);
+        const gwCompetizione = status.gwKey;
+        if (!status.canPlay || !gwCompetizione) {
+          saltate.push(`${comp.name || compId} (${status.reason})`);
           continue;
         }
 
@@ -508,9 +576,9 @@ export const FormazionePage = {
       }
 
       if (salvate === 0) {
-        window.showToast('Nessuna giornata associata alla Serie A corrente: formazione non salvata.', 'err');
+        window.showToast('Formazione non salvata: nessuna competizione disponibile per questa giornata.', 'err');
       } else if (saltate.length) {
-        window.showToast(`Salvata. Saltate (giornata non associata): ${saltate.join(', ')}`, 'ok');
+        window.showToast(`Salvata. Esclusa: ${saltate.join('; ')}`, 'ok');
       } else {
         window.showToast('Formazione salvata con successo!', 'ok');
       }
