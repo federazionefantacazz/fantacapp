@@ -1,3 +1,4 @@
+import { GwService } from './services/gwService.js';
 import { createMatchCardResult } from './components/MatchCardResult.js';
 
 export const CalendarioPage = {
@@ -70,8 +71,7 @@ export const CalendarioPage = {
         return `<option value="${gwKey}">${label}</option>`;
       }).join('');
 
-      const associazioni = currentCompData?.associazioniGwReali || {};
-      const gwDaReale = STATE.giornataRealeCorrente ? associazioni[String(STATE.giornataRealeCorrente)] : null;
+      const gwDaReale = GwService.getGwKey(currentCompData, STATE.giornataRealeCorrente);
       select.value = gwDaReale && select.querySelector(`option[value="${gwDaReale}"]`) ? gwDaReale : giornateEstraibili[0];
     } else if (previousUserSelection && select.querySelector(`option[value="${previousUserSelection}"]`)) {
       select.value = previousUserSelection;
