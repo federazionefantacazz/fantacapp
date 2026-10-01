@@ -728,7 +728,7 @@ function refreshUI() {
     const associazioni = compData ? (compData.associazioniGwReali || compData.associazioniGwRealiMap || {}) : {};
     const gwCorrenteReale = window.STATE.giornataRealeCorrente;
 
-    if (gwCorrenteReale === null || gwCorrenteReale === undefined || Object.keys(associazioni).length === 0) {
+    if (gwCorrenteReale === null || gwCorrenteReale === undefined) {
       const container = document.getElementById('live-match-container');
       if (container) {
         container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Sincronizzazione giornata e competizione in corso...</p>`;
