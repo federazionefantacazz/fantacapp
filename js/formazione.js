@@ -1,3 +1,5 @@
+import { GwService } from './services/gwService.js';
+
 export const FormazionePage = {
   renderHTML() {
     return `
@@ -192,25 +194,10 @@ export const FormazionePage = {
     this.buildSlots(STATE);
   },
 
-  // Helper per calcolare la corretta giornata della COMPETIZIONE (es: gw1)
+  // Giornata della COMPETIZIONE (es. "gw2") corrispondente alla giornata di Serie A corrente.
+  // Ritorna null se la competizione non ha una giornata associata alla Serie A corrente.
   getGwCompetizione(compData, STATE) {
-    if (!compData) return 'gw1';
-
-    const gwReale = STATE.giornataRealeCorrente || STATE.status?.currentGW || 1;
-    const associazioni = compData.associazioniGwReali || {};
-
-    // 1. Cerca se la giornata reale corrente corrisponde a una giornata della competizione
-    const entry = Object.entries(associazioni).find(([k, v]) => String(v).trim() === String(gwReale).trim());
-    if (entry) {
-      return entry[0]; // Restituisce ad esempio "gw1"
-    }
-
-    // 2. Se la competizione ha un attributo esplicito di giornata corrente, usalo
-    if (compData.currentGw) return `gw${compData.currentGw}`;
-    if (compData.giornataCorrente) return `gw${compData.giornataCorrente}`;
-
-    // 3. Fallback sicuro: usa la prima giornata della competizione (gw1) e NON la giornata reale
-    return 'gw1';
+    return GwService.getGwKey(compData, GwService.getGwReale(STATE));
   },
 
   buildSlots(STATE, userChangedModulo = false) {
@@ -229,10 +216,8 @@ export const FormazionePage = {
 
     let savedLineup = null;
     
-    if (compData && compData.matches?.[gwCompetizione]?.lineups?.[userId]) {
-        savedLineup = compData.matches[gwCompetizione].lineups[userId];
-    } else if (STATE.competitions?.[compId]?.matches?.[gwCompetizione]?.lineups?.[userId]) {
-        savedLineup = STATE.competitions[compId].matches[gwCompetizione].lineups[userId];
+    if (gwCompetizione) {
+      savedLineup = compData?.matches?.[gwCompetizione]?.lineups?.[userId] || null;
     }
 
     if (savedLineup && savedLineup.modulo && !userChangedModulo) {
@@ -489,11 +474,18 @@ export const FormazionePage = {
     }
 
     try {
+      const saltate = [];
+      let salvate = 0;
+
       for (const comp of competitionsToSave) {
         const compId = comp.id;
         
-        // Calcola la giornata di competizione specifica per QUESTA competizione
+        // Giornata di competizione specifica per QUESTA competizione, ricavata dalla giornata Serie A corrente
         const gwCompetizione = this.getGwCompetizione(comp, STATE);
+        if (!gwCompetizione) {
+          saltate.push(comp.name || compId);
+          continue;
+        }
 
         const path = `competitions/${compId}/matches/${gwCompetizione}/lineups/${STATE.user.id}`;
         
@@ -512,9 +504,16 @@ export const FormazionePage = {
         if (!comp.matches[gwCompetizione].lineups) comp.matches[gwCompetizione].lineups = {};
         
         comp.matches[gwCompetizione].lineups[STATE.user.id] = dataToSave;
+        salvate++;
       }
 
-      window.showToast('Formazione salvata con successo!', 'ok');
+      if (salvate === 0) {
+        window.showToast('Nessuna giornata associata alla Serie A corrente: formazione non salvata.', 'err');
+      } else if (saltate.length) {
+        window.showToast(`Salvata. Saltate (giornata non associata): ${saltate.join(', ')}`, 'ok');
+      } else {
+        window.showToast('Formazione salvata con successo!', 'ok');
+      }
     } catch(e) { 
       console.error(e);
       window.showToast('Errore durante il salvataggio', 'err'); 
