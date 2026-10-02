@@ -7,7 +7,7 @@ export const HomePage = {
     return `
       <div class="page" id="page-home" style="padding-top: 0.5rem;">
 
-        <!-- CARD SQUADRA (LAYOUT A COLONNA RIPULITO) -->
+        <!-- CARD SQUADRA -->
         <div class="card" style="margin-bottom: 1.2rem; background: linear-gradient(135deg, var(--card) 0%, color-mix(in srgb, var(--accent) 6%, transparent) 100%); border: 1px solid rgba(255,255,255,0.08); padding: 1.25rem;">
           
           <!-- RIGA PRINCIPALE: LOGO + NOME SQUADRA -->
@@ -36,7 +36,7 @@ export const HomePage = {
           <!-- RIGA TROFEI / PALMARÈS -->
           <div style="margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed rgba(255,255,255,0.1); width: 100%;">
             <div class="label" style="margin-bottom: 0.4rem; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase;"><i class="ri-trophy-line"></i> Palmarès / Trofei</div>
-            <div id="homeTeamTrophies" style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+            <div id="homeTeamTrophies" style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
               <span style="font-size: 0.75rem; color: var(--text3); font-style: italic;">Nessun trofeo</span>
             </div>
           </div>
@@ -137,22 +137,20 @@ export const HomePage = {
         }
       }
 
-      // --- INSERIMENTO COMPONENTE ANTEPRIMA CLASSIFICA ---
       if (wipBox && comp) {
         wipBox.innerHTML = renderAnteprimaClassificaStandard(comp, teamsList, myTeam.id);
       }
-      // ----------------------------------------------------
 
-      // --- LOGICA PALMARÈS / TROFEI VINTI ---
+      // --- RECUPERO E VISUALIZZAZIONE TROFEI VINTI ---
       if (trophiesContainer) {
-        let allTrophies = [];
-        if (STATE.trophies) {
-          allTrophies = Array.isArray(STATE.trophies) ? STATE.trophies : Object.values(STATE.trophies);
-        } else if (window.TROPHIES) {
-          allTrophies = Array.isArray(window.TROPHIES) ? window.TROPHIES : Object.values(window.TROPHIES);
-        }
+        const rawTrophies = STATE.trophies || window.TROPHIES || {};
+        const allTrophies = Array.isArray(rawTrophies)
+          ? rawTrophies
+          : Object.entries(rawTrophies).map(([k, v]) => (typeof v === 'object' ? { id: k, ...v } : { id: k, name: v }));
 
         const trophiesMap = Object.fromEntries(allTrophies.map(t => [t.id, t]));
+        const compMap = Object.fromEntries(competitionsList.map(c => [c.id, c]));
+
         const wonTrophies = [];
 
         if (myTeam.palmares) {
@@ -160,12 +158,18 @@ export const HomePage = {
             if (seasonComps && typeof seasonComps === 'object') {
               Object.entries(seasonComps).forEach(([compId, item]) => {
                 if (item && item.trofeo_vinto) {
-                  const trophyObj = trophiesMap[item.trofeo_vinto];
+                  let trophyId = typeof item.trofeo_vinto === 'string'
+                    ? item.trofeo_vinto
+                    : (compMap[compId]?.trophyId || compId);
+
+                  const trophyObj = trophiesMap[trophyId];
+                  const trophyImage = trophyObj?.image || trophyObj?.img || trophyObj?.url || '';
+
                   wonTrophies.push({
-                    trophyId: item.trofeo_vinto,
-                    season: season,
-                    name: trophyObj?.name || item.trofeo_vinto,
-                    image: trophyObj?.image || ''
+                    trophyId,
+                    season,
+                    name: trophyObj?.name || compMap[compId]?.name || trophyId,
+                    image: trophyImage
                   });
                 }
               });
@@ -176,7 +180,7 @@ export const HomePage = {
         if (wonTrophies.length > 0) {
           trophiesContainer.innerHTML = wonTrophies.map(tr => {
             if (tr.image) {
-              return `<img src="${tr.image}" alt="${tr.name}" title="${tr.name} (${tr.season})" style="width: 36px; height: 36px; object-fit: contain; vertical-align: middle; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));">`;
+              return `<img src="${tr.image}" alt="${tr.name}" title="${tr.name} (${tr.season})" style="width: 38px; height: 38px; object-fit: contain; vertical-align: middle; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));" onerror="this.outerHTML='<span style=\\'font-size:1.4rem\\' title=\\'${tr.name} (${tr.season})\\'>🏆</span>'">`;
             } else {
               return `<span style="font-size: 1.4rem;" title="${tr.name} (${tr.season})">🏆</span>`;
             }
