@@ -312,6 +312,9 @@ window.showSec = function(secId) {
       btn.classList.remove('active');
     }
   });
+
+  // Re-renderizza istantaneamente per popolare select e tabelle della sezione scelta
+  refreshAll();
 };
 
 document.addEventListener('click', function(e) {
@@ -363,7 +366,7 @@ function startFirebaseSubscriptions() {
     refreshAll(); 
   });
 
-  // Mappatura con ritenzione della chiave ID originale di Firebase per le squadre
+  // Mappatura squadre con aggiornamento UI immediato
   onValue(ref(db, 'teams'), snap => {
     const raw = snap.val() || {};
     
@@ -377,14 +380,14 @@ function startFirebaseSubscriptions() {
     
     window.TEAMS = TEAMS; 
     teamsCaricate = true;
-    if (teamsCaricate && giocatoriCaricati) refreshAll();
+    refreshAll(); // <--- Refresh immediato per caricare la select delle squadre
   });
 
   onValue(ref(db, 'players'), snap => {
     const raw = snap.val() || {};
     window.PLAYERS = Object.keys(raw).map(key => ({ id: key, ...raw[key] }));
     giocatoriCaricati = true;
-    if (teamsCaricate && giocatoriCaricati) refreshAll();
+    refreshAll();
   });
 }
 
