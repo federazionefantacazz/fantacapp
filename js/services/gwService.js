@@ -45,6 +45,53 @@ export const GwService = {
     return null;
   },
 
+
+  /** Giornata di Serie A associata a una gwKey della competizione (inverso di getGwKey), o null. */
+  getRealOf(compData, gwKey) {
+    if (!compData || !gwKey) return null;
+    const map = compData.associazioniGwReali || compData.associazioniGwRealiMap || {};
+    for (const [k, v] of Object.entries(map)) {
+      const kIsGw = String(k).startsWith('gw');
+      const vIsGw = String(v).startsWith('gw');
+      if (!kIsGw && vIsGw && String(v) === String(gwKey)) return Number(digits(k));
+      if (kIsGw && !vIsGw && String(k) === String(gwKey)) return Number(digits(v));
+    }
+    return null;
+  },
+
+  /**
+   * Fase di una giornata della competizione rispetto alla giornata Serie A corrente:
+   *  past    = già giocata
+   *  current = in corso (associata alla giornata Serie A corrente)
+   *  next    = la prossima giornata ancora da giocare
+   *  future  = più avanti della prossima (o non ancora collocata)
+   */
+  getGwPhase(compData, gwKey, gwReale) {
+    const cur = gwReale === null || gwReale === undefined ? null : Number(gwReale);
+    const r = this.getRealOf(compData, gwKey);
+    const couples = Object.values(compData?.matches?.[gwKey]?.couples || {});
+    const allFinished = couples.length > 0 && couples.every(c => c && c.finished === true);
+
+    if (cur !== null && r !== null) {
+      if (r === cur) return 'current';
+      if (r < cur) return 'past';
+    }
+    if (allFinished) return 'past';
+
+    if (cur !== null && r !== null && r > cur) {
+      // la "prossima" è la giornata non ancora giocata con la giornata Serie A più vicina
+      let nextR = Infinity;
+      Object.keys(compData.matches || {}).forEach(k => {
+        const rk = this.getRealOf(compData, k);
+        const cs = Object.values(compData.matches?.[k]?.couples || {});
+        const done = cs.length > 0 && cs.every(c => c && c.finished === true);
+        if (!done && rk !== null && rk > cur && rk < nextR) nextR = rk;
+      });
+      return r === nextR ? 'next' : 'future';
+    }
+    return 'future';
+  },
+
   /** Etichetta leggibile: "gw2" -> "Giornata 2", "gw_playoff_1" -> "Turno Playoff 1". */
   label(gwKey) {
     if (!gwKey) return '';
