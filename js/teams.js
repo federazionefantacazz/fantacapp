@@ -1,4 +1,5 @@
 export const TeamsPage = {
+  // Struttura HTML unificata: Lista -> Dettaglio Rosa -> Modal Info Club
   renderHTML() {
     return `
       <div class="page" id="page-teams">
@@ -196,13 +197,16 @@ export const TeamsPage = {
               const trophyObj = trophiesMap[trophyId];
               const trophyName = trophyObj?.name || compMap[compId]?.name || trophyId;
               const trophyImage = trophyObj?.image || trophyObj?.img || trophyObj?.url || '';
+              
+              // Lettura scala percentuale dall'oggetto trofeo
+              const scale = trophyObj?.scale !== undefined ? parseInt(trophyObj.scale, 10) : 100;
 
               wonTrophies.push({
                 trophyId,
                 season,
                 name: trophyName,
                 image: trophyImage,
-                scale: item.scale !== undefined ? parseInt(item.scale, 10) : 100
+                scale
               });
             }
           });
@@ -216,7 +220,7 @@ export const TeamsPage = {
       trophiesHTML = `
         <div style="display:flex; flex-direction:column; gap:.5rem;">
           ${wonTrophies.map(tr => {
-            // Calcolo percentuale su dimensione base modal (42px)
+            // Calcolo dimensione percentuale (dimensione base 42px)
             const sizePx = Math.round(42 * (tr.scale / 100));
 
             const imgHtml = tr.image
