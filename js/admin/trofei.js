@@ -12,7 +12,7 @@ export const TrofeiSection = {
     database = db;
     window.addTrophy = () => this.addTrophy();
     window.deleteTrophy = (id) => this.deleteTrophy(id);
-    window.prepareEditTrophy = (id, name, desc, image) => this.prepareEditTrophy(id, name, desc, image);
+    window.prepareEditTrophy = (id, name, desc, image, ordineHome, scale) => this.prepareEditTrophy(id, name, desc, image, ordineHome, scale);
     window.cancelEditTrophy = () => this.cancelEditTrophy();
   },
 
@@ -30,6 +30,18 @@ export const TrofeiSection = {
         <div class="label" style="font-size:.8rem; margin-top:.5rem; color:var(--text2)">Immagine / Icona Trofeo (.png, .jpg)</div>
         <input type="file" id="trImageFile" class="input-login" accept="image/png, image/jpeg, image/jpg" style="padding-top:.5rem;">
         
+        <!-- NUOVI CAMPI: ORDINE HOME E SCALA IMMAGINE -->
+        <div style="display:flex; gap:.5rem; margin-bottom:1rem;">
+          <div style="flex:1;">
+            <label class="label" style="font-size:.75rem;">Ordine Home (es: 1, 2)</label>
+            <input type="number" id="trOrdineHome" class="input-login" style="margin-bottom:0;" placeholder="es: 1" min="1" value="1">
+          </div>
+          <div style="flex:1;">
+            <label class="label" style="font-size:.75rem;">Scala Immagine %</label>
+            <input type="number" id="trScale" class="input-login" style="margin-bottom:0;" placeholder="es: 100" min="20" max="300" value="100">
+          </div>
+        </div>
+
         <div style="display:flex; gap:.5rem; margin-top:.5rem;">
           <button id="btnSubmitTrophy" class="btn btn-green" onclick="window.addTrophy()">Crea Trofeo</button>
           <button id="btnCancelEditTrophy" class="btn btn-red" style="display:none; width:auto;" onclick="window.cancelEditTrophy()">Annulla</button>
@@ -41,10 +53,17 @@ export const TrofeiSection = {
         <div class="table-wrapper">
           <table>
             <thead>
-              <tr><th>Icona</th><th>Nome Trofeo</th><th>Descrizione</th><th>Azioni</th></tr>
+              <tr>
+                <th>Icona</th>
+                <th>Nome Trofeo</th>
+                <th>Descrizione</th>
+                <th>Ord. Home</th>
+                <th>Scala</th>
+                <th>Azioni</th>
+              </tr>
             </thead>
             <tbody id="trophiesTableBody">
-              <tr><td colspan="4" style="text-align:center">Caricamento trofei...</td></tr>
+              <tr><td colspan="6" style="text-align:center">Caricamento trofei...</td></tr>
             </tbody>
           </table>
         </div>
@@ -57,7 +76,7 @@ export const TrofeiSection = {
     if (!tbody) return;
 
     if (!trophies || trophies.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text3)">Nessun trofeo creato. Usa il modulo sopra per aggiungerne uno.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text3)">Nessun trofeo creato. Usa il modulo sopra per aggiungerne uno.</td></tr>`;
       return;
     }
 
@@ -66,6 +85,8 @@ export const TrofeiSection = {
       const safeName = clean(t.name);
       const safeDesc = clean(t.desc);
       const safeImage = clean(t.image);
+      const ordHome = t.ordine_home !== undefined ? t.ordine_home : 1;
+      const scaleVal = t.scale !== undefined ? t.scale : 100;
 
       const imageHtml = t.image 
         ? `<img src="${t.image}" alt="Trofeo" style="width:48px; height:48px; object-fit:contain; border-radius:6px; vertical-align:middle;">`
@@ -76,9 +97,11 @@ export const TrofeiSection = {
         <td style="width:60px; text-align:center; vertical-align:middle;">${imageHtml}</td>
         <td style="vertical-align:middle;"><strong>${t.name}</strong></td>
         <td style="vertical-align:middle; color:var(--text2); font-size:.85rem;">${t.desc || '—'}</td>
+        <td style="vertical-align:middle; text-align:center;">#${ordHome}</td>
+        <td style="vertical-align:middle; text-align:center;">${scaleVal}%</td>
         <td style="vertical-align:middle;">
           <div style="display:flex; gap:.25rem;">
-            <button class="btn btn-blue" style="padding:.25rem .5rem; font-size:.75rem; width:auto" onclick="window.prepareEditTrophy('${t.id}', '${safeName}', '${safeDesc}', '${safeImage}')">Modifica</button>
+            <button class="btn btn-blue" style="padding:.25rem .5rem; font-size:.75rem; width:auto" onclick="window.prepareEditTrophy('${t.id}', '${safeName}', '${safeDesc}', '${safeImage}', ${ordHome}, ${scaleVal})">Modifica</button>
             <button class="btn btn-red" style="padding:.25rem .5rem; font-size:.75rem; width:auto" onclick="window.deleteTrophy('${t.id}')">Elimina</button>
           </div>
         </td>
@@ -86,7 +109,7 @@ export const TrofeiSection = {
     }).join('');
   },
 
-  prepareEditTrophy(id, name, desc, image) {
+  prepareEditTrophy(id, name, desc, image, ordineHome = 1, scale = 100) {
     this.isEditing = true;
     this.editingId = id;
     this.currentImageUrl = image === 'undefined' ? '' : image;
@@ -95,6 +118,8 @@ export const TrofeiSection = {
     document.getElementById('trName').value = name;
     document.getElementById('trDesc').value = desc === 'undefined' ? '' : desc;
     document.getElementById('trImageFile').value = '';
+    document.getElementById('trOrdineHome').value = ordineHome;
+    document.getElementById('trScale').value = scale;
 
     document.getElementById('btnSubmitTrophy').textContent = "Salva Modifiche";
     document.getElementById('btnSubmitTrophy').className = "btn btn-blue";
@@ -110,6 +135,8 @@ export const TrofeiSection = {
     document.getElementById('trName').value = '';
     document.getElementById('trDesc').value = '';
     document.getElementById('trImageFile').value = '';
+    document.getElementById('trOrdineHome').value = 1;
+    document.getElementById('trScale').value = 100;
 
     document.getElementById('btnSubmitTrophy').textContent = "Crea Trofeo";
     document.getElementById('btnSubmitTrophy').className = "btn btn-green";
@@ -120,6 +147,8 @@ export const TrofeiSection = {
     const name = document.getElementById('trName').value.trim();
     const desc = document.getElementById('trDesc').value.trim();
     const fileInput = document.getElementById('trImageFile');
+    const ordineHomeVal = parseInt(document.getElementById('trOrdineHome').value, 10) || 1;
+    const scaleVal = parseInt(document.getElementById('trScale').value, 10) || 100;
 
     if (!name) return window.toast("Il Nome del trofeo è obbligatorio!", "err");
 
@@ -143,7 +172,14 @@ export const TrofeiSection = {
         finalImageUrl = await uploadImageToImgBB(file);
       }
 
-      const payload = { id: targetId, name, desc, image: finalImageUrl };
+      const payload = { 
+        id: targetId, 
+        name, 
+        desc, 
+        image: finalImageUrl,
+        ordine_home: ordineHomeVal,
+        scale: scaleVal
+      };
 
       if (this.isEditing) {
         await update(ref(database, 'trophies/' + targetId), payload);
