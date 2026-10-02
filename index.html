@@ -343,6 +343,7 @@ import { HomePage } from './js/home.js';
 import { CalendarioPage } from './js/calendario.js';
 import { FormazionePage } from './js/formazione.js';
 import { MercatoPage } from './js/mercato.js';
+import { MercatoService } from './js/services/mercatoService.js';
 import { TeamsPage } from './js/teams.js';
 import { LiveMatchModule } from "./js/liveMatch.js";
 import { ClassificaPage } from './js/classifica.js';
@@ -359,6 +360,7 @@ window.STATE = {
   currentCompetition: '',
   currentPage: 'home', 
   competitions: [], 
+  trades: {}, 
   booted: false 
 };
 
@@ -510,6 +512,11 @@ window._handleCompetitionChange = function(newCompetitionId) {
 onValue(ref(db, 'votes'), snap => { 
   window.STATE.votes = snap.val() || {}; 
   refreshUI(); 
+});
+
+onValue(ref(db, 'trades'), snap => {
+  window.STATE.trades = snap.val() || {};
+  refreshUI();
 });
 
 onValue(ref(db, 'players'), snap => {
@@ -695,6 +702,13 @@ function bootApp() {
 function refreshUI() {
   if (!window.STATE.booted || !window.STATE.user) return;
 
+  // Rientro automatico dei prestiti scaduti (idempotente: può girare su qualunque client)
+  MercatoService.processaScadenze({
+    trades: Object.values(window.STATE.trades || {}),
+    players: window.STATE.players,
+    giornataReale: window.STATE.giornataRealeCorrente
+  });
+
   // AGGIORNAMENTO LOGO NAVBAR (COMPATTO 24px)
   const globalNavbarLogoContainer = document.getElementById('app-global-navbar-logo-container');
   if (globalNavbarLogoContainer) {
@@ -787,3 +801,4 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
+
