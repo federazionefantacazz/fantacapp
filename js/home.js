@@ -141,7 +141,7 @@ export const HomePage = {
         wipBox.innerHTML = renderAnteprimaClassificaStandard(comp, teamsList, myTeam.id);
       }
 
-      // --- RECUPERO E ORDINAMENTO TROFEI IN HOME ---
+      // --- RECUPERO ED ORDINAMENTO TROFEI IN HOME ---
       if (trophiesContainer) {
         const rawTrophies = STATE.trophies || window.TROPHIES || {};
         const allTrophies = Array.isArray(rawTrophies)
@@ -165,13 +165,17 @@ export const HomePage = {
                   const trophyObj = trophiesMap[trophyId];
                   const trophyImage = trophyObj?.image || trophyObj?.img || trophyObj?.url || '';
 
+                  // Lettura ordine_home e scale dal Trofeo stesso (con fallback)
+                  const ordineHome = trophyObj?.ordine_home !== undefined ? parseInt(trophyObj.ordine_home, 10) : 1;
+                  const scale = trophyObj?.scale !== undefined ? parseInt(trophyObj.scale, 10) : 100;
+
                   wonTrophies.push({
                     trophyId,
                     season,
                     name: trophyObj?.name || compMap[compId]?.name || trophyId,
                     image: trophyImage,
-                    ordineHome: item.ordine_home !== undefined ? parseInt(item.ordine_home, 10) : 1,
-                    scale: item.scale !== undefined ? parseInt(item.scale, 10) : 100
+                    ordineHome,
+                    scale
                   });
                 }
               });
@@ -179,12 +183,12 @@ export const HomePage = {
           });
         }
 
-        // ORDINAMENTO RISERVATO ALLA HOME (ordine_home)
+        // ORDINAMENTO SPECIFICO PER LA HOME
         wonTrophies.sort((a, b) => a.ordineHome - b.ordineHome);
 
         if (wonTrophies.length > 0) {
           trophiesContainer.innerHTML = wonTrophies.map(tr => {
-            // Calcolo dimensione in base alla percentuale (base 38px)
+            // Calcolo dimensione percentuale (dimensione base 38px)
             const sizePx = Math.round(38 * (tr.scale / 100));
 
             if (tr.image) {
