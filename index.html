@@ -361,8 +361,22 @@ window.STATE = {
   currentPage: 'home', 
   competitions: [], 
   trades: {}, 
+  trophies: [],
   booted: false 
 };
+
+// SOTTOSCRIZIONE AI TROFEI DA FIREBASE
+onValue(ref(db, 'trophies'), snap => {
+  const raw = snap.val() || {};
+  const trophiesList = Object.keys(raw).map(key => ({
+    id: key,
+    ...(typeof raw[key] === 'object' ? raw[key] : { name: raw[key] })
+  }));
+
+  window.STATE.trophies = trophiesList;
+  window.TROPHIES = trophiesList;
+  refreshUI();
+});
 
 onValue(ref(db, 'teams'), snap => {
   const raw = snap.val() || {};
@@ -801,4 +815,3 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
-
