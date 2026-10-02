@@ -166,7 +166,9 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 <script type="module">
 // ─── 1. CONNESSIONE CENTRALIZZATA ED UNICA ───────────────────────────────
 import { db, auth, ref, onValue, set, update, onAuthStateChanged, signInWithEmailAndPassword } from './js/firebase-config.js';
-
+import { get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { MercatoService } from './js/services/mercatoService.js';
+  
 // Importazione di tutti i sottomoduli amministrativi
 import { DashboardSection }     from './js/admin/dashboard.js';
 import { TeamsSection }         from './js/admin/teams.js';
@@ -366,7 +368,7 @@ function startFirebaseSubscriptions() {
     refreshAll(); 
   });
 
-  // Mappatura squadre con aggiornamento UI immediato
+  // Mappatura con ritenzione della chiave ID originale di Firebase per le squadre
   onValue(ref(db, 'teams'), snap => {
     const raw = snap.val() || {};
     
@@ -380,14 +382,14 @@ function startFirebaseSubscriptions() {
     
     window.TEAMS = TEAMS; 
     teamsCaricate = true;
-    refreshAll(); // <--- Refresh immediato per caricare la select delle squadre
+    if (teamsCaricate && giocatoriCaricati) refreshAll();
   });
 
   onValue(ref(db, 'players'), snap => {
     const raw = snap.val() || {};
     window.PLAYERS = Object.keys(raw).map(key => ({ id: key, ...raw[key] }));
     giocatoriCaricati = true;
-    refreshAll();
+    if (teamsCaricate && giocatoriCaricati) refreshAll();
   });
 }
 
@@ -396,6 +398,17 @@ window.changeRealGW = async function(newGw) {
   const gwNumber = parseInt(newGw);
   try {
     await set(ref(db, 'status/currentRealGW'), gwNumber);
+
+    // Rientro automatico dei prestiti scaduti alla nuova giornata
+    try {
+      const [tSnap, pSnap] = await Promise.all([get(ref(db, 'trades')), get(ref(db, 'players'))]);
+      const rientrati = await MercatoService.processaScadenze({
+        trades: Object.values(tSnap.val() || {}),
+        players: Object.entries(pSnap.val() || {}).map(([k, v]) => ({ id: k, ...v })),
+        giornataReale: gwNumber
+      });
+      if (rientrati) window.toast(`${rientrati} prestit${rientrati === 1 ? 'o scaduto: giocatori rientrati' : 'i scaduti: giocatori rientrati'}`, "ok");
+    } catch (e) { console.error('Sweep prestiti:', e); }
     if (gwNumber === 0) {
       window.toast("Stato impostato su: Prima del Campionato (GW 0)", "info");
     } else {
@@ -437,3 +450,4 @@ window.toast = function(msg, type = "ok") {
 </script>
 </body>
 </html>
+
