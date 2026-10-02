@@ -39,21 +39,9 @@ export const PalmaresSection = {
           <input type="text" id="palPosition" class="input-login" placeholder="Seleziona prima una competizione" disabled>
         </div>
         
-        <div style="display:flex; align-items:center; gap:.5rem; margin:.75rem 0 .5rem 0;">
+        <div style="display:flex; align-items:center; gap:.5rem; margin:.75rem 0 1rem 0;">
           <input type="checkbox" id="palWon" style="width:18px; height:18px; cursor:pointer;">
           <label for="palWon" style="color:var(--text); font-size:.9rem; cursor:pointer;">Ha vinto il trofeo?</label>
-        </div>
-
-        <!-- NUOVI CAMPI: ORDINE HOME E SCALA IMMAGINE -->
-        <div style="display:flex; gap:.5rem; margin-bottom:1rem;">
-          <div style="flex:1;">
-            <label class="label" style="font-size:.75rem;">Ordine Home (es: 1, 2)</label>
-            <input type="number" id="palOrdineHome" class="input-login" style="margin-bottom:0;" placeholder="es: 1" min="1" value="1">
-          </div>
-          <div style="flex:1;">
-            <label class="label" style="font-size:.75rem;">Scala Immagine %</label>
-            <input type="number" id="palScale" class="input-login" style="margin-bottom:0;" placeholder="es: 100" min="20" max="300" value="100">
-          </div>
         </div>
         
         <button id="btnSubmitPalmares" class="btn btn-green" onclick="window.savePalmares()">Salva in Palmarès</button>
@@ -70,13 +58,11 @@ export const PalmaresSection = {
                 <th>Competizione</th>
                 <th>Posizione</th>
                 <th>Trofeo Vinto</th>
-                <th>Ord. Home</th>
-                <th>Scala</th>
                 <th>Azioni</th>
               </tr>
             </thead>
             <tbody id="palmaresTableBody">
-              <tr><td colspan="8" style="text-align:center">Caricamento in corso...</td></tr>
+              <tr><td colspan="6" style="text-align:center">Caricamento in corso...</td></tr>
             </tbody>
           </table>
         </div>
@@ -85,6 +71,7 @@ export const PalmaresSection = {
   },
 
   render(STATE = {}) {
+    // 1. Recupero robusto delle squadre (da STATE o globale window.TEAMS)
     let rawTeams = STATE.TEAMS || STATE.teams || window.TEAMS || [];
     const teamsList = Array.isArray(rawTeams)
       ? rawTeams.filter(Boolean)
@@ -92,6 +79,7 @@ export const PalmaresSection = {
           typeof val === 'object' ? { id: key, ...val } : { id: key, name: val }
         ));
 
+    // 2. Recupero delle competizioni
     let rawComps = STATE.competitions || window.COMPETITIONS || [];
     const compArray = Array.isArray(rawComps)
       ? rawComps.filter(Boolean)
@@ -99,6 +87,7 @@ export const PalmaresSection = {
     
     this.competitionsData = Object.fromEntries(compArray.map(c => [c.id, c]));
 
+    // 3. Recupero dei trofei
     let rawTrophies = STATE.trophies || window.TROPHIES || [];
     this.trophiesData = Array.isArray(rawTrophies) 
       ? rawTrophies 
@@ -110,6 +99,7 @@ export const PalmaresSection = {
 
     if (!teamSelect || !compSelect) return;
 
+    // Popola select squadre
     if (teamsList.length > 0) {
       teamSelect.innerHTML = '<option value="">-- Seleziona Squadra --</option>' +
         teamsList.map(t => `<option value="${t.id}">${t.name || t.id} (${t.id})</option>`).join('');
@@ -117,6 +107,7 @@ export const PalmaresSection = {
       teamSelect.innerHTML = '<option value="">-- Nessuna squadra trovata --</option>';
     }
 
+    // Popola select competizioni
     if (compArray.length > 0) {
       compSelect.innerHTML = '<option value="">-- Seleziona Competizione --</option>' +
         compArray.map(c => `<option value="${c.id}">${c.name || c.id} (${c.type || 'campionato'})</option>`).join('');
@@ -127,6 +118,7 @@ export const PalmaresSection = {
     const compNamesMap = Object.fromEntries(compArray.map(c => [c.id, c.name || c.id]));
     const trophyNamesMap = Object.fromEntries(this.trophiesData.map(t => [t.id, t.name || t.id]));
 
+    // Genera la tabella del palmarès registrato
     const rows = [];
     teamsList.forEach(team => {
       if (!team.palmares) return;
@@ -144,9 +136,7 @@ export const PalmaresSection = {
             compId,
             compName: compNamesMap[compId] || compId,
             position: details.posizione ?? '—',
-            trophyWonText: trophyLabel,
-            ordineHome: details.ordine_home ?? 1,
-            scale: details.scale ? `${details.scale}%` : '100%'
+            trophyWonText: trophyLabel
           });
         });
       });
@@ -154,7 +144,7 @@ export const PalmaresSection = {
 
     if (tbody) {
       if (rows.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text3)">Nessun piazzamento in palmarès.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text3)">Nessun piazzamento in palmarès.</td></tr>`;
       } else {
         tbody.innerHTML = rows.map(r => `
           <tr>
@@ -163,8 +153,6 @@ export const PalmaresSection = {
             <td>${r.compName}</td>
             <td>${typeof r.position === 'number' ? `${r.position}° Posto` : r.position}</td>
             <td>${r.trophyWonText}</td>
-            <td>#${r.ordineHome}</td>
-            <td>${r.scale}</td>
             <td>
               <button class="btn btn-red" style="padding:.25rem .5rem; font-size:.75rem; width:auto" 
                 onclick="window.deletePalmares('${r.teamId}', '${r.season}', '${r.compId}')">
@@ -240,9 +228,6 @@ export const PalmaresSection = {
     const compId = document.getElementById('palComp').value;
     const won = document.getElementById('palWon').checked;
 
-    const ordineHomeVal = parseInt(document.getElementById('palOrdineHome').value, 10) || 1;
-    const scaleVal = parseInt(document.getElementById('palScale').value, 10) || 100;
-
     if (!teamId) return window.toast("Seleziona una squadra!", "err");
     if (!season) return window.toast("Inserisci la stagione (es: 2025-2026)!", "err");
     if (!compId) return window.toast("Seleziona una competizione!", "err");
@@ -287,8 +272,6 @@ export const PalmaresSection = {
       await set(targetRef, {
         posizione: finalPosition,
         trofeo_vinto: trophyCodeToSave,
-        ordine_home: ordineHomeVal,
-        scale: scaleVal,
         timestamp: Date.now()
       });
 
