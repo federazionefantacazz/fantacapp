@@ -35,7 +35,7 @@ export const HomePage = {
 
           <!-- RIGA TROFEI / PALMARÈS -->
           <div style="margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed rgba(255,255,255,0.1); width: 100%;">
-            <div class="label" style="margin-bottom: 0.4rem; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase;"><i class="ri-trophy-line"></i> Palmarès </div>
+            <div class="label" style="margin-bottom: 0.4rem; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase;"><i class="ri-trophy-line"></i> Palmarès / Trofei</div>
             <div id="homeTeamTrophies" style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
               <span style="font-size: 0.75rem; color: var(--text3); font-style: italic;">Nessun trofeo</span>
             </div>
@@ -141,7 +141,7 @@ export const HomePage = {
         wipBox.innerHTML = renderAnteprimaClassificaStandard(comp, teamsList, myTeam.id);
       }
 
-      // --- RECUPERO E VISUALIZZAZIONE TROFEI VINTI ---
+      // --- RECUPERO E ORDINAMENTO TROFEI IN HOME ---
       if (trophiesContainer) {
         const rawTrophies = STATE.trophies || window.TROPHIES || {};
         const allTrophies = Array.isArray(rawTrophies)
@@ -169,7 +169,9 @@ export const HomePage = {
                     trophyId,
                     season,
                     name: trophyObj?.name || compMap[compId]?.name || trophyId,
-                    image: trophyImage
+                    image: trophyImage,
+                    ordineHome: item.ordine_home !== undefined ? parseInt(item.ordine_home, 10) : 1,
+                    scale: item.scale !== undefined ? parseInt(item.scale, 10) : 100
                   });
                 }
               });
@@ -177,10 +179,16 @@ export const HomePage = {
           });
         }
 
+        // ORDINAMENTO RISERVATO ALLA HOME (ordine_home)
+        wonTrophies.sort((a, b) => a.ordineHome - b.ordineHome);
+
         if (wonTrophies.length > 0) {
           trophiesContainer.innerHTML = wonTrophies.map(tr => {
+            // Calcolo dimensione in base alla percentuale (base 38px)
+            const sizePx = Math.round(38 * (tr.scale / 100));
+
             if (tr.image) {
-              return `<img src="${tr.image}" alt="${tr.name}" title="${tr.name} (${tr.season})" style="width: 38px; height: 38px; object-fit: contain; vertical-align: middle; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));" onerror="this.outerHTML='<span style=\\'font-size:1.4rem\\' title=\\'${tr.name} (${tr.season})\\'>🏆</span>'">`;
+              return `<img src="${tr.image}" alt="${tr.name}" title="${tr.name} (${tr.season})" style="width: ${sizePx}px; height: ${sizePx}px; object-fit: contain; vertical-align: middle; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));" onerror="this.outerHTML='<span style=\\'font-size:1.4rem\\' title=\\'${tr.name} (${tr.season})\\'>🏆</span>'">`;
             } else {
               return `<span style="font-size: 1.4rem;" title="${tr.name} (${tr.season})">🏆</span>`;
             }
