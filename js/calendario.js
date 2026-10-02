@@ -1,4 +1,5 @@
 import { GwService } from './services/gwService.js';
+import { LiveMatchModule } from './liveMatch.js';
 import { createMatchCardResult } from './components/MatchCardResult.js';
 
 export const CalendarioPage = {
@@ -16,6 +17,44 @@ export const CalendarioPage = {
         <div id="calendarMatchesContainer" style="display:flex; flex-direction:column; gap:.5rem; padding-bottom:2rem;"></div>
       </div>
     `;
+  },
+
+  _ctx: null,
+
+  // Comportamento del click su una partita in base alla fase della giornata
+  onMatchClick(matchKey) {
+    const ctx = this._ctx;
+    if (!ctx) return;
+    const couple = ctx.couples.find(c => String(c.key) === String(matchKey));
+    if (!couple) return;
+
+    if (ctx.phase === 'past') {
+      LiveMatchModule.openViewer({ comp: ctx.comp, gwKey: ctx.gwKey, couple, mode: 'past' });
+    } else if (ctx.phase === 'next') {
+      LiveMatchModule.openViewer({ comp: ctx.comp, gwKey: ctx.gwKey, couple, mode: 'next' });
+    } else if (ctx.phase === 'current') {
+      LiveMatchModule._pendingKey = couple.key;
+      window.goPage('live', document.getElementById('btn-nav-formazione'));
+    } else {
+      this._popup('Non è ancora possibile vedere questo match.');
+    }
+  },
+
+  _popup(message) {
+    document.getElementById('cal-popup')?.remove();
+    const el = document.createElement('div');
+    el.id = 'cal-popup';
+    el.style.cssText = 'position:fixed;inset:0;z-index:6000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:1.5rem;';
+    el.innerHTML = `
+      <div class="card" style="max-width:340px;width:100%;text-align:center;padding:1.5rem;">
+        <div style="font-size:2rem;color:var(--text2);margin-bottom:.5rem;"><i class="ri-lock-line"></i></div>
+        <div style="font-size:.95rem;margin-bottom:1.2rem;">${message}</div>
+        <button class="btn btn-green" id="cal-popup-ok">OK</button>
+      </div>`;
+    document.body.appendChild(el);
+    const close = () => el.remove();
+    el.querySelector('#cal-popup-ok').addEventListener('click', close);
+    el.addEventListener('click', (e) => { if (e.target === el) close(); });
   },
 
   _selectedCompName(comp) {
@@ -87,14 +126,37 @@ export const CalendarioPage = {
         titleEl.textContent = `${compName} — TURNO ${turnNum}`;
       }
 
-      // Estrae le partite della giornata selezionata
-      const couplesObj = matchesNode[selectedGW]?.couples || matchesNode[selectedGW] || {};
-      const turnMatches = Array.isArray(couplesObj) ? couplesObj : Object.values(couplesObj);
+      // Incontri della giornata (segnaposto del tabellone già risolti)
+      const compForCouples = { ...(currentCompData || {}), matches: matchesNode };
+      const turnMatches = GwService.getCouples(compForCouples, selectedGW);
       const currentTeams = STATE.teams || [];
+      const phase = GwService.getGwPhase(compForCouples, selectedGW, STATE.giornataRealeCorrente);
 
-      // Generiamo le card usando il componente importato
-      container.innerHTML = turnMatches.map(match => createMatchCardResult(match, currentTeams)).join('');
+      const chip = {
+        past:    { icon: 'ri-play-circle-line', text: 'Rivedi',        color: 'var(--text2)' },
+        current: { icon: 'ri-record-circle-line', text: 'Live',        color: 'var(--accent3)' },
+        next:    { icon: 'ri-team-line',        text: 'Formazioni',    color: 'var(--accent)' },
+        future:  { icon: 'ri-lock-line',        text: 'Non disponibile', color: 'var(--text3)' }
+      }[phase];
+
+      CalendarioPage._ctx = { STATE, comp: compForCouples, gwKey: selectedGW, phase, couples: turnMatches };
+
+      container.innerHTML = turnMatches.map(match => `
+        <div data-match-key="${String(match.key).replace(/"/g, '&quot;')}" style="position:relative; cursor:pointer;">
+          ${createMatchCardResult(match, currentTeams)}
+          <span style="position:absolute; top:.5rem; right:.7rem; display:flex; align-items:center; gap:.25rem; font-size:.65rem; font-weight:600; color:${chip.color};">
+            <i class="${chip.icon}"></i>${chip.text}
+          </span>
+        </div>`).join('');
     };
+
+    if (!container.dataset.bound) {
+      container.dataset.bound = '1';
+      container.addEventListener('click', (e) => {
+        const card = e.target.closest('[data-match-key]');
+        if (card) CalendarioPage.onMatchClick(card.dataset.matchKey);
+      });
+    }
 
     select.onchange = drawSelectedTurn;
     drawSelectedTurn();
