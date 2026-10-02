@@ -15,7 +15,7 @@ export const PalmaresSection = {
 
   renderHTML() {
     return `
-    <div id="sec-palmares" class="admin-sec" style="margin-top:2rem;">
+    <div id="sec-palmares" class="admin-sec" style="display:none">
       <div class="sec-title">🏅 Assegnazione Palmarès e Piazzamenti</div>
       
       <div class="card" style="max-width:500px">
@@ -70,11 +70,28 @@ export const PalmaresSection = {
     </div>`;
   },
 
-  render({ teams = {}, competitions = {}, trophies = [] }) {
-    this.competitionsData = competitions || {};
-    this.trophiesData = Array.isArray(trophies) 
-      ? trophies 
-      : Object.entries(trophies || {}).map(([k, v]) => ({ ...v, id: v.id || k }));
+  render(STATE = {}) {
+    // 1. Recupero robusto delle squadre (da STATE o globale window.TEAMS)
+    let rawTeams = STATE.TEAMS || STATE.teams || window.TEAMS || [];
+    const teamsList = Array.isArray(rawTeams)
+      ? rawTeams.filter(Boolean)
+      : Object.entries(rawTeams || {}).map(([key, val]) => (
+          typeof val === 'object' ? { id: key, ...val } : { id: key, name: val }
+        ));
+
+    // 2. Recupero delle competizioni
+    let rawComps = STATE.competitions || window.COMPETITIONS || [];
+    const compArray = Array.isArray(rawComps)
+      ? rawComps.filter(Boolean)
+      : Object.entries(rawComps || {}).map(([id, comp]) => ({ id, ...comp }));
+    
+    this.competitionsData = Object.fromEntries(compArray.map(c => [c.id, c]));
+
+    // 3. Recupero dei trofei
+    let rawTrophies = STATE.trophies || window.TROPHIES || [];
+    this.trophiesData = Array.isArray(rawTrophies) 
+      ? rawTrophies 
+      : Object.entries(rawTrophies || {}).map(([k, v]) => ({ ...v, id: v.id || k }));
 
     const teamSelect = document.getElementById('palTeam');
     const compSelect = document.getElementById('palComp');
@@ -82,29 +99,26 @@ export const PalmaresSection = {
 
     if (!teamSelect || !compSelect) return;
 
-    // Normalizza la lista squadre
-    const teamsList = Array.isArray(teams)
-      ? teams.filter(Boolean)
-      : Object.entries(teams || {}).map(([key, val]) => ({ ...val, id: val.id || key }));
+    // Popola select squadre
+    if (teamsList.length > 0) {
+      teamSelect.innerHTML = '<option value="">-- Seleziona Squadra --</option>' +
+        teamsList.map(t => `<option value="${t.id}">${t.name || t.id} (${t.id})</option>`).join('');
+    } else {
+      teamSelect.innerHTML = '<option value="">-- Nessuna squadra trovata --</option>';
+    }
 
-    teamSelect.innerHTML = '<option value="">-- Seleziona Squadra --</option>' +
-      teamsList.map(t => `<option value="${t.id}">${t.name} (${t.id})</option>`).join('');
+    // Popola select competizioni
+    if (compArray.length > 0) {
+      compSelect.innerHTML = '<option value="">-- Seleziona Competizione --</option>' +
+        compArray.map(c => `<option value="${c.id}">${c.name || c.id} (${c.type || 'campionato'})</option>`).join('');
+    } else {
+      compSelect.innerHTML = '<option value="">-- Nessuna competizione trovata --</option>';
+    }
 
-    // Popola select delle competizioni
-    const compList = Object.entries(this.competitionsData).map(([id, comp]) => ({
-      id,
-      name: comp.name || id,
-      type: comp.type || 'campionato',
-      trophyId: comp.trophyId || null
-    }));
-
-    compSelect.innerHTML = '<option value="">-- Seleziona Competizione --</option>' +
-      compList.map(c => `<option value="${c.id}">${c.name} (${c.type})</option>`).join('');
-
-    const compNamesMap = Object.fromEntries(compList.map(c => [c.id, c.name]));
+    const compNamesMap = Object.fromEntries(compArray.map(c => [c.id, c.name || c.id]));
     const trophyNamesMap = Object.fromEntries(this.trophiesData.map(t => [t.id, t.name || t.id]));
 
-    // Genera la tabella del palmarès
+    // Genera la tabella del palmarès registrato
     const rows = [];
     teamsList.forEach(team => {
       if (!team.palmares) return;
@@ -117,7 +131,7 @@ export const PalmaresSection = {
 
           rows.push({
             teamId: team.id,
-            teamName: team.name,
+            teamName: team.name || team.id,
             season,
             compId,
             compName: compNamesMap[compId] || compId,
@@ -204,7 +218,6 @@ export const PalmaresSection = {
         <input type="text" id="palPositionCustom" class="input-login" style="display:none;" placeholder="Inserisci fase personalizzata">
         <input type="hidden" id="palPosition" value="${fases[0]}">`;
 
-      // Di default "Vincitore" spunta la checkbox del trofeo
       if (wonCheckbox) wonCheckbox.checked = true;
     }
   },
@@ -246,8 +259,6 @@ export const PalmaresSection = {
       finalPosition = String(rawPosition).trim();
     }
 
-    // RECUPERO DEL CODICE TROFEO:
-    // Prende comp.trophyId (es: "coppa-fantacazz", "coppa-dei-cannoni") se spuntato, altrimenti null
     const trophyCodeToSave = won ? (comp.trophyId || compId) : null;
 
     const btnSubmit = document.getElementById('btnSubmitPalmares');
@@ -265,7 +276,6 @@ export const PalmaresSection = {
       });
 
       window.toast("Palmarès aggiornato con successo!", "ok");
-
       this.handleCompChange();
 
     } catch (err) {
