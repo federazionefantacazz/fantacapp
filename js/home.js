@@ -36,7 +36,7 @@ export const HomePage = {
           <!-- RIGA TROFEI / PALMARÈS -->
           <div style="margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed rgba(255,255,255,0.1); width: 100%;">
             <div class="label" style="margin-bottom: 0.4rem; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase;"><i class="ri-trophy-line"></i> Palmarès / Trofei</div>
-            <div id="homeTeamTrophies" style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+            <div id="homeTeamTrophies" style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
               <span style="font-size: 0.75rem; color: var(--text3); font-style: italic;">Nessun trofeo</span>
             </div>
           </div>
@@ -143,18 +143,44 @@ export const HomePage = {
       }
       // ----------------------------------------------------
 
+      // --- LOGICA PALMARÈS / TROFEI VINTI ---
       if (trophiesContainer) {
-        let trophiesList = [];
-        if (myTeam.trophies) {
-          trophiesList = Array.isArray(myTeam.trophies) ? myTeam.trophies : Object.values(myTeam.trophies);
+        let allTrophies = [];
+        if (STATE.trophies) {
+          allTrophies = Array.isArray(STATE.trophies) ? STATE.trophies : Object.values(STATE.trophies);
+        } else if (window.TROPHIES) {
+          allTrophies = Array.isArray(window.TROPHIES) ? window.TROPHIES : Object.values(window.TROPHIES);
         }
 
-        if (trophiesList.length > 0) {
-          trophiesContainer.innerHTML = trophiesList.map(tr => `
-            <span style="font-size: 1rem;" title="${(tr && tr.name) || 'Trofeo'}"><i class="ri-trophy-fill" style="color: var(--gold);"></i></span>
-          `).join('');
-        } else if (myTeam.trophiesCount) {
-          trophiesContainer.innerHTML = `<span style="font-size:0.85rem; font-weight:bold; color:var(--gold);"><i class="ri-trophy-fill"></i> x${myTeam.trophiesCount}</span>`;
+        const trophiesMap = Object.fromEntries(allTrophies.map(t => [t.id, t]));
+        const wonTrophies = [];
+
+        if (myTeam.palmares) {
+          Object.entries(myTeam.palmares).forEach(([season, seasonComps]) => {
+            if (seasonComps && typeof seasonComps === 'object') {
+              Object.entries(seasonComps).forEach(([compId, item]) => {
+                if (item && item.trofeo_vinto) {
+                  const trophyObj = trophiesMap[item.trofeo_vinto];
+                  wonTrophies.push({
+                    trophyId: item.trofeo_vinto,
+                    season: season,
+                    name: trophyObj?.name || item.trofeo_vinto,
+                    image: trophyObj?.image || ''
+                  });
+                }
+              });
+            }
+          });
+        }
+
+        if (wonTrophies.length > 0) {
+          trophiesContainer.innerHTML = wonTrophies.map(tr => {
+            if (tr.image) {
+              return `<img src="${tr.image}" alt="${tr.name}" title="${tr.name} (${tr.season})" style="width: 36px; height: 36px; object-fit: contain; vertical-align: middle; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));">`;
+            } else {
+              return `<span style="font-size: 1.4rem;" title="${tr.name} (${tr.season})">🏆</span>`;
+            }
+          }).join('');
         } else {
           trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3); font-style: italic;">Nessun trofeo in bacheca</span>`;
         }
@@ -172,7 +198,6 @@ export const HomePage = {
 
     if (comp) {
       const currentRealGw = STATE.giornataRealeCorrente || STATE.currentRealGW || STATE.status?.currentGW || 1;
-      // Giornata della competizione associata alla Serie A corrente (nessun fallback su gw{Serie A})
       const targetGwKey = GwService.getGwKey(comp, currentRealGw);
 
       const gwData = (targetGwKey && comp.matches && comp.matches[targetGwKey]) ? comp.matches[targetGwKey] : null;
