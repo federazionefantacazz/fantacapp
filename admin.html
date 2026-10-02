@@ -135,6 +135,9 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
   <button class="snav" data-sec="trofei">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>Trofei
   </button>
+  <button class="snav" data-sec="palmares">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15l-2 5l-4-2l1.5-4.5"/><path d="M12 15l2 5l4-2l-1.5-4.5"/><circle cx="12" cy="9" r="6"/><path d="M12 6v3l2 1"/></svg>Palmarès
+  </button>
   <button class="snav" data-sec="players">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>Giocatori
   </button>
@@ -168,6 +171,7 @@ import { db, auth, ref, onValue, set, update, onAuthStateChanged, signInWithEmai
 import { DashboardSection }     from './js/admin/dashboard.js';
 import { TeamsSection }         from './js/admin/teams.js';
 import { TrofeiSection }        from './js/admin/trofei.js';
+import { PalmaresSection }      from './js/admin/palmares.js';
 import { PlayersSection }       from './js/admin/players.js';
 import { VotesSection }         from './js/admin/votes.js';
 import { MercatoSection }       from './js/admin/mercato.js';
@@ -228,6 +232,7 @@ function initAdminApp() {
   if (DashboardSection && typeof DashboardSection.init === 'function') DashboardSection.init(db);
   if (TeamsSection && typeof TeamsSection.init === 'function') TeamsSection.init(db);
   if (TrofeiSection && typeof TrofeiSection.init === 'function') TrofeiSection.init(db);
+  if (PalmaresSection && typeof PalmaresSection.init === 'function') PalmaresSection.init(db);
   if (PlayersSection && typeof PlayersSection.init === 'function') PlayersSection.init(db); 
   if (VotesSection && typeof VotesSection.init === 'function') VotesSection.init(db);
   if (MercatoSection && typeof MercatoSection.init === 'function') MercatoSection.init(db);
@@ -247,6 +252,7 @@ function initAdminApp() {
       ${typeof DashboardSection.renderHTML === 'function' ? DashboardSection.renderHTML() : ''}
       ${typeof TeamsSection.renderHTML === 'function' ? TeamsSection.renderHTML() : ''}
       ${typeof TrofeiSection.renderHTML === 'function' ? TrofeiSection.renderHTML() : ''}
+      ${typeof PalmaresSection.renderHTML === 'function' ? PalmaresSection.renderHTML() : ''}
       ${typeof PlayersSection.renderHTML === 'function' ? PlayersSection.renderHTML() : ''}
       ${typeof VotesSection.renderHTML === 'function' ? VotesSection.renderHTML() : ''}
       ${typeof MercatoSection.renderHTML === 'function' ? MercatoSection.renderHTML() : ''}
@@ -283,6 +289,7 @@ function refreshAll() {
   if (DashboardSection && typeof DashboardSection.render === 'function') DashboardSection.render(state);
   if (TeamsSection && typeof TeamsSection.render === 'function') TeamsSection.render(state);
   if (TrofeiSection && typeof TrofeiSection.render === 'function') TrofeiSection.render(state);
+  if (PalmaresSection && typeof PalmaresSection.render === 'function') PalmaresSection.render(state);
   if (PlayersSection && typeof PlayersSection.render === 'function') PlayersSection.render(state);
   if (VotesSection && typeof VotesSection.render === 'function') VotesSection.render(state);
   if (MercatoSection && typeof MercatoSection.render === 'function') MercatoSection.render(state);
