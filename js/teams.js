@@ -102,7 +102,7 @@ export const TeamsPage = {
     if (titleView) titleView.innerHTML = `${team.name}`;
 
     if (btnInfo) {
-      btnInfo.onclick = () => this.openInfoModal(team);
+      btnInfo.onclick = () => this.openInfoModal(team, STATE);
     }
 
     this.drawRosa(teamId, STATE);
@@ -114,7 +114,7 @@ export const TeamsPage = {
     if (pageContainer) pageContainer.scrollTop = 0;
   },
 
-  // Generazione della Rosa con Lazy Loading per calciatori rivali
+  // Generazione della Rosa
   drawRosa(teamId, STATE) {
     const container = document.getElementById('team-roster-container');
     if (!container) return;
@@ -163,7 +163,7 @@ export const TeamsPage = {
     container.innerHTML = html;
   },
 
-  openInfoModal(team) {
+  openInfoModal(team, STATE = {}) {
     const modal = document.getElementById('club-info-modal');
     const content = document.getElementById('club-info-content');
     const closeBtn = document.getElementById('close-info-modal');
@@ -172,19 +172,84 @@ export const TeamsPage = {
     const logoUrl = team.logo || 'icons/icon-192.png';
     const mottoText = team.motto ? `"${team.motto}"` : 'Nessun motto impostato';
     const descriptionText = team.description || 'Nessuna descrizione o storia inserita per questa fanta-squadra.';
-    
+
+    // 1. Recupero dinamico dei trofei dal nodo Firebase
+    const rawTrophies = STATE.trophies || window.TROPHIES || [];
+    const allTrophies = Array.isArray(rawTrophies)
+      ? rawTrophies
+      : Object.entries(rawTrophies).map(([k, v]) => (typeof v === 'object' ? { id: k, ...v } : { id: k, name: v }));
+
+    const trophiesMap = Object.fromEntries(allTrophies.map(t => [t.id, t]));
+
+    const competitionsList = Array.isArray(STATE.competitions)
+      ? STATE.competitions
+      : Object.values(STATE.competitions || {});
+    const compMap = Object.fromEntries(competitionsList.map(c => [c.id, c]));
+
+    // 2. Estrazione dei trofei vinti dal Palmarès della squadra
+    let wonTrophies = [];
+
+    if (team.palmares) {
+      Object.entries(team.palmares).forEach(([season, seasonComps]) => {
+        if (seasonComps && typeof seasonComps === 'object') {
+          Object.entries(seasonComps).forEach(([compId, item]) => {
+            if (item && item.trofeo_vinto) {
+              const trophyId = typeof item.trofeo_vinto === 'string'
+                ? item.trofeo_vinto
+                : (compMap[compId]?.trophyId || compId);
+
+              const trophyObj = trophiesMap[trophyId];
+              const trophyName = trophyObj?.name || compMap[compId]?.name || trophyId;
+              const trophyImage = trophyObj?.image || trophyObj?.img || trophyObj?.url || '';
+
+              wonTrophies.push({
+                trophyId,
+                season,
+                name: trophyName,
+                image: trophyImage
+              });
+            }
+          });
+        }
+      });
+    }
+
+    // Fallback retrocompatibile per strutture legacy in team.trophies
+    if (wonTrophies.length === 0 && team.trophies && Array.isArray(team.trophies) && team.trophies.length > 0) {
+      wonTrophies = team.trophies.map(tr => ({
+        trophyId: tr.id || 'trophy',
+        season: tr.year || '—',
+        name: tr.title || tr.name || 'Trofeo',
+        image: tr.image || tr.img || ''
+      }));
+    }
+
+    // 3. Generazione HTML del Palmarès con immagini ed icone
     let trophiesHTML = `<div style="color:var(--text2); font-size:.85rem; font-style:italic;">Bacheca vuota. Nessun trofeo vinto finora.</div>`;
-    if (team.trophies && team.trophies.length > 0) {
+
+    if (wonTrophies.length > 0) {
       trophiesHTML = `
         <div style="display:flex; flex-direction:column; gap:.5rem;">
-          ${team.trophies.map(trophy => `
-            <div style="background:var(--bg3); border:1px solid rgba(255,255,255,0.04); padding:.6rem .8rem; border-radius:8px; display:flex; align-items:center; gap:.6rem;">
-              <div style="text-align:left;">
-                <div style="font-size:.85rem; font-weight:600; color:var(--gold);">${trophy.title || 'Competizione'}</div>
-                <div style="font-size:.72rem; color:var(--text2);">Stagione / Anno: ${trophy.year || '—'}</div>
+          ${wonTrophies.map(tr => {
+            const imgHtml = tr.image
+              ? `<img src="${tr.image}" alt="${tr.name}" style="width:40px; height:40px; object-fit:contain; vertical-align:middle; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));" onerror="this.outerHTML='<span style=\\'font-size:1.5rem\\'>🏆</span>'">`
+              : `<span style="font-size:1.5rem">🏆</span>`;
+
+            return `
+              <div style="background:var(--bg3); border:1px solid rgba(255,255,255,0.06); padding:.6rem .8rem; border-radius:10px; display:flex; align-items:center; gap:.8rem;">
+                <div style="width:42px; height:42px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                  ${imgHtml}
+                </div>
+                <div style="text-align:left; flex:1; min-width:0;">
+                  <div style="font-size:.9rem; font-weight:600; color:var(--gold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tr.name}</div>
+                  <div style="font-size:.75rem; color:var(--text2);">Stagione: <strong style="color:var(--text);">${tr.season}</strong></div>
+                </div>
+                <div style="background:rgba(245,166,35,0.15); color:var(--gold); font-size:.7rem; font-weight:600; padding:.2rem .5rem; border-radius:6px; flex-shrink:0;">
+                  🏆 Vinto
+                </div>
               </div>
-            </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
       `;
     }
