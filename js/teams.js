@@ -1,5 +1,4 @@
 export const TeamsPage = {
-  // Struttura HTML unificata: Lista -> Dettaglio Rosa -> Modal Info Club
   renderHTML() {
     return `
       <div class="page" id="page-teams">
@@ -48,7 +47,6 @@ export const TeamsPage = {
     `;
   },
 
-  // Renderizza la griglia delle squadre
   render(STATE) {
     window.openTeamDetail = (teamId) => this.openTeamDetail(teamId, STATE);
     window.backToTeamsList = () => this.backToTeamsList();
@@ -114,7 +112,6 @@ export const TeamsPage = {
     if (pageContainer) pageContainer.scrollTop = 0;
   },
 
-  // Generazione della Rosa
   drawRosa(teamId, STATE) {
     const container = document.getElementById('team-roster-container');
     if (!container) return;
@@ -173,7 +170,6 @@ export const TeamsPage = {
     const mottoText = team.motto ? `"${team.motto}"` : 'Nessun motto impostato';
     const descriptionText = team.description || 'Nessuna descrizione o storia inserita per questa fanta-squadra.';
 
-    // 1. Recupero dinamico dei trofei dal nodo Firebase
     const rawTrophies = STATE.trophies || window.TROPHIES || [];
     const allTrophies = Array.isArray(rawTrophies)
       ? rawTrophies
@@ -186,7 +182,6 @@ export const TeamsPage = {
       : Object.values(STATE.competitions || {});
     const compMap = Object.fromEntries(competitionsList.map(c => [c.id, c]));
 
-    // 2. Estrazione dei trofei vinti dal Palmarès della squadra
     let wonTrophies = [];
 
     if (team.palmares) {
@@ -206,7 +201,8 @@ export const TeamsPage = {
                 trophyId,
                 season,
                 name: trophyName,
-                image: trophyImage
+                image: trophyImage,
+                scale: item.scale !== undefined ? parseInt(item.scale, 10) : 100
               });
             }
           });
@@ -214,30 +210,22 @@ export const TeamsPage = {
       });
     }
 
-    // Fallback retrocompatibile per strutture legacy in team.trophies
-    if (wonTrophies.length === 0 && team.trophies && Array.isArray(team.trophies) && team.trophies.length > 0) {
-      wonTrophies = team.trophies.map(tr => ({
-        trophyId: tr.id || 'trophy',
-        season: tr.year || '—',
-        name: tr.title || tr.name || 'Trofeo',
-        image: tr.image || tr.img || ''
-      }));
-    }
-
-    // 3. Generazione HTML del Palmarès con immagini ed icone
     let trophiesHTML = `<div style="color:var(--text2); font-size:.85rem; font-style:italic;">Bacheca vuota. Nessun trofeo vinto finora.</div>`;
 
     if (wonTrophies.length > 0) {
       trophiesHTML = `
         <div style="display:flex; flex-direction:column; gap:.5rem;">
           ${wonTrophies.map(tr => {
+            // Calcolo percentuale su dimensione base modal (42px)
+            const sizePx = Math.round(42 * (tr.scale / 100));
+
             const imgHtml = tr.image
-              ? `<img src="${tr.image}" alt="${tr.name}" style="width:40px; height:40px; object-fit:contain; vertical-align:middle; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));" onerror="this.outerHTML='<span style=\\'font-size:1.5rem\\'>🏆</span>'">`
+              ? `<img src="${tr.image}" alt="${tr.name}" style="width:${sizePx}px; height:${sizePx}px; object-fit:contain; vertical-align:middle; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));" onerror="this.outerHTML='<span style=\\'font-size:1.5rem\\'>🏆</span>'">`
               : `<span style="font-size:1.5rem">🏆</span>`;
 
             return `
               <div style="background:var(--bg3); border:1px solid rgba(255,255,255,0.06); padding:.6rem .8rem; border-radius:10px; display:flex; align-items:center; gap:.8rem;">
-                <div style="width:42px; height:42px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <div style="width:50px; height:50px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                   ${imgHtml}
                 </div>
                 <div style="text-align:left; flex:1; min-width:0;">
