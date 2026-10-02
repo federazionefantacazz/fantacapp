@@ -14,7 +14,8 @@ const ASSETS_TO_CACHE = [
   './js/services/calcoloMatch.js',
   './js/services/classificaService.js',
   './js/services/settingsService.js',
-  './js/services/assetPreloader.js', // <-- Aggiunto
+  './js/services/assetPreloader.js',
+  './js/services/gwService.js',
 
   // Componenti
   './js/components/AnteprimaClassificaStandard.js',
