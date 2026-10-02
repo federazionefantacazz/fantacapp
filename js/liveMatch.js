@@ -29,6 +29,7 @@ export const LiveMatchModule = {
   activeListener: null,
 
   selectedMatchKey: null,
+  _pendingKey: null,   // partita da aprire quando si arriva dal calendario
   _ctxKey: null,
   _data: null,
 
@@ -83,6 +84,7 @@ export const LiveMatchModule = {
 
     // Stesso contesto e listener già attivi: non risottoscrivo (evita sfarfallii), riaggiorno solo la grafica
     if (ctxKey === this._ctxKey && this.unsubscribers.length) {
+      if (this._pendingKey) { this.selectedMatchKey = this._pendingKey; this._pendingKey = null; }
       if (this._data) {
         this._data.status = status;
         this._data.compData = compForStatus;
@@ -93,7 +95,8 @@ export const LiveMatchModule = {
 
     this.stopLiveTracking();
     this._ctxKey = ctxKey;
-    this.selectedMatchKey = null;
+    this.selectedMatchKey = this._pendingKey || null;
+    this._pendingKey = null;
     this._data = { status, compData: compForStatus, gwKey, lineups: {}, matchesNode: {}, votes: {}, players: {}, ready: { match: false, votes: false, players: false } };
     container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Caricamento dati live...</p>`;
 
@@ -180,10 +183,6 @@ export const LiveMatchModule = {
         </div>
       </div>`;
 
-    const playersById = new Map(Object.values(d.players).map(p => [String(p.id), p]));
-    const homeTeam = this._buildTeam(sel.homeId, d.lineups, playersById, d.votes);
-    const awayTeam = this._buildTeam(sel.awayId, d.lineups, playersById, d.votes);
-
     container.innerHTML = `
       <div class="card" style="margin-top:.5rem;">
         <div class="sec" style="justify-content:space-between; align-items:center; margin-bottom:1rem;">
@@ -202,10 +201,7 @@ export const LiveMatchModule = {
           <select id="live-match-select" class="select-rose">${options}</select>
         </div>
 
-        <div style="display:flex; flex-wrap:wrap; gap:1.5rem;">
-          ${this._teamMarkup(homeTeam)}
-          ${this._teamMarkup(awayTeam)}
-        </div>
+        ${this.buildMatchHTML(sel.homeId, sel.awayId, d.lineups, Object.values(d.players), d.votes)}
       </div>
     `;
 
@@ -216,6 +212,76 @@ export const LiveMatchModule = {
         this.render();
       });
     }
+  },
+
+
+  /** HTML delle due squadre con campo, panchina e punteggio (usato da Live, Replay e Formazioni). */
+  buildMatchHTML(homeId, awayId, lineups, players, votes, opts = {}) {
+    const playersById = new Map((players || []).filter(Boolean).map(p => [String(p.id), p]));
+    const home = this._buildTeam(homeId, lineups || {}, playersById, votes || {});
+    const away = this._buildTeam(awayId, lineups || {}, playersById, votes || {});
+    return `
+      <div style="display:flex; flex-wrap:wrap; gap:1.5rem;">
+        ${this._teamMarkup(home, opts)}
+        ${this._teamMarkup(away, opts)}
+      </div>`;
+  },
+
+  closeViewer() {
+    document.getElementById('match-viewer')?.remove();
+  },
+
+  /**
+   * Apre a tutto schermo una partita non "live":
+   *  mode 'past' = replay con voti e somma punti
+   *  mode 'next' = formazioni schierate (o "Formazione non inserita")
+   */
+  openViewer({ comp, gwKey, couple, mode }) {
+    this._injectStyles();
+    this.closeViewer();
+    const STATE = window.STATE || {};
+    const isPast = mode === 'past';
+
+    const gwReale = GwService.getRealOf(comp, gwKey);
+    const lineups = comp.matches?.[gwKey]?.lineups || {};
+    let votes = {};
+    if (isPast && gwReale !== null) {
+      const raw = STATE.votes?.[`gw${gwReale}`] || {};
+      Object.keys(raw).forEach(id => { votes[id] = { ...raw[id], live: false }; });
+    }
+
+    const home = this._teamInfo(couple.homeId);
+    const away = this._teamInfo(couple.awayId);
+    const result = isPast && couple.finished && (couple.goalHome != null || couple.homeScore != null)
+      ? `<div style="text-align:center; margin-bottom:1rem;">
+           <div style="font-family:'DM Mono',monospace; font-size:1.6rem; font-weight:700; color:var(--accent);">${esc(couple.goalHome ?? couple.homeScore)} : ${esc(couple.goalAway ?? couple.awayScore)}</div>
+           ${couple.punteggioFinaleHome != null ? `<div style="font-size:.75rem; color:var(--text2);">${esc(couple.punteggioFinaleHome)} - ${esc(couple.punteggioFinaleAway ?? 0)} pt</div>` : ''}
+         </div>`
+      : '';
+
+    const body = this.buildMatchHTML(couple.homeId, couple.awayId, lineups, STATE.players || [], votes, {
+      totalLabel: 'Punteggio Totale',
+      showTotal: isPast
+    });
+
+    const overlay = document.createElement('div');
+    overlay.id = 'match-viewer';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:5000;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:2rem;';
+    overlay.innerHTML = `
+      <div style="position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:.8rem;padding:.8rem 1rem;background:var(--bg2);border-bottom:1px solid rgba(255,255,255,.08);">
+        <button id="mv-close" class="btn btn-outline" style="width:auto;padding:.45rem .8rem;"><i class="ri-arrow-left-line"></i> Calendario</button>
+        <div style="min-width:0;">
+          <div style="font-size:.7rem;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;">${isPast ? 'Replay match' : 'Formazioni schierate'} · ${esc(GwService.label(gwKey))}</div>
+          <div style="font-weight:700;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(home.name)} vs ${esc(away.name)}</div>
+        </div>
+      </div>
+      <div style="padding:1rem;max-width:1100px;margin:0 auto;">
+        ${couple.label ? `<div style="font-size:.7rem;color:var(--gold);font-weight:bold;text-transform:uppercase;margin-bottom:.6rem;">${esc(couple.label)}</div>` : ''}
+        ${result}
+        ${body}
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#mv-close').addEventListener('click', () => this.closeViewer());
   },
 
   _mapPlayer(id, playersById, votes) {
@@ -278,7 +344,7 @@ export const LiveMatchModule = {
     return html;
   },
 
-  _teamMarkup(team) {
+  _teamMarkup(team, opts = {}) {
     const logo = team.info.logo
       ? `<img src="${esc(team.info.logo)}" alt="" style="width:22px; height:22px; object-fit:contain; border-radius:3px;">`
       : '';
@@ -294,7 +360,7 @@ export const LiveMatchModule = {
         <div style="flex:1; min-width:300px;">
           ${header}
           <div style="text-align:center; padding:2rem; background:var(--bg3); border-radius:12px; color:var(--text2); border:1px dashed rgba(255,255,255,.08);">
-            <p style="font-size:.9rem;">Formazione non schierata</p>
+            <p style="font-size:.9rem;">Formazione non inserita</p>
           </div>
         </div>`;
     }
@@ -325,10 +391,11 @@ export const LiveMatchModule = {
         <div class="label" style="margin:1rem 0 .5rem; font-size:.75rem; opacity:.7;">Panchina</div>
         <div style="opacity:.9;">${panchina}</div>
 
+        ${opts.showTotal === false ? '' : `
         <div style="border-top:1px solid rgba(255,255,255,.05); margin-top:.8rem; padding-top:.8rem; display:flex; justify-content:space-between; align-items:center;">
-          <span class="label" style="margin:0; font-size:.75rem;">Punteggio Parziale</span>
+          <span class="label" style="margin:0; font-size:.75rem;">${esc(opts.totalLabel || 'Punteggio Parziale')}</span>
           <span style="font-size:1.4rem; font-weight:700; color:var(--accent); font-family:'DM Mono',monospace;">${tot.toFixed(1)}</span>
-        </div>
+        </div>`}
       </div>
     `;
   }
