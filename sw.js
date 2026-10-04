@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.1.4'; // Incrementa ad ogni modifica dei file statici
+const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.1.5'; // Incrementa ad ogni modifica dei file statici
 
 // 1. Array pulito e aggiornato
 const ASSETS_TO_CACHE = [
@@ -18,6 +18,7 @@ const ASSETS_TO_CACHE = [
   './js/services/gwService.js',
 
   // Componenti
+  './js/components/AnteprimaClassifica.js',
   './js/components/AnteprimaClassificaStandard.js',
   './js/components/AnteprimaClassificaTabellone.js',
   './js/components/MatchCardResult.js',
