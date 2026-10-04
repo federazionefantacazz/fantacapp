@@ -218,8 +218,8 @@ export const LiveMatchModule = {
   /** HTML delle due squadre con campo, panchina e punteggio (usato da Live, Replay e Formazioni). */
   buildMatchHTML(homeId, awayId, lineups, players, votes, opts = {}) {
     const playersById = new Map((players || []).filter(Boolean).map(p => [String(p.id), p]));
-    const home = this._buildTeam(homeId, lineups || {}, playersById, votes || {});
-    const away = this._buildTeam(awayId, lineups || {}, playersById, votes || {});
+    const home = this._buildTeam(homeId, lineups || {}, playersById, votes || {}, opts);
+    const away = this._buildTeam(awayId, lineups || {}, playersById, votes || {}, opts);
     return `
       <div style="display:flex; flex-wrap:wrap; gap:1.5rem;">
         ${this._teamMarkup(home, opts)}
@@ -261,7 +261,8 @@ export const LiveMatchModule = {
 
     const body = this.buildMatchHTML(couple.homeId, couple.awayId, lineups, STATE.players || [], votes, {
       totalLabel: 'Punteggio Totale',
-      showTotal: isPast
+      showTotal: isPast,
+      applySubs: isPast
     });
 
     const overlay = document.createElement('div');
@@ -294,23 +295,43 @@ export const LiveMatchModule = {
       role: p.role,
       club: p.club || '',
       voto: vObj.voto !== undefined && vObj.voto !== null ? Number(vObj.voto) : 0,
-      fv: vObj.fVoto !== undefined && vObj.fVoto !== null ? Number(vObj.fVoto) : 0,
-      emoji: CalcoloMatchService.emojiFromBonus(vObj.bonus),
+      fv: vObj.fVoto !== undefined && vObj.fVoto !== null ? Number(vObj.fVoto)
+        : (vObj.fantavoto !== undefined && vObj.fantavoto !== null ? Number(vObj.fantavoto) : 0),
+      emoji: CalcoloMatchService.emojiFromBonus(vObj.bonus || vObj),
       live: !!vObj.live,
       photo: p.photoPersonal || p.photoStandard || ''
     };
   },
 
-  _buildTeam(teamId, lineups, playersById, votes) {
+  _buildTeam(teamId, lineups, playersById, votes, opts = {}) {
     const info = this._teamInfo(teamId);
     const lineup = lineups[teamId];
     if (!lineup || !lineup.titolari) return { info, lineup: null };
-    return {
-      info,
-      lineup,
-      titolari: lineup.titolari.map(id => this._mapPlayer(id, playersById, votes)),
-      panchina: (lineup.panchina || []).map(id => this._mapPlayer(id, playersById, votes))
-    };
+
+    const titolari = lineup.titolari.map(id => this._mapPlayer(id, playersById, votes));
+    const panchina = (lineup.panchina || []).map(id => this._mapPlayer(id, playersById, votes));
+    const team = { info, lineup, titolari, panchina };
+
+    // Sostituzioni (solo a giornata conclusa): un titolare s.v. lascia il posto al primo
+    // panchinaro dello stesso ruolo che ha preso voto.
+    if (opts.applySubs) {
+      const byId = new Map([...titolari, ...panchina].map(p => [String(p.id), p]));
+      const getScore = (id) => {
+        const p = byId.get(String(id));
+        if (!p || !(p.voto > 0)) return null;
+        return p.fv > 0 ? p.fv : p.voto;
+      };
+      const res = CalcoloMatchService.applicaSostituzioni(
+        lineup.titolari, lineup.panchina || [], (id) => byId.get(String(id))?.role, getScore
+      );
+      team.campo = res.slots.map(sl => ({
+        ...byId.get(String(sl.id)),
+        entratoPer: sl.entratoPer ? byId.get(String(sl.entratoPer)) : null
+      }));
+      team.entrati = new Map(res.sostituzioni.map(x => [String(x.in), byId.get(String(x.out))]));
+      team.tot = res.totale;
+    }
+    return team;
   },
 
   _scoreOf(p) {
@@ -337,7 +358,7 @@ export const LiveMatchModule = {
         html += `
           <div class="lf-player" style="left:${x}%; top:${rowY[role]}%;">
             ${shirt}${score ? `<span class="lf-score ${p.live ? 'live' : ''}">${score}</span>` : ''}</div>
-            <div class="lf-name ${score ? 'has-score' : ''}">${esc(p.name)}${p.emoji ? ' ' + p.emoji : ''}${p.live ? ' <span style="color:var(--accent3);">●</span>' : ''}</div>
+            <div class="lf-name ${score ? 'has-score' : ''}">${p.entratoPer ? '<span style="color:var(--accent);" title="Entrato dalla panchina">↑</span> ' : ''}${esc(p.name)}${p.emoji ? ' ' + p.emoji : ''}${p.live ? ' <span style="color:var(--accent3);">●</span>' : ''}</div>
           </div>`;
       });
     });
@@ -365,16 +386,21 @@ export const LiveMatchModule = {
         </div>`;
     }
 
-    const tot = team.titolari.reduce((acc, p) => acc + (p.fv > 0 ? p.fv : (p.voto > 0 ? p.voto : 0)), 0);
+    const tot = team.tot !== undefined
+      ? team.tot
+      : team.titolari.reduce((acc, p) => acc + (p.fv > 0 ? p.fv : (p.voto > 0 ? p.voto : 0)), 0);
 
     const panchina = team.panchina.length
       ? team.panchina.map(p => {
           const badge = { P: 'rgba(74,85,104,.4)', D: 'rgba(0,119,255,.4)', C: 'rgba(0,229,160,.4)', A: 'rgba(255,71,87,.4)' }[p.role] || 'rgba(255,255,255,.1)';
-          const sc = this._scoreOf(p) || '-';
+          const sc = this._scoreOf(p) || 's.v.';
+          const entratoPer = team.entrati?.get(String(p.id));
+          const bg = entratoPer ? 'rgba(80,227,194,.10)' : 'rgba(255,255,255,.02)';
+          const nota = entratoPer ? `<div style="font-size:.65rem; color:var(--accent);">↑ entrato per ${esc(entratoPer.name)}</div>` : '';
           return `
-            <div class="pcard" style="margin-bottom:.3rem; padding:.3rem .5rem; background:rgba(255,255,255,.02); border-radius:8px;">
+            <div class="pcard" style="margin-bottom:.3rem; padding:.3rem .5rem; background:${bg}; border-radius:8px;">
               <div class="rbadge" style="background:${badge}; width:20px; height:20px; font-size:.65rem; border-radius:4px;">${esc(p.role)}</div>
-              <div class="pi"><div class="pn" style="font-size:.8rem; opacity:.8;">${esc(p.name)}${p.emoji ? ' ' + p.emoji : ''}</div></div>
+              <div class="pi"><div class="pn" style="font-size:.8rem; opacity:${entratoPer ? 1 : .8};">${esc(p.name)}${p.emoji ? ' ' + p.emoji : ''}</div>${nota}</div>
               <div class="pr"><span style="font-size:.8rem; font-family:'DM Mono',monospace; color:var(--text2);">${sc}</span></div>
             </div>`;
         }).join('')
@@ -385,7 +411,7 @@ export const LiveMatchModule = {
         ${header}
         <div class="lf-field">
           <div class="lf-lines"><div class="lf-box"></div><div class="lf-circle"></div></div>
-          ${this._fieldMarkup(team.titolari)}
+          ${this._fieldMarkup(team.campo || team.titolari)}
         </div>
 
         <div class="label" style="margin:1rem 0 .5rem; font-size:.75rem; opacity:.7;">Panchina</div>

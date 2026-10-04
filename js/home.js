@@ -193,18 +193,21 @@ export const HomePage = {
             else groups.push([tr]);
           });
 
-          const renderTrophy = (tr) => {
+          // I PNG hanno margini trasparenti: per avvicinarli davvero si usa un margine negativo
+          // proporzionale alla dimensione (si applica dal secondo trofeo del gruppo in poi).
+          const renderTrophy = (tr, idx) => {
             const sizePx = Math.round(38 * (tr.scale / 100));
+            const overlap = idx > 0 ? `margin-left: -${Math.round(sizePx * 0.28)}px;` : '';
             if (tr.image) {
-              return `<img src="${tr.image}" alt="${tr.name}" title="${tr.name} (${tr.season})" style="width: ${sizePx}px; height: ${sizePx}px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));" onerror="this.outerHTML='<span style=\\'font-size:1.4rem\\' title=\\'${tr.name} (${tr.season})\\'>🏆</span>'">`;
+              return `<img src="${tr.image}" alt="${tr.name}" title="${tr.name} (${tr.season})" style="width: ${sizePx}px; height: ${sizePx}px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); ${overlap}" onerror="this.outerHTML='<span style=\\'font-size:1.4rem\\' title=\\'${tr.name} (${tr.season})\\'>🏆</span>'">`;
             }
-            return `<span style="font-size: 1.4rem;" title="${tr.name} (${tr.season})">🏆</span>`;
+            return `<span style="font-size: 1.4rem; ${overlap}" title="${tr.name} (${tr.season})">🏆</span>`;
           };
 
           // Stesso tipo = molto vicini (gap 1px); gruppi diversi = distanziati
           trophiesContainer.style.gap = '0.9rem';
           trophiesContainer.innerHTML = groups.map(group =>
-            `<div style="display: flex; align-items: flex-end; gap: 1px;">${group.map(renderTrophy).join('')}</div>`
+            `<div style="display: flex; align-items: flex-end; gap: 0; padding-left: 2px;">${group.map(renderTrophy).join('')}</div>`
           ).join('');
         } else {
           trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3); font-style: italic;">Nessun trofeo in bacheca</span>`;
@@ -301,12 +304,17 @@ export const HomePage = {
           else if (avg < 6) customStyle += 'background: rgba(255, 107, 107, 0.15); color: var(--accent3);';
           else customStyle += 'background: rgba(255, 255, 255, 0.08); color: var(--text);';
 
+          const photoUrl = p.photoPersonal || p.photoStandard || '';
+          const photoHtml = photoUrl
+            ? `<img src="${photoUrl}" alt="${p.name}" loading="lazy" decoding="async" style="width:44px; height:44px; object-fit:contain; flex-shrink:0; border-radius:8px;" onerror="this.outerHTML='<div class=\\'rbadge r${p.role}\\' style=\\'width:44px;height:44px;\\'>${p.role}</div>'">`
+            : `<div class="rbadge r${p.role}" style="width:44px; height:44px; font-size:.95rem; flex-shrink:0;">${p.role}</div>`;
+
           return `
             <div class="pcard" style="background:var(--card2); border: 1px solid rgba(255,255,255,0.05); margin-bottom: 0.4rem;">
               <div style="font-family:'DM Mono',monospace; font-size:.7rem; color:var(--text3); width:14px; text-align:center;">${i + 1}</div>
-              <div class="rbadge r${p.role}">${p.role}</div>
+              ${photoHtml}
               <div class="pi" style="flex:1; min-width:0;">
-                <div class="pn" style="color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.name}</div>
+                <div class="pn" style="color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.name} <span class="rbadge r${p.role}" style="display:inline-flex; width:16px; height:16px; font-size:.6rem; border-radius:4px; vertical-align:middle;">${p.role}</span></div>
                 <div class="pm" style="color:var(--text2); font-size:0.7rem;">${p.club || ''} • ${count} pres. nelle ${periodo}</div>
               </div>
               <div style="text-align:right;">
