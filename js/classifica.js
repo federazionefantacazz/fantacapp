@@ -73,7 +73,8 @@ export const ClassificaPage = {
 
     // 1) CASO CAMPIONATO STANDARD
     if (compType === 'campionato') {
-      const sortedTeams = ClassificaService.ordinaSquadre(compTeams, teamCalculatedStats);
+      const squadreComp = ClassificaService.getSquadreCompetizione(compData, compTeams);
+      const sortedTeams = ClassificaService.ordinaSquadre(squadreComp, teamCalculatedStats);
       contentDiv.innerHTML = this.renderTabellaClassica(sortedTeams, compId, null, teamCalculatedStats);
     } 
     
@@ -126,7 +127,8 @@ export const ClassificaPage = {
     
     // 3) CASO CAMPIONATO MISTO-SPECIALE
     else if (compType === 'misto-speciale') {
-      const sortedTeams = ClassificaService.ordinaSquadre(compTeams, teamCalculatedStats);
+      const squadreComp = ClassificaService.getSquadreCompetizione(compData, compTeams);
+      const sortedTeams = ClassificaService.ordinaSquadre(squadreComp, teamCalculatedStats);
 
       this.renderModoConTabellone(actionsDiv, contentDiv, compData, state, () => {
         let html = `
@@ -288,7 +290,7 @@ export const ClassificaPage = {
         const isAwayPending = !teamAway && String(awayIdActual).startsWith("VINCENTE_");
 
         const nameHome = isHomePending ? `${homeIdActual.replace("VINCENTE_", "")}` : (teamHome ? teamHome.name : homeIdActual);
-        const nameAway = isAwayPending ? `${awayIdActual.replace("VINCENTE_", "")}` : (teamAway ? teamAway.name : awayIdAway);
+        const nameAway = isAwayPending ? `${awayIdActual.replace("VINCENTE_", "")}` : (teamAway ? teamAway.name : awayIdActual);
 
         let logoHomeHTML = !isHomePending && teamHome?.logo
           ? `<img src="${teamHome.logo}" alt="" style="width:20px; height:20px; object-fit:contain; border-radius:2px; flex-shrink:0;">`
