@@ -86,42 +86,98 @@ export const CalcoloMatchService = {
   },
 
   /**
-   * Calcola il punteggio totale di una lineup (titolari o panchina)
-   * @param {Object} allLineups - L'intero nodo lineups della giornata
-   * @param {String|Number} targetTeamId - L'ID della squadra (es: "1" o 1)
-   * @param {Object} mappaFantavotiLocali - I fantavoti calcolati della giornata
-   * @returns {Number} Somma totale dei fantavoti
+   * Un giocatore "ha il voto" solo se ha un voto base numerico > 0.
+   * Voto mancante, vuoto o 0 = s.v. (senza voto): per la formazione è la stessa cosa.
    */
-  calcolaTotaleSquadra(allLineups, targetTeamId, mappaFantavotiLocali) {
-    if (!allLineups) return 0;
+  hasVoto(datiVoto) {
+    if (!datiVoto || typeof datiVoto !== 'object') return false;
+    if (datiVoto.voto === undefined || datiVoto.voto === null || datiVoto.voto === '') return false;
+    const n = parseFloat(datiVoto.voto);
+    return Number.isFinite(n) && n > 0;
+  },
 
-    // 1. Cerchiamo il nodo della squadra controllando sia la chiave diretta sia la proprietà teamId interna
-    let squadData = allLineups[targetTeamId];
+  /**
+   * Applica le sostituzioni dalla panchina.
+   * Ogni titolare senza voto viene rimpiazzato dal primo panchinaro DELLO STESSO RUOLO
+   * (nell'ordine in cui è schierato in panchina) che abbia il voto e non sia già entrato.
+   * Se non c'è nessun panchinaro disponibile per quel ruolo, il titolare resta senza punteggio.
+   *
+   * @param {Array} titolari   id dei titolari
+   * @param {Array} panchina   id dei panchinari (in ordine di priorità)
+   * @param {Function} getRole  id -> 'P'|'D'|'C'|'A'
+   * @param {Function} getScore id -> numero (fantavoto) oppure null se s.v.
+   * @returns {{ slots: Array, sostituzioni: Array, totale: number }}
+   *   slots: un elemento per titolare { id, score, entratoPer?, senzaVoto? }
+   */
+  applicaSostituzioni(titolari, panchina, getRole, getScore) {
+    const usati = new Set();
+    const sostituzioni = [];
+    const slots = [];
 
-    // Se non lo trova direttamente tramite la chiave, fa una ricerca interna tra tutte le chiavi presenti
-    if (!squadData) {
-      const keys = Object.keys(allLineups);
-      const foundKey = keys.find(k => allLineups[k] && String(allLineups[k].teamId) === String(targetTeamId));
-      if (foundKey) {
-        squadData = allLineups[foundKey];
+    (titolari || []).forEach(id => {
+      const score = getScore(id);
+      if (score !== null && score !== undefined) {
+        slots.push({ id, score });
+        return;
       }
-    }
+      const role = getRole(id);
+      const sub = role
+        ? (panchina || []).find(b =>
+            b && !usati.has(String(b)) &&
+            getRole(b) === role &&
+            getScore(b) !== null && getScore(b) !== undefined)
+        : null;
 
-    if (!squadData) return 0; // Squadra non trovata o formazione non inserita
-
-    // 2. Recuperiamo l'array dei titolari (o panchina come fallback)
-    const giocatori = squadData.titolari || squadData.panchina || null;
-    if (!giocatori || !Array.isArray(giocatori)) return 0;
-
-    let totale = 0;
-
-    // 3. Cicliamo l'array lineare dei giocatori (es: ["6966", "4159", ...])
-    giocatori.forEach(pId => {
-      if (pId && mappaFantavotiLocali[pId] !== undefined) {
-        totale += mappaFantavotiLocali[pId];
+      if (sub) {
+        usati.add(String(sub));
+        sostituzioni.push({ out: id, in: sub });
+        slots.push({ id: sub, score: getScore(sub), entratoPer: id });
+      } else {
+        slots.push({ id, score: null, senzaVoto: true });
       }
     });
 
-    return totale;
+    const totale = slots.reduce((acc, sl) => acc + (sl.score || 0), 0);
+    return { slots, sostituzioni, totale };
+  },
+
+  /**
+   * Calcola il punteggio totale di una squadra per una giornata, comprese le sostituzioni.
+   * @param {Object} allLineups - L'intero nodo lineups della giornata
+   * @param {String|Number} targetTeamId - L'ID della squadra (es: "1" o 1)
+   * @param {Object} mappaFantavotiLocali - { playerId: fantavoto } dei SOLI giocatori con voto
+   * @param {Object} [ruoliGiocatori] - { playerId: 'P'|'D'|'C'|'A' }. Se omesso non ci sono sostituzioni.
+   * @returns {Number} Somma totale dei fantavoti
+   */
+  calcolaTotaleSquadra(allLineups, targetTeamId, mappaFantavotiLocali, ruoliGiocatori = null) {
+    return this.calcolaDettaglioSquadra(allLineups, targetTeamId, mappaFantavotiLocali, ruoliGiocatori).totale;
+  },
+
+  /** Come calcolaTotaleSquadra ma restituisce anche slot e sostituzioni. */
+  calcolaDettaglioSquadra(allLineups, targetTeamId, mappaFantavotiLocali, ruoliGiocatori = null) {
+    const vuoto = { totale: 0, slots: [], sostituzioni: [] };
+    if (!allLineups) return vuoto;
+
+    // 1. Cerchiamo il nodo della squadra controllando sia la chiave diretta sia la proprietà teamId interna
+    let squadData = allLineups[targetTeamId];
+    if (!squadData) {
+      const foundKey = Object.keys(allLineups).find(k => allLineups[k] && String(allLineups[k].teamId) === String(targetTeamId));
+      if (foundKey) squadData = allLineups[foundKey];
+    }
+    if (!squadData) return vuoto; // Squadra non trovata o formazione non inserita
+
+    const titolari = squadData.titolari || squadData.panchina || null;
+    if (!titolari || !Array.isArray(titolari)) return vuoto;
+
+    const getScore = (id) => {
+      const v = mappaFantavotiLocali ? mappaFantavotiLocali[id] : undefined;
+      return v === undefined || v === null || Number.isNaN(Number(v)) ? null : Number(v);
+    };
+
+    // Senza mappa dei ruoli (o senza panchina) non si possono fare sostituzioni
+    const panchina = Array.isArray(squadData.panchina) && squadData.titolari ? squadData.panchina : [];
+    const getRole = (id) => (ruoliGiocatori ? ruoliGiocatori[id] : undefined);
+
+    return this.applicaSostituzioni(titolari, ruoliGiocatori ? panchina : [], getRole, getScore);
   }
 };
