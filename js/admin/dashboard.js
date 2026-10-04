@@ -239,10 +239,17 @@ export const DashboardSection = {
         const updates = {};
         const mappaFantavotiLocali = {};
 
-        // 5. Calcolo Voti Giocatori
+        // 4b. Ruoli dei giocatori (servono per far entrare il panchinaro giusto al posto di un s.v.)
+        const playersSnap = await get(ref(this.db, 'players'));
+        const ruoliGiocatori = {};
+        Object.values(playersSnap.exists() ? playersSnap.val() : {}).forEach(pl => {
+          if (pl && pl.id !== undefined) ruoliGiocatori[pl.id] = pl.role;
+        });
+
+        // 5. Calcolo Voti Giocatori (solo chi ha un voto > 0: gli altri sono s.v.)
         Object.keys(votiGiocatori).forEach(playerId => {
           const datiVoto = votiGiocatori[playerId];
-          if (datiVoto && datiVoto.voto !== undefined) {
+          if (CalcoloMatchService.hasVoto(datiVoto)) {
             const fantavotoFinale = CalcoloMatchService.calcolaFantavoto(datiVoto);
             updates[`votes/${gwId}/${playerId}/fantavoto`] = fantavotoFinale;
             mappaFantavotiLocali[playerId] = fantavotoFinale;
@@ -255,8 +262,8 @@ export const DashboardSection = {
           const homeTeamId = match.homeId || match.home || match.idHome;
           const awayTeamId = match.awayId || match.away || match.idAway;
 
-          const ptHome = CalcoloMatchService.calcolaTotaleSquadra(allLineups, homeTeamId, mappaFantavotiLocali);
-          const ptAway = CalcoloMatchService.calcolaTotaleSquadra(allLineups, awayTeamId, mappaFantavotiLocali);
+          const ptHome = CalcoloMatchService.calcolaTotaleSquadra(allLineups, homeTeamId, mappaFantavotiLocali, ruoliGiocatori);
+          const ptAway = CalcoloMatchService.calcolaTotaleSquadra(allLineups, awayTeamId, mappaFantavotiLocali, ruoliGiocatori);
 
           const gHome = CalcoloMatchService.calcolaGol(ptHome);
           const gAway = CalcoloMatchService.calcolaGol(ptAway);
@@ -322,8 +329,8 @@ export const DashboardSection = {
             const homeTeamId = match.homeId || match.home || match.idHome;
             const awayTeamId = match.awayId || match.away || match.idAway;
             
-            const ptHome = CalcoloMatchService.calcolaTotaleSquadra(allLineups, homeTeamId, mappaFantavotiLocali);
-            const ptAway = CalcoloMatchService.calcolaTotaleSquadra(allLineups, awayTeamId, mappaFantavotiLocali);
+            const ptHome = CalcoloMatchService.calcolaTotaleSquadra(allLineups, homeTeamId, mappaFantavotiLocali, ruoliGiocatori);
+            const ptAway = CalcoloMatchService.calcolaTotaleSquadra(allLineups, awayTeamId, mappaFantavotiLocali, ruoliGiocatori);
 
             allMatches[gwId].couples[matchKey] = {
               ...match,
