@@ -362,6 +362,7 @@ window.STATE = {
   competitions: [], 
   trades: {}, 
   trophies: [],
+  onFire: { weeks: 4, players: 5 },
   booted: false 
 };
 
@@ -407,6 +408,16 @@ onAuthStateChanged(auth, firebaseUser => {
     document.getElementById('box-firebase-register').style.display = 'none';
     document.getElementById('box-select-team').style.display = 'none';
   }
+});
+
+// IMPOSTAZIONI "GIOCATORI ON FIRE" (settimane e numero giocatori, gestite dal Patron)
+onValue(ref(db, 'status/onFire'), snap => {
+  const v = snap.val() || {};
+  window.STATE.onFire = {
+    weeks: Math.max(1, parseInt(v.weeks, 10) || 4),
+    players: Math.max(1, parseInt(v.players, 10) || 5)
+  };
+  refreshUI();
 });
 
 onValue(ref(db, 'status/currentRealGW'), snap => { 
