@@ -1,13 +1,22 @@
-import { ref, get, update, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { ref, get, update, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 // Importazione del servizio live condiviso
 import { CalcoloMatchService } from "../services/calcoloMatch.js";
 
 export const DashboardSection = {
   db: null,
   _competitions: [],
+  _onFire: { weeks: 4, players: 5 },
 
   init(database) {
     this.db = database;
+    onValue(ref(this.db, 'status/onFire'), snap => {
+      const v = snap.val() || {};
+      this._onFire = {
+        weeks: Math.max(1, parseInt(v.weeks, 10) || 4),
+        players: Math.max(1, parseInt(v.players, 10) || 5)
+      };
+      this._syncOnFireInputs();
+    });
     this.registerGlobalActions();
   },
 
@@ -48,6 +57,30 @@ export const DashboardSection = {
             </select>
           </div>
           <div id="dashboard-live-badge" style="font-size: .85rem; font-weight: 500;"></div>
+        </div>
+
+        <div class="card" style="max-width: 500px;">
+          <div class="label" style="color: var(--accent); margin-bottom: .6rem; font-size: .85rem;">
+            🔥 Giocatori On Fire (Home)
+          </div>
+          <p style="font-size: .8rem; color: var(--text2); margin-bottom: 1rem;">
+            Nella home di ogni patron compaiono i giocatori della sua rosa con la media fantavoto più alta nelle ultime giornate.
+          </p>
+
+          <div style="display: flex; gap: .75rem; margin-bottom: .5rem;">
+            <div style="flex: 1;">
+              <label class="label" for="onFireWeeks">Ultime settimane:</label>
+              <select id="onFireWeeks" class="input-login" style="margin: 0; padding: .65rem;" onchange="window.saveOnFireSettings()">
+                ${Array.from({ length: 10 }, (_, i) => `<option value="${i + 1}">${i + 1} ${i === 0 ? 'giornata' : 'giornate'}</option>`).join('')}
+              </select>
+            </div>
+            <div style="flex: 1;">
+              <label class="label" for="onFirePlayers">N° giocatori:</label>
+              <select id="onFirePlayers" class="input-login" style="margin: 0; padding: .65rem;" onchange="window.saveOnFireSettings()">
+                ${Array.from({ length: 10 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('')}
+              </select>
+            </div>
+          </div>
         </div>
 
         <div class="card" style="max-width: 500px;">
@@ -111,6 +144,8 @@ export const DashboardSection = {
         : `<span class="badge badge-gray">LIVE GLOBALE DISABILITATO (status/live = false)</span>`;
     }
 
+    this._syncOnFireInputs();
+
     const calcCompSelect = document.getElementById('calcCompSelect');
     if (calcCompSelect) {
       if (this._competitions.length === 0) {
@@ -129,7 +164,27 @@ export const DashboardSection = {
     }
   },
 
+  _syncOnFireInputs() {
+    const w = document.getElementById('onFireWeeks');
+    const n = document.getElementById('onFirePlayers');
+    if (w) w.value = String(this._onFire.weeks);
+    if (n) n.value = String(this._onFire.players);
+  },
+
   registerGlobalActions() {
+    window.saveOnFireSettings = async () => {
+      if (!this.db) return console.error("Database non inizializzato");
+      const weeks = parseInt(document.getElementById('onFireWeeks')?.value, 10) || 4;
+      const players = parseInt(document.getElementById('onFirePlayers')?.value, 10) || 5;
+      try {
+        await set(ref(this.db, 'status/onFire'), { weeks, players });
+        window.toast(`On Fire: ${players} giocatori, ultime ${weeks} giornate`, "ok");
+      } catch (err) {
+        console.error(err);
+        window.toast("Errore nel salvataggio delle impostazioni On Fire", "err");
+      }
+    };
+
     document.addEventListener('input', (e) => {
       if (e.target.id === 'calcGwInput') e.target.dataset.userEdited = "true";
     });
