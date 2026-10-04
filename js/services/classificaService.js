@@ -56,6 +56,44 @@ export const ClassificaService = {
   },
 
   /**
+   * Squadre che partecipano davvero alla competizione (comp.teams).
+   * Se la competizione non ha un elenco iscritti, ripiega sulle squadre presenti
+   * nella classifica salvata e, in ultima istanza, su tutte le squadre.
+   */
+  getSquadreCompetizione(comp, allTeams = []) {
+    const toArr = (n) => (!n ? [] : (Array.isArray(n) ? n : Object.values(n)));
+    let ids = toArr(comp?.teams).filter(id => id !== null && id !== undefined).map(String);
+
+    if (ids.length === 0) {
+      const set = new Set();
+      Object.values(comp?.classifica || {}).forEach(gw => {
+        if (gw && typeof gw === 'object') Object.keys(gw).forEach(id => set.add(String(id)));
+      });
+      ids = [...set];
+    }
+    if (ids.length === 0) return [...allTeams];
+
+    const idSet = new Set(ids);
+    return allTeams.filter(t => t && idSet.has(String(t.id)));
+  },
+
+  /** Squadre del girone in cui gioca teamId (competizioni miste). Ritorna { nome, squadre } o null. */
+  getGironeDiSquadra(comp, teamId, allTeams = []) {
+    const gironi = comp?.strutturaGironi;
+    if (!gironi) return null;
+    const toArr = (n) => (!n ? [] : (Array.isArray(n) ? n : Object.values(n)));
+
+    for (const nome of Object.keys(gironi).sort()) {
+      const ids = toArr(gironi[nome]).filter(Boolean).map(String);
+      if (ids.includes(String(teamId))) {
+        const squadre = ids.map(id => allTeams.find(t => String(t.id) === id)).filter(Boolean);
+        return { nome, squadre };
+      }
+    }
+    return null;
+  },
+
+  /**
    * Elabora i risultati dei match e restituisce la mappa dei vincitori per il tabellone a eliminazione.
    */
   risolviVincitoriTabellone(tabelloneStructure, matchesMap) {
