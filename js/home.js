@@ -1,6 +1,7 @@
 import { GwService } from './services/gwService.js';
 import { createMatchCardVS } from './components/MatchCardVS.js';
-import { renderAnteprimaClassificaStandard } from './components/AnteprimaClassificaStandard.js';
+import { renderAnteprimaClassifica } from './components/AnteprimaClassifica.js';
+import { CalcoloMatchService } from './services/calcoloMatch.js';
 
 export const HomePage = {
   renderHTML(STATE = {}) {
@@ -20,17 +21,9 @@ export const HomePage = {
             </div>
           </div>
 
-          <!-- RIGA SOTTOSTANTE: INFO PUNTI + BOX ANTEPRIMA CLASSIFICA -->
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: 0.8rem; border-top: 1px dashed rgba(255,255,255,0.1);">
-            <div style="display: flex; align-items: baseline; gap: 0.4rem;">
-              <span style="font-size: 0.72rem; color: var(--text2); text-transform: uppercase; font-weight: 600;">Totale Punti:</span>
-              <span id="homeTeamPts" style="font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; color: var(--accent); line-height: 1;">0.0</span>
-            </div>
-
-            <!-- Box Anteprima Classifica Dinamico -->
-            <div id="homeMiniClassificaWip" style="background: rgba(0,0,0,0.25); border: 1.5px dashed rgba(255,255,255,0.15); border-radius: 8px; padding: 0.4rem 0.8rem; display: flex; align-items: center; width: 100%; max-width: 200px;">
-              <div style="font-size: 0.7rem; font-weight: 600; color: var(--text2);">Caricamento...</div>
-            </div>
+          <!-- MINI CLASSIFICA (a tutta larghezza) -->
+          <div id="homeMiniClassifica" style="padding-top: 0.8rem; border-top: 1px dashed rgba(255,255,255,0.1); width: 100%;">
+            <div style="font-size: 0.7rem; font-weight: 600; color: var(--text2);">Caricamento...</div>
           </div>
 
           <!-- RIGA TROFEI / PALMARÈS -->
@@ -63,13 +56,12 @@ export const HomePage = {
     const banner = document.getElementById('home-status-banner');
     const tn = document.getElementById('homeTeamName');
     const to = document.getElementById('homeTeamOwner');
-    const tp = document.getElementById('homeTeamPts');
     const trophiesContainer = document.getElementById('homeTeamTrophies');
     const nm = document.getElementById('homeNextMatch');
     const onFireContainer = document.getElementById('homeOnFirePlayers');
     const onFireTitle = document.getElementById('onFireTitle');
     const teamLogoContainer = document.getElementById('userTeamLogo');
-    const wipBox = document.getElementById('homeMiniClassificaWip');
+    const miniClassificaBox = document.getElementById('homeMiniClassifica');
 
     let competitionsList = [];
     if (STATE.competitions) {
@@ -123,7 +115,6 @@ export const HomePage = {
     if (myTeam) {
       if (tn) tn.textContent = myTeam.name || "Senza Nome";
       if (to) to.textContent = `Patron: ${myTeam.owner || "Sconosciuto"}`;
-      if (tp) tp.textContent = (myTeam.pts !== undefined) ? myTeam.pts.toFixed(1) : "0.0";
       
       if (onFireTitle) {
         onFireTitle.textContent = `Giocatori ${myTeam.name || ''} On Fire`;
@@ -137,8 +128,8 @@ export const HomePage = {
         }
       }
 
-      if (wipBox && comp) {
-        wipBox.innerHTML = renderAnteprimaClassificaStandard(comp, teamsList, myTeam.id);
+      if (miniClassificaBox && comp) {
+        miniClassificaBox.innerHTML = renderAnteprimaClassifica(comp, teamsList, myTeam.id);
       }
 
       // --- RECUPERO ED ORDINAMENTO TROFEI IN HOME ---
@@ -185,20 +176,36 @@ export const HomePage = {
           });
         }
 
-        // ORDINAMENTO SPECIFICO PER LA HOME
-        wonTrophies.sort((a, b) => a.ordineHome - b.ordineHome);
+        // ORDINAMENTO PER LA HOME: prima ordine_home, poi tipo di trofeo (così i trofei
+        // dello stesso tipo risultano adiacenti), infine stagione.
+        wonTrophies.sort((a, b) =>
+          a.ordineHome - b.ordineHome ||
+          String(a.trophyId).localeCompare(String(b.trophyId)) ||
+          String(a.season).localeCompare(String(b.season), undefined, { numeric: true })
+        );
 
         if (wonTrophies.length > 0) {
-          trophiesContainer.innerHTML = wonTrophies.map(tr => {
-            // Calcolo dimensione percentuale (dimensione base 38px)
-            const sizePx = Math.round(38 * (tr.scale / 100));
+          // Raggruppa i trofei consecutivi dello stesso tipo
+          const groups = [];
+          wonTrophies.forEach(tr => {
+            const last = groups[groups.length - 1];
+            if (last && last[0].trophyId === tr.trophyId) last.push(tr);
+            else groups.push([tr]);
+          });
 
+          const renderTrophy = (tr) => {
+            const sizePx = Math.round(38 * (tr.scale / 100));
             if (tr.image) {
               return `<img src="${tr.image}" alt="${tr.name}" title="${tr.name} (${tr.season})" style="width: ${sizePx}px; height: ${sizePx}px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));" onerror="this.outerHTML='<span style=\\'font-size:1.4rem\\' title=\\'${tr.name} (${tr.season})\\'>🏆</span>'">`;
-            } else {
-              return `<span style="font-size: 1.4rem;" title="${tr.name} (${tr.season})">🏆</span>`;
             }
-          }).join('');
+            return `<span style="font-size: 1.4rem;" title="${tr.name} (${tr.season})">🏆</span>`;
+          };
+
+          // Stesso tipo = molto vicini (gap 1px); gruppi diversi = distanziati
+          trophiesContainer.style.gap = '0.9rem';
+          trophiesContainer.innerHTML = groups.map(group =>
+            `<div style="display: flex; align-items: flex-end; gap: 1px;">${group.map(renderTrophy).join('')}</div>`
+          ).join('');
         } else {
           trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3); font-style: italic;">Nessun trofeo in bacheca</span>`;
         }
@@ -207,11 +214,10 @@ export const HomePage = {
     } else {
       if (tn) tn.textContent = "Spettatore";
       if (to) to.textContent = STATE.user.email;
-      if (tp) tp.textContent = "0.0";
       if (onFireTitle) onFireTitle.textContent = `Giocatori On Fire`;
       if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:52px; height:52px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-eye-line" style="font-size:1.5rem; color:var(--text2)"></i></div>`;
       if (trophiesContainer) trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3);">--</span>`;
-      if (wipBox) wipBox.innerHTML = `<div style="font-size: 0.7rem; color: var(--text3);">Non associato a una squadra.</div>`;
+      if (miniClassificaBox) miniClassificaBox.innerHTML = `<div style="font-size: 0.7rem; color: var(--text3);">Non associato a una squadra.</div>`;
     }
 
     if (comp) {
@@ -234,67 +240,74 @@ export const HomePage = {
     }
 
     if (onFireContainer) {
+      const cfg = STATE.onFire || {};
+      const weeks = Math.max(1, parseInt(cfg.weeks, 10) || 4);
+      const topN = Math.max(1, parseInt(cfg.players, 10) || 5);
+
       let playersList = [];
       if (STATE.players) {
         playersList = Array.isArray(STATE.players) ? STATE.players : Object.values(STATE.players);
       }
 
-      let targetPlayers = playersList;
-      if (myTeam && myTeam.players) {
-        const teamPlayersArray = Array.isArray(myTeam.players) ? myTeam.players : Object.values(myTeam.players);
-        if (teamPlayersArray.length > 0) {
-          targetPlayers = playersList.filter(p => p && (teamPlayersArray.includes(p.id) || teamPlayersArray.some(tp => (tp && tp.id === p.id) || tp === p.id)));
-        }
+      // Solo i giocatori della mia rosa (come nella pagina Squadre: player.teamId)
+      let targetPlayers = playersList.filter(Boolean);
+      if (myTeam) {
+        targetPlayers = targetPlayers.filter(p => String(p.teamId) === String(myTeam.id));
       }
 
+      // Ultime N giornate che hanno dei voti (fino alla giornata reale corrente, se avviata)
       const allVotes = STATE.votes || {};
-      let targetGwKeys = [];
+      const gwNum = (k) => parseInt(String(k).replace(/\D/g, ''), 10);
+      const targetGwKeys = Object.keys(allVotes)
+        .filter(k => /^gw\d+$/i.test(k) && allVotes[k] && typeof allVotes[k] === 'object')
+        .filter(k => realGw > 0 ? gwNum(k) <= realGw : true)
+        .sort((a, b) => gwNum(b) - gwNum(a))
+        .slice(0, weeks);
 
-      if (realGw > 0) {
-        for (let i = realGw; i > Math.max(0, realGw - 4); i--) {
-          targetGwKeys.push(`gw${i}`);
+      // Fantavoto di un giocatore in una giornata: se non ancora salvato lo calcola da voto + bonus/malus
+      const getFantavoto = (entry) => {
+        if (entry === undefined || entry === null) return null;
+        if (typeof entry !== 'object') {
+          const n = Number(entry);
+          return isNaN(n) || n <= 0 ? null : n;
         }
-      } else {
-        targetGwKeys = Object.keys(allVotes)
-          .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
-          .slice(0, 4);
-      }
+        if (entry.voto === undefined || entry.voto === null || Number(entry.voto) <= 0) return null; // s.v. / non sceso in campo
+        const fv = entry.fantavoto !== undefined && entry.fantavoto !== null
+          ? Number(entry.fantavoto)
+          : CalcoloMatchService.calcolaFantavoto(entry);
+        return isNaN(fv) ? null : fv;
+      };
 
       const stats = targetPlayers.map(p => {
-        if (!p) return null;
         let sum = 0;
         let count = 0;
-
         targetGwKeys.forEach(gwKey => {
-          if (allVotes[gwKey] && allVotes[gwKey][p.id] !== undefined) {
-            const v = Number(allVotes[gwKey][p.id]);
-            if (!isNaN(v) && v > 0) {
-              sum += v;
-              count++;
-            }
-          }
+          const fv = getFantavoto(allVotes[gwKey][p.id]);
+          if (fv !== null) { sum += fv; count++; }
         });
+        return { player: p, avg: count > 0 ? sum / count : 0, count };
+      }).filter(item => item.count > 0);
 
-        const avg = count > 0 ? sum / count : 0;
-        return { player: p, avg, count };
-      }).filter(item => item && item.count > 0);
+      // Media fantavoto più alta; a parità, più presenze
+      stats.sort((a, b) => b.avg - a.avg || b.count - a.count);
+      const top = stats.slice(0, topN);
 
-      stats.sort((a, b) => b.avg - a.avg);
-      const top5 = stats.slice(0, 5);
+      const periodo = `ultime ${targetGwKeys.length || weeks} ${(targetGwKeys.length || weeks) === 1 ? 'giornata' : 'giornate'}`;
 
-      if (top5.length > 0) {
-        onFireContainer.innerHTML = top5.map(({ player: p, avg, count }) => {
+      if (top.length > 0) {
+        onFireContainer.innerHTML = top.map(({ player: p, avg, count }, i) => {
           let customStyle = 'padding: .2rem .5rem; border-radius: 6px; font-weight: bold; font-family: "DM Mono", monospace; ';
           if (avg >= 7) customStyle += 'background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent);';
-          if (avg < 6) customStyle += 'background: rgba(255, 107, 107, 0.15); color: var(--accent3);';
+          else if (avg < 6) customStyle += 'background: rgba(255, 107, 107, 0.15); color: var(--accent3);';
           else customStyle += 'background: rgba(255, 255, 255, 0.08); color: var(--text);';
 
           return `
             <div class="pcard" style="background:var(--card2); border: 1px solid rgba(255,255,255,0.05); margin-bottom: 0.4rem;">
+              <div style="font-family:'DM Mono',monospace; font-size:.7rem; color:var(--text3); width:14px; text-align:center;">${i + 1}</div>
               <div class="rbadge r${p.role}">${p.role}</div>
               <div class="pi" style="flex:1; min-width:0;">
                 <div class="pn" style="color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.name}</div>
-                <div class="pm" style="color:var(--text2); font-size:0.7rem;">${p.club} • ${count} pres. nelle ultime 4</div>
+                <div class="pm" style="color:var(--text2); font-size:0.7rem;">${p.club || ''} • ${count} pres. nelle ${periodo}</div>
               </div>
               <div style="text-align:right;">
                 <div style="${customStyle}">${avg.toFixed(2)}</div>
@@ -303,7 +316,7 @@ export const HomePage = {
           `;
         }).join('');
       } else {
-        onFireContainer.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1.5rem; font-size:.85rem; width:100%;">Nessun voto registrato nelle ultime 4 giornate.</div>`;
+        onFireContainer.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1.5rem; font-size:.85rem; width:100%;">Nessun fantavoto registrato nelle ${periodo}.</div>`;
       }
     }
   }
