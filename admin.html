@@ -2,7 +2,8 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#22272f">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <title>Fantacazz — Patron</title>
 <style>
@@ -27,30 +28,34 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 .layout { display: none; flex-direction: column; min-height: 100vh; width: 100%; }
 
-.mobile-header { display: flex; flex-direction: column; background: var(--bg2); border-bottom: 1px solid var(--border); padding: 1rem; position: sticky; top: 0; z-index: 100; }
-.mobile-header .logo-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
-.mobile-header .logo { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; }
+/* ─── Header mobile ─────────────────────────────────────────────────────── */
+.mobile-header { display: flex; align-items: center; gap: .75rem; background: var(--bg2); border-bottom: 1px solid var(--border); padding: .6rem 1rem; padding-top: calc(.6rem + env(safe-area-inset-top, 0px)); position: sticky; top: 0; z-index: 100; }
+.mobile-header .logo { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; line-height: 1; flex: 1; min-width: 0; }
 .mobile-header .logo span { font-size: .75rem; font-family: 'DM Sans', sans-serif; color: var(--accent); margin-left: 0.5rem; }
+.menu-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text); width: 40px; height: 40px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+.menu-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 
-.sidebar { display: none; background: var(--bg2); border-right: 1px solid var(--border); padding: 1.5rem 0; flex-direction: column; gap: .2rem; width: var(--sidebar-width); height: 100vh; position: fixed; top: 0; left: 0; z-index: 101; }
-.sidebar .logo{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:1px;padding:0 1.5rem;margin-bottom:1.5rem;color:#fff;display:flex;flex-direction:column}
+/* ─── Sidebar: drawer su mobile, fissa su desktop ───────────────────────── */
+.sidebar { display: flex; flex-direction: column; gap: .2rem; background: var(--bg2); border-right: 1px solid var(--border); padding: 1.5rem 0; padding-top: calc(1.5rem + env(safe-area-inset-top, 0px)); padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); width: min(300px, 85vw); height: 100vh; height: 100dvh; position: fixed; top: 0; left: 0; z-index: 201; overflow-y: auto; overscroll-behavior: contain; transform: translateX(-100%); visibility: hidden; transition: transform .25s ease, visibility 0s linear .25s; }
+.sidebar.open { transform: translateX(0); visibility: visible; transition: transform .25s ease, visibility 0s; box-shadow: 0 0 40px rgba(0,0,0,.5); }
+.sidebar-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 200; opacity: 0; pointer-events: none; transition: opacity .25s ease; }
+.sidebar-backdrop.show { opacity: 1; pointer-events: auto; }
+.sidebar .logo{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:1px;padding:0 1.5rem;margin-bottom:1rem;color:#fff;display:flex;flex-direction:column}
 .sidebar .logo span{font-size:.75rem;font-family:'DM Sans',sans-serif;color:var(--accent);letter-spacing:0;font-weight:600;text-transform:uppercase;margin-top:-4px}
 
-.snav { background: none; border: none; color: var(--text2); padding: .8rem 1.5rem; text-align: left; font-size: .9rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: .75rem; transition: all .2s; }
+.theme-picker { padding: 0 1.5rem; margin-bottom: 1rem; }
+.theme-picker .input-login { margin-bottom: 0; }
+
+.nav-links-container { display: flex; flex-direction: column; }
+.snav { background: none; border: none; color: var(--text2); padding: .8rem 1.5rem; text-align: left; font-size: .9rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: .75rem; transition: all .2s; font-family: inherit; }
 .snav:hover { background: rgba(255,255,255,0.03); color: #fff; }
 .snav.active { background: rgba(80,227,194,0.08); color: var(--accent); font-weight: 600; border-left: 3px solid var(--accent); }
 .snav svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 
-.sidebar-bottom { margin-top: auto; padding: 0 1.5rem; }
+.sidebar-bottom { margin-top: auto; padding: 1rem 1.5rem 0; display: flex; flex-direction: column; gap: .6rem; }
 .sync-status { font-size: .75rem; color: var(--text2); background: var(--bg3); padding: .5rem .75rem; border-radius: 6px; border: 1px solid var(--border); text-align: center; }
 
-.bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg2); border-top: 1px solid var(--border); z-index: 100; overflow-x: auto; scrollbar-width: none; }
-.bottom-nav::-webkit-scrollbar { display: none; }
-.bottom-nav .snav { flex: 1; min-width: 75px; flex-direction: column; justify-content: center; align-items: center; gap: 0.25rem; padding: 0.6rem 0.5rem; font-size: 0.7rem; text-align: center; border-left: none; }
-.bottom-nav .snav.active { border-left: none; border-top: 3px solid var(--accent); background: rgba(80,227,194,0.04); }
-.bottom-nav .snav svg { width: 20px; height: 20px; }
-
-.main-content { padding: 1rem; flex: 1; width: 100%; margin-bottom: 70px; }
+.main-content { padding: 1rem; padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)); flex: 1; width: 100%; min-width: 0; }
 .admin-sec { animation: fadeIn .25s ease-out; display: none; }
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 .sec-title { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 1px; margin-bottom: 1.25rem; color: #fff; }
@@ -84,45 +89,122 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 .vote-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .5rem; margin-top: .5rem; }
 .vote-item { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: .6rem .8rem; display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; }
 
-.toast { position: fixed; bottom: 5rem; right: 1rem; left: 1rem; padding: .75rem 1.25rem; border-radius: 6px; background: var(--card); border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 9999; font-size: .85rem; font-weight: 500; transform: translateY(100px); opacity: 0; transition: all .3s cubic-bezier(0.175, 0.885, 0.32, 1.275); text-align: center; }
+.toast { position: fixed; bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); right: 1rem; left: 1rem; padding: .75rem 1.25rem; border-radius: 6px; background: var(--card); border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 9999; font-size: .85rem; font-weight: 500; transform: translateY(100px); opacity: 0; transition: all .3s cubic-bezier(0.175, 0.885, 0.32, 1.275); text-align: center; }
 .toast.show { transform: translateY(0); opacity: 1; }
 .toast.ok { border-left: 4px solid var(--accent); }
 .toast.err { border-left: 4px solid var(--accent3); }
 .toast.info { border-left: 4px solid var(--accent2); }
 
+
+.btn-outline { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--text2); }
+.btn-outline:hover { background: rgba(255,255,255,0.05); color: #fff; }
+
+/* ─── Schermata di accesso Patron ───────────────────────────────────────── */
+.auth-screen { display: none; min-height: 100vh; min-height: 100dvh; align-items: center; justify-content: center; padding: 1.5rem; }
+.auth-card { width: 100%; max-width: 380px; margin-bottom: 0; }
+.auth-card .auth-logo { font-family: 'Bebas Neue', sans-serif; font-size: 2.4rem; letter-spacing: 1px; text-align: center; }
+.auth-card .auth-logo span { display: block; font-size: .75rem; font-family: 'DM Sans', sans-serif; color: var(--accent); font-weight: 600; text-transform: uppercase; margin-top: -4px; }
+.auth-msg { font-size: .85rem; color: var(--text2); text-align: center; margin: 1rem 0; line-height: 1.4; }
+.auth-err { color: var(--accent3); }
+.auth-card .btn + .btn { margin-top: .6rem; }
+
+/* ─── Desktop: sidebar sempre visibile ──────────────────────────────────── */
 @media (min-width: 992px) {
-  .layout { width: 100%; }
-  .mobile-header { display: none; }
-  .sidebar { display: flex; }
-  .bottom-nav { display: none; }
-  .main-content { padding: 2rem; margin-bottom: 0; margin-left: var(--sidebar-width); width: calc(100% - var(--sidebar-width)); }
+  .mobile-header, .sidebar-backdrop { display: none; }
+  .sidebar { transform: none; visibility: visible; transition: none; box-shadow: none; width: var(--sidebar-width); z-index: 101; }
+  .main-content { padding: 2rem; margin-left: var(--sidebar-width); width: calc(100% - var(--sidebar-width)); }
   .sec-title { font-size: 2.4rem; }
   .toast { left: auto; right: 1.5rem; bottom: 1.5rem; width: auto; max-width: 350px; text-align: left; }
   .card-grid { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; }
   .vote-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .75rem; }
 }
+
+/* ─── Tablet / telefono ─────────────────────────────────────────────────── */
+@media (max-width: 991px) {
+  /* 16px evita lo zoom automatico dei campi su iOS */
+  .input-login, select, input[type="text"], input[type="number"], input[type="email"], input[type="password"] { font-size: 16px; }
+  .sec-title { font-size: 1.8rem; }
+  .card { padding: 1rem; }
+}
+
+@media (max-width: 600px) {
+  .main-content { padding: .75rem; }
+  .card { border-radius: 10px; }
+  /* Griglie a due colonne (es. palette colori) → una colonna */
+  .main-content [style*="grid-template-columns: 1fr 1fr"],
+  .main-content [style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; }
+  /* Righe flex con più controlli: vanno a capo invece di uscire dallo schermo */
+  .main-content [style*="display: flex"]:not([style*="flex-direction"]):not([style*="max-content"]),
+  .main-content [style*="display:flex"]:not([style*="flex-direction"]):not([style*="max-content"]) { flex-wrap: wrap; }
+  .main-content td [style*="display"] { flex-wrap: nowrap !important; }
+  .main-content [style*="max-width: 300px"], .main-content [style*="max-width:300px"] { max-width: 100% !important; }
+  .card-grid { grid-template-columns: repeat(2, 1fr); gap: .6rem; }
+  .vote-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  th, td { padding: .6rem .7rem; }
+}
 </style>
+<style id="dynamic-theme"></style>
 </head>
 <body>
 
-<div class="layout">
-  <div class="mobile-header">
-    <div class="logo-row">
-      <div class="logo">Fantacazz<span>Patron</span></div>
-      <div id="mobileSyncStatus" style="font-size: 0.7rem; color: var(--accent)">🟢 Connesso</div>
+<!-- Accesso Patron (login / accesso negato) -->
+<div id="auth-screen" class="auth-screen">
+  <div class="card auth-card">
+    <div class="auth-logo">Fantacazz<span>Area Patron</span></div>
+
+    <div id="auth-view-loading" style="display:none;">
+      <div class="auth-msg">Verifica dell'accesso in corso…</div>
+    </div>
+
+    <form id="auth-view-login" style="display:none;" onsubmit="return window.patronLogin(event)">
+      <div class="auth-msg">Inserisci le credenziali per accedere al pannello.</div>
+      <div class="label">Email</div>
+      <input type="email" id="patronEmail" class="input-login" autocomplete="username" placeholder="Email" required>
+      <div class="label">Password</div>
+      <input type="password" id="patronPassword" class="input-login" autocomplete="current-password" placeholder="••••••••" required>
+      <div id="auth-error" class="auth-msg auth-err" style="display:none; margin-top:0;"></div>
+      <button type="submit" id="patronLoginBtn" class="btn btn-green">Accedi</button>
+      <a class="btn btn-outline" href="index.html" style="margin-top:.6rem;">Torna all'app</a>
+    </form>
+
+    <div id="auth-view-denied" style="display:none;">
+      <div class="auth-msg auth-err">Questo account non ha i permessi di Patron.</div>
+      <a class="btn btn-green" href="index.html">Torna all'app</a>
+      <button type="button" class="btn btn-outline" onclick="window.patronSwitchAccount()">Accedi con un altro account</button>
     </div>
   </div>
-    
-  <div class="sidebar">
+</div>
+
+<div class="layout">
+  <div class="mobile-header">
+    <button class="menu-btn" id="menuBtn" aria-label="Apri menu" aria-expanded="false" onclick="window.toggleSidebar()">
+      <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div class="logo">Fantacazz<span>Patron</span></div>
+    <div id="mobileSyncStatus" style="font-size: 0.7rem; color: var(--accent)">🟢 Connesso</div>
+  </div>
+
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="window.closeSidebar()"></div>
+
+  <div class="sidebar" id="adminSidebar">
     <div class="logo">Fantacazz<span>Pannello Patron</span></div>
+
+    <div class="theme-picker">
+      <label class="label" for="sidebarThemeSelect">Seleziona tema</label>
+      <select id="sidebarThemeSelect" class="input-login" onchange="window.selectCompetition(this.value)">
+        <option value="">Caricamento...</option>
+      </select>
+    </div>
+
     <div class="nav-links-container"></div>
+
     <div class="sidebar-bottom">
       <div class="sync-status" id="syncStatus">⚪ Caricamento...</div>
+      <a class="btn btn-outline" href="index.html">← Torna all'app</a>
     </div>
   </div>
 
   <div class="main-content" id="admin-sections-container"></div>
-  <div class="bottom-nav" id="mobileBottomNav"></div>
 </div>
 
 <div id="nav-template" style="display:none;">
@@ -165,9 +247,10 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 
 <script type="module">
 // ─── 1. CONNESSIONE CENTRALIZZATA ED UNICA ───────────────────────────────
-import { db, auth, ref, onValue, set, update, onAuthStateChanged, signInWithEmailAndPassword } from './js/firebase-config.js';
+import { db, auth, ref, onValue, set, update, onAuthStateChanged, signInWithEmailAndPassword, signOut } from './js/firebase-config.js';
 import { get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { MercatoService } from './js/services/mercatoService.js';
+import { isPatron } from './js/services/roleService.js';
   
 // Importazione di tutti i sottomoduli amministrativi
 import { DashboardSection }     from './js/admin/dashboard.js';
@@ -181,9 +264,6 @@ import { ClassificaSection }    from './js/admin/classifica.js';
 import { CalendarioSection }    from './js/admin/calendario/calendario.js';
 import { CompetizioniSection }  from './js/admin/competizioni.js';
 import { ThemesSection }        from './js/admin/themes.js';
-
-// Email amministratore impostata correttamente
-const ADMIN_EMAIL = "carminedemarzo@outlook.it";
 
 /* ─── Stato globale applicativo ────────────────────────────────────────── */
 let TEAMS = [];
@@ -199,35 +279,68 @@ let giocatoriCaricati = false;
 
 window.CURRENT_COMPETITION = ""; 
 
-/* ─── Intercettatore Stato Autenticazione ──────────────────────────────── */
-onAuthStateChanged(auth, (user) => {
-  if (user && user.email === ADMIN_EMAIL) {
-    document.querySelector('.layout').style.display = 'flex';
+/* ─── Accesso: il Patron è riconosciuto dal ruolo (users/{uid}/role), non dall'email ─── */
+let adminInitialized = false;
+
+function showAuthView(view, msg) {
+  const screen = document.getElementById('auth-screen');
+  screen.style.display = view ? 'flex' : 'none';
+  ['loading', 'login', 'denied'].forEach(v => {
+    const el = document.getElementById('auth-view-' + v);
+    if (el) el.style.display = (v === view) ? 'block' : 'none';
+  });
+  const err = document.getElementById('auth-error');
+  if (err) {
+    err.textContent = msg || '';
+    err.style.display = msg ? 'block' : 'none';
+  }
+}
+
+onAuthStateChanged(auth, async (user) => {
+  const layout = document.querySelector('.layout');
+  if (!user) {
+    layout.style.display = 'none';
+    showAuthView('login');
+    return;
+  }
+
+  showAuthView('loading');
+  const autorizzato = await isPatron(user);
+
+  if (!autorizzato) {
+    layout.style.display = 'none';
+    showAuthView('denied');
+    return;
+  }
+
+  showAuthView(null);
+  layout.style.display = 'flex';
+  if (!adminInitialized) {
+    adminInitialized = true;
     initAdminApp();
-  } else {
-    document.querySelector('.layout').style.display = 'none';
-    eseguiLoginAdmin();
   }
 });
 
-function eseguiLoginAdmin() {
-  const email = prompt("Area Riservata Patron.\nInserisci l'email di amministrazione:");
-  const password = prompt("Inserisci la password di amministrazione:");
-  
-  if (email && password) {
-    signInWithEmailAndPassword(auth, email, password)
-      .then(() => {
-        toast("Autenticato come Patron con successo!", "ok");
-      })
-      .catch(err => {
-        alert("Credenziali errate o utente non autorizzato.");
-        eseguiLoginAdmin();
-      });
-  } else {
-    alert("Identificazione obbligatoria per accedere al pannello.");
-    window.location.reload();
-  }
-}
+window.patronLogin = function(e) {
+  if (e) e.preventDefault();
+  const email = document.getElementById('patronEmail').value.trim();
+  const password = document.getElementById('patronPassword').value;
+  const btn = document.getElementById('patronLoginBtn');
+  if (!email || !password) return false;
+
+  btn.disabled = true;
+  showAuthView('login');
+  signInWithEmailAndPassword(auth, email, password)
+    .catch(() => {
+      showAuthView('login', 'Credenziali errate.');
+    })
+    .finally(() => { btn.disabled = false; });
+  return false;
+};
+
+window.patronSwitchAccount = function() {
+  signOut(auth).catch(err => console.error(err));
+};
 
 function initAdminApp() {
   // Inizializzazione sicura di ogni modulo passando il db centralizzato
@@ -245,7 +358,6 @@ function initAdminApp() {
 
   const navTemplate = document.getElementById('nav-template').innerHTML;
   document.querySelector('.sidebar .nav-links-container').innerHTML = navTemplate;
-  document.getElementById('mobileBottomNav').innerHTML = navTemplate;
 
   // Iniezione liquida dinamica per ciascuna sezione attiva
   const container = document.getElementById('admin-sections-container');
@@ -287,6 +399,10 @@ function refreshAll() {
     trophies: window.TROPHIES
   };
   
+  // Selettore tema e tema attivo per primi: non dipendono dal render delle singole sezioni
+  renderThemePicker();
+  applyCompetitionTheme();
+
   // Renderizzazione sicura e condizionale elemento per elemento
   if (DashboardSection && typeof DashboardSection.render === 'function') DashboardSection.render(state);
   if (TeamsSection && typeof TeamsSection.render === 'function') TeamsSection.render(state);
@@ -317,6 +433,8 @@ window.showSec = function(secId) {
 
   // Re-renderizza istantaneamente per popolare select e tabelle della sezione scelta
   refreshAll();
+  window.closeSidebar();
+  window.scrollTo({ top: 0 });
 };
 
 document.addEventListener('click', function(e) {
@@ -336,7 +454,80 @@ window.selectCompetition = function(compId) {
   }
   toast(`Competizione attiva impostata su: ${compId.toUpperCase()}`, "info");
   refreshAll();
+  window.closeSidebar();
 };
+
+/* ─── Menu laterale (drawer su telefono/tablet) ────────────────────────── */
+window.openSidebar = function() {
+  document.getElementById('adminSidebar').classList.add('open');
+  document.getElementById('sidebarBackdrop').classList.add('show');
+  document.getElementById('menuBtn').setAttribute('aria-expanded', 'true');
+};
+window.closeSidebar = function() {
+  document.getElementById('adminSidebar').classList.remove('open');
+  document.getElementById('sidebarBackdrop').classList.remove('show');
+  document.getElementById('menuBtn').setAttribute('aria-expanded', 'false');
+};
+window.toggleSidebar = function() {
+  if (document.getElementById('adminSidebar').classList.contains('open')) window.closeSidebar();
+  else window.openSidebar();
+};
+document.addEventListener('keydown', e => { if (e.key === 'Escape') window.closeSidebar(); });
+window.addEventListener('resize', () => { if (window.innerWidth >= 992) window.closeSidebar(); });
+
+/* ─── Seleziona tema: stessa competizione/tema dell'app principale ──────── */
+let themePickerSig = '';
+function renderThemePicker() {
+  const select = document.getElementById('sidebarThemeSelect');
+  if (!select) return;
+
+  const sig = competitions.map(c => c.id + ':' + (c.name || '')).join('|');
+  if (sig !== themePickerSig) {
+    themePickerSig = sig;
+    select.innerHTML = competitions.length
+      ? competitions.map(c => `<option value="${c.id}">${c.name || c.id}</option>`).join('')
+      : '<option value="">Nessuna competizione</option>';
+  }
+  if (window.CURRENT_COMPETITION && select.value !== window.CURRENT_COMPETITION) {
+    select.value = window.CURRENT_COMPETITION;
+  }
+}
+
+// Stessa mappatura di colori e sfondo usata da index.html per competitions/{id}/theme
+const THEME_VARS = {
+  bg: '--bg', bg2: '--bg2', bg3: '--bg3', card: '--card', card2: '--card2',
+  accent: '--accent', accent2: '--accent2', accent3: '--accent3', gold: '--gold',
+  text: '--text', text2: '--text2', text3: '--text3'
+};
+let appliedThemeSig = null;
+function applyCompetitionTheme() {
+  const comp = competitions.find(c => c.id === window.CURRENT_COMPETITION);
+  const theme = (comp && comp.theme) || null;
+  const bgUrl = (comp && typeof comp.backgroundImage === 'string') ? comp.backgroundImage.trim() : '';
+
+  const sig = JSON.stringify([theme, bgUrl]);
+  if (sig === appliedThemeSig) return;
+  appliedThemeSig = sig;
+
+  const styleTag = document.getElementById('dynamic-theme');
+  if (styleTag) {
+    const decls = theme
+      ? Object.entries(THEME_VARS).filter(([k]) => theme[k]).map(([k, v]) => `${v}: ${theme[k]};`).join('\n')
+      : '';
+    styleTag.innerHTML = decls ? `:root { ${decls} }` : '';
+  }
+
+  if (bgUrl) {
+    const safe = bgUrl.replace(/['"\\()]/g, ch => '%' + ch.charCodeAt(0).toString(16).toUpperCase());
+    document.body.style.backgroundImage = `linear-gradient(rgba(26, 30, 36, 0.3), rgba(26, 30, 36, 0.88)), url('${safe}')`;
+    document.body.style.backgroundSize = 'auto 100vh';
+    document.body.style.backgroundPosition = 'top center';
+    document.body.style.backgroundAttachment = 'fixed';
+    document.body.style.backgroundRepeat = 'no-repeat';
+  } else {
+    document.body.style.backgroundImage = 'none';
+  }
+}
 
 /* ─── Sottoscrizioni Real-time ai nodi Firebase ────────────────────────── */
 function startFirebaseSubscriptions() {

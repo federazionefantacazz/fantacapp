@@ -54,7 +54,7 @@
   gap: 0.5rem;
 }
 
-.logout-header-btn {
+.menu-header-btn {
   background: transparent;
   border: none;
   cursor: pointer;
@@ -65,13 +65,78 @@
   height: 32px;
   padding: 0;
   border-radius: 8px;
+  color: var(--text);
   transition: background 0.2s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
-.logout-header-btn:active {
+.menu-header-btn:active {
   background: rgba(255, 255, 255, 0.08);
 }
+
+/* ==================== MENU LATERALE ==================== */
+#side-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 2000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease;
+}
+#side-menu-backdrop.show { opacity: 1; pointer-events: auto; }
+
+#side-menu {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(300px, 82vw);
+  background: var(--bg2);
+  z-index: 2001;
+  display: flex;
+  flex-direction: column;
+  padding: calc(env(safe-area-inset-top, 0px) + .75rem) 0 calc(env(safe-area-inset-bottom, 0px) + .75rem);
+  transform: translateX(100%);
+  visibility: hidden;
+  transition: transform .25s ease, visibility 0s linear .25s;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.45);
+  overflow-y: auto;
+}
+#side-menu.open {
+  transform: translateX(0);
+  visibility: visible;
+  transition: transform .25s ease, visibility 0s;
+}
+.side-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .25rem 1rem .75rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: .5rem;
+}
+.side-menu-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 1px; color: var(--text); }
+.side-menu-item {
+  display: flex;
+  align-items: center;
+  gap: .85rem;
+  width: 100%;
+  padding: .85rem 1.25rem;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: .92rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.side-menu-item i { font-size: 1.25rem; color: var(--text2); }
+.side-menu-item:active { background: rgba(255, 255, 255, 0.06); }
+.side-menu-sep { height: 1px; background: rgba(255, 255, 255, 0.08); margin: .5rem 0; }
+.side-menu-item.patron i { color: var(--gold); }
+.side-menu-item.danger, .side-menu-item.danger i { color: var(--accent3); }
 
 #userCompSelect {
   appearance: none;
@@ -264,7 +329,7 @@ body {
 <body>
 
 <div id="app">
-  <!-- HEADER MODIFICATO: SELETTORE A SINISTRA, LOGOUT A DESTRA -->
+  <!-- HEADER: SELETTORE A SINISTRA, MENU A DESTRA -->
   <div id="app-header" style="display:none;">
     <div class="header-left">
       <div id="app-global-navbar-logo-container" style="flex-shrink:0; display:flex; align-items:center; justify-content:center;"></div>
@@ -273,8 +338,8 @@ body {
       </select>
     </div>
 
-    <button class="logout-header-btn" onclick="window.doFirebaseLogout()" title="Disconnetti">
-      <i class="ri-logout-box-r-line" style="font-size: 1.35rem; color: var(--accent3);"></i>
+    <button class="menu-header-btn" id="menuHeaderBtn" onclick="window.openSideMenu()" aria-label="Apri menu" aria-expanded="false">
+      <i class="ri-menu-line" style="font-size: 1.5rem;"></i>
     </button>
   </div>
 
@@ -334,10 +399,29 @@ body {
   </button>
 </nav>
 
+<!-- MENU LATERALE -->
+<div id="side-menu-backdrop" onclick="window.closeSideMenu()"></div>
+<aside id="side-menu" aria-label="Menu" aria-hidden="true">
+  <div class="side-menu-head">
+    <span class="side-menu-title">Menu</span>
+    <button class="menu-header-btn" onclick="window.closeSideMenu()" aria-label="Chiudi menu">
+      <i class="ri-close-line" style="font-size: 1.5rem;"></i>
+    </button>
+  </div>
+  <button class="side-menu-item" onclick="window.menuWip('Impostazioni applicazione')"><i class="ri-settings-3-line"></i>Impostazioni applicazione</button>
+  <button class="side-menu-item" onclick="window.menuWip('Impostazioni squadra')"><i class="ri-shield-star-line"></i>Impostazioni squadra</button>
+  <button class="side-menu-item" onclick="window.menuWip('Listone')"><i class="ri-list-check-2"></i>Listone</button>
+  <button class="side-menu-item" onclick="window.menuWip('Svincolati')"><i class="ri-user-unfollow-line"></i>Svincolati</button>
+  <div class="side-menu-sep"></div>
+  <button class="side-menu-item patron" id="menuPatronItem" style="display:none;" onclick="window.goToPatron()"><i class="ri-vip-crown-2-line"></i>Passa a Patron</button>
+  <button class="side-menu-item danger" onclick="window.closeSideMenu(); window.doFirebaseLogout()"><i class="ri-logout-box-r-line"></i>Log out</button>
+</aside>
+
 <div id="toast" class="toast"></div>
 
 <script type="module">
 import { db, auth, ref, onValue, set, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from './js/firebase-config.js';
+import { isPatron } from './js/services/roleService.js';
 
 import { HomePage } from './js/home.js';
 import { CalendarioPage } from './js/calendario.js';
@@ -398,6 +482,7 @@ onValue(ref(db, 'teams'), snap => {
 });
 
 onAuthStateChanged(auth, firebaseUser => {
+  updatePatronMenuItem(firebaseUser);
   if (firebaseUser) {
     document.getElementById('box-firebase-login').style.display = 'none';
     document.getElementById('box-firebase-register').style.display = 'none';
@@ -598,6 +683,46 @@ window.doFirebaseRegister = function() {
       window.showToast('Errore durante la registrazione!', 'err'); 
     });
 };
+
+/* ─── Menu laterale ─────────────────────────────────────────────────────── */
+window.openSideMenu = function() {
+  document.getElementById('side-menu').classList.add('open');
+  document.getElementById('side-menu').setAttribute('aria-hidden', 'false');
+  document.getElementById('side-menu-backdrop').classList.add('show');
+  document.getElementById('menuHeaderBtn').setAttribute('aria-expanded', 'true');
+};
+
+window.closeSideMenu = function() {
+  document.getElementById('side-menu').classList.remove('open');
+  document.getElementById('side-menu').setAttribute('aria-hidden', 'true');
+  document.getElementById('side-menu-backdrop').classList.remove('show');
+  document.getElementById('menuHeaderBtn').setAttribute('aria-expanded', 'false');
+};
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') window.closeSideMenu(); });
+
+window.menuWip = function(nome) {
+  window.closeSideMenu();
+  window.showToast(`🚧 ${nome}: work in progress`, 'ok');
+};
+
+window.goToPatron = function() {
+  window.closeSideMenu();
+  window.location.href = 'admin.html';
+};
+
+// "Passa a Patron" compare solo se il profilo ha il ruolo patron (users/{uid}/role)
+async function updatePatronMenuItem(firebaseUser) {
+  const item = document.getElementById('menuPatronItem');
+  if (!item) return;
+  item.style.display = 'none';
+  if (!firebaseUser) return;
+  const autorizzato = await isPatron(firebaseUser);
+  // l'utente potrebbe essere cambiato nel frattempo
+  if (autorizzato && auth.currentUser && auth.currentUser.uid === firebaseUser.uid) {
+    item.style.display = 'flex';
+  }
+}
 
 window.doFirebaseLogout = function() {
   signOut(auth).then(() => {

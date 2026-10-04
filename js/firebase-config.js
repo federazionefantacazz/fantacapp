@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, onValue, set, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, onValue, set, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const firebaseConfig = {
@@ -21,4 +21,4 @@ export const db = getDatabase(fapp);
 export const auth = getAuth(fapp);
 
 // Esportiamo anche le funzioni di Firebase che usi più spesso per accorciare gli import nelle altre pagine
-export { ref, onValue, set, update, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut };
+export { ref, onValue, set, update, get, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut };
