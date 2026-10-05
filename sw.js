@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.1.10'; // Incrementa ad ogni modifica dei file statici
+const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.1.11'; // Incrementa ad ogni modifica dei file statici
 
 // 1. Array pulito e aggiornato
 const ASSETS_TO_CACHE = [
