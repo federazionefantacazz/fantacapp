@@ -264,6 +264,7 @@ import { ClassificaSection }    from './js/admin/classifica.js';
 import { CalendarioSection }    from './js/admin/calendario/calendario.js';
 import { CompetizioniSection }  from './js/admin/competizioni.js';
 import { ThemesSection }        from './js/admin/themes.js';
+import { applyThemeVars, applyBackground } from './js/services/themeService.js';
 
 /* ─── Stato globale applicativo ────────────────────────────────────────── */
 let TEAMS = [];
@@ -493,12 +494,7 @@ function renderThemePicker() {
   }
 }
 
-// Stessa mappatura di colori e sfondo usata da index.html per competitions/{id}/theme
-const THEME_VARS = {
-  bg: '--bg', bg2: '--bg2', bg3: '--bg3', card: '--card', card2: '--card2',
-  accent: '--accent', accent2: '--accent2', accent3: '--accent3', gold: '--gold',
-  text: '--text', text2: '--text2', text3: '--text3'
-};
+// Stessa mappatura di colori e sfondo usata da index.html (js/services/themeService.js)
 let appliedThemeSig = null;
 function applyCompetitionTheme() {
   const comp = competitions.find(c => c.id === window.CURRENT_COMPETITION);
@@ -509,24 +505,8 @@ function applyCompetitionTheme() {
   if (sig === appliedThemeSig) return;
   appliedThemeSig = sig;
 
-  const styleTag = document.getElementById('dynamic-theme');
-  if (styleTag) {
-    const decls = theme
-      ? Object.entries(THEME_VARS).filter(([k]) => theme[k]).map(([k, v]) => `${v}: ${theme[k]};`).join('\n')
-      : '';
-    styleTag.innerHTML = decls ? `:root { ${decls} }` : '';
-  }
-
-  if (bgUrl) {
-    const safe = bgUrl.replace(/['"\\()]/g, ch => '%' + ch.charCodeAt(0).toString(16).toUpperCase());
-    document.body.style.backgroundImage = `linear-gradient(rgba(26, 30, 36, 0.3), rgba(26, 30, 36, 0.88)), url('${safe}')`;
-    document.body.style.backgroundSize = 'auto 100vh';
-    document.body.style.backgroundPosition = 'top center';
-    document.body.style.backgroundAttachment = 'fixed';
-    document.body.style.backgroundRepeat = 'no-repeat';
-  } else {
-    document.body.style.backgroundImage = 'none';
-  }
+  applyThemeVars(theme);
+  applyBackground(bgUrl);
 }
 
 /* ─── Sottoscrizioni Real-time ai nodi Firebase ────────────────────────── */

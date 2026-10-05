@@ -51,7 +51,7 @@ export function renderAnteprimaClassificaTabellone(comp, teamsList, myTeamId) {
       </div>
 
       <!-- DISEGNO MINI TABELLONE A LOGHI -->
-      <div style="display: flex; align-items: center; justify-content: space-around; background: rgba(0,0,0,0.25); border: 1px dashed rgba(255,255,255,0.1); border-radius: 6px; padding: 0.5rem; position: relative;">
+      <div style="display: flex; align-items: center; justify-content: space-around; background: var(--subbox-bg); border: 1px dashed var(--border); border-radius: 6px; padding: 0.5rem; position: relative;">
         
         <!-- Colonna Sinistra (es. Semifinale / Quarti) -->
         <div style="display: flex; flex-direction: column; gap: 0.4rem;">

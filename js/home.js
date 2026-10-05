@@ -9,7 +9,7 @@ export const HomePage = {
       <div class="page" id="page-home" style="padding-top: 0.5rem;">
 
         <!-- CARD SQUADRA -->
-        <div class="card" style="margin-bottom: 1.2rem; background: linear-gradient(135deg, var(--card) 0%, color-mix(in srgb, var(--accent) 6%, transparent) 100%); border: 1px solid rgba(255,255,255,0.08); padding: 1.25rem;">
+        <div class="card" style="margin-bottom: 1.2rem; background: var(--subbox-bg); border: 1px solid var(--border); padding: 1.25rem;">
           
           <!-- RIGA PRINCIPALE: LOGO + NOME SQUADRA -->
           <div style="display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1rem; min-width: 0;">
@@ -22,12 +22,12 @@ export const HomePage = {
           </div>
 
           <!-- MINI CLASSIFICA (a tutta larghezza) -->
-          <div id="homeMiniClassifica" style="padding-top: 0.8rem; border-top: 1px dashed rgba(255,255,255,0.1); width: 100%;">
+          <div id="homeMiniClassifica" style="padding-top: 0.8rem; border-top: 1px dashed var(--border); width: 100%;">
             <div style="font-size: 0.7rem; font-weight: 600; color: var(--text2);">Caricamento...</div>
           </div>
 
           <!-- RIGA TROFEI / PALMARÈS -->
-          <div style="margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed rgba(255,255,255,0.1); width: 100%;">
+          <div style="margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed var(--border); width: 100%;">
             <div class="label" style="margin-bottom: 0.4rem; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase;"><i class="ri-trophy-line"></i> Palmarès / Trofei</div>
             <div id="homeTeamTrophies" style="display: flex; align-items: flex-end; gap: 0.6rem; flex-wrap: wrap;">
               <span style="font-size: 0.75rem; color: var(--text3); font-style: italic;">Nessun trofeo</span>

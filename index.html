@@ -28,7 +28,15 @@
   --text: #e2e8f0;     /* Testo chiaro */
   --text2: #94a3b8;    /* Testo secondario */
   --text3: #475569;
-  --nav-inactive: #64748b; /* Colore dedicato ai tab inattivi */
+  --on-accent: #0a0f1e;                    /* Testo sopra i pulsanti accento */
+  --nav-inactive: #64748b;                 /* Colore dedicato ai tab inattivi */
+  --border: rgba(255,255,255,0.08);        /* Bordi card, righe, separatori */
+  --header-bg: rgba(26,30,36,0.72);        /* Barra in alto */
+  --subbox-bg: rgba(0,0,0,0.25);           /* Card principale home / mini classifica */
+  --role-p: #4a5568;                       /* Badge Portiere */
+  --role-d: #0077ff;                       /* Badge Difensore */
+  --role-c: #00e5a0;                       /* Badge Centrocampista */
+  --role-a: #ff4757;                       /* Badge Attaccante */
 }
 
 /* ==================== HEADER COMPATTO GLASS ==================== */
@@ -38,7 +46,7 @@
   justify-content: space-between;
   padding: 0.35rem 0.8rem !important; 
   height: 48px !important; /* Altezza super compatta per mobile */
-  background: rgba(26, 30, 36, 0.72) !important; /* Effetto trasparenza */
+  background: var(--header-bg) !important; /* Effetto trasparenza */
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: none !important;
@@ -241,18 +249,18 @@ body {
 
 .logo{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:1px;background:linear-gradient(45deg, #fff, var(--text2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .sec{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:0.5px;color:var(--text);margin-bottom:.8rem;display:flex;align-items:center;gap:.4rem}
-.card{background:var(--card);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:1rem;margin-bottom:1rem;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1rem;margin-bottom:1rem;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
 .label{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;margin-bottom:.4rem}
 .pcard{background:var(--card2);border-radius:12px;padding:.5rem .75rem;display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem;transition:background .15s ease}
 .pcard:active{background:rgba(255,255,255,0.04)}
 .rbadge{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15)}
-.rP{background:#4a5568}.rD{background:#0077ff}.rC{background:#00e5a0;color:#0a0f1e}.rA{background:#ff4757}
+.rP{background:var(--role-p)}.rD{background:var(--role-d)}.rC{background:var(--role-c);color:var(--on-accent)}.rA{background:var(--role-a)}
 .pi{flex:1;min-width:0}
 .pn{font-size:.9rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
 .pm{font-size:.72rem;color:var(--text2)}
 .pr{text-align:right;flex-shrink:0}.price{font-size:.9rem;font-weight:600;font-family:'DM Mono',monospace;color:var(--gold)}.pavg{font-size:.68rem;color:var(--text2)}
 .btn{background:var(--accent2);color:#fff;border:none;padding:.7rem 1.2rem;border-radius:10px;font-size:.85rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;transition:all 0.2s;width:100%}
-.btn-green{background:var(--accent);color:#0a0f1e;font-weight:600}
+.btn-green{background:var(--accent);color:var(--on-accent);font-weight:600}
 .btn-outline{background:transparent;border:1px solid rgba(255,255,255,0.2);color:var(--text2)}
 .btn:active{opacity:0.8;transform:scale(0.98)}
 .select-rose, .input-login{width:100%;background:var(--bg3);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:.7rem .9rem;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none}
@@ -422,6 +430,7 @@ body {
 <script type="module">
 import { db, auth, ref, onValue, set, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from './js/firebase-config.js';
 import { isPatron } from './js/services/roleService.js';
+import { applyThemeVars, applyBackground } from './js/services/themeService.js';
 
 import { HomePage } from './js/home.js';
 import { CalendarioPage } from './js/calendario.js';
@@ -515,64 +524,40 @@ onValue(ref(db, 'status/currentRealGW'), snap => {
   }
 });
 
+// Sottoscrizioni Firebase della competizione corrente: vanno chiuse al cambio competizione,
+// altrimenti i listener della competizione precedente restano attivi e sovrascrivono tema e sfondo.
+let compUnsubs = [];
+
 function caricaDatiCompetizione(compId) {
   if (!compId) return;
+
+  compUnsubs.forEach(unsub => { try { unsub(); } catch (e) {} });
+  compUnsubs = [];
+  const sub = (r, cb) => compUnsubs.push(onValue(r, cb));
   
   window.STATE.matches = {};
   
-  onValue(ref(db, `competitions/${compId}/lineups`), snap => {
+  sub(ref(db, `competitions/${compId}/lineups`), snap => {
     if (!window.STATE._currentCompData) window.STATE._currentCompData = {};
     window.STATE._currentCompData.lineups = snap.val() || {};
     refreshUI();
   });
 
-  onValue(ref(db, 'status/live'), snap => {
+  sub(ref(db, 'status/live'), snap => {
     const liveAttivo = !!snap.val();
     gestisciSwitchLive(liveAttivo);
   });
 
-  onValue(ref(db, `competitions/${compId}/backgroundImage`), snap => {
-    const bgUrl = snap.val();
-    if (bgUrl && bgUrl.trim() !== "") {
-      document.body.style.backgroundImage = `linear-gradient(rgba(26, 30, 36, 0.3), rgba(26, 30, 36, 0.88)), url('${bgUrl}')`;
-      document.body.style.backgroundSize = "auto 100vh";
-      document.body.style.backgroundPosition = "top center";
-      document.body.style.backgroundAttachment = "fixed";
-      document.body.style.backgroundRepeat = "no-repeat";
-    } else {
-      document.body.style.backgroundImage = "none";
-      document.body.style.backgroundColor = "var(--bg)";
-    }
+  sub(ref(db, `competitions/${compId}/backgroundImage`), snap => {
+    applyBackground(snap.val());
   });
 
-  /* Mappatura completa delle variabili CSS del tema */
-  onValue(ref(db, `competitions/${compId}/theme`), snap => {
-    const theme = snap.val();
-    const styleTag = document.getElementById('dynamic-theme');
-    if (theme && styleTag) {
-      styleTag.innerHTML = `
-        :root {
-          ${theme.bg ? `--bg: ${theme.bg};` : ''}
-          ${theme.bg2 ? `--bg2: ${theme.bg2};` : ''}
-          ${theme.bg3 ? `--bg3: ${theme.bg3};` : ''}
-          ${theme.card ? `--card: ${theme.card};` : ''}
-          ${theme.card2 ? `--card2: ${theme.card2};` : ''}
-          ${theme.accent ? `--accent: ${theme.accent};` : ''}
-          ${theme.accent2 ? `--accent2: ${theme.accent2};` : ''}
-          ${theme.accent3 ? `--accent3: ${theme.accent3};` : ''}
-          ${theme.gold ? `--gold: ${theme.gold};` : ''}
-          ${theme.text ? `--text: ${theme.text};` : ''}
-          ${theme.text2 ? `--text2: ${theme.text2};` : ''}
-          ${theme.text3 ? `--text3: ${theme.text3};` : ''}
-          ${theme.navInactive ? `--nav-inactive: ${theme.navInactive};` : ''}
-        }
-      `;
-    } else if (styleTag) {
-      styleTag.innerHTML = '';
-    }
+  /* Mappatura completa delle variabili CSS del tema (vedi js/services/themeService.js) */
+  sub(ref(db, `competitions/${compId}/theme`), snap => {
+    applyThemeVars(snap.val());
   });
 
-  onValue(ref(db, `competitions/${compId}/matches`), snap => { 
+  sub(ref(db, `competitions/${compId}/matches`), snap => { 
     window.STATE.matches = snap.val() || {}; 
     refreshUI(); 
   });

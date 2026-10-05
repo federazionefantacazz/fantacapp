@@ -1,5 +1,6 @@
 import { ref, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { uploadBackgroundToImgBB } from "../services/integrationImgBB.js";
+import { THEME_VARS } from "../services/themeService.js";
 
 let database = null;
 
@@ -64,98 +65,11 @@ export const ThemesSection = {
         <div class="card" style="max-width: 600px;">
           <div class="label" style="color: var(--accent); margin-bottom: 1rem; font-size: .85rem;">Personalizza Palette Colori Tema</div>
           
+          <div style="font-size: .75rem; color: var(--text3); margin-bottom: .8rem;">
+            Ogni voce corrisponde alla variabile CSS usata nell'app. Lascia vuoto per usare il valore di default.
+          </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; margin-bottom: 1rem;">
-            <div>
-              <label class="label">Sfondo Principale (--bg)</label>
-              <div style="display: flex; gap: .5rem; align-items: center;">
-                <input type="color" id="theme-color-bg" class="input-login" style="padding: 0; height: 38px; width: 50px; cursor: pointer;">
-                <input type="text" id="theme-text-bg" class="input-login" style="margin-bottom: 0;" placeholder="#1a1e24">
-              </div>
-            </div>
-            <div>
-              <label class="label">Sfondo Secondario (--bg2)</label>
-              <div style="display: flex; gap: .5rem; align-items: center;">
-                <input type="color" id="theme-color-bg2" class="input-login" style="padding: 0; height: 38px; width: 50px; cursor: pointer;">
-                <input type="text" id="theme-text-bg2" class="input-login" style="margin-bottom: 0;" placeholder="#22272f">
-              </div>
-            </div>
-            <div>
-              <label class="label">Sfondo Input (--bg3)</label>
-              <div style="display: flex; gap: .5rem; align-items: center;">
-                <input type="color" id="theme-color-bg3" class="input-login" style="padding: 0; height: 38px; width: 50px; cursor: pointer;">
-                <input type="text" id="theme-text-bg3" class="input-login" style="margin-bottom: 0;" placeholder="#2b323c">
-              </div>
-            </div>
-            <div>
-              <label class="label">Colore Schede (--card)</label>
-              <div style="display: flex; gap: .5rem; align-items: center;">
-                <input type="color" id="theme-color-card" class="input-login" style="padding: 0; height: 38px; width: 50px; cursor: pointer;">
-                <input type="text" id="theme-text-card" class="input-login" style="margin-bottom: 0;" placeholder="#282e37">
-              </div>
-            </div>
-            <div>
-              <label class="label">Sub-box (--card2)</label>
-              <div style="display: flex; gap: .5rem; align-items: center;">
-                <input type="color" id="theme-color-card2" class="input-login" style="padding: 0; height: 38px; width: 50px; cursor: pointer;">
-                <input type="text" id="theme-text-card2" class="input-login" style="margin-bottom: 0;" placeholder="#333a46">
-              </div>
-            </div>
-            <div>
-              <label class="label">Colore Accento (--accent)</label>
-              <div style="display: flex; gap: .5rem; align-items: center;">
-                <input type="color" id="theme-color-accent" class="input-login" style="padding: 0; height: 38px; width: 50px; cursor: pointer;">
-                <input type="text" id="theme-text-accent" class="input-login" style="margin-bottom: 0;" placeholder="#50e3c2">
-              </div>
-            </div>
-            <div>
-              <label class="label">Accento 2 (--accent2)</label>
-              <div style="display: flex; gap: .5rem; align-items: center;">
-                <input type="color" id="theme-color-accent2" class="input-login" style="padding: 0; height: 38px; width: 50px; cursor: pointer;">
-                <input type="text" id="theme-text-accent2" class="input-login" style="margin-bottom: 0;" placeholder="#64748b">
-              </div>
-            </div>
-            <div>
-              <label class="label">Accento 3 / Errore (--accent3)</label>
-              <div style="display: flex; gap: .5rem; align-items: center;">
-                <input type="color" id="theme-color-accent3" class="input-login" style="padding: 0; height: 38px; width: 50px; cursor: pointer;">
-                <input type="text" id="theme-text-accent3" class="input-login" style="margin-bottom: 0;" placeholder="#ff6b6b">
-              </div>
-            </div>
-            <div>
-              <label class="label">Oro Ambrato (--gold)</label>
-              <div style="display: flex; gap: .5rem; align-items: center;">
-                <input type="color" id="theme-color-gold" class="input-login" style="padding: 0; height: 38px; width: 50px; cursor: pointer;">
-                <input type="text" id="theme-text-gold" class="input-login" style="margin-bottom: 0;" placeholder="#f5a623">
-              </div>
-            </div>
-            <div>
-              <label class="label">Testo Principale (--text)</label>
-              <div style="display: flex; gap: .5rem; align-items: center;">
-                <input type="color" id="theme-color-text" class="input-login" style="padding: 0; height: 38px; width: 50px; cursor: pointer;">
-                <input type="text" id="theme-text-text" class="input-login" style="margin-bottom: 0;" placeholder="#e2e8f0">
-              </div>
-            </div>
-            <div>
-              <label class="label">Testo Secondario (--text2)</label>
-              <div style="display: flex; gap: .5rem; align-items: center;">
-                <input type="color" id="theme-color-text2" class="input-login" style="padding: 0; height: 38px; width: 50px; cursor: pointer;">
-                <input type="text" id="theme-text-text2" class="input-login" style="margin-bottom: 0;" placeholder="#94a3b8">
-              </div>
-            </div>
-            <div>
-              <label class="label">Testo Terziario (--text3)</label>
-              <div style="display: flex; gap: .5rem; align-items: center;">
-                <input type="color" id="theme-color-text3" class="input-login" style="padding: 0; height: 38px; width: 50px; cursor: pointer;">
-                <input type="text" id="theme-text-text3" class="input-login" style="margin-bottom: 0;" placeholder="#475569">
-              </div>
-            </div>
-            <div style="grid-column: span 2;">
-              <label class="label">Tab Inattivi (--navInactive)</label>
-              <div style="display: flex; gap: .5rem; align-items: center;">
-                <input type="color" id="theme-color-navInactive" class="input-login" style="padding: 0; height: 38px; width: 50px; cursor: pointer;">
-                <input type="text" id="theme-text-navInactive" class="input-login" style="margin-bottom: 0;" placeholder="#64748b">
-              </div>
-            </div>
+            ${this.renderPaletteFields()}
           </div>
 
           <div style="display: flex; gap: .8rem; margin-top: 1.5rem;">
@@ -179,6 +93,20 @@ export const ThemesSection = {
     </div>`;
   },
 
+  renderPaletteFields() {
+    return THEME_VARS.map(v => `
+            <div>
+              <label class="label" style="font-family: 'DM Mono', monospace; text-transform: none; letter-spacing: 0;">${v.css}</label>
+              <div style="font-size: .68rem; color: var(--text3); margin: -.2rem 0 .3rem;">${v.hint}</div>
+              <div style="display: flex; gap: .5rem; align-items: center;">
+                ${v.kind === 'color'
+                  ? `<input type="color" id="theme-color-${v.key}" class="input-login" value="${v.def}" style="padding: 0; height: 38px; width: 50px; cursor: pointer; margin-bottom: 0;">`
+                  : ''}
+                <input type="text" id="theme-text-${v.key}" class="input-login" style="margin-bottom: 0;" placeholder="${v.def}">
+              </div>
+            </div>`).join('');
+  },
+
   render(globalState) {
     const comps = globalState.competitions || [];
     this.competitionsCache = comps;
@@ -197,23 +125,25 @@ export const ThemesSection = {
   },
 
   registerGlobalActions() {
-    const themeKeys = ['bg', 'bg2', 'bg3', 'card', 'card2', 'accent', 'accent2', 'accent3', 'gold', 'text', 'text2', 'text3', 'navInactive'];
+    const themeKeys = THEME_VARS.map(v => v.key);
 
-    // Sincronizzazione bidirezionale input color e text
-    themeKeys.forEach(key => {
-      window.setTimeout(() => {
-        const colorInput = document.getElementById(`theme-color-${key}`);
-        const textInput = document.getElementById(`theme-text-${key}`);
-        if (colorInput && textInput) {
-          colorInput.addEventListener('input', (e) => { textInput.value = e.target.value; });
-          textInput.addEventListener('input', (e) => {
-            if (e.target.value.startsWith('#') && (e.target.value.length === 4 || e.target.value.length === 7)) {
-              colorInput.value = e.target.value;
-            }
-          });
+    // Sincronizzazione bidirezionale input color e text (delegata: funziona anche se il markup viene creato dopo)
+    document.addEventListener('input', (e) => {
+      const id = e.target && e.target.id;
+      if (!id) return;
+      if (id.startsWith('theme-color-')) {
+        const textInput = document.getElementById('theme-text-' + id.slice('theme-color-'.length));
+        if (textInput) textInput.value = e.target.value;
+      } else if (id.startsWith('theme-text-')) {
+        const colorInput = document.getElementById('theme-color-' + id.slice('theme-text-'.length));
+        const v = e.target.value.trim();
+        if (colorInput && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v)) {
+          colorInput.value = v.length === 4 ? '#' + [1, 2, 3].map(i => v[i] + v[i]).join('') : v;
         }
-      }, 100);
+      }
     });
+
+    const defOf = (k) => (THEME_VARS.find(v => v.key === k) || {}).def || '#000000';
 
     // Gestione cambio sotto-tab del menu Temi
     window.switchThemeSubTab = (tab) => {
@@ -260,7 +190,7 @@ export const ThemesSection = {
         themeKeys.forEach(k => {
           const ci = document.getElementById(`theme-color-${k}`);
           const ti = document.getElementById(`theme-text-${k}`);
-          if (ci) ci.value = '#000000';
+          if (ci) ci.value = defOf(k);
           if (ti) ti.value = '';
         });
         return;
@@ -287,7 +217,7 @@ export const ThemesSection = {
         const val = themeData[k] || '';
         if (ti) ti.value = val;
         if (ci) {
-          if (val.startsWith('#')) ci.value = val;
+          ci.value = /^#[0-9a-fA-F]{6}$/.test(val) ? val : defOf(k);
         }
       });
     };

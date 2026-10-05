@@ -50,7 +50,7 @@ export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId) {
 
   return `
     <div onclick="${GO_CLASSIFICA}"
-         style="display: flex; flex-direction: column; gap: 0.3rem; width: 100%; cursor: pointer; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 0.6rem 0.7rem;"
+         style="display: flex; flex-direction: column; gap: 0.3rem; width: 100%; cursor: pointer; background: var(--subbox-bg); border: 1px solid var(--border); border-radius: 10px; padding: 0.6rem 0.7rem;"
          title="Clicca per visualizzare la classifica completa">
 
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.15rem;">
