@@ -91,7 +91,7 @@ export const HomePage = {
         `;
       } else {
         banner.innerHTML = `
-          <div class="card card-sm" style="border-left: 4px solid var(--accent); background: var(--bg2), transparent); padding: .75rem 1rem; margin-bottom: 0;">
+          <div class="card card-sm" style="border-left: 4px solid var(--accent); background: var(--bg2); padding: .75rem 1rem; margin-bottom: 0;">
             <div style="background: var(--bg2); display: flex; align-items: center; gap: .6rem;">
               <i class="ri-football-line" style="font-size: 1.2rem; color: var(--accent);"></i>
               <div>
