@@ -79,8 +79,8 @@ export const HomePage = {
     if (banner) {
       if (realGw === 0) {
         banner.innerHTML = `
-          <div class="card card-sm" style="border-left: 4px solid var(--accent2); background: rgba(100, 116, 139, 0.1); padding: .75rem 1rem; margin-bottom: 0;">
-            <div style="display: flex; align-items: center; gap: .6rem;">
+          <div class="card card-sm" style="border-left: 4px solid var(--accent2); background: var(--bg2); padding: .75rem 1rem; margin-bottom: 0;">
+            <div style="background: var(--bg2); display: flex; align-items: center; gap: .6rem;">
               <i class="ri-time-line" style="font-size: 1.2rem; color: var(--accent2);"></i>
               <div>
                 <div style="font-size: .85rem; font-weight: 600; color: var(--text);">Pre-Campionato Attivo</div>
@@ -91,8 +91,8 @@ export const HomePage = {
         `;
       } else {
         banner.innerHTML = `
-          <div class="card card-sm" style="border-left: 4px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); padding: .75rem 1rem; margin-bottom: 0;">
-            <div style="display: flex; align-items: center; gap: .6rem;">
+          <div class="card card-sm" style="border-left: 4px solid var(--accent); background: var(--bg2), transparent); padding: .75rem 1rem; margin-bottom: 0;">
+            <div style="background: var(--bg2); display: flex; align-items: center; gap: .6rem;">
               <i class="ri-football-line" style="font-size: 1.2rem; color: var(--accent);"></i>
               <div>
                 <div style="font-size: .85rem; font-weight: 600; color: var(--text);">Campionato Live — Serie A</div>
