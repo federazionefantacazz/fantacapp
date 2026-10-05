@@ -27,6 +27,19 @@ export const AssetPreloader = {
     return Array.from(urls);
   },
 
+  /** Mette subito in cache un'immagine appena caricata (logo / foto personale). */
+  async cacheUrl(url) {
+    if (!url || !('caches' in window)) return;
+    try {
+      const cache = await caches.open(this.CACHE_NAME);
+      if (await cache.match(url)) return;
+      const response = await fetch(url, { mode: 'cors' });
+      if (response.ok) await cache.put(url, response);
+    } catch (e) {
+      console.warn('Impossibile mettere in cache:', url);
+    }
+  },
+
   async startSync(STATE) {
     if (!STATE || !STATE.user) return;
 

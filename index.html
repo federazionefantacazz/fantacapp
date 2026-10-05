@@ -416,10 +416,10 @@ body {
       <i class="ri-close-line" style="font-size: 1.5rem;"></i>
     </button>
   </div>
-  <button class="side-menu-item" onclick="window.menuWip('Impostazioni applicazione')"><i class="ri-settings-3-line"></i>Impostazioni applicazione</button>
-  <button class="side-menu-item" onclick="window.menuWip('Impostazioni squadra')"><i class="ri-shield-star-line"></i>Impostazioni squadra</button>
-  <button class="side-menu-item" onclick="window.menuWip('Listone')"><i class="ri-list-check-2"></i>Listone</button>
-  <button class="side-menu-item" onclick="window.menuWip('Svincolati')"><i class="ri-user-unfollow-line"></i>Svincolati</button>
+  <button class="side-menu-item" onclick="window.openMenuPage('settings')"><i class="ri-settings-3-line"></i>Impostazioni applicazione</button>
+  <button class="side-menu-item" onclick="window.openMenuPage('team')"><i class="ri-shield-star-line"></i>Configurazione squadra</button>
+  <button class="side-menu-item" onclick="window.openMenuPage('listone')"><i class="ri-list-check-2"></i>Listone</button>
+  <button class="side-menu-item" onclick="window.openMenuPage('svincolati')"><i class="ri-user-unfollow-line"></i>Svincolati</button>
   <div class="side-menu-sep"></div>
   <button class="side-menu-item patron" id="menuPatronItem" style="display:none;" onclick="window.goToPatron()"><i class="ri-vip-crown-2-line"></i>Passa a Patron</button>
   <button class="side-menu-item danger" onclick="window.closeSideMenu(); window.doFirebaseLogout()"><i class="ri-logout-box-r-line"></i>Log out</button>
@@ -431,6 +431,11 @@ body {
 import { db, auth, ref, onValue, set, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from './js/firebase-config.js';
 import { isPatron } from './js/services/roleService.js';
 import { applyThemeVars, applyBackground } from './js/services/themeService.js';
+import { SettingsService } from './js/services/settingsService.js';
+import { MenuPanel } from './js/components/MenuPanel.js';
+import { ImpostazioniApp } from './js/menu/ImpostazioniApp.js';
+import { ConfigurazioneSquadra } from './js/menu/ConfigurazioneSquadra.js';
+import { ListoneView, SvincolatiView } from './js/menu/ListoneView.js';
 
 import { HomePage } from './js/home.js';
 import { CalendarioPage } from './js/calendario.js';
@@ -456,6 +461,8 @@ window.STATE = {
   trades: {}, 
   trophies: [],
   onFire: { weeks: 4, players: 5 },
+  settings: SettingsService.getDefaultSettings(),
+  compBackgroundUrl: '',
   booted: false 
 };
 
@@ -492,6 +499,7 @@ onValue(ref(db, 'teams'), snap => {
 
 onAuthStateChanged(auth, firebaseUser => {
   updatePatronMenuItem(firebaseUser);
+  loadUserSettings(firebaseUser);
   if (firebaseUser) {
     document.getElementById('box-firebase-login').style.display = 'none';
     document.getElementById('box-firebase-register').style.display = 'none';
@@ -549,7 +557,8 @@ function caricaDatiCompetizione(compId) {
   });
 
   sub(ref(db, `competitions/${compId}/backgroundImage`), snap => {
-    applyBackground(snap.val());
+    window.STATE.compBackgroundUrl = snap.val() || '';
+    refreshBackground();
   });
 
   /* Mappatura completa delle variabili CSS del tema (vedi js/services/themeService.js) */
@@ -686,10 +695,55 @@ window.closeSideMenu = function() {
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') window.closeSideMenu(); });
 
-window.menuWip = function(nome) {
-  window.closeSideMenu();
-  window.showToast(`🚧 ${nome}: work in progress`, 'ok');
+const MENU_VIEWS = {
+  settings: ImpostazioniApp,
+  team: ConfigurazioneSquadra,
+  listone: ListoneView,
+  svincolati: SvincolatiView
 };
+
+window.openMenuPage = function(name) {
+  const view = MENU_VIEWS[name];
+  window.closeSideMenu();
+  if (view) MenuPanel.open(view);
+};
+
+/* ─── Impostazioni utente (settings/{uid} + cache locale) ───────────────── */
+// Lo sfondo della competizione si vede solo se l'utente non l'ha disattivato
+function refreshBackground() {
+  const show = (window.STATE.settings || {}).showBackground !== false;
+  applyBackground(show ? (window.STATE.compBackgroundUrl || '') : '');
+}
+
+async function loadUserSettings(firebaseUser) {
+  if (!firebaseUser) {
+    window.STATE.settings = SettingsService.getDefaultSettings();
+    refreshBackground();
+    return;
+  }
+  // 1) subito dalla cache del dispositivo, 2) poi dal DB
+  window.STATE.settings = SettingsService.getCachedSettings(firebaseUser.uid);
+  refreshBackground();
+  const fresh = await SettingsService.getSettings(firebaseUser.uid);
+  if (auth.currentUser && auth.currentUser.uid === firebaseUser.uid) {
+    window.STATE.settings = fresh;
+    refreshBackground();
+    refreshUI();
+  }
+}
+
+window.setUserSetting = async function(key, value) {
+  window.STATE.settings = { ...window.STATE.settings, [key]: value };
+  refreshBackground();
+  const uid = auth.currentUser && auth.currentUser.uid;
+  if (!uid) return;
+  try {
+    await SettingsService.updateSettings(uid, { [key]: value });
+  } catch (e) {
+    window.showToast('Salvato solo su questo dispositivo', 'err');
+  }
+};
+
 
 window.goToPatron = function() {
   window.closeSideMenu();
@@ -860,6 +914,9 @@ function refreshUI() {
       `;
     }
   }
+
+  // Pannello del menu laterale aperto (listone, svincolati, ...): si aggiorna con i dati
+  MenuPanel.refresh(window.STATE);
 
   if (!document.getElementById('page-home')) return;
 

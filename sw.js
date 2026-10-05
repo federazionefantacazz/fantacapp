@@ -1,4 +1,5 @@
-const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.1.11'; // Incrementa ad ogni modifica dei file statici
+const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.1.12'; // Incrementa ad ogni modifica dei file statici
+const IMAGE_CACHE = 'fantacapp-images-v1'; // riempita da js/services/assetPreloader.js: non va cancellata agli aggiornamenti
 
 // 1. Array pulito e aggiornato
 const ASSETS_TO_CACHE = [
@@ -18,6 +19,7 @@ const ASSETS_TO_CACHE = [
   './js/services/assetPreloader.js',
   './js/services/gwService.js',
   './js/services/themeService.js',
+  './js/services/playerStatsService.js',
 
   // Componenti
   './js/components/AnteprimaClassifica.js',
@@ -25,6 +27,13 @@ const ASSETS_TO_CACHE = [
   './js/components/AnteprimaClassificaTabellone.js',
   './js/components/MatchCardResult.js',
   './js/components/MatchCardVS.js',
+  './js/components/MenuPanel.js',
+
+  // Pagine del menu laterale
+  './js/menu/menuUtils.js',
+  './js/menu/ImpostazioniApp.js',
+  './js/menu/ConfigurazioneSquadra.js',
+  './js/menu/ListoneView.js',
   
   // Pagine Utente
   './js/calendario.js',
@@ -63,7 +72,7 @@ self.addEventListener('activate', event => {
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
+          if (cacheName !== CACHE_NAME && cacheName !== IMAGE_CACHE) {
             console.log('Vecchia cache rimossa:', cacheName);
             return caches.delete(cacheName);
           }
@@ -80,6 +89,14 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
   const url = event.request.url;
+
+  // IMMAGINI (ImgBB): prima la cache immagini, altrimenti rete
+  if (url.includes('i.ibb.co') || url.includes('imgbb.com')) {
+    event.respondWith(
+      caches.match(url, { cacheName: IMAGE_CACHE }).then(cached => cached || fetch(event.request))
+    );
+    return;
+  }
 
   // SICUREZZA: Ignora chiamate a Firebase, Auth, CDN o rotte Admin
   if (
