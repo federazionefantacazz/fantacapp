@@ -75,9 +75,7 @@ export const TeamsPage = {
 
       return `
         <div class="card" onclick="window.openTeamDetail('${t.id}')" style="display:flex; align-items:center; gap:1.25rem; padding:1rem; background:var(--card); cursor:pointer; transition:transform 0.15s, background-color 0.15s;">
-          <div style="width:52px; height:52px; flex-shrink:0; background:var(--bg2); border-radius:12px; border:1px solid rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; overflow:hidden;">
-            <img src="${logoUrl}" alt="Logo ${t.name}" loading="lazy" decoding="async" style="width:100%; height:100%; object-fit:contain;" onerror="this.src='icons/icon-192.png'">
-          </div>
+          <img src="${logoUrl}" alt="Logo ${t.name}" loading="lazy" decoding="async" style="width:52px; height:52px; flex-shrink:0; object-fit:contain;" onerror="this.src='icons/icon-192.png'">
           <div style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; gap:0.4rem;">
               <h3 style="font-size:1.1rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin:0;">${t.name}</h3>
@@ -183,7 +181,7 @@ export const TeamsPage = {
 
     const logoUrl = team.logo || 'icons/icon-192.png';
     const mottoText = team.motto ? `"${team.motto}"` : 'Nessun motto impostato';
-    const descriptionText = team.description || 'Nessuna descrizione o storia inserita per questa fanta-squadra.';
+    const descriptionText = team.desc || team.description || 'Nessuna descrizione o storia inserita per questa fanta-squadra.';
 
     const rawTrophies = STATE.trophies || window.TROPHIES || [];
     const allTrophies = Array.isArray(rawTrophies)
@@ -262,9 +260,7 @@ export const TeamsPage = {
 
     content.innerHTML = `
       <div style="text-align:center; margin-bottom:1.5rem;">
-        <div style="width:90px; height:90px; background:var(--bg2); border-radius:20px; border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; overflow:hidden; margin:0 auto 1rem auto;">
-          <img src="${logoUrl}" alt="Logo XL" loading="lazy" decoding="async" style="width:100%; height:100%; object-fit:contain;" onerror="this.src='icons/icon-192.png'">
-        </div>
+        <img src="${logoUrl}" alt="Logo XL" loading="lazy" decoding="async" style="width:90px; height:90px; object-fit:contain; display:block; margin:0 auto 1rem auto;" onerror="this.src='icons/icon-192.png'">
         <h2 style="font-family:'Bebas Neue',sans-serif; font-size:2rem; color:var(--text); margin-bottom:0.2rem;">
           ${team.name}
         </h2>
@@ -277,14 +273,14 @@ export const TeamsPage = {
       </div>
 
       <div class="card" style="margin-bottom:1rem; background:var(--card); text-align:left;">
-        <div class="label">Storia del Club & Descrizione</div>
+        <div class="label">Storia del club</div>
         <p style="font-size:.85rem; color:var(--text); line-height:1.4; margin-top:.4rem; white-space:pre-line;">
           ${descriptionText}
         </p>
       </div>
 
       <div class="card" style="background:var(--card); text-align:left;">
-        <div class="label" style="color:var(--gold)">Palmarès & Coppe Vinte</div>
+        <div class="label" style="color:var(--gold)">Palmarès</div>
         <div style="margin-top:.6rem;">
           ${trophiesHTML}
         </div>

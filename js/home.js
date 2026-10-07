@@ -220,16 +220,9 @@ export const HomePage = {
         );
 
         if (wonTrophies.length > 0) {
-          // Raggruppa i trofei consecutivi dello stesso tipo
-          const groups = [];
-          wonTrophies.forEach(tr => {
-            const last = groups[groups.length - 1];
-            if (last && last[0].trophyId === tr.trophyId) last.push(tr);
-            else groups.push([tr]);
-          });
-
-          // I PNG hanno margini trasparenti: per avvicinarli davvero si usa un margine negativo
-          // proporzionale alla dimensione (si applica dal secondo trofeo del gruppo in poi).
+          // Distanza uniforme per TUTTI i trofei (ordine invariato): i PNG hanno margini
+          // trasparenti, quindi si usa un margine negativo proporzionale alla dimensione
+          // (dal secondo trofeo in poi) per tenerli vicinissimi.
           const renderTrophy = (tr, idx) => {
             const sizePx = Math.round(38 * (tr.scale / 100));
             const overlap = idx > 0 ? `margin-left: -${Math.round(sizePx * 0.28)}px;` : '';
@@ -239,11 +232,9 @@ export const HomePage = {
             return `<span style="font-size: 1.4rem; ${overlap}" title="${tr.name} (${tr.season})">🏆</span>`;
           };
 
-          // Stesso tipo = molto vicini (gap 1px); gruppi diversi = distanziati
-          trophiesContainer.style.gap = '0.9rem';
-          trophiesContainer.innerHTML = groups.map(group =>
-            `<div style="display: flex; align-items: flex-end; gap: 0; padding-left: 2px;">${group.map(renderTrophy).join('')}</div>`
-          ).join('');
+          trophiesContainer.style.gap = '0';
+          trophiesContainer.style.flexWrap = 'wrap';
+          trophiesContainer.innerHTML = wonTrophies.map(renderTrophy).join('');
         } else {
           trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3); font-style: italic;">Nessun trofeo in bacheca</span>`;
         }

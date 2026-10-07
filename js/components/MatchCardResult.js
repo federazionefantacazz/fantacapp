@@ -2,6 +2,7 @@
  * Card risultato di un incontro.
  * opts.chip = { text, icon, color, live } -> etichetta di stato nell'intestazione della card
  *             (nel flusso, accanto all'etichetta girone: non si sovrappone mai al contenuto)
+ * opts.matchNumber = numero progressivo, mostrato a sinistra come "Match N"
  * opts.label = testo che sostituisce l'etichetta girone/playoff
  */
 export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
@@ -43,19 +44,23 @@ export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
     ? `<div style="font-size:.65rem; color:var(--text2); text-align:center; margin-top:.3rem; white-space:nowrap;">${match.punteggioFinaleHome ?? 0} - ${match.punteggioFinaleAway ?? 0} pt</div>` 
     : '';
 
-  // Intestazione: etichetta girone/playoff a sinistra, stato a destra (stessa riga, niente sovrapposizioni)
+  // Intestazione: "Match N" (+ etichetta girone/playoff) a sinistra, stato a destra
   const labelText = opts.label || match.label || match.girone;
+  const matchNumHTML = opts.matchNumber
+    ? `<span style="font-size:.7rem; font-weight:700; color:var(--text2); letter-spacing:.4px; text-transform:uppercase; white-space:nowrap; flex-shrink:0;">Match ${opts.matchNumber}</span>`
+    : '';
   const labelHTML = labelText
-    ? `<div style="min-width:0; flex:1; font-size:.65rem; color:var(--gold); font-weight:700; text-transform:uppercase; display:flex; align-items:center; gap:0.2rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><i class="ri-map-pin-line"></i><span style="overflow:hidden; text-overflow:ellipsis;">${labelText}</span></div>`
-    : `<div style="flex:1;"></div>`;
+    ? `<span style="min-width:0; font-size:.65rem; color:var(--gold); font-weight:700; text-transform:uppercase; display:inline-flex; align-items:center; gap:0.2rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><i class="ri-map-pin-line"></i><span style="overflow:hidden; text-overflow:ellipsis;">${labelText}</span></span>`
+    : '';
+  const leftHTML = `<div style="min-width:0; flex:1; display:flex; align-items:center; gap:.6rem; overflow:hidden;">${matchNumHTML}${labelHTML}</div>`;
 
   const chip = opts.chip;
   const chipHTML = chip
     ? `<span class="status-chip${chip.live ? ' live' : ''}" style="--chip-color:${chip.color || 'var(--text2)'};">${chip.live ? '<span class="dot"></span>' : `<i class="${chip.icon}"></i>`}${chip.text}</span>`
     : '';
 
-  const headerHTML = (labelText || chip)
-    ? `<div style="display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom:.6rem; min-height:20px;">${labelHTML}${chipHTML}</div>`
+  const headerHTML = (labelText || chip || opts.matchNumber)
+    ? `<div style="display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom:.6rem; min-height:20px;">${leftHTML}${chipHTML}</div>`
     : '';
 
   return `

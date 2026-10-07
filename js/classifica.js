@@ -172,8 +172,8 @@ export const ClassificaPage = {
 
     // Pannello trasparente, come le card della home (--subbox-bg)
     let html = `
-      <div class="card" style="padding:0; overflow:hidden; border:1px solid var(--border); border-radius:14px; margin-bottom: 1rem; background: var(--subbox-bg); box-shadow:none; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);">
-        <div style="background: color-mix(in srgb, var(--text) 6%, transparent); color: var(--text2); border-bottom: 1px solid var(--border); padding: 0.6rem 0.8rem; display: flex; align-items: center; justify-content: flex-end; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px;">
+      <div class="card" style="padding:0; overflow:hidden; border:1px solid var(--border); border-radius:14px; margin-bottom: 1rem; background: var(--subbox-bg);">
+        <div style="background: transparent; color: var(--text2); border-bottom: 1px solid var(--border); padding: 0.6rem 0.8rem; display: flex; align-items: center; justify-content: flex-end; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px;">
           <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 250px; text-align: center;">
             <span style="width:24px;">G</span>
             <span style="width:24px;">V</span>
@@ -332,7 +332,7 @@ export const ClassificaPage = {
         }
 
         return `
-          <div style="background: var(--subbox-bg); border: 1px solid var(--border); padding: .6rem; border-radius: 6px; font-size: .8rem; width: 220px; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);">
+          <div style="background: var(--subbox-bg); border: 1px solid var(--border); padding: .6rem; border-radius: 6px; font-size: .8rem; width: 220px;">
             <div style="color:var(--text3); font-size:0.65rem; font-weight:bold; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
               <span><i class="ri-hashtag"></i> ${m.id.toUpperCase()}</span>
               <span style="color:var(--accent); font-family:'DM Mono',monospace;">${strAndata}${strRitorno}</span>
