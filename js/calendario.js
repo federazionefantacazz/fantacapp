@@ -138,10 +138,10 @@ export const CalendarioPage = {
         if (phase === 'current') {
           if (match.finished === true) return { icon: 'ri-check-line', text: 'Concluso', color: 'var(--text2)' };
           if (isLive) return { live: true, text: 'LIVE', color: 'var(--accent3)' };
-          return null;
+          return { icon: 'ri-time-line', text: 'In programma', color: 'var(--text2)' };
         }
         return {
-          past:   null,
+          past:   { icon: 'ri-play-circle-line', text: 'Rivedi',          color: 'var(--text2)' },
           next:   { icon: 'ri-team-line',        text: 'Formazioni',      color: 'var(--accent)' },
           future: { icon: 'ri-lock-line',        text: 'Non disponibile', color: 'var(--text3)' }
         }[phase];
@@ -149,9 +149,9 @@ export const CalendarioPage = {
 
       CalendarioPage._ctx = { STATE, comp: compForCouples, gwKey: selectedGW, phase, couples: turnMatches };
 
-      container.innerHTML = turnMatches.map((match, i) => `
+      container.innerHTML = turnMatches.map(match => `
         <div class="row-link" data-match-key="${String(match.key).replace(/"/g, '&quot;')}" style="border-radius:16px;">
-          ${createMatchCardResult(match, currentTeams, { chip: chipFor(match), matchNumber: i + 1 })}
+          ${createMatchCardResult(match, currentTeams, { chip: chipFor(match) })}
         </div>`).join('');
     };
 
