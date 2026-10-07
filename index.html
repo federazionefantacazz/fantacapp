@@ -671,7 +671,6 @@ window._handleCompetitionChange = function(newCompetitionId, opts = {}) {
   if (userSelect && userSelect.value !== String(newCompetitionId)) userSelect.value = newCompetitionId;
   if (!opts.silent) {
     window.STATE._compChosen = true;
-    window.showToast(`Competizione modificata in: ${newCompetitionId.toUpperCase()}`, 'ok');
     window.setUserSetting('lastCompetition', newCompetitionId); // resta fissa per l'utente
   }
   
