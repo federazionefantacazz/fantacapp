@@ -133,7 +133,7 @@ export const ClassificaPage = {
       this.renderModoConTabellone(actionsDiv, contentDiv, compData, state, () => {
         let html = `
           <div id="view-dati-classifica">
-            <div class="card" style="font-size:0.75rem; display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:0.5rem; margin-bottom:1rem; background:var(--bg2); border:1px solid rgba(255,255,255,0.08);">
+            <div class="card" style="font-size:0.75rem; display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:0.5rem; margin-bottom:1rem; background:var(--subbox-bg); border:1px solid var(--border);">
               <div style="display:flex; align-items:center; gap:0.5rem;"><i class="ri-medal-fill" style="color:var(--gold);"></i> <span style="color:var(--text);">Oro: Quarti scontrano play off</span></div>
               <div style="display:flex; align-items:center; gap:0.5rem;"><i class="ri-medal-fill" style="color:var(--accent2);"></i> <span style="color:var(--text);">Blu: Degno avversario</span></div>
               <div style="display:flex; align-items:center; gap:0.5rem;"><i class="ri-medal-fill" style="color:var(--accent);"></i> <span style="color:var(--text);">Verde: Play off</span></div>
@@ -167,10 +167,13 @@ export const ClassificaPage = {
   },
 
   renderTabellaClassica(teamsList, compId, rowStyleCallback = null, teamCalculatedStats = {}) {
+    const myTeamId = window.STATE && window.STATE.user ? String(window.STATE.user.id) : null;
+    const htmlAttr = (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
+    // Pannello trasparente, come le card della home (--subbox-bg)
     let html = `
-      <div class="card" style="padding:0; overflow:hidden; border:1px solid rgba(255,255,255,0.08); border-radius:14px; margin-bottom: 1rem; background: var(--card);">
-        <!-- INTESTAZIONE COLONNE STATISTICHE USANDO LE VARIABILI DEL TEMA -->
-        <div style="background: var(--card2); color: var(--text); border-bottom: 1px solid rgba(255,255,255,0.08); padding: 0.6rem 0.8rem; display: flex; align-items: center; justify-content: flex-end; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px;">
+      <div class="card" style="padding:0; overflow:hidden; border:1px solid var(--border); border-radius:14px; margin-bottom: 1rem; background: var(--subbox-bg); box-shadow:none; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);">
+        <div style="background: color-mix(in srgb, var(--text) 6%, transparent); color: var(--text2); border-bottom: 1px solid var(--border); padding: 0.6rem 0.8rem; display: flex; align-items: center; justify-content: flex-end; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px;">
           <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 250px; text-align: center;">
             <span style="width:24px;">G</span>
             <span style="width:24px;">V</span>
@@ -189,22 +192,27 @@ export const ClassificaPage = {
     teamsList.forEach((t, idx) => {
       const stats = teamCalculatedStats[t.id] || { giocate: 0, pts: 0, w: 0, d: 0, l: 0, totFanta: 0, gf: 0, gs: 0 };
       const customStyle = rowStyleCallback ? rowStyleCallback(idx) : '';
+      const isMe = myTeamId !== null && String(t.id) === myTeamId;
+      const isLastRow = idx === teamsList.length - 1;
 
-      const logoHTML = t.logo 
+      const logoHTML = t.logo
         ? `<img src="${t.logo}" alt="Logo ${t.name}" style="width:26px; height:26px; object-fit:contain; border-radius:4px; flex-shrink:0;">`
         : `<div style="width:26px; height:26px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.85rem; color:var(--text3); flex-shrink:0;"><i class="ri-shield-line"></i></div>`;
 
-      // Colore speciale dinamico basato sul tema
-      const isLast = idx === teamsList.length - 1 && teamsList.length > 5;
+      const isLast = isLastRow && teamsList.length > 5;
       const fantaPtsColor = isLast ? 'var(--accent3)' : (idx === 0 ? 'var(--accent)' : 'var(--text2)');
+      const meBg = isMe ? 'background: color-mix(in srgb, var(--accent) 12%, transparent);' : '';
 
+      // Tutta la riga è cliccabile: apre la scheda della squadra
       html += `
-        <div style="padding: 0.65rem 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.05); background: var(--bg2); ${customStyle}">
+        <div class="row-link" role="button" tabindex="0" data-team-id="${htmlAttr(t.id)}" onclick="window.openTeamPage(this.dataset.teamId, 'classifica')"
+             style="padding: 0.65rem 0.8rem; ${isLastRow ? '' : 'border-bottom: 1px solid var(--border);'} ${meBg} ${customStyle}">
           <!-- RIGA 1: POSIZIONE + LOGO + NOME SQUADRA -->
           <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.35rem;">
-            <span style="font-weight: 700; color: var(--accent2); font-size: 0.95rem; min-width: 18px; text-align: center;">${idx + 1}</span>
+            <span style="font-weight: 700; color: var(--text2); font-size: 0.95rem; min-width: 18px; text-align: center;">${idx + 1}</span>
             ${logoHTML}
             <span style="font-weight: 600; color: var(--text); font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">${t.name}</span>
+            <i class="ri-arrow-right-s-line" style="color: var(--text3); font-size: 1.1rem; flex-shrink: 0;"></i>
           </div>
 
           <!-- RIGA 2: GRIGLIA DATI / NUMERI -->
@@ -324,7 +332,7 @@ export const ClassificaPage = {
         }
 
         return `
-          <div style="background: var(--bg2); border: 1px solid rgba(255,255,255,0.08); padding: .6rem; border-radius: 6px; font-size: .8rem; width: 220px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
+          <div style="background: var(--subbox-bg); border: 1px solid var(--border); padding: .6rem; border-radius: 6px; font-size: .8rem; width: 220px; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);">
             <div style="color:var(--text3); font-size:0.65rem; font-weight:bold; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
               <span><i class="ri-hashtag"></i> ${m.id.toUpperCase()}</span>
               <span style="color:var(--accent); font-family:'DM Mono',monospace;">${strAndata}${strRitorno}</span>
@@ -343,7 +351,7 @@ export const ClassificaPage = {
 
       return `
         <div style="display: flex; flex-direction: column; align-items: center;">
-          <div style="background: var(--card2); color: var(--accent); padding: .3rem .6rem; font-family:'Bebas Neue',sans-serif; font-size:1rem; border-radius:4px; margin-bottom:0.75rem; border:1px solid rgba(255,255,255,0.08);">
+          <div style="background: var(--subbox-bg); color: var(--accent); padding: .3rem .6rem; font-family:'Bebas Neue',sans-serif; font-size:1rem; border-radius:4px; margin-bottom:0.75rem; border:1px solid var(--border);">
             ${faseObj.nomeFase.toUpperCase()}
           </div>
           <div style="display: flex; flex-direction: column; justify-content: center;">

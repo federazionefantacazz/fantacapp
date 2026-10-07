@@ -132,21 +132,26 @@ export const CalendarioPage = {
       const currentTeams = STATE.teams || [];
       const phase = GwService.getGwPhase(compForCouples, selectedGW, STATE.giornataRealeCorrente);
 
-      const chip = {
-        past:    { icon: 'ri-play-circle-line', text: 'Rivedi',        color: 'var(--text2)' },
-        current: { icon: 'ri-record-circle-line', text: 'Live',        color: 'var(--accent3)' },
-        next:    { icon: 'ri-team-line',        text: 'Formazioni',    color: 'var(--accent)' },
-        future:  { icon: 'ri-lock-line',        text: 'Non disponibile', color: 'var(--text3)' }
-      }[phase];
+      // "Live" solo se la diretta è davvero attiva (status/live) e l'incontro non è concluso
+      const isLive = STATE.live === true;
+      const chipFor = (match) => {
+        if (phase === 'current') {
+          if (match.finished === true) return { icon: 'ri-check-line', text: 'Concluso', color: 'var(--text2)' };
+          if (isLive) return { live: true, text: 'LIVE', color: 'var(--accent3)' };
+          return { icon: 'ri-time-line', text: 'In programma', color: 'var(--text2)' };
+        }
+        return {
+          past:   { icon: 'ri-play-circle-line', text: 'Rivedi',          color: 'var(--text2)' },
+          next:   { icon: 'ri-team-line',        text: 'Formazioni',      color: 'var(--accent)' },
+          future: { icon: 'ri-lock-line',        text: 'Non disponibile', color: 'var(--text3)' }
+        }[phase];
+      };
 
       CalendarioPage._ctx = { STATE, comp: compForCouples, gwKey: selectedGW, phase, couples: turnMatches };
 
       container.innerHTML = turnMatches.map(match => `
-        <div data-match-key="${String(match.key).replace(/"/g, '&quot;')}" style="position:relative; cursor:pointer;">
-          ${createMatchCardResult(match, currentTeams)}
-          <span style="position:absolute; top:.5rem; right:.7rem; display:flex; align-items:center; gap:.25rem; font-size:.65rem; font-weight:600; color:${chip.color};">
-            <i class="${chip.icon}"></i>${chip.text}
-          </span>
+        <div class="row-link" data-match-key="${String(match.key).replace(/"/g, '&quot;')}" style="border-radius:16px;">
+          ${createMatchCardResult(match, currentTeams, { chip: chipFor(match) })}
         </div>`).join('');
     };
 

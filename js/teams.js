@@ -22,9 +22,9 @@ export const TeamsPage = {
 
         <div id="team-detail-view" style="display:none; margin-top:1.2rem; animation: fadeIn 0.25s ease-out;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; gap:1rem;">
-            <button class="btn btn-outline" onclick="window.backToTeamsList()" style="width:auto; padding:.5rem 1rem; font-size:.8rem; display:inline-flex; align-items:center; gap:.4rem; margin:0;">
+            <button class="btn btn-outline" onclick="window.teamDetailBack()" style="width:auto; padding:.5rem 1rem; font-size:.8rem; display:inline-flex; align-items:center; gap:.4rem; margin:0;">
               <svg viewBox="0 0 24 24" style="width:16px; height:16px; stroke:currentColor; stroke-width:2; fill:none;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-              Lista
+              <span id="team-detail-back-label">Lista</span>
             </button>
             
             <h2 id="team-detail-title" style="font-family:'Bebas Neue',sans-serif; font-size:1.6rem; color:var(--text); flex:1; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin:0;">Rosa</h2>
@@ -51,6 +51,14 @@ export const TeamsPage = {
   render(STATE) {
     window.openTeamDetail = (teamId) => this.openTeamDetail(teamId, STATE);
     window.backToTeamsList = () => this.backToTeamsList();
+    // Freccia "indietro" della scheda squadra: torna alla pagina da cui si è arrivati (es. classifica)
+    window.teamDetailBack = () => {
+      const from = this.returnTo;
+      this.backToTeamsList();
+      if (from === 'classifica') {
+        window.goPage('classifica', document.querySelector('.nav-btn[onclick*="classifica"]'));
+      }
+    };
 
     const container = document.getElementById('teams-grid-container');
     if (!container) return;
@@ -86,8 +94,14 @@ export const TeamsPage = {
     }
   },
 
-  openTeamDetail(teamId, STATE) {
+  openTeamDetail(teamId, STATE, opts = {}) {
+    // Il click arriva da attributi HTML (stringhe): si risale alla squadra con confronto tra stringhe
+    const found = (STATE.teams || []).find(t => String(t.id) === String(teamId));
+    if (found) teamId = found.id;
     this.activeTeamId = teamId;
+    this.returnTo = opts.from || null;
+    const backLabel = document.getElementById('team-detail-back-label');
+    if (backLabel) backLabel.textContent = this.returnTo === 'classifica' ? 'Classifica' : 'Lista';
     const listView = document.getElementById('teams-list-view');
     const detailView = document.getElementById('team-detail-view');
     const titleView = document.getElementById('team-detail-title');
@@ -283,6 +297,7 @@ export const TeamsPage = {
 
   backToTeamsList() {
     this.activeTeamId = null;
+    this.returnTo = null;
     const listView = document.getElementById('teams-list-view');
     const detailView = document.getElementById('team-detail-view');
     if (listView && detailView) {

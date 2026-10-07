@@ -1,4 +1,10 @@
-export const createMatchCardResult = (match, teamsList = []) => {
+/**
+ * Card risultato di un incontro.
+ * opts.chip = { text, icon, color, live } -> etichetta di stato nell'intestazione della card
+ *             (nel flusso, accanto all'etichetta girone: non si sovrappone mai al contenuto)
+ * opts.label = testo che sostituisce l'etichetta girone/playoff
+ */
+export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
   if (!match) {
     return `
       <div class="card card-sm" style="background:var(--bg2); border:1px solid rgba(255,255,255,0.08); text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">
@@ -37,13 +43,24 @@ export const createMatchCardResult = (match, teamsList = []) => {
     ? `<div style="font-size:.65rem; color:var(--text2); text-align:center; margin-top:.3rem; white-space:nowrap;">${match.punteggioFinaleHome ?? 0} - ${match.punteggioFinaleAway ?? 0} pt</div>` 
     : '';
 
-  // Etichetta girone/playoff con Remix Icon
-  const labelText = match.label || match.girone;
-  const labelHTML = labelText ? `<div style="font-size:.65rem; color:var(--gold); font-weight:bold; text-transform:uppercase; margin-bottom:.5rem; display:flex; align-items:center; gap:0.2rem;"><i class="ri-map-pin-line"></i> ${labelText}</div>` : '';
+  // Intestazione: etichetta girone/playoff a sinistra, stato a destra (stessa riga, niente sovrapposizioni)
+  const labelText = opts.label || match.label || match.girone;
+  const labelHTML = labelText
+    ? `<div style="min-width:0; flex:1; font-size:.65rem; color:var(--gold); font-weight:700; text-transform:uppercase; display:flex; align-items:center; gap:0.2rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><i class="ri-map-pin-line"></i><span style="overflow:hidden; text-overflow:ellipsis;">${labelText}</span></div>`
+    : `<div style="flex:1;"></div>`;
+
+  const chip = opts.chip;
+  const chipHTML = chip
+    ? `<span class="status-chip${chip.live ? ' live' : ''}" style="--chip-color:${chip.color || 'var(--text2)'};">${chip.live ? '<span class="dot"></span>' : `<i class="${chip.icon}"></i>`}${chip.text}</span>`
+    : '';
+
+  const headerHTML = (labelText || chip)
+    ? `<div style="display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom:.6rem; min-height:20px;">${labelHTML}${chipHTML}</div>`
+    : '';
 
   return `
     <div class="card card-sm match-card-result" style="background:var(--card); border:1px solid rgba(255,255,255,0.05); display:flex; flex-direction:column; padding:1rem;">
-      ${labelHTML}
+      ${headerHTML}
       <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
         
         <!-- Squadra Casa -->

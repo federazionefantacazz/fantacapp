@@ -20,7 +20,8 @@ export const SettingsService = {
       notificationsEnabled: true,
       soundEnabled: false,
       compactView: false,
-      showBackground: true
+      showBackground: true,
+      lastCompetition: ''   // ultima competizione scelta (con il suo tema): si riapre sempre quella
     };
   },
 

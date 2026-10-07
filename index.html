@@ -16,27 +16,46 @@
 <title>Fantacapp</title>
 <style>
 :root {
-  --bg: #1a1e24;       /* Sfondo principale */
-  --bg2: #22272f;      /* Sfondo secondario */
-  --bg3: #2b323c;      /* Sfondo input */
-  --card: #282e37;     /* Colore schede */
-  --card2: #333a46;    /* Righe sub-box */
-  --accent: #50e3c2;   /* Verde menta glaciale */
-  --accent2: #64748b;  /* Grigio Acciaio */
-  --accent3: #ff6b6b;  /* Rosso corallo */
-  --gold: #f5a623;     /* Oro ambrato */
-  --text: #e2e8f0;     /* Testo chiaro */
-  --text2: #94a3b8;    /* Testo secondario */
-  --text3: #475569;
-  --on-accent: #0a0f1e;                    /* Testo sopra i pulsanti accento */
-  --nav-inactive: #64748b;                 /* Colore dedicato ai tab inattivi */
-  --border: rgba(255,255,255,0.08);        /* Bordi card, righe, separatori */
-  --header-bg: rgba(26,30,36,0.72);        /* Barra in alto */
-  --subbox-bg: rgba(0,0,0,0.25);           /* Card principale home / mini classifica */
-  --role-p: #4a5568;                       /* Badge Portiere */
-  --role-d: #0077ff;                       /* Badge Difensore */
-  --role-c: #00e5a0;                       /* Badge Centrocampista */
-  --role-a: #ff4757;                       /* Badge Attaccante */
+  /* ===== 1. SFONDI E SUPERFICI ===== */
+  --bg: #1a1e24;       /* Sfondo pagina */
+  --bg2: #22272f;      /* Superficie secondaria (mini-card, selettori, tab) */
+  --bg3: #2b323c;      /* Campi input / segnaposto logo */
+  --card: #282e37;     /* Schede */
+  --card2: #333a46;    /* Righe e sub-box dentro le schede */
+  --subbox-bg: rgba(0,0,0,0.25);           /* Pannelli trasparenti (home, classifica) */
+  --border: rgba(255,255,255,0.08);        /* Bordi, righe, separatori */
+
+  /* ===== 2. BARRE (alto, basso, laterale): colori propri, mai condivisi con i pulsanti ===== */
+  --header-bg: rgba(18,22,28,0.80);                          /* Barra in alto */
+  --nav-bg: color-mix(in srgb, var(--bg) 70%, #000);         /* Barra in basso */
+  --drawer-bg: color-mix(in srgb, var(--bg) 82%, #000);      /* Menu laterale e pannelli del menu */
+  --bar-text: #e2e8f0;                                       /* Testo e icone dentro le barre */
+  --nav-inactive: #6b7a90;                                   /* Tab inattivo */
+  --nav-active: var(--accent);                               /* Tab attivo */
+
+  /* ===== 3. PULSANTI ===== */
+  --btn-primary: var(--accent);            /* Pulsante principale */
+  --btn-primary-text: #0a0f1e;             /* Testo sul pulsante principale */
+  --btn-secondary: #3a4352;                /* Pulsante secondario */
+  --btn-secondary-text: #e2e8f0;           /* Testo sul pulsante secondario */
+  --btn-outline: #94a3b8;                  /* Pulsante con solo bordo (testo e bordo) */
+
+  /* ===== 4. TESTI ===== */
+  --text: #e2e8f0;     /* Testo principale */
+  --text2: #94a3b8;    /* Sottotesti, etichette, descrizioni */
+  --text3: #5b6b80;    /* Testo disattivato, segnaposto */
+
+  /* ===== 5. EVIDENZE (dati, non pulsanti) ===== */
+  --accent: #50e3c2;   /* Punti, titoli di sezione, selezioni, interruttori */
+  --accent2: #5b9dff;  /* Informazione / secondario */
+  --accent3: #ff6b6b;  /* Errore e Live */
+  --gold: #f5a623;     /* Oro: trofei, qualificazioni */
+
+  /* ===== 6. RUOLI GIOCATORI ===== */
+  --role-p: #4a5568;
+  --role-d: #0077ff;
+  --role-c: #00e5a0;
+  --role-a: #ff4757;
 }
 
 /* ==================== HEADER COMPATTO GLASS ==================== */
@@ -47,6 +66,7 @@
   padding: 0.35rem 0.8rem !important; 
   height: 48px !important; /* Altezza super compatta per mobile */
   background: var(--header-bg) !important; /* Effetto trasparenza */
+  color: var(--bar-text);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: none !important;
@@ -73,7 +93,7 @@
   height: 32px;
   padding: 0;
   border-radius: 8px;
-  color: var(--text);
+  color: var(--bar-text);
   transition: background 0.2s ease;
   -webkit-tap-highlight-color: transparent;
 }
@@ -100,7 +120,8 @@
   right: 0;
   bottom: 0;
   width: min(300px, 82vw);
-  background: var(--bg2);
+  background: var(--drawer-bg);
+  color: var(--bar-text);
   z-index: 2001;
   display: flex;
   flex-direction: column;
@@ -124,7 +145,7 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   margin-bottom: .5rem;
 }
-.side-menu-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 1px; color: var(--text); }
+.side-menu-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 1px; color: var(--bar-text); }
 .side-menu-item {
   display: flex;
   align-items: center;
@@ -133,7 +154,7 @@
   padding: .85rem 1.25rem;
   background: none;
   border: none;
-  color: var(--text);
+  color: var(--bar-text);
   font-family: 'DM Sans', sans-serif;
   font-size: .92rem;
   font-weight: 500;
@@ -156,7 +177,7 @@
   background-size: 0.75rem !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 14px !important;
-  color: var(--text) !important;
+  color: var(--bar-text) !important;
   font-family: 'DM Sans', sans-serif !important;
   font-size: 0.72rem !important;
   font-weight: 600 !important;
@@ -168,6 +189,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+#userCompSelect option { background: var(--drawer-bg); color: var(--bar-text); }
 
 .field-player select {
   -webkit-appearance: none;
@@ -254,14 +277,14 @@ body {
 .pcard{background:var(--card2);border-radius:12px;padding:.5rem .75rem;display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem;transition:background .15s ease}
 .pcard:active{background:rgba(255,255,255,0.04)}
 .rbadge{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15)}
-.rP{background:var(--role-p)}.rD{background:var(--role-d)}.rC{background:var(--role-c);color:var(--on-accent)}.rA{background:var(--role-a)}
+.rP{background:var(--role-p)}.rD{background:var(--role-d)}.rC{background:var(--role-c);color:#0a0f1e}.rA{background:var(--role-a)}
 .pi{flex:1;min-width:0}
 .pn{font-size:.9rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
 .pm{font-size:.72rem;color:var(--text2)}
 .pr{text-align:right;flex-shrink:0}.price{font-size:.9rem;font-weight:600;font-family:'DM Mono',monospace;color:var(--gold)}.pavg{font-size:.68rem;color:var(--text2)}
-.btn{background:var(--accent2);color:#fff;border:none;padding:.7rem 1.2rem;border-radius:10px;font-size:.85rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;transition:all 0.2s;width:100%}
-.btn-green{background:var(--accent);color:var(--on-accent);font-weight:600}
-.btn-outline{background:transparent;border:1px solid rgba(255,255,255,0.2);color:var(--text2)}
+.btn{background:var(--btn-secondary);color:var(--btn-secondary-text);border:none;padding:.7rem 1.2rem;border-radius:10px;font-size:.85rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;transition:all 0.2s;width:100%}
+.btn-green{background:var(--btn-primary);color:var(--btn-primary-text);font-weight:600}
+.btn-outline{background:transparent;border:1px solid color-mix(in srgb, var(--btn-outline) 45%, transparent);color:var(--btn-outline)}
 .btn:active{opacity:0.8;transform:scale(0.98)}
 .select-rose, .input-login{width:100%;background:var(--bg3);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:.7rem .9rem;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none}
 .input-login{background:var(--bg2);border-color:rgba(255,255,255,0.15);margin-bottom:1rem;user-select:text !important;-webkit-user-select:text !important;}
@@ -274,7 +297,7 @@ body {
   left: 0;
   right: 0;
   height: calc(64px + env(safe-area-inset-bottom));
-  background: var(--bg2);
+  background: var(--nav-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-top: none;
@@ -316,16 +339,27 @@ body {
 }
 
 .nav-btn.active {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--nav-active);
+  background: color-mix(in srgb, var(--nav-active) 14%, transparent);
   transform: translateY(-4px);
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--nav-active) 18%, transparent);
 }
 
 .nav-btn.active svg {
   transform: scale(1.05);
 }
 
+#calendarMatchesContainer .card{margin-bottom:0}
+
+/* Righe cliccabili (classifica -> scheda squadra) */
+.row-link{cursor:pointer;transition:background .15s ease}
+.row-link:active{background:color-mix(in srgb, var(--text) 8%, transparent)}
+
+/* Chip di stato (calendario): stanno nel flusso della card, mai in sovrapposizione */
+.status-chip{display:inline-flex;align-items:center;gap:.3rem;font-size:.65rem;font-weight:700;letter-spacing:.3px;padding:.15rem .5rem;border-radius:999px;white-space:nowrap;flex-shrink:0;
+  color:var(--chip-color,var(--text2));background:color-mix(in srgb, var(--chip-color,var(--text2)) 14%, transparent);border:1px solid color-mix(in srgb, var(--chip-color,var(--text2)) 35%, transparent)}
+.status-chip.live .dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:livePulse 1.2s ease-in-out infinite}
+@keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 .toast{position:fixed;top:1.5rem;left:50%;transform:translateX(-50%) translateY(-40px);background:var(--card);border:1px solid rgba(255,255,255,0.1);padding:.75rem 1.5rem;border-radius:12px;font-size:.85rem;font-weight:500;z-index:9999;box-shadow:0 10px 30px rgba(0,0,0,0.5);opacity:0;transition:all 0.3s ease;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -333,6 +367,18 @@ body {
 .toast.err{border-color:var(--accent3);color:var(--accent3)}
 </style>
 <style id="dynamic-theme"></style>
+<script>
+/* Tema per utente: riapplicato PRIMA del primo disegno, senza aspettare Firebase.
+   Il CSS del tema è salvato per utente da js/services/themeService.js (cacheUserTheme). */
+(function () {
+  try {
+    var uid = localStorage.getItem('fantacapp-last-uid');
+    var raw = uid && localStorage.getItem('fantacapp-theme-' + uid);
+    var t = raw && JSON.parse(raw);
+    if (t && t.css) document.getElementById('dynamic-theme').textContent = t.css;
+  } catch (e) {}
+})();
+</script>
 </head>
 <body>
 
@@ -341,7 +387,7 @@ body {
   <div id="app-header" style="display:none;">
     <div class="header-left">
       <div id="app-global-navbar-logo-container" style="flex-shrink:0; display:flex; align-items:center; justify-content:center;"></div>
-      <select id="userCompSelect" onchange="window._handleCompetitionChange(this.value)" style="background-color: var(--bg2) !important; color: var(--text) !important;">
+      <select id="userCompSelect" onchange="window._handleCompetitionChange(this.value)">
         <option value="fantacazz">Caricamento...</option>
       </select>
     </div>
@@ -430,7 +476,7 @@ body {
 <script type="module">
 import { db, auth, ref, onValue, set, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from './js/firebase-config.js';
 import { isPatron } from './js/services/roleService.js';
-import { applyThemeVars, applyBackground } from './js/services/themeService.js';
+import { applyThemeVars, applyThemeCss, applyBackground, cacheUserTheme, getCachedUserTheme, LAST_UID_KEY } from './js/services/themeService.js';
 import { SettingsService } from './js/services/settingsService.js';
 import { MenuPanel } from './js/components/MenuPanel.js';
 import { ImpostazioniApp } from './js/menu/ImpostazioniApp.js';
@@ -461,7 +507,9 @@ window.STATE = {
   trades: {}, 
   trophies: [],
   onFire: { weeks: 4, players: 5 },
-  settings: SettingsService.getDefaultSettings(),
+  // subito le impostazioni dell'ultimo utente su questo dispositivo (poi riallineate al login)
+  settings: SettingsService.getCachedSettings(localStorage.getItem(LAST_UID_KEY)),
+  live: false,
   compBackgroundUrl: '',
   booted: false 
 };
@@ -559,11 +607,14 @@ function caricaDatiCompetizione(compId) {
   sub(ref(db, `competitions/${compId}/backgroundImage`), snap => {
     window.STATE.compBackgroundUrl = snap.val() || '';
     refreshBackground();
+    cacheUserTheme(currentUid(), { comp: compId, bg: window.STATE.compBackgroundUrl });
   });
 
   /* Mappatura completa delle variabili CSS del tema (vedi js/services/themeService.js) */
   sub(ref(db, `competitions/${compId}/theme`), snap => {
-    applyThemeVars(snap.val());
+    const css = applyThemeVars(snap.val());
+    // il tema resta legato all'utente: al prossimo avvio è già applicato
+    cacheUserTheme(currentUid(), { comp: compId, css });
   });
 
   sub(ref(db, `competitions/${compId}/matches`), snap => { 
@@ -573,6 +624,7 @@ function caricaDatiCompetizione(compId) {
 }
 
 function gestisciSwitchLive(liveAttivo) {
+  window.STATE.live = !!liveAttivo;
   const btnFormazione = document.getElementById('btn-nav-formazione');
   if (liveAttivo) {
     if (btnFormazione) {
@@ -596,13 +648,32 @@ function gestisciSwitchLive(liveAttivo) {
       window.goPage('formazione', btnFormazione);
     }
   }
+  // calendario e home mostrano lo stato "Live" solo quando è davvero attivo
+  if (['calendario', 'home'].includes(window.STATE.currentPage)) refreshUI();
 }
 
-window._handleCompetitionChange = function(newCompetitionId) {
+// uid dell'utente corrente (o dell'ultimo noto, durante l'avvio)
+function currentUid() {
+  return (auth.currentUser && auth.currentUser.uid) || localStorage.getItem(LAST_UID_KEY) || '';
+}
+
+// Competizione da aprire: l'ultima scelta dall'utente (se esiste ancora), altrimenti la prima
+function preferredCompetitionId(list) {
+  const last = (window.STATE.settings || {}).lastCompetition;
+  return last && list.some(c => String(c.id) === String(last)) ? last : list[0].id;
+}
+
+window._handleCompetitionChange = function(newCompetitionId, opts = {}) {
   if (!newCompetitionId) return;
   window.STATE.currentCompetition = newCompetitionId;
   window.STATE.activeCompetitionId = newCompetitionId;
-  window.showToast(`Competizione modificata in: ${newCompetitionId.toUpperCase()}`, 'ok');
+  const userSelect = document.getElementById('userCompSelect');
+  if (userSelect && userSelect.value !== String(newCompetitionId)) userSelect.value = newCompetitionId;
+  if (!opts.silent) {
+    window.STATE._compChosen = true;
+    window.showToast(`Competizione modificata in: ${newCompetitionId.toUpperCase()}`, 'ok');
+    window.setUserSetting('lastCompetition', newCompetitionId); // resta fissa per l'utente
+  }
   
   const calSelect = document.getElementById('calGwSelect');
   if (calSelect) {
@@ -721,14 +792,35 @@ async function loadUserSettings(firebaseUser) {
     refreshBackground();
     return;
   }
-  // 1) subito dalla cache del dispositivo, 2) poi dal DB
+  localStorage.setItem(LAST_UID_KEY, firebaseUser.uid);
+
+  // 1) subito dalla cache del dispositivo: impostazioni, tema e sfondo dell'utente
   window.STATE.settings = SettingsService.getCachedSettings(firebaseUser.uid);
+  const cachedTheme = getCachedUserTheme(firebaseUser.uid);
+  if (cachedTheme) {
+    if (cachedTheme.css !== undefined) applyThemeCss(cachedTheme.css);
+    if (!window.STATE.compBackgroundUrl && cachedTheme.bg) window.STATE.compBackgroundUrl = cachedTheme.bg;
+  }
   refreshBackground();
+
+  // 2) poi dal DB
   const fresh = await SettingsService.getSettings(firebaseUser.uid);
   if (auth.currentUser && auth.currentUser.uid === firebaseUser.uid) {
     window.STATE.settings = fresh;
     refreshBackground();
+    applyPreferredCompetition();
     refreshUI();
+  }
+}
+
+// Se l'utente ha una competizione preferita diversa da quella aperta (e non ne ha scelta una a mano
+// in questa sessione), la riapre: così tema e sfondo restano quelli dell'utente.
+function applyPreferredCompetition() {
+  const list = window.STATE.competitions || [];
+  if (window.STATE._compChosen || list.length === 0) return;
+  const pick = preferredCompetitionId(list);
+  if (pick && String(pick) !== String(window.STATE.currentCompetition)) {
+    window._handleCompetitionChange(pick, { silent: true });
   }
 }
 
@@ -744,6 +836,14 @@ window.setUserSetting = async function(key, value) {
   }
 };
 
+
+// Apre la scheda di una squadra (usato dalla classifica); da lì si può tornare alla classifica
+window.openTeamPage = function(teamId, from) {
+  if (!teamId) return;
+  const btn = document.querySelector('.nav-btn[onclick*="teams"]');
+  window.goPage('teams', btn);
+  TeamsPage.openTeamDetail(String(teamId), window.STATE, { from });
+};
 
 window.goToPatron = function() {
   window.closeSideMenu();
@@ -766,6 +866,7 @@ async function updatePatronMenuItem(firebaseUser) {
 window.doFirebaseLogout = function() {
   signOut(auth).then(() => {
     localStorage.removeItem('fantaUser');
+    localStorage.removeItem(LAST_UID_KEY); // la schermata di login torna neutra; il tema dell'utente resta salvato
     window.STATE.user = null;
     window.STATE.booted = false;
     window.showToast('Account disconnesso', 'ok');
@@ -846,9 +947,10 @@ onValue(ref(db, 'competitions'), snap => {
       window.STATE.activeCompetitionId = '';
     } else {
       if (!window.STATE.currentCompetition || !comps[window.STATE.currentCompetition]) {
-        window.STATE.currentCompetition = list[0].id;
-        window.STATE.activeCompetitionId = list[0].id;
-        caricaDatiCompetizione(list[0].id);
+        const pick = preferredCompetitionId(list);
+        window.STATE.currentCompetition = pick;
+        window.STATE.activeCompetitionId = pick;
+        caricaDatiCompetizione(pick);
       }
       userSelect.innerHTML = list.map(c => `<option value="${c.id}" ${String(window.STATE.currentCompetition) === String(c.id) ? 'selected' : ''}>${c.name || c.id}</option>`).join('');
     }

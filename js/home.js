@@ -2,6 +2,35 @@ import { GwService } from './services/gwService.js';
 import { createMatchCardVS } from './components/MatchCardVS.js';
 import { renderAnteprimaClassifica } from './components/AnteprimaClassifica.js';
 import { CalcoloMatchService } from './services/calcoloMatch.js';
+import { createMatchCardResult } from './components/MatchCardResult.js';
+import { LiveMatchModule } from './liveMatch.js';
+
+const isByeId = (id) => /BYE|RIPOSO/i.test(String(id ?? ''));
+
+/**
+ * Ultima partita già giocata dalla squadra nella competizione:
+ * la giornata più recente (per giornata di Serie A associata) con un incontro concluso.
+ */
+function findLastPlayedMatch(comp, teamId) {
+  if (!comp || !comp.matches || !teamId) return null;
+  const gwN = (k) => parseInt(String(k).replace(/\D/g, ''), 10) || 0;
+  const winners = GwService.getWinners(comp);
+  let best = null;
+
+  Object.keys(comp.matches).forEach(gwKey => {
+    const mine = GwService.getCouples(comp, gwKey, winners).find(c =>
+      (String(c.homeId) === String(teamId) || String(c.awayId) === String(teamId)) &&
+      !isByeId(c.homeId) && !isByeId(c.awayId) && c.finished === true
+    );
+    if (!mine) return;
+    const real = GwService.getRealOf(comp, gwKey);
+    const order = real !== null ? real : gwN(gwKey);
+    if (!best || order > best.order || (order === best.order && gwN(gwKey) > gwN(best.gwKey))) {
+      best = { gwKey, couple: mine, order };
+    }
+  });
+  return best;
+}
 
 export const HomePage = {
   renderHTML(STATE = {}) {
@@ -37,6 +66,12 @@ export const HomePage = {
         </div>
         
         <div id="home-status-banner" style="margin-bottom: 1.2rem;"></div>
+
+        <!-- ULTIMA PARTITA (visibile solo se in questa competizione ne è già stata giocata una) -->
+        <div id="homeLastMatchWrap" style="display:none; margin-bottom:1.5rem;">
+          <div class="sec" style="margin-bottom:.6rem;">Ultima Partita</div>
+          <div id="homeLastMatch" class="row-link" style="border-radius:16px;"></div>
+        </div>
 
         <!-- PROSSIMO AVVERSARIO -->
         <div class="sec" style="margin-bottom:.6rem;">Prossimo Avversario</div>
@@ -240,6 +275,37 @@ export const HomePage = {
       }
     } else {
       if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Seleziona una competizione dal menu in alto.</div>`;
+    }
+
+    // --- ULTIMA PARTITA GIOCATA nella competizione selezionata ---
+    const lastWrap = document.getElementById('homeLastMatchWrap');
+    const lastBox = document.getElementById('homeLastMatch');
+    if (lastWrap && lastBox) {
+      const last = myTeam ? findLastPlayedMatch(comp, myTeam.id) : null;
+      if (last) {
+        const extra = last.couple.label || last.couple.girone;
+        const label = `${GwService.label(last.gwKey)}${extra ? ' · ' + extra : ''}`;
+        lastBox.innerHTML = createMatchCardResult(last.couple, teamsList, {
+          label,
+          chip: { icon: 'ri-play-circle-line', text: 'Rivedi', color: 'var(--text2)' }
+        });
+        lastBox.dataset.gwKey = last.gwKey;
+        lastBox.dataset.matchKey = last.couple.key;
+        lastWrap.style.display = 'block';
+        HomePage._lastCtx = { comp, gwKey: last.gwKey, couple: last.couple };
+
+        if (!lastBox.dataset.bound) {
+          lastBox.dataset.bound = '1';
+          lastBox.addEventListener('click', () => {
+            const ctx = HomePage._lastCtx;
+            if (ctx) LiveMatchModule.openViewer({ comp: ctx.comp, gwKey: ctx.gwKey, couple: ctx.couple, mode: 'past' });
+          });
+        }
+      } else {
+        lastWrap.style.display = 'none';
+        lastBox.innerHTML = '';
+        HomePage._lastCtx = null;
+      }
     }
 
     if (onFireContainer) {
