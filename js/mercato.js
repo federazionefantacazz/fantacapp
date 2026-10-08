@@ -39,6 +39,7 @@ const STYLES = `
 .mk-trade{margin-bottom:.7rem}
 .mk-line{font-size:.78rem;display:flex;align-items:center;gap:.4rem;padding:.15rem 0}
 .mk-sec{margin:1.2rem 0 .5rem;display:flex;align-items:center;gap:.4rem}
+.label.mk-sec{color:var(--title,var(--text2))}
 `;
 
 export const MercatoPage = {
