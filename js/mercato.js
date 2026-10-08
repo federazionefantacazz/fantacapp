@@ -60,7 +60,7 @@ export const MercatoPage = {
 
         <div id="mk-nuova" class="market-subpage">
           <div class="card">
-            <div class="label" style="color:var(--title,var(--text)); margin-bottom: .6rem; display: flex; align-items: center; gap: 0.4rem;"><i class="ri-add-circle-line"></i> Proponi una trattativa</div>
+            <div class="label" style="color:var(--text); margin-bottom: .6rem; display: flex; align-items: center; gap: 0.4rem;"><i class="ri-add-circle-line"></i> Proponi una trattativa</div>
 
             <div class="label">Tipo di trattativa</div>
             <div class="mk-seg">
