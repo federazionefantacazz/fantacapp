@@ -13,7 +13,7 @@ export const CalendarioPage = {
           <select id="calGwSelect" class="select-rose"></select>
         </div>
 
-        <div class="label" id="calGwTitle" style="margin-bottom:.5rem; color:var(--accent);">GIORNATA DI CAMPIONATO</div>
+        <div class="label" id="calGwTitle" style="margin-bottom:.5rem; color:var(--title,var(--accent));">GIORNATA DI CAMPIONATO</div>
         <div id="calendarMatchesContainer" style="display:flex; flex-direction:column; gap:.5rem; padding-bottom:2rem;"></div>
       </div>
     `;

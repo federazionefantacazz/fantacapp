@@ -103,7 +103,7 @@ export const ClassificaPage = {
               const sortedGirone = ClassificaService.ordinaSquadre(listaSquadreGirone, teamCalculatedStats);
               const numQualificati = parseInt(compData.qualificatiFaseFinale) || 2;
 
-              html += `<div class="label" style="font-size:0.95rem; margin-top:1.5rem; color:var(--accent); font-weight:600; padding-left:0.5rem;"><i class="ri-trophy-line"></i> ${gironeName.toUpperCase()}</div>`;
+              html += `<div class="label" style="font-size:0.95rem; margin-top:1.5rem; color:var(--title,var(--accent)); font-weight:600; padding-left:0.5rem;"><i class="ri-trophy-line"></i> ${gironeName.toUpperCase()}</div>`;
               
               if (sortedGirone.length > 0) {
                 html += this.renderTabellaClassica(sortedGirone, compId, (index) => {

@@ -59,7 +59,7 @@ export const MercatoPage = {
 
         <div id="mk-nuova" class="market-subpage">
           <div class="card">
-            <div class="label" style="color: var(--accent); margin-bottom: .6rem; display: flex; align-items: center; gap: 0.4rem;"><i class="ri-add-circle-line"></i> Proponi una trattativa</div>
+            <div class="label" style="color:var(--title,var(--accent)); margin-bottom: .6rem; display: flex; align-items: center; gap: 0.4rem;"><i class="ri-add-circle-line"></i> Proponi una trattativa</div>
 
             <div class="label">Tipo di trattativa</div>
             <div class="mk-seg">
@@ -291,7 +291,7 @@ export const MercatoPage = {
       </div>
 
       <div class="card" style="margin-top:.8rem">
-        <div class="label" style="color:var(--accent);margin-bottom:.6rem"><i class="ri-clipboard-line"></i> Riepilogo ${isLoan ? 'prestito' : 'scambio'}</div>
+        <div class="label" style="color:var(--title,var(--accent));margin-bottom:.6rem"><i class="ri-clipboard-line"></i> Riepilogo ${isLoan ? 'prestito' : 'scambio'}</div>
         <div class="mk-sumcols">
           <div class="mk-sumcol"><div class="label" style="font-size:.7rem">Cedi (${give.length})</div>${names(give)}</div>
           <div class="mk-sumcol"><div class="label" style="font-size:.7rem">Ricevi (${get.length})</div>${names(get)}</div>

@@ -58,17 +58,17 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .main-content { padding: 1rem; padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)); flex: 1; width: 100%; min-width: 0; }
 .admin-sec { animation: fadeIn .25s ease-out; display: none; }
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-.sec-title { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 1px; margin-bottom: 1.25rem; color: #fff; }
+.sec-title { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 1px; margin-bottom: 1.25rem; color: var(--title, #fff); }
 
 .card { background: var(--card); border-radius: 12px; padding: 1.25rem; border: 1px solid var(--border); margin-bottom: 1.25rem; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
 .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
 .stat-box { background: var(--bg3); border-radius: 8px; padding: .8rem 1rem; border: 1px solid var(--border); display: flex; flex-direction: column; gap: .25rem; }
 .stat-box .num { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; color: var(--accent); }
-.label { font-size: .72rem; color: var(--text2); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-bottom: .3rem; }
-.input-login { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; color: #fff; padding: .65rem .75rem; font-size: .9rem; margin-bottom: 1rem; transition: border-color .2s; }
+.label { font-size: .72rem; color: var(--label, var(--text2)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-bottom: .3rem; }
+.input-login { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; color: var(--text, #fff); padding: .65rem .75rem; font-size: .9rem; margin-bottom: 1rem; transition: border-color .2s; }
 .input-login:focus { outline: none; border-color: var(--accent); }
 .btn { width: 100%; padding: .7rem 1rem; border-radius: 6px; border: none; font-weight: 600; font-size: .9rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: .5rem; transition: all .2s; text-decoration: none; }
-.btn-green { background: var(--accent); color: #0a0f1e; }
+.btn-green { background: var(--btn-primary, var(--accent)); color: var(--btn-primary-text, #0a0f1e); }
 .btn-green:hover { background: #3cd6b4; }
 .btn-blue { background: var(--accent2); color: #fff; }
 .btn-blue:hover { background: #357abd; }
@@ -145,7 +145,7 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 </style>
 <style id="dynamic-theme"></style>
 </head>
-<body>
+<body class="page-patron">
 
 <!-- Accesso Patron (login / accesso negato) -->
 <div id="auth-screen" class="auth-screen">
@@ -265,6 +265,10 @@ import { CalendarioSection }    from './js/admin/calendario/calendario.js';
 import { CompetizioniSection }  from './js/admin/competizioni.js';
 import { ThemesSection }        from './js/admin/themes.js';
 import { applyThemeVars, applyBackground } from './js/services/themeService.js';
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(err => console.error('Errore SW', err)));
+}
 
 /* ─── Stato globale applicativo ────────────────────────────────────────── */
 let TEAMS = [];

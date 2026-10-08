@@ -15,11 +15,11 @@ function injectStyle() {
     #menu-panel.open { transform: translateX(0); visibility: visible; transition: transform .25s ease; }
     .mp-head { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; min-height: 52px;
       padding: env(safe-area-inset-top, 0px) .8rem 0 .5rem; border-bottom: 1px solid var(--border); background: var(--header-bg); color: var(--bar-text); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
-    .mp-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: .5px; color: var(--bar-text); }
+    .mp-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: .5px; color: var(--title, var(--bar-text)); }
     .mp-body { flex: 1 1 0; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
       padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px)); }
     .mp-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1rem; margin-bottom: 1rem; }
-    .mp-card-title { font-size: .75rem; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--accent); margin-bottom: .8rem; }
+    .mp-card-title { font-size: .75rem; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--title, var(--accent)); margin-bottom: .8rem; }
     .mp-muted { font-size: .75rem; color: var(--text2); line-height: 1.4; }
     .mp-btn { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; cursor: pointer;
       background: var(--btn-primary); color: var(--btn-primary-text); border: none; border-radius: 10px; padding: .5rem .9rem;
@@ -49,7 +49,7 @@ function injectStyle() {
     .lv-count { margin-left: auto; font-size: .72rem; color: var(--text3); }
     .lv-wrap { overflow: auto; -webkit-overflow-scrolling: touch; max-height: 62vh; max-height: calc(100dvh - 250px); border: 1px solid var(--border); border-radius: 12px; background: var(--bg2); }
     .lv-table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 560px; font-size: .78rem; }
-    .lv-table th { position: sticky; top: 0; background: var(--bg3); color: var(--text2); font-size: .68rem; font-weight: 700; text-transform: uppercase;
+    .lv-table th { position: sticky; top: 0; background: var(--bg3); color: var(--label, var(--text2)); font-size: .68rem; font-weight: 700; text-transform: uppercase;
       letter-spacing: .4px; padding: .55rem .5rem; text-align: center; white-space: nowrap; cursor: pointer; user-select: none; z-index: 2; }
     .lv-table th.on { color: var(--accent); }
     .lv-table td { padding: .4rem .5rem; border-top: 1px solid var(--border); text-align: center; color: var(--text); white-space: nowrap; }

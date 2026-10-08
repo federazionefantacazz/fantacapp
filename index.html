@@ -16,6 +16,9 @@
 <title>Fantacapp</title>
 <style>
 :root {
+  /* I temi (js/services/themeService.js) ridefiniscono queste variabili per pagina:
+     --title e --label non hanno un valore qui, i fogli di stile usano var(--title, var(--text2)) e var(--label, var(--text2)) */
+
   /* ===== 1. SFONDI E SUPERFICI ===== */
   --bg: #1a1e24;       /* Sfondo pagina */
   --bg2: #22272f;      /* Superficie secondaria (mini-card, selettori, tab) */
@@ -145,7 +148,7 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   margin-bottom: .5rem;
 }
-.side-menu-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 1px; color: var(--bar-text); }
+.side-menu-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 1px; color: var(--title, var(--bar-text)); }
 .side-menu-item {
   display: flex;
   align-items: center;
@@ -271,9 +274,9 @@ body {
 }
 
 .logo{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:1px;background:linear-gradient(45deg, #fff, var(--text2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.sec{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:0.5px;color:var(--text2);margin-bottom:.8rem;display:flex;align-items:center;gap:.4rem}
+.sec{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:0.5px;color:var(--title,var(--text2));margin-bottom:.8rem;display:flex;align-items:center;gap:.4rem}
 .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1rem;margin-bottom:1rem;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
-.label{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:600;margin-bottom:.4rem}
+.label{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--label,var(--text2));font-weight:600;margin-bottom:.4rem}
 .pcard{background:var(--card2);border-radius:12px;padding:.5rem .75rem;display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem;transition:background .15s ease}
 .pcard:active{background:rgba(255,255,255,0.04)}
 .rbadge{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15)}

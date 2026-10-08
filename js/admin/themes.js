@@ -1,6 +1,6 @@
 import { ref, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { uploadBackgroundToImgBB } from "../services/integrationImgBB.js";
-import { THEME_VARS } from "../services/themeService.js";
+import { THEME_PAGES, THEME_VERSION, normalizeTheme } from "../services/themeService.js";
 
 let database = null;
 
@@ -61,19 +61,30 @@ export const ThemesSection = {
           </div>
         </div>
 
-        <!-- Palette Colori Tema (CSS Variables) -->
-        <div class="card" style="max-width: 600px;">
-          <div class="label" style="color: var(--accent); margin-bottom: 1rem; font-size: .85rem;">Personalizza Palette Colori Tema</div>
-          
+        <!-- Tema per pagina e per tipo -->
+        <div class="card" style="max-width: 760px;">
+          <div class="label" style="color: var(--accent); margin-bottom: 1rem; font-size: .85rem;">Personalizza Tema per Pagina</div>
+
           <div style="font-size: .75rem; color: var(--text3); margin-bottom: .8rem;">
-            Ogni voce corrisponde alla variabile CSS usata nell'app. Lascia vuoto per usare il valore di default.
-          </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; margin-bottom: 1rem;">
-            ${this.renderPaletteFields()}
+            Scegli la pagina, poi imposta i singoli tipi (titoli, testi, sottotesti, label, pulsanti, testi dei pulsanti).
+            Quello che lasci vuoto eredita da <strong>Generale</strong>. Il nome sotto ogni campo è la variabile CSS usata nell'app.
           </div>
 
+          <div id="themeLegacyNotice" style="display:none; font-size:.75rem; color: var(--gold); margin-bottom: .8rem;">
+            Questa competizione ha un tema nel vecchio formato: è stato convertito qui sotto e passerà al nuovo formato al primo salvataggio.
+          </div>
+
+          <div id="themePageTabs" style="display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1rem;">
+            ${THEME_PAGES.map((pg, i) => `
+              <button type="button" class="btn ${i === 0 ? 'btn-blue' : ''}" data-theme-page="${pg.key}"
+                onclick="window.switchThemePage('${pg.key}')"
+                style="padding: .35rem .7rem; font-size: .8rem; width: auto; ${i === 0 ? '' : 'background: var(--bg3); color: var(--text2);'}">${pg.label}</button>`).join('')}
+          </div>
+
+          ${this.renderPagePanels()}
+
           <div style="display: flex; gap: .8rem; margin-top: 1.5rem;">
-            <button id="btn-save-theme-colors" class="btn btn-green" onclick="window.salvaPaletteColori()" style="flex: 1;">🎨 Salva Palette</button>
+            <button id="btn-save-theme-colors" class="btn btn-green" onclick="window.salvaPaletteColori()" style="flex: 1;">🎨 Salva Tema</button>
             <button id="btn-reset-theme-colors" class="btn btn-red" onclick="window.resetPaletteColori()" style="width: auto;">🗑️ Reset Tema</button>
           </div>
         </div>
@@ -93,18 +104,42 @@ export const ThemesSection = {
     </div>`;
   },
 
-  renderPaletteFields() {
-    return THEME_VARS.map(v => `
+  renderField(page, v) {
+    const id = `${page.key}__${v.key}`;
+    return `
             <div>
-              <label class="label" style="font-family: 'DM Mono', monospace; text-transform: none; letter-spacing: 0;">${v.css}</label>
-              <div style="font-size: .68rem; color: var(--text3); margin: -.2rem 0 .3rem;">${v.hint}</div>
+              <label class="label" style="text-transform: none; letter-spacing: 0; margin-bottom: .1rem;">${v.label || v.hint}</label>
+              <div style="font-family: 'DM Mono', monospace; font-size: .68rem; color: var(--text3); margin-bottom: .3rem;">${v.css}${v.label ? ' · ' + v.hint : ''}</div>
               <div style="display: flex; gap: .5rem; align-items: center;">
                 ${v.kind === 'color'
-                  ? `<input type="color" id="theme-color-${v.key}" class="input-login" value="${v.def}" style="padding: 0; height: 38px; width: 50px; cursor: pointer; margin-bottom: 0;">`
+                  ? `<input type="color" id="theme-color-${id}" class="input-login" value="${v.def}" style="padding: 0; height: 38px; width: 50px; cursor: pointer; margin-bottom: 0;">`
                   : ''}
-                <input type="text" id="theme-text-${v.key}" class="input-login" style="margin-bottom: 0;" placeholder="${v.def}">
+                <input type="text" id="theme-text-${id}" class="input-login" style="margin-bottom: 0;" placeholder="${v.def}">
               </div>
-            </div>`).join('');
+            </div>`;
+  },
+
+  renderPagePanels() {
+    return THEME_PAGES.map((page, i) => {
+      // i campi si raggruppano per "group" (solo la pagina Generale ne ha)
+      const groups = [];
+      page.fields.forEach(f => {
+        const name = f.group || '';
+        let g = groups.find(x => x.name === name);
+        if (!g) groups.push(g = { name, fields: [] });
+        g.fields.push(f);
+      });
+      return `
+        <div id="theme-page-${page.key}" class="theme-page-panel" style="display: ${i === 0 ? 'block' : 'none'};">
+          <div style="font-size: .8rem; color: var(--text2); margin-bottom: .2rem;">${page.desc}</div>
+          <div style="font-family: 'DM Mono', monospace; font-size: .7rem; color: var(--text3); margin-bottom: 1rem;">Ambito CSS: ${page.selector}</div>
+          ${groups.map(g => `
+            ${g.name ? `<div class="label" style="color: var(--accent); margin: 1rem 0 .6rem;">${g.name}</div>` : ''}
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: .8rem;">
+              ${g.fields.map(f => this.renderField(page, f)).join('')}
+            </div>`).join('')}
+        </div>`;
+    }).join('');
   },
 
   render(globalState) {
@@ -119,13 +154,21 @@ export const ThemesSection = {
     select.innerHTML = `<option value="">-- Seleziona una competizione --</option>` +  
       comps.map(c => `<option value="${c.id}" ${c.id === currentSelected ? 'selected' : ''}>${c.name} (${c.id})</option>`).join('');
 
+    // Ripopola i campi solo se è cambiata la competizione o il suo tema/sfondo nel DB:
+    // altrimenti un aggiornamento in tempo reale cancellerebbe le modifiche non ancora salvate
     if (currentSelected) {
-      window.onThemeCompChange(currentSelected);
+      const comp = comps.find(c => c.id === currentSelected);
+      const sig = currentSelected + JSON.stringify([comp && comp.theme, comp && comp.backgroundImage]);
+      if (sig !== this._lastSig) {
+        this._lastSig = sig;
+        window.onThemeCompChange(currentSelected);
+      }
     }
   },
 
   registerGlobalActions() {
-    const themeKeys = THEME_VARS.map(v => v.key);
+    // elenco piatto di tutti i campi: id = "pagina__tipo"
+    const allFields = THEME_PAGES.flatMap(pg => pg.fields.map(f => ({ page: pg.key, key: f.key, id: `${pg.key}__${f.key}`, def: f.def })));
 
     // Sincronizzazione bidirezionale input color e text (delegata: funziona anche se il markup viene creato dopo)
     document.addEventListener('input', (e) => {
@@ -143,7 +186,30 @@ export const ThemesSection = {
       }
     });
 
-    const defOf = (k) => (THEME_VARS.find(v => v.key === k) || {}).def || '#000000';
+    // Cambio pagina del tema (le altre restano compilate, si salva tutto insieme)
+    window.switchThemePage = (pageKey) => {
+      THEME_PAGES.forEach(pg => {
+        const panel = document.getElementById(`theme-page-${pg.key}`);
+        const btn = document.querySelector(`#themePageTabs [data-theme-page="${pg.key}"]`);
+        const on = pg.key === pageKey;
+        if (panel) panel.style.display = on ? 'block' : 'none';
+        if (btn) {
+          btn.className = on ? 'btn btn-blue' : 'btn';
+          btn.style.background = on ? '' : 'var(--bg3)';
+          btn.style.color = on ? '' : 'var(--text2)';
+        }
+      });
+    };
+
+    const fillThemeFields = (themeData) => {
+      allFields.forEach(f => {
+        const ci = document.getElementById(`theme-color-${f.id}`);
+        const ti = document.getElementById(`theme-text-${f.id}`);
+        const val = (themeData && themeData[f.page] && themeData[f.page][f.key]) || '';
+        if (ti) ti.value = val;
+        if (ci) ci.value = /^#[0-9a-fA-F]{6}$/.test(val) ? val : f.def;
+      });
+    };
 
     // Gestione cambio sotto-tab del menu Temi
     window.switchThemeSubTab = (tab) => {
@@ -181,18 +247,14 @@ export const ThemesSection = {
 
     // Cambio opzione select competizione
     window.onThemeCompChange = (compId) => {
+      ThemesSection._lastSig = null;
       const previewContainer = document.getElementById('themePreviewContainer');
       const bgPreview = document.getElementById('themeBgPreview');
       const btnRemove = document.getElementById('btn-remove-theme-bg');
 
       if (!compId || !previewContainer || !bgPreview) {
         if (previewContainer) previewContainer.style.display = 'none';
-        themeKeys.forEach(k => {
-          const ci = document.getElementById(`theme-color-${k}`);
-          const ti = document.getElementById(`theme-text-${k}`);
-          if (ci) ci.value = defOf(k);
-          if (ti) ti.value = '';
-        });
+        fillThemeFields(null);
         return;
       }
 
@@ -209,17 +271,11 @@ export const ThemesSection = {
         if (btnRemove) btnRemove.style.display = 'none';
       }
 
-      // Popola i campi colore della palette in base al tema salvato
-      const themeData = (comp && comp.theme) ? comp.theme : {};
-      themeKeys.forEach(k => {
-        const ci = document.getElementById(`theme-color-${k}`);
-        const ti = document.getElementById(`theme-text-${k}`);
-        const val = themeData[k] || '';
-        if (ti) ti.value = val;
-        if (ci) {
-          ci.value = /^#[0-9a-fA-F]{6}$/.test(val) ? val : defOf(k);
-        }
-      });
+      // Popola i campi in base al tema salvato (un tema nel vecchio formato viene convertito al volo)
+      const saved = comp ? comp.theme : null;
+      const notice = document.getElementById('themeLegacyNotice');
+      if (notice) notice.style.display = (saved && Number(saved.v) !== THEME_VERSION && normalizeTheme(saved)) ? 'block' : 'none';
+      fillThemeFields(normalizeTheme(saved));
     };
 
     // Salva/Aggiorna Sfondo Competizione
@@ -320,27 +376,30 @@ export const ThemesSection = {
         return window.toast("Seleziona una competizione!", "err");
       }
 
-      const newTheme = {};
-      themeKeys.forEach(k => {
-        const ti = document.getElementById(`theme-text-${k}`);
+      // { v: 2, home: { title: '#...' }, ... } : le pagine senza valori non vengono salvate
+      const newTheme = { v: THEME_VERSION };
+      allFields.forEach(f => {
+        const ti = document.getElementById(`theme-text-${f.id}`);
         if (ti && ti.value.trim() !== "") {
-          newTheme[k] = ti.value.trim();
+          (newTheme[f.page] = newTheme[f.page] || {})[f.key] = ti.value.trim();
         }
       });
+      const isEmpty = Object.keys(newTheme).length === 1;
 
       try {
         await update(ref(database, `competitions/${compId}`), {
-          theme: newTheme
+          theme: isEmpty ? null : newTheme
         });
 
-        window.toast("Palette colori salvata con successo!", "ok");
+        window.toast("Tema salvato con successo!", "ok");
 
         const comp = ThemesSection.competitionsCache.find(c => c.id === compId);
-        if (comp) comp.theme = newTheme;
+        if (comp) comp.theme = isEmpty ? null : newTheme;
+        window.onThemeCompChange(compId);
 
       } catch (err) {
         console.error("Errore salvataggio palette colori:", err);
-        window.toast("Errore durante il salvataggio della palette", "err");
+        window.toast("Errore durante il salvataggio del tema", "err");
       }
     };
 
@@ -352,13 +411,13 @@ export const ThemesSection = {
 
       if (!compId) return;
 
-      if (confirm("Sei sicuro di voler resettare la palette colori personalizzata per questa competizione?")) {
+      if (confirm("Sei sicuro di voler resettare il tema personalizzato (tutte le pagine) per questa competizione?")) {
         try {
           await update(ref(database, `competitions/${compId}`), {
             theme: null
           });
 
-          window.toast("Palette colori resettata!", "info");
+          window.toast("Tema resettato!", "info");
 
           const comp = ThemesSection.competitionsCache.find(c => c.id === compId);
           if (comp) comp.theme = null;
