@@ -8,7 +8,7 @@
 export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
   if (!match) {
     return `
-      <div class="card card-sm" style="background:var(--bg2); border:1px solid rgba(255,255,255,0.08); text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">
+      <div class="card card-sm card-mini" style="background:var(--mini-bg,var(--bg2)); border:1px solid var(--border); text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">
         Nessun risultato disponibile.
       </div>
     `;
@@ -64,7 +64,7 @@ export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
     : '';
 
   return `
-    <div class="card card-sm match-card-result" style="background:var(--card); border:1px solid rgba(255,255,255,0.05); display:flex; flex-direction:column; padding:1rem;">
+    <div class="card card-sm card-mini match-card-result" style="background:var(--mini-bg,var(--card)); border:1px solid var(--border); display:flex; flex-direction:column; padding:1rem;">
       ${headerHTML}
       <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
         

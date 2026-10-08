@@ -102,6 +102,25 @@ export const THEME_PAGES = [
       { key: 'sub',   css: '--text2',     kind: 'color', def: '#94a3b8', label: 'Sottotesti',  hint: 'Icone delle voci' }
     ]
   },
+  {
+    key: 'cards', label: 'Card', selector: '.card, .card-mini, .mp-card',
+    desc: 'Tutte le schede e le card (partite, squadre, pannelli, banner). Valgono solo dentro le card: lo sfondo pagina e i testi fuori dalle card restano quelli di Generale.',
+    fields: [
+      { key: 'bg',     css: '--card',        kind: 'color', def: '#282e37',                hint: 'Sfondo delle schede (vuoto = come Generale)', label: 'Sfondo' },
+      { key: 'mini',   css: '--mini-bg',     kind: 'color', def: '#22272f',                hint: 'Sfondo di partite, squadre, selettore turno, banner (vuoto = come Superficie secondaria)', label: 'Sfondo card piccole' },
+      { key: 'rows',   css: '--card2',       kind: 'color', def: '#333a46',                hint: 'Righe e sub-box dentro le card', label: 'Righe interne' },
+      { key: 'inner',  css: '--bg3',         kind: 'color', def: '#2b323c',                hint: 'Selettori, campi, riquadro punteggio, segnaposto loghi', label: 'Campi e segnaposto' },
+      { key: 'border', css: '--border',      kind: 'text',  def: 'rgba(255,255,255,0.08)', hint: 'Bordi e separatori dentro le card', label: 'Bordo' },
+      { ...TYPE_TITLE },
+      { ...TYPE_TEXT },
+      { ...TYPE_SUB },
+      { ...TYPE_LABEL },
+      { key: 'accent', css: '--accent',      kind: 'color', def: '#50e3c2',                hint: 'VS, punteggi, nomi dei proprietari, selezioni', label: 'Evidenze' },
+      { key: 'gold',   css: '--gold',        kind: 'color', def: '#f5a623',                hint: 'Etichette girone/playoff, trofei', label: 'Oro' },
+      { ...TYPE_BTN },
+      { ...TYPE_BTN_TEXT }
+    ]
+  },
   { key: 'menuPanel', label: 'Pannelli del menu', selector: '#menu-panel',
     desc: 'Impostazioni, configurazione squadra, listone, svincolati.', fields: CONTENT_TYPES },
   { key: 'login',       label: 'Login',        selector: '#page-login',       desc: 'Accesso e scelta squadra.',   fields: CONTENT_TYPES },

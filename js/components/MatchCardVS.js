@@ -1,7 +1,7 @@
 export const createMatchCardVS = (match, teamsList = []) => {
   if (!match) {
     return `
-      <div class="card card-sm" style="background:var(--bg2); border:1px solid rgba(255,255,255,0.08); text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">
+      <div class="card card-sm card-mini" style="background:var(--mini-bg,var(--bg2)); border:1px solid var(--border); text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">
         Nessun match programmato.
       </div>
     `;
@@ -37,7 +37,7 @@ export const createMatchCardVS = (match, teamsList = []) => {
   `;
 
   return `
-    <div class="card card-sm match-card-vs" style="background:var(--bg2); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:1rem 1.15rem;">
+    <div class="card card-sm card-mini match-card-vs" style="background:var(--mini-bg,var(--bg2)); border:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:1rem 1.15rem;">
       
       <!-- Squadra Casa -->
       <div style="display:flex; align-items:center; gap:0.6rem; min-width:0; flex:1; justify-content:flex-end;">

@@ -332,7 +332,7 @@ export const ClassificaPage = {
         }
 
         return `
-          <div style="background: var(--subbox-bg); border: 1px solid var(--border); padding: .6rem; border-radius: 6px; font-size: .8rem; width: 220px;">
+          <div class="card-mini" style="background: var(--subbox-bg); border: 1px solid var(--border); padding: .6rem; border-radius: 6px; font-size: .8rem; width: 220px;">
             <div style="color:var(--text3); font-size:0.65rem; font-weight:bold; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
               <span><i class="ri-hashtag"></i> ${m.id.toUpperCase()}</span>
               <span style="color:var(--accent); font-family:'DM Mono',monospace;">${strAndata}${strRitorno}</span>
@@ -351,7 +351,7 @@ export const ClassificaPage = {
 
       return `
         <div style="display: flex; flex-direction: column; align-items: center;">
-          <div style="background: var(--subbox-bg); color: var(--accent); padding: .3rem .6rem; font-family:'Bebas Neue',sans-serif; font-size:1rem; border-radius:4px; margin-bottom:0.75rem; border:1px solid var(--border);">
+          <div class="card-mini" style="background: var(--subbox-bg); color: var(--accent); padding: .3rem .6rem; font-family:'Bebas Neue',sans-serif; font-size:1rem; border-radius:4px; margin-bottom:0.75rem; border:1px solid var(--border);">
             ${faseObj.nomeFase.toUpperCase()}
           </div>
           <div style="display: flex; flex-direction: column; justify-content: center;">
