@@ -22,7 +22,7 @@ export const TeamsPage = {
 
         <div id="team-detail-view" style="display:none; margin-top:1.2rem; animation: fadeIn 0.25s ease-out;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; gap:1rem;">
-            <button class="btn btn-outline" onclick="window.teamDetailBack()" style="width:auto; padding:.5rem 1rem; font-size:.8rem; display:inline-flex; align-items:center; gap:.4rem; margin:0;">
+            <button class="btn btn-green" onclick="window.teamDetailBack()" style="width:auto; padding:.5rem 1rem; font-size:.8rem; display:inline-flex; align-items:center; gap:.4rem; margin:0;">
               <svg viewBox="0 0 24 24" style="width:16px; height:16px; stroke:currentColor; stroke-width:2; fill:none;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
               <span id="team-detail-back-label">Lista</span>
             </button>
@@ -273,7 +273,7 @@ export const TeamsPage = {
       </div>
 
       <div class="card" style="margin-bottom:1rem; background:var(--card); text-align:left;">
-        <div class="label">Storia del club</div>
+        <div class="label" style="color:var(--accent);" >Storia del club</div>
         <p style="font-size:.85rem; color:var(--text); line-height:1.4; margin-top:.4rem; white-space:pre-line;">
           ${descriptionText}
         </p>
