@@ -36,10 +36,10 @@ export const FormazionePage = {
 
         <div class="card card-sm" style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.8rem; background: var(--bg2);">
           <input type="checkbox" id="save-all-comps" checked style="width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer;">
-          <label for="save-all-comps" class="label" style="margin: 0; cursor: pointer; color: var(--text2);">Salva per tutte le competizioni</label>
+          <label for="save-all-comps" class="label" style="margin: 0; cursor: pointer; color: var(--text);">Salva per tutte le competizioni</label>
         </div>
         
-        <div id="f-save-info" style="font-size:.75rem; color:var(--text); margin:-.4rem 0 1rem; line-height:1.4;"></div>
+        <div id="f-save-info" style="font-size:.75rem; color:var(--text2); margin:-.4rem 0 1rem; line-height:1.4;"></div>
 
         <button class="btn btn-green" style="width: 100%; padding: .8rem; margin-bottom:2rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" id="btn-save-lineup"><i class="ri-save-line"></i> Salva Formazione</button>
         </div>

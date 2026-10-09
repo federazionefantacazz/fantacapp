@@ -39,7 +39,6 @@ const STYLES = `
 .mk-trade{margin-bottom:.7rem}
 .mk-line{font-size:.78rem;display:flex;align-items:center;gap:.4rem;padding:.15rem 0}
 .mk-sec{margin:1.2rem 0 .5rem;display:flex;align-items:center;gap:.4rem}
-.label.mk-sec{color:var(--title,var(--text2))}
 `;
 
 export const MercatoPage = {
@@ -60,7 +59,7 @@ export const MercatoPage = {
 
         <div id="mk-nuova" class="market-subpage">
           <div class="card">
-            <div class="label" style="color:var(--text); margin-bottom: .6rem; display: flex; align-items: center; gap: 0.4rem;"><i class="ri-add-circle-line"></i> Proponi una trattativa</div>
+            <div class="label" style="color:var(--title,var(--accent)); margin-bottom: .6rem; display: flex; align-items: center; gap: 0.4rem;"><i class="ri-add-circle-line"></i> Proponi una trattativa</div>
 
             <div class="label">Tipo di trattativa</div>
             <div class="mk-seg">
@@ -401,7 +400,7 @@ export const MercatoPage = {
     const history = all.filter(t => !['pending', 'active'].includes(t.status));
 
     const section = (icon, title, list, empty) => `
-      <div class="label mk-sec"><i class="${icon}"></i> ${title} <span style="color:var(--title)">(${list.length})</span></div>
+      <div class="label mk-sec"><i class="${icon}"></i> ${title} <span style="color:var(--text3)">(${list.length})</span></div>
       ${list.length ? list.map(t => this._tradeCard(t)).join('') : `<div style="text-align:center;color:var(--text3);font-size:.8rem;padding:.8rem">${empty}</div>`}`;
 
     box.innerHTML =
