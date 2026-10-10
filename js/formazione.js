@@ -1,4 +1,5 @@
 import { GwService } from './services/gwService.js';
+import { ProbabiliService, STATUS_INFO } from './services/probabiliService.js';
 
 export const FormazionePage = {
   renderHTML() {
@@ -147,11 +148,78 @@ export const FormazionePage = {
         .field-player:active .player-shirt {
           transform: translateY(2px);
         }
-        .field-player select {
-          position: absolute;
-          top: 0; left: 0; width: 100%; height: 58px;
-          opacity: 0; cursor: pointer; z-index: 12;
+        .field-player { cursor: pointer; }
+        .field-player select { display: none; }
+        .shirt-wrap { position: relative; }
+        .slot-badge-wrap { position: absolute; top: -4px; right: -18px; pointer-events: none; }
+        .slot-badge {
+          display: inline-flex; align-items: center; justify-content: center; gap: 1px;
+          min-width: 22px; height: 16px; padding: 0 4px; border-radius: 8px;
+          font-size: .58rem; font-weight: 700; color: #fff; line-height: 1;
+          font-family: 'DM Sans', sans-serif; box-shadow: 0 2px 5px rgba(0,0,0,.45);
+          border: 1px solid rgba(255,255,255,.35);
         }
+        .pan-slot { cursor: pointer; }
+        .pan-pick {
+          flex: 1; min-width: 0; background: var(--bg2); border-radius: 8px; padding: .45rem .6rem;
+          font-size: .8rem; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .pan-badge .slot-badge { height: 18px; font-size: .62rem; }
+
+        /* ===== Box scelta giocatore ===== */
+        .fp-overlay {
+          position: fixed; inset: 0; z-index: 9999; background: rgba(5,8,15,.65);
+          backdrop-filter: blur(3px); display: none; align-items: flex-end; justify-content: center;
+        }
+        .fp-overlay.open { display: flex; }
+        .fp-sheet {
+          width: 100%; max-width: 560px; max-height: 85vh; display: flex; flex-direction: column;
+          background: var(--bg, #181c22); border: 1px solid rgba(255,255,255,.08);
+          border-radius: 18px 18px 0 0; box-shadow: 0 -10px 40px rgba(0,0,0,.5);
+          padding-bottom: env(safe-area-inset-bottom, 0px); animation: fpUp .18s ease-out;
+        }
+        @media (min-width: 700px) {
+          .fp-overlay { align-items: center; }
+          .fp-sheet { border-radius: 18px; }
+        }
+        @keyframes fpUp { from { transform: translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+        .fp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; padding: 1rem 1rem .6rem; border-bottom: 1px solid rgba(255,255,255,.06); }
+        .fp-title { font-weight: 700; font-size: .95rem; color: var(--text); display: flex; align-items: center; }
+        .fp-sub { font-size: .72rem; color: var(--text2); margin-top: 3px; }
+        .fp-close { background: var(--bg2); border: none; color: var(--text); width: 32px; height: 32px; border-radius: 50%; font-size: 1.1rem; cursor: pointer; flex-shrink: 0; }
+        .fp-list { overflow-y: auto; padding: .5rem .6rem; display: flex; flex-direction: column; gap: .4rem; }
+        .fp-foot { padding: 0 .6rem .7rem; }
+        .fp-foot:empty { display: none; }
+        .fp-empty { text-align: center; color: var(--text3); padding: 2rem 1rem; font-size: .85rem; }
+        .fp-row {
+          display: flex; align-items: center; gap: .65rem; padding: .55rem .65rem;
+          background: var(--bg2); border: 1px solid rgba(255,255,255,.05); border-radius: 12px;
+          cursor: pointer; transition: background .12s, transform .08s;
+        }
+        .fp-row:hover { background: var(--bg3); }
+        .fp-row:active { transform: scale(.99); }
+        .fp-row.is-current { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+        .fp-row.is-used { opacity: .35; filter: grayscale(1); cursor: not-allowed; pointer-events: none; }
+        .fp-img { width: 44px; height: 48px; flex-shrink: 0; display: flex; align-items: flex-end; justify-content: center; }
+        .fp-img img { width: 44px; height: 48px; object-fit: contain; object-position: bottom; }
+        .fp-ph { width: 36px; height: 36px; border-radius: 50%; background: var(--bg3); color: var(--text3); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .8rem; }
+        .fp-main { flex: 1; min-width: 0; }
+        .fp-name { font-weight: 600; font-size: .88rem; color: var(--text); display: flex; align-items: center; flex-wrap: wrap; gap: .35rem; }
+        .fp-meta { font-size: .72rem; color: var(--text2); margin-top: 2px; display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+        .fp-club { color: var(--text3); }
+        .fp-opp { color: var(--text); font-weight: 600; }
+        .fp-opp em { font-style: normal; font-weight: 400; color: var(--text3); }
+        .fp-status { margin-top: 4px; display: flex; flex-direction: column; gap: 2px; }
+        .fp-chip { display: inline-flex; align-items: center; gap: 3px; width: fit-content; font-size: .65rem; font-weight: 700; padding: 1px 7px; border-radius: 10px; border: 1px solid; text-transform: uppercase; letter-spacing: .3px; }
+        .fp-note { font-size: .68rem; color: var(--text2); line-height: 1.3; }
+        .fp-pct { width: 64px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; text-align: right; }
+        .fp-pct-val { font-weight: 700; font-size: .9rem; font-family: 'DM Mono', monospace; line-height: 1.1; }
+        .fp-bar { width: 100%; height: 5px; border-radius: 3px; background: rgba(255,255,255,.12); overflow: hidden; }
+        .fp-bar > div { height: 100%; border-radius: 3px; }
+        .fp-xi { font-size: .6rem; color: var(--text3); text-transform: uppercase; letter-spacing: .3px; }
+        .fp-used-tag, .fp-cur-tag { font-size: .6rem; font-weight: 700; padding: 1px 6px; border-radius: 8px; text-transform: uppercase; }
+        .fp-used-tag { background: rgba(255,255,255,.15); color: var(--text); }
+        .fp-cur-tag { background: var(--accent); color: #000; }
         .player-name-label {
           margin-top: 2px;
           background: rgba(10, 15, 30, 0.85);
@@ -291,6 +359,9 @@ export const FormazionePage = {
         return pTeamId !== '' && pTeamId === uId;
     });
 
+    this._rosa = miaRosa;
+    if (this._picker) this._closePicker();
+
     const savedTitolariIds = savedLineup?.titolari || [];
     const savedPanchinaIds = savedLineup?.panchina || [];
 
@@ -317,6 +388,229 @@ export const FormazionePage = {
         }
       });
     });
+  },
+
+  // ------------------------------------------------------------------
+  // Helper grafici
+  // ------------------------------------------------------------------
+  _esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  },
+
+  _photo(p) {
+    return p ? (p.photoPersonal || p.photoStandard || '') : '';
+  },
+
+  /** Piccolo badge sullo slot: % di impiego o icona di stato (infortunato, squalificato...). */
+  _badgeHtml(player) {
+    if (!player) return '';
+    const info = ProbabiliService.getInfo(player, window.STATE);
+    if (!info.known) return '';
+    if (info.st === 'squal' || info.st === 'inf') {
+      const s = STATUS_INFO[info.st];
+      return `<span class="slot-badge" style="background:${s.color};" title="${s.label}"><i class="${s.icon}"></i></span>`;
+    }
+    if (info.pct === null) {
+      return `<span class="slot-badge" style="background:#5b6b80;" title="Non presente nelle probabili">—</span>`;
+    }
+    const dot = info.st ? `<i class="${STATUS_INFO[info.st].icon}" style="margin-left:1px;"></i>` : '';
+    return `<span class="slot-badge" style="background:${ProbabiliService.pctColor(info.pct)};">${info.pct}%${dot}</span>`;
+  },
+
+  _updateSlotBadge(selectEl, rosa) {
+    const target = document.getElementById(selectEl.dataset.badgeTarget || '');
+    if (!target) return;
+    const pObj = rosa.find(p => String(p.id) === String(selectEl.value));
+    target.innerHTML = this._badgeHtml(pObj);
+  },
+
+  /** Chiamato da index.html quando arrivano/aggiornano i dati delle probabili. */
+  onProbabiliUpdate() {
+    const rosa = this._rosa || [];
+    document.querySelectorAll('#titolari-field-slots select, #panchina-slots select')
+      .forEach(sel => this._updateSlotBadge(sel, rosa));
+    if (this._picker?.select) this._renderPicker();
+  },
+
+  // ------------------------------------------------------------------
+  // BOX DI SCELTA GIOCATORE
+  // ------------------------------------------------------------------
+  _ensurePickerDom() {
+    let ov = document.getElementById('fp-overlay');
+    if (ov) return ov;
+    ov = document.createElement('div');
+    ov.id = 'fp-overlay';
+    ov.className = 'fp-overlay';
+    ov.innerHTML = `
+      <div class="fp-sheet" role="dialog" aria-modal="true">
+        <div class="fp-head">
+          <div>
+            <div class="fp-title" id="fp-title"></div>
+            <div class="fp-sub" id="fp-sub"></div>
+          </div>
+          <button class="fp-close" id="fp-close" aria-label="Chiudi"><i class="ri-close-line"></i></button>
+        </div>
+        <div class="fp-list" id="fp-list"></div>
+        <div class="fp-foot" id="fp-foot"></div>
+      </div>`;
+    document.body.appendChild(ov);
+
+    ov.addEventListener('click', (e) => { if (e.target === ov) this._closePicker(); });
+    ov.querySelector('#fp-close').addEventListener('click', () => this._closePicker());
+    ov.querySelector('#fp-list').addEventListener('click', (e) => {
+      const row = e.target.closest('.fp-row');
+      if (!row || row.classList.contains('is-used')) return;
+      this._choose(row.dataset.id);
+    });
+    ov.querySelector('#fp-foot').addEventListener('click', (e) => {
+      if (e.target.closest('[data-clear]')) this._choose('');
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && ov.classList.contains('open')) this._closePicker();
+    });
+    return ov;
+  },
+
+  _openPicker(selectEl, rosa) {
+    if (!selectEl || selectEl.disabled) return;
+    this._picker = { select: selectEl, rosa };
+    const ov = this._ensurePickerDom();
+    this._renderPicker();
+    ov.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  },
+
+  _closePicker() {
+    const ov = document.getElementById('fp-overlay');
+    if (ov) ov.classList.remove('open');
+    document.body.style.overflow = '';
+    this._picker = null;
+  },
+
+  _choose(id) {
+    const sel = this._picker?.select;
+    if (!sel) return;
+    sel.value = id;
+    sel.dispatchEvent(new Event('change'));
+    this._closePicker();
+  },
+
+  _renderPicker() {
+    const { select, rosa } = this._picker || {};
+    if (!select) return;
+    const STATE = window.STATE;
+    const role = select.dataset.role;
+    const roleNames = { P: 'Portieri', D: 'Difensori', C: 'Centrocampisti', A: 'Attaccanti' };
+    const isPan = select.closest('#panchina-slots') !== null;
+
+    // Giocatori già schierati negli altri slot (titolari o panchina)
+    const used = {};
+    document.querySelectorAll('#titolari-field-slots select').forEach(s => {
+      if (s !== select && s.value) used[s.value] = 'Già titolare';
+    });
+    document.querySelectorAll('#panchina-slots select').forEach(s => {
+      if (s !== select && s.value) used[s.value] = 'Già in panchina';
+    });
+
+    const rows = rosa
+      .filter(p => p.role === role)
+      .map(p => ({ p, info: ProbabiliService.getInfo(p, STATE), used: used[String(p.id)] || null }))
+      .sort((a, b) => {
+        if (!!a.used !== !!b.used) return a.used ? 1 : -1;               // già schierati in fondo
+        // squalificati e infortunati contano come 0%: finiscono sotto chi gioca
+        const eff = (i) => (i.st === 'squal' || i.st === 'inf') ? 0 : (i.pct ?? -1);
+        const pa = eff(a.info), pb = eff(b.info);
+        if (pb !== pa) return pb - pa;                                     // % di impiego decrescente
+        return String(a.p.name).localeCompare(String(b.p.name));
+      });
+
+    const meta = ProbabiliService.meta(STATE);
+    const gwReale = STATE?.giornataRealeCorrente;
+    let sub = isPan ? 'Panchina' : 'Titolare';
+    if (!ProbabiliService.hasData(STATE)) {
+      sub += ' · probabili formazioni non ancora disponibili';
+    } else if (meta?.giornata) {
+      const stale = gwReale && Number(meta.giornata) !== Number(gwReale);
+      sub += ` · Probabili ${meta.giornata}ª giornata`;
+      if (meta.updatedAt) {
+        const d = new Date(meta.updatedAt);
+        sub += ` (agg. ${d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })} ${d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })})`;
+      }
+      if (stale) sub += ` <span style="color:var(--gold);">· la giornata attiva è la ${gwReale}ª</span>`;
+    }
+
+    document.getElementById('fp-title').innerHTML =
+      `<span class="rbadge r${role}" style="width:22px;height:22px;font-size:.65rem;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;margin-right:.4rem;">${role}</span>Scegli tra i tuoi ${roleNames[role] || role}`;
+    document.getElementById('fp-sub').innerHTML = sub;
+
+    const esc = (s) => this._esc(s);
+    const list = document.getElementById('fp-list');
+
+    if (!rows.length) {
+      list.innerHTML = `<div class="fp-empty">Nessun giocatore in rosa per questo ruolo.</div>`;
+    } else {
+      list.innerHTML = rows.map(({ p, info, used: usedAs }) => {
+        const photo = this._photo(p);
+        const isCurrent = String(p.id) === String(select.value);
+        const img = photo
+          ? `<img src="${esc(photo)}" alt="" loading="lazy">`
+          : `<div class="fp-ph">${role}</div>`;
+
+        // Avversario
+        let opp = '';
+        if (info.opp) {
+          opp = `<span class="fp-opp">vs ${esc(info.opp.name)} <em>${info.opp.home ? '(C)' : '(T)'}</em></span>`;
+        } else if (info.known) {
+          opp = `<span class="fp-opp" style="opacity:.6;">avversario n.d.</span>`;
+        }
+
+        // Probabilità
+        let pctHtml;
+        if (!info.known) {
+          pctHtml = `<div class="fp-pct"><span class="fp-pct-val" style="color:var(--text3);">—</span></div>`;
+        } else if (info.pct === null && (info.st === 'squal' || info.st === 'inf')) {
+          pctHtml = `<div class="fp-pct"><span class="fp-pct-val" style="color:${STATUS_INFO[info.st].color};">OUT</span></div>`;
+        } else if (info.pct === null) {
+          pctHtml = `<div class="fp-pct"><span class="fp-pct-val" style="color:var(--text3); font-size:.65rem;">non in<br>lista</span></div>`;
+        } else {
+          const col = ProbabiliService.pctColor(info.pct);
+          pctHtml = `
+            <div class="fp-pct">
+              <span class="fp-pct-val" style="color:${col};">${info.pct}%</span>
+              <div class="fp-bar"><div style="width:${info.pct}%; background:${col};"></div></div>
+              ${info.xi ? `<span class="fp-xi">${info.xi === 'tit' ? "dal 1'" : 'panchina'}</span>` : ''}
+            </div>`;
+        }
+
+        // Stato (infortunato / squalificato / diffidato / in dubbio)
+        let stato = '';
+        if (info.st && STATUS_INFO[info.st]) {
+          const s = STATUS_INFO[info.st];
+          stato = `<div class="fp-status" style="color:${s.color};">
+              <span class="fp-chip" style="background:${s.color}22; border-color:${s.color};"><i class="${s.icon}"></i> ${s.label}</span>
+              ${info.note ? `<span class="fp-note">${esc(info.note)}</span>` : ''}
+            </div>`;
+        }
+
+        const usedTag = usedAs ? `<span class="fp-used-tag"><i class="ri-lock-line"></i> ${usedAs}</span>` : '';
+        const curTag = isCurrent ? `<span class="fp-cur-tag"><i class="ri-check-line"></i> Selezionato</span>` : '';
+
+        return `
+          <div class="fp-row ${usedAs ? 'is-used' : ''} ${isCurrent ? 'is-current' : ''}" data-id="${esc(p.id)}" ${usedAs ? 'aria-disabled="true"' : 'role="button" tabindex="0"'}>
+            <div class="fp-img">${img}</div>
+            <div class="fp-main">
+              <div class="fp-name">${esc(p.name)} ${curTag}${usedTag}</div>
+              <div class="fp-meta"><span class="fp-club">${esc(p.club || '')}</span>${opp}</div>
+              ${stato}
+            </div>
+            ${pctHtml}
+          </div>`;
+      }).join('');
+    }
+
+    document.getElementById('fp-foot').innerHTML = select.value
+      ? `<button class="btn btn-outline" data-clear style="width:100%; padding:.6rem;"><i class="ri-delete-bin-line"></i> Svuota questo slot</button>`
+      : '';
   },
 
   drawFieldTitolari(def, mid, att, rosa, savedIds) {
@@ -360,7 +654,7 @@ export const FormazionePage = {
             if (pObj) {
               preselectedText = pObj.name;
               isSelected = true;
-              photoUrl = pObj.photoPersonal || pObj.photoStandard || '';
+              photoUrl = this._photo(pObj);
             }
           }
         }
@@ -380,23 +674,31 @@ export const FormazionePage = {
           ? `background-image: url('${photoUrl}');`
           : `background-color: ${bgShirt}; color: #fff;`;
 
+        const preObj = rosa.find(p => p.id === preselectedId);
+
         playerDiv.innerHTML = `
-          <div class="${shirtClass}" id="shirt-${slotId}" style="${shirtStyle}">
-            ${photoUrl ? '' : reparto.role}
+          <div class="shirt-wrap">
+            <div class="${shirtClass}" id="shirt-${slotId}" style="${shirtStyle}">
+              ${photoUrl ? '' : reparto.role}
+            </div>
+            <div class="slot-badge-wrap" id="badge-${slotId}">${this._badgeHtml(preObj)}</div>
           </div>
           <div class="player-name-label" id="label-${slotId}" style="${isSelected ? 'color: var(--accent); border-color: var(--accent);' : ''}">
-            ${preselectedText}
+            ${this._esc(preselectedText)}
           </div>
           
-          <select id="${slotId}" data-role="${reparto.role}" data-label-target="label-${slotId}" data-shirt-target="shirt-${slotId}" class="field-select">
+          <select id="${slotId}" data-role="${reparto.role}" data-label-target="label-${slotId}" data-shirt-target="shirt-${slotId}" data-badge-target="badge-${slotId}" class="field-select" tabindex="-1" aria-hidden="true">
             <option value="">-- ${reparto.role} --</option>
-            ${ops.map(p => `<option value="${p.id}" ${p.id === preselectedId ? 'selected' : ''}>${p.name} (${p.club})</option>`).join('')}
+            ${ops.map(p => `<option value="${p.id}" ${p.id === preselectedId ? 'selected' : ''}>${this._esc(p.name)} (${this._esc(p.club)})</option>`).join('')}
           </select>
         `;
 
         container.appendChild(playerDiv);
 
-        playerDiv.querySelector('select').addEventListener('change', (e) => {
+        const sel = playerDiv.querySelector('select');
+        playerDiv.addEventListener('click', () => this._openPicker(sel, rosa));
+
+        sel.addEventListener('change', (e) => {
           const val = e.target.value;
           const labelId = e.target.dataset.labelTarget;
           const shirtId = e.target.dataset.shirtTarget;
@@ -413,7 +715,7 @@ export const FormazionePage = {
             shirtEl.textContent = reparto.role;
           } else {
             const pObj = rosa.find(p => String(p.id) === String(val));
-            const pPhoto = pObj ? (pObj.photoPersonal || pObj.photoStandard || '') : '';
+            const pPhoto = this._photo(pObj);
 
             labelEl.textContent = pObj ? pObj.name : 'Scegli';
             labelEl.style.color = 'var(--accent)';
@@ -429,6 +731,7 @@ export const FormazionePage = {
               shirtEl.textContent = reparto.role;
             }
           }
+          this._updateSlotBadge(e.target, rosa);
           this.refreshAllDropdowns(rosa);
         });
       }
@@ -439,6 +742,9 @@ export const FormazionePage = {
     const container = document.getElementById(id);
     if (!container) return;
     container.innerHTML = '';
+
+    const placeholderImg = (imgId) => `<div id="${imgId}" style="width:28px; height:28px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.65rem; color:var(--text3); flex-shrink:0;"><i class="ri-user-3-line"></i></div>`;
+    const photoImg = (imgId, url) => `<img id="${imgId}" src="${url}" style="width:28px; height:28px; object-fit:contain; flex-shrink:0;">`;
     
     schema.forEach(item => {
       for (let i = 1; i <= item.count; i++) {
@@ -447,6 +753,7 @@ export const FormazionePage = {
 
         let preselectedId = "";
         let currentPhoto = "";
+        let preObj = null;
 
         if (savedIds && savedIds.length > 0) {
           const ruoloSavedIds = savedIds.filter(id => {
@@ -455,49 +762,53 @@ export const FormazionePage = {
           });
           if (ruoloSavedIds[i - 1]) {
             preselectedId = ruoloSavedIds[i - 1];
-            const pObj = rosa.find(p => p.id === preselectedId);
-            if (pObj) currentPhoto = pObj.photoPersonal || pObj.photoStandard || '';
+            preObj = rosa.find(p => p.id === preselectedId) || null;
+            if (preObj) currentPhoto = this._photo(preObj);
           }
         }
 
         const div = document.createElement('div');
-        div.className = 'pcard'; 
+        div.className = 'pcard pan-slot'; 
         div.style.padding = '.4rem .6rem';
         div.style.display = 'flex';
         div.style.alignItems = 'center';
         div.style.gap = '0.5rem';
 
-        const imgHtml = currentPhoto 
-          ? `<img id="img-${slotId}" src="${currentPhoto}" style="width:28px; height:28px; object-fit:contain; flex-shrink:0;">`
-          : `<div id="img-${slotId}" style="width:28px; height:28px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.65rem; color:var(--text3); flex-shrink:0;"><i class="ri-user-3-line"></i></div>`;
+        const imgHtml = currentPhoto ? photoImg(`img-${slotId}`, currentPhoto) : placeholderImg(`img-${slotId}`);
+        const emptyTxt = `-- Seleziona ${item.role} --`;
 
         div.innerHTML = `
           <div class="rbadge r${item.role}" style="width:24px;height:24px;font-size:.65rem;border-radius:5px;flex-shrink:0;">${item.role}</div>
           ${imgHtml}
-          <div style="flex:1;">
-            <select id="${slotId}" data-role="${item.role}" data-img-target="img-${slotId}" class="select-rose" style="padding:.4rem .6rem;font-size:.8rem;background:var(--bg2);">
-              <option value="">-- Seleziona ${item.role} --</option>
-              ${ops.map(p => `<option value="${p.id}" ${p.id === preselectedId ? 'selected' : ''}>${p.name} (${p.club})</option>`).join('')}
-            </select>
-          </div>
+          <div class="pan-pick" id="name-${slotId}" style="${preObj ? 'color:var(--text);' : ''}">${preObj ? `${this._esc(preObj.name)} <span style="color:var(--text3); font-size:.72rem;">(${this._esc(preObj.club)})</span>` : emptyTxt}</div>
+          <div id="badge-${slotId}" class="pan-badge">${this._badgeHtml(preObj)}</div>
+          <i class="ri-arrow-down-s-line" style="color:var(--text3);"></i>
+          <select id="${slotId}" data-role="${item.role}" data-img-target="img-${slotId}" data-badge-target="badge-${slotId}" style="display:none;" tabindex="-1" aria-hidden="true">
+            <option value="">${emptyTxt}</option>
+            ${ops.map(p => `<option value="${p.id}" ${p.id === preselectedId ? 'selected' : ''}>${this._esc(p.name)} (${this._esc(p.club)})</option>`).join('')}
+          </select>
         `;
         container.appendChild(div);
 
-        div.querySelector('select').addEventListener('change', (e) => {
+        const sel = div.querySelector('select');
+        div.addEventListener('click', () => this._openPicker(sel, rosa));
+
+        sel.addEventListener('change', (e) => {
           const val = e.target.value;
           const imgTargetId = e.target.dataset.imgTarget;
           const imgEl = document.getElementById(imgTargetId);
           const pObj = rosa.find(p => String(p.id) === String(val));
-          const pPhoto = pObj ? (pObj.photoPersonal || pObj.photoStandard || '') : '';
+          const pPhoto = this._photo(pObj);
 
-          if (imgEl) {
-            if (pPhoto) {
-              imgEl.outerHTML = `<img id="${imgTargetId}" src="${pPhoto}" style="width:28px; height:28px; object-fit:contain; flex-shrink:0;">`;
-            } else {
-              imgEl.outerHTML = `<div id="${imgTargetId}" style="width:28px; height:28px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.65rem; color:var(--text3); flex-shrink:0;"><i class="ri-user-3-line"></i></div>`;
-            }
+          if (imgEl) imgEl.outerHTML = pPhoto ? photoImg(imgTargetId, pPhoto) : placeholderImg(imgTargetId);
+
+          const nameEl = document.getElementById(`name-${slotId}`);
+          if (nameEl) {
+            nameEl.innerHTML = pObj ? `${this._esc(pObj.name)} <span style="color:var(--text3); font-size:.72rem;">(${this._esc(pObj.club)})</span>` : emptyTxt;
+            nameEl.style.color = pObj ? 'var(--text)' : '';
           }
 
+          this._updateSlotBadge(e.target, rosa);
           this.refreshAllDropdowns(rosa);
         });
       }

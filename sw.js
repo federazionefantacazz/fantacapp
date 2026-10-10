@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.1.18'; // Incrementa ad ogni modifica dei file statici
+const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.1.19'; // Incrementa ad ogni modifica dei file statici
 const IMAGE_CACHE = 'fantacapp-images-v1'; // riempita da js/services/assetPreloader.js: non va cancellata agli aggiornamenti
 
 // 1. Array pulito e aggiornato
@@ -22,6 +22,7 @@ const ASSETS_TO_CACHE = [
   './js/services/mercatoService.js',
   './js/services/themeService.js',
   './js/services/playerStatsService.js',
+  './js/services/probabiliService.js',
 
   // Componenti
   './js/components/AnteprimaClassifica.js',

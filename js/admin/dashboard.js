@@ -17,7 +17,26 @@ export const DashboardSection = {
       };
       this._syncOnFireInputs();
     });
+    onValue(ref(this.db, 'probabili/meta'), snap => { this._probMeta = snap.val(); this._renderProbabiliStatus(); });
+    onValue(ref(this.db, 'settings/probabiliStatus'), snap => { this._probStatus = snap.val(); this._renderProbabiliStatus(); });
     this.registerGlobalActions();
+  },
+
+  _renderProbabiliStatus() {
+    const el = document.getElementById('dashboard-probabili-status');
+    if (!el) return;
+    const fmt = (ts) => ts ? new Date(ts).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+    const m = this._probMeta, st = this._probStatus;
+    let html = m
+      ? `<span class="badge badge-green">${m.giornata}ª giornata · ${m.matches} partite · ${m.players} giocatori</span><br><span style="font-size:.75rem;">Ultimo aggiornamento dati: ${fmt(m.updatedAt)}</span>`
+      : `<span class="badge badge-gray">Nessun dato ancora scaricato</span>`;
+    if (st && st.ok === false) {
+      html += `<br><span style="color: var(--accent3); font-size:.75rem;">⚠️ Ultimo tentativo fallito (${fmt(st.at)}): ${String(st.error || '').replace(/</g, '&lt;')}</span>`;
+    }
+    if (this._probPending && (!st || !st.at || st.at < this._probPending)) {
+      html += `<br><span style="color: var(--gold); font-size:.75rem;">⏳ Aggiornamento richiesto, attendi qualche secondo...</span>`;
+    }
+    el.innerHTML = html;
   },
 
   renderHTML() {
@@ -81,6 +100,18 @@ export const DashboardSection = {
               </select>
             </div>
           </div>
+        </div>
+
+        <div class="card" style="max-width: 500px;">
+          <div class="label" style="color: var(--accent); margin-bottom: .6rem; font-size: .85rem;">
+            📋 Probabili Formazioni (fantacalcio.it)
+          </div>
+          <p style="font-size: .8rem; color: var(--text2); margin-bottom: 1rem;">
+            Percentuali di impiego, infortunati, squalificati e avversari mostrati ai patron quando scelgono la formazione.
+            Si aggiornano da sole ogni 30 minuti; qui puoi forzare un aggiornamento immediato.
+          </p>
+          <div id="dashboard-probabili-status" style="font-size: .8rem; color: var(--text2); margin-bottom: .8rem;">Caricamento...</div>
+          <button class="btn btn-blue" onclick="window.aggiornaProbabiliOra()">🔄 Aggiorna probabili ora</button>
         </div>
 
         <div class="card" style="max-width: 500px;">
@@ -172,6 +203,19 @@ export const DashboardSection = {
   },
 
   registerGlobalActions() {
+    window.aggiornaProbabiliOra = async () => {
+      if (!this.db) return console.error("Database non inizializzato");
+      try {
+        this._probPending = Date.now();
+        await set(ref(this.db, 'settings/probabiliRequest'), this._probPending);
+        this._renderProbabiliStatus();
+        window.toast("Richiesta inviata: le probabili si aggiornano tra pochi secondi", "ok");
+      } catch (err) {
+        console.error(err);
+        window.toast("Errore nell'invio della richiesta", "err");
+      }
+    };
+
     window.saveOnFireSettings = async () => {
       if (!this.db) return console.error("Database non inizializzato");
       const weeks = parseInt(document.getElementById('onFireWeeks')?.value, 10) || 4;

@@ -696,6 +696,13 @@ onValue(ref(db, 'trades'), snap => {
   refreshUI();
 });
 
+// PROBABILI FORMAZIONI (scritte dalla Cloud Function da fantacalcio.it)
+// Niente refreshUI qui: ridisegnare la pagina formazione cancellerebbe le scelte non ancora salvate.
+onValue(ref(db, 'probabili'), snap => {
+  window.STATE.probabili = snap.val() || null;
+  if (typeof FormazionePage.onProbabiliUpdate === 'function') FormazionePage.onProbabiliUpdate(window.STATE);
+}, err => console.warn('Probabili formazioni non leggibili:', err?.message));
+
 onValue(ref(db, 'players'), snap => {
   window.STATE.players = Object.values(snap.val() || {});
   
