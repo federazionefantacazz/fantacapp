@@ -294,7 +294,7 @@ export const LiveMatchModule = {
       name: p.name,
       role: p.role,
       club: p.club || '',
-      voto: vObj.voto !== undefined && vObj.voto !== null ? Number(vObj.voto) : 0,
+      voto: vObj.voto !== undefined && vObj.voto !== null ? CalcoloMatchService.normalizzaVoto(vObj.voto) : 0,
       fv: vObj.fVoto !== undefined && vObj.fVoto !== null ? Number(vObj.fVoto)
         : (vObj.fantavoto !== undefined && vObj.fantavoto !== null ? Number(vObj.fantavoto) : 0),
       emoji: CalcoloMatchService.emojiFromBonus(vObj.bonus || vObj),

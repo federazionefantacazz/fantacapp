@@ -1,6 +1,7 @@
 import { ref, get, update, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 // Importazione del servizio live condiviso
 import { CalcoloMatchService } from "../services/calcoloMatch.js";
+import { GwService } from "../services/gwService.js";
 
 export const DashboardSection = {
   db: null,
@@ -17,9 +18,39 @@ export const DashboardSection = {
       };
       this._syncOnFireInputs();
     });
+    onValue(ref(this.db, 'statsMeta/giornate'), snap => { this._statsGiornate = snap.val() || {}; this._renderStatsStatus(); });
+    onValue(ref(this.db, 'settings/statsStatus'), snap => { this._statsStatus = snap.val(); this._renderStatsStatus(); });
     onValue(ref(this.db, 'probabili/meta'), snap => { this._probMeta = snap.val(); this._renderProbabiliStatus(); });
     onValue(ref(this.db, 'settings/probabiliStatus'), snap => { this._probStatus = snap.val(); this._renderProbabiliStatus(); });
     this.registerGlobalActions();
+  },
+
+  async _richiediStatistiche(gw) {
+    this._statsPending = Date.now();
+    await set(ref(this.db, 'settings/statsRequest'), { gw: Number(gw), at: this._statsPending });
+    this._renderStatsStatus();
+  },
+
+  _renderStatsStatus() {
+    const el = document.getElementById('dashboard-stats-status');
+    if (!el) return;
+    const fmt = (ts) => ts ? new Date(ts).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+    const esc = (t) => String(t ?? '').replace(/</g, '&lt;');
+    const gws = Object.keys(this._statsGiornate || {}).map(Number).filter(Boolean).sort((a, b) => a - b);
+    const st = this._statsStatus;
+    let html = gws.length
+      ? `<span class="badge badge-green">${gws.length} giornate importate (ultima: ${gws[gws.length - 1]}ª)</span>`
+      : `<span class="badge badge-gray">Nessuna giornata importata</span>`;
+    if (st) {
+      if (st.skipped) html += `<br><span style="color: var(--gold); font-size:.75rem;">⏸️ Richiesta non eseguita ora (${fmt(st.at)}): ${esc(st.reason)}. Riprova più tardi o attendi il recupero automatico.</span>`;
+      else if (st.ok === false) html += `<br><span style="color: var(--accent3); font-size:.75rem;">⚠️ Ultimo tentativo fallito (${fmt(st.at)}): ${esc(st.error)}. Verrà ritentato in automatico.</span>`;
+      else if (st.inCorso) html += `<br><span style="color: var(--gold); font-size:.75rem;">⏳ Import in corso... importate: ${(st.importate || []).join(', ')}</span>`;
+      else if (st.importate) html += `<br><span style="font-size:.75rem;">✅ ${fmt(st.at)}: importate giornate ${(st.importate || []).join(', ')}${st.restanti ? ` · ne restano ${st.restanti}, proseguo in automatico` : ''}</span>`;
+    }
+    if (this._statsPending && (!st || !st.at || st.at < this._statsPending)) {
+      html += `<br><span style="color: var(--gold); font-size:.75rem;">⏳ Richiesta inviata, attendi qualche secondo...</span>`;
+    }
+    el.innerHTML = html;
   },
 
   _renderProbabiliStatus() {
@@ -120,6 +151,21 @@ export const DashboardSection = {
 
         <div class="card" style="max-width: 500px;">
           <div class="label" style="color: var(--accent); margin-bottom: .6rem; font-size: .85rem;">
+            📊 Statistiche Calciatori (fantacalcio.it)
+          </div>
+          <p style="font-size: .8rem; color: var(--text2); margin-bottom: 1rem;">
+            Gol, assist, cartellini, rigori, gol subiti, titolare/subentrato di ogni giornata. Si aggiornano da sole
+            quando premi "Salva Risultati Ufficiali" qui sotto; le giornate precedenti mancanti vengono recuperate in automatico, a blocchi.
+          </p>
+          <div id="dashboard-stats-status" style="font-size: .8rem; color: var(--text2); margin-bottom: .8rem;">Caricamento...</div>
+          <div style="display:flex; gap:.5rem; align-items:center;">
+            <input type="number" id="statsGwInput" class="input-login" min="1" max="38" placeholder="Giornata" style="margin:0; padding:.6rem; max-width:110px;">
+            <button class="btn btn-blue" style="flex:1;" onclick="window.importaStatisticheOra()">📥 Importa fino a questa giornata</button>
+          </div>
+        </div>
+
+        <div class="card" style="max-width: 500px;">
+          <div class="label" style="color: var(--accent); margin-bottom: .6rem; font-size: .85rem;">
             🧮 Calcolatore Risultati Giornata (Salvataggio Master)
           </div>
           <p style="font-size: .8rem; color: var(--text2); margin-bottom: 1rem;">
@@ -207,6 +253,19 @@ export const DashboardSection = {
   },
 
   registerGlobalActions() {
+    window.importaStatisticheOra = async () => {
+      if (!this.db) return console.error("Database non inizializzato");
+      const gw = parseInt(document.getElementById('statsGwInput')?.value, 10);
+      if (!(gw >= 1 && gw <= 38)) return window.toast("Indica una giornata di Serie A tra 1 e 38", "err");
+      try {
+        await this._richiediStatistiche(gw);
+        window.toast(`Richiesta inviata: statistiche fino alla ${gw}ª giornata`, "ok");
+      } catch (err) {
+        console.error(err);
+        window.toast("Errore nell'invio della richiesta", "err");
+      }
+    };
+
     window.aggiornaProbabiliOra = async () => {
       if (!this.db) return console.error("Database non inizializzato");
       try {
@@ -526,6 +585,14 @@ export const DashboardSection = {
         // 8. Applicazione Atomica degli Aggiornamenti
         await update(ref(this.db), updates);
         window.toast(`🎯 Giornata ${gwId.toUpperCase()} salvata e dati aggiornati correttamente!`, "ok");
+
+        // Aggiornamento statistiche calciatori (lo fa la Cloud Function da fantacalcio.it)
+        try {
+          const gwSerieA = GwService.getRealOf(compData, gwId) || Number(gwNum);
+          if (gwSerieA > 0) await this._richiediStatistiche(gwSerieA);
+        } catch (e) {
+          console.warn("Richiesta statistiche non inviata:", e);
+        }
 
       } catch (err) {
         console.error(err);

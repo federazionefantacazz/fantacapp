@@ -495,6 +495,7 @@ import { TeamsPage } from './js/teams.js';
 import { LiveMatchModule } from "./js/liveMatch.js";
 import { ClassificaPage } from './js/classifica.js';
 import { AssetPreloader } from './js/services/assetPreloader.js';
+import { PlayerCard } from './js/components/PlayerCard.js';
 
 window.STATE = { 
   user: null, 
@@ -695,6 +696,14 @@ onValue(ref(db, 'trades'), snap => {
   window.STATE.trades = snap.val() || {};
   refreshUI();
 });
+
+// SCHEDA GIOCATORE: qualsiasi elemento con data-player-id apre la scheda
+PlayerCard.bindGlobal();
+
+// Giornate per cui esistono le statistiche (serve alla scheda giocatore)
+onValue(ref(db, 'statsMeta'), snap => {
+  window.STATE.statsMeta = snap.val() || {};
+}, err => console.warn('Statistiche non leggibili:', err?.message));
 
 // PROBABILI FORMAZIONI (scritte dalla Cloud Function da fantacalcio.it)
 // Niente refreshUI qui: ridisegnare la pagina formazione cancellerebbe le scelte non ancora salvate.

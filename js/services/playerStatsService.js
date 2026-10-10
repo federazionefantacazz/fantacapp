@@ -21,8 +21,8 @@ export const PlayerStatsService = {
 
   _voto(entry) {
     if (entry === undefined || entry === null) return null;
-    const n = Number(typeof entry === 'object' ? entry.voto : entry);
-    return Number.isFinite(n) && n > 0 ? n : null;
+    const n = CalcoloMatchService.normalizzaVoto(typeof entry === 'object' ? entry.voto : entry);
+    return n > 0 ? n : null;
   },
 
   // Stessa regola della home ("Giocatori On Fire"): fantavoto salvato, altrimenti voto + bonus/malus

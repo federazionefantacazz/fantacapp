@@ -85,7 +85,7 @@ function createView({ mode, title, emptyMsg }) {
       `<th class="${c.cls || ''} ${st.sortKey === c.key ? 'on' : ''}" data-sort="${c.key}">${esc(c.label)}${arrow(c)}</th>`).join('');
 
     const body = shown.map(({ p, s }) => `
-      <tr>
+      <tr data-player-id="${esc(p.id)}" style="cursor:pointer;" title="Apri la scheda di ${esc(p.name)}">
         <td class="c-r"><span class="rbadge r${esc(p.role)}" style="width:22px; height:22px; font-size:.65rem; border-radius:6px;">${esc(p.role)}</span></td>
         <td class="c-n l"><div class="lv-name">${playerThumb(p)}<span>${esc(p.name)}</span></div></td>
         <td style="color:var(--text2);">${esc(p.club || '–')}</td>

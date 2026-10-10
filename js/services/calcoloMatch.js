@@ -34,6 +34,17 @@ export const EMOJI_BONUS = {
 
 export const CalcoloMatchService = {
   /**
+   * Normalizza un voto: un voto valido è tra 0 e 10. fantacalcio.it usa il
+   * valore 55 come codice di "senza voto" (s.v.), tipico di chi subentra e
+   * gioca pochi minuti: qualsiasi valore fuori scala viene trattato come s.v. (0).
+   */
+  normalizzaVoto(v) {
+    const n = parseFloat(String(v ?? '').replace(',', '.'));
+    if (!Number.isFinite(n) || n <= 0 || n > 10) return 0;
+    return Math.round(n * 100) / 100;
+  },
+
+  /**
    * Costruisce la stringa di emoji da mostrare nel live a partire
    * dall'oggetto bonus (es: {gol: 2, ammonizione: 1} -> "⚽⚽🟨").
    * @param {Object} bonus - conteggio bonus/malus, es. {gol: 1, assist: 1}
@@ -59,7 +70,7 @@ export const CalcoloMatchService = {
       return 0;
     }
 
-    const votoBase = parseFloat(datiVoto.voto) || 0;
+    const votoBase = this.normalizzaVoto(datiVoto.voto);
     let totaleBonusMalus = 0;
 
     // Scansiona i modificatori dall'oggetto RULE_MATCH
@@ -92,8 +103,7 @@ export const CalcoloMatchService = {
   hasVoto(datiVoto) {
     if (!datiVoto || typeof datiVoto !== 'object') return false;
     if (datiVoto.voto === undefined || datiVoto.voto === null || datiVoto.voto === '') return false;
-    const n = parseFloat(datiVoto.voto);
-    return Number.isFinite(n) && n > 0;
+    return this.normalizzaVoto(datiVoto.voto) > 0; // 55 = s.v.
   },
 
   /**

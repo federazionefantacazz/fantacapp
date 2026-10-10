@@ -31,6 +31,7 @@ const ASSETS_TO_CACHE = [
   './js/components/MatchCardResult.js',
   './js/components/MatchCardVS.js',
   './js/components/MenuPanel.js',
+  './js/components/PlayerCard.js',
 
   // Pagine del menu laterale
   './js/menu/menuUtils.js',

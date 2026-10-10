@@ -154,7 +154,7 @@ export const TeamsPage = {
           : `<div style="width:28px; height:28px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.7rem; color:var(--text3); flex-shrink:0;"><i class="ri-user-3-line"></i></div>`;
 
         return `
-          <div class="pcard" style="display:flex; align-items:center; gap:0.6rem;">
+          <div class="pcard" data-player-id="${p.id}" style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
             <div class="rbadge r${p.role}" style="width:24px;height:24px;font-size:.6rem;border-radius:5px;flex-shrink:0;">${p.role}</div>
             ${imgHtml}
             <div class="pi" style="flex:1; min-width:0;">
