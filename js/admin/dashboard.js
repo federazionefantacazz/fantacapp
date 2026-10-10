@@ -30,7 +30,11 @@ export const DashboardSection = {
     let html = m
       ? `<span class="badge badge-green">${m.giornata}ª giornata · ${m.matches} partite · ${m.players} giocatori</span><br><span style="font-size:.75rem;">Ultimo aggiornamento dati: ${fmt(m.updatedAt)}</span>`
       : `<span class="badge badge-gray">Nessun dato ancora scaricato</span>`;
-    if (st && st.ok === false) {
+    if (st && st.skipped) {
+      html += `<br><span style="color: var(--gold); font-size:.75rem;">⏸️ Richiesta non eseguita (${fmt(st.at)}): ${String(st.reason || '').replace(/</g, '&lt;')}</span>`;
+    } else if (st && st.ok && st.invariata) {
+      html += `<br><span style="font-size:.75rem;">✅ Controllo del ${fmt(st.at)}: nessuna novità su fantacalcio.it</span>`;
+    } else if (st && st.ok === false) {
       html += `<br><span style="color: var(--accent3); font-size:.75rem;">⚠️ Ultimo tentativo fallito (${fmt(st.at)}): ${String(st.error || '').replace(/</g, '&lt;')}</span>`;
     }
     if (this._probPending && (!st || !st.at || st.at < this._probPending)) {
@@ -108,7 +112,7 @@ export const DashboardSection = {
           </div>
           <p style="font-size: .8rem; color: var(--text2); margin-bottom: 1rem;">
             Percentuali di impiego, infortunati, squalificati e avversari mostrati ai patron quando scelgono la formazione.
-            Si aggiornano da sole ogni 30 minuti; qui puoi forzare un aggiornamento immediato.
+            Si aggiornano da sole ogni 2 ore (dalle 8 alle 22). Qui puoi forzare un aggiornamento: per non sovraccaricare fantacalcio.it è consentito al massimo una volta ogni 20 minuti.
           </p>
           <div id="dashboard-probabili-status" style="font-size: .8rem; color: var(--text2); margin-bottom: .8rem;">Caricamento...</div>
           <button class="btn btn-blue" onclick="window.aggiornaProbabiliOra()">🔄 Aggiorna probabili ora</button>
