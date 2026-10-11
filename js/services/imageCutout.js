@@ -6,7 +6,7 @@
  * Uso: cutoutSync(url) restituisce subito il PNG se è già pronto ('' se è in lavorazione);
  * whenCutoutsReady(urls) risolve quando tutti sono pronti.
  */
-const MAX_SIDE = 320;
+const MAX_SIDE = 1024;    // risoluzione massima del logo scontornato (più alta = più nitido sulla maglia)
 const TOLERANCE = 52;     // distanza di colore dallo sfondo considerata "sfondo"
 const FEATHER = 90;       // oltre la tolleranza: bordo sfumato fino a questa distanza
 
@@ -32,6 +32,7 @@ function process(img) {
   const canvas = document.createElement('canvas');
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(img, 0, 0, w, h);
   const data = ctx.getImageData(0, 0, w, h); // lancia un errore se l'immagine non è CORS
   const d = data.data;
