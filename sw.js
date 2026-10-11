@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.1.28'; // Incrementa ad ogni modifica dei file statici
+const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.1.30'; // Incrementa ad ogni modifica dei file statici
 const IMAGE_CACHE = 'fantacapp-images-v1'; // riempita da js/services/assetPreloader.js: non va cancellata agli aggiornamenti
 
 // 1. Array pulito e aggiornato
@@ -10,6 +10,17 @@ const ASSETS_TO_CACHE = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/logo-federazione.jpg',
+  // maglia 3D dell'editor della divisa (three.js + modello)
+  './icons/kit3d/shirt.glb',
+  './icons/kit3d/mask.png',
+  './icons/kit3d/seams.jpg',
+  './icons/kit3d/uv-template.png',
+  './vendor/three/three.module.min.js',
+  './vendor/three/GLTFLoader.js',
+  './vendor/three/BufferGeometryUtils.js',
+  './vendor/three/meshopt_decoder.module.js',
+  './vendor/three/OrbitControls.js',
+  './vendor/three/RoomEnvironment.js',
   
   // Servizi
   './js/services/integrationImgBB.js',
@@ -24,6 +35,8 @@ const ASSETS_TO_CACHE = [
   './js/services/themeService.js',
   './js/services/playerStatsService.js',
   './js/services/probabiliService.js',
+  './js/services/imageCutout.js',
+  './js/services/kitAssets.js',
 
   // Componenti
   './js/components/AnteprimaClassifica.js',
@@ -33,6 +46,7 @@ const ASSETS_TO_CACHE = [
   './js/components/MatchCardVS.js',
   './js/components/MenuPanel.js',
   './js/components/PlayerCard.js',
+  './js/components/Kit3D.js',
   './js/components/KitRenderer.js',
 
   // Pagine del menu laterale
@@ -65,6 +79,7 @@ const ASSETS_TO_CACHE = [
   './js/admin/competizioni.js',
   './js/admin/themes.js',
   './js/admin/accounts.js',
+  './js/admin/divise.js',
   './js/admin/calendario/calendario.js',
   './js/admin/calendario/calendario-state.js',
   './js/admin/calendario/calendario-ui.js',
@@ -121,7 +136,9 @@ self.addEventListener('fetch', event => {
   // IMMAGINI (ImgBB): prima la cache immagini, altrimenti rete
   if (url.includes('i.ibb.co') || url.includes('imgbb.com')) {
     event.respondWith(
-      caches.match(url, { cacheName: IMAGE_CACHE }).then(cached => cached || fetch(event.request))
+      // una copia "opaca" in cache non va bene per le richieste CORS (es. loghi dipinti sulla maglia 3D)
+      caches.match(url, { cacheName: IMAGE_CACHE }).then(cached =>
+        (cached && !(event.request.mode === 'cors' && cached.type === 'opaque')) ? cached : fetch(event.request))
     );
     return;
   }
