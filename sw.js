@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.1.31'; // Incrementa ad ogni modifica dei file statici
+const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.1.30'; // Incrementa ad ogni modifica dei file statici
 const IMAGE_CACHE = 'fantacapp-images-v1'; // riempita da js/services/assetPreloader.js: non va cancellata agli aggiornamenti
 
 // 1. Array pulito e aggiornato
@@ -47,7 +47,6 @@ const ASSETS_TO_CACHE = [
   './js/components/MenuPanel.js',
   './js/components/PlayerCard.js',
   './js/components/Kit3D.js',
-  './js/components/kitShapes.js',
   './js/components/KitRenderer.js',
 
   // Pagine del menu laterale
