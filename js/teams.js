@@ -236,8 +236,8 @@ export const TeamsPage = {
             const sizePx = Math.round(42 * (tr.scale / 100));
 
             const imgHtml = tr.image
-              ? `<img src="${tr.image}" alt="${tr.name}" style="width:${sizePx}px; height:${sizePx}px; object-fit:contain; vertical-align:middle; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));" onerror="this.outerHTML='<span style=\\'font-size:1.5rem\\'>🏆</span>'">`
-              : `<span style="font-size:1.5rem">🏆</span>`;
+              ? `<img src="${tr.image}" alt="${tr.name}" style="width:${sizePx}px; height:${sizePx}px; object-fit:contain; vertical-align:middle; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));" onerror="this.outerHTML='<i class=\\'ri-trophy-fill\\' style=\\'font-size:1.5rem;color:var(--gold)\\'></i>'">`
+              : `<i class="ri-trophy-fill" style="font-size:1.5rem;color:var(--gold)"></i>`;
 
             return `
               <div style="background:var(--bg3); border:1px solid rgba(255,255,255,0.06); padding:.6rem .8rem; border-radius:10px; display:flex; align-items:center; gap:.8rem;">
@@ -249,7 +249,7 @@ export const TeamsPage = {
                   <div style="font-size:.75rem; color:var(--text2);">Stagione: <strong style="color:var(--text);">${tr.season}</strong></div>
                 </div>
                 <div style="background:rgba(245,166,35,0.15); color:var(--gold); font-size:.7rem; font-weight:600; padding:.2rem .5rem; border-radius:6px; flex-shrink:0;">
-                  🏆 Vinto
+                  <i class="ri-trophy-fill"></i> Vinto
                 </div>
               </div>
             `;

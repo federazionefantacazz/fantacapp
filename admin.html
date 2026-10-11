@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#22272f">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <title>Fantacazz — Patron</title>
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
 <style>
 :root {
   --bg: #1a1e24;       
@@ -181,7 +182,7 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
       <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
     <div class="logo">Fantacazz<span>Patron</span></div>
-    <div id="mobileSyncStatus" style="font-size: 0.7rem; color: var(--accent)">🟢 Connesso</div>
+    <div id="mobileSyncStatus" style="font-size: 0.7rem; color: var(--accent)"><i class="ri-checkbox-blank-circle-fill"></i> Connesso</div>
   </div>
 
   <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="window.closeSidebar()"></div>
@@ -199,8 +200,8 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
     <div class="nav-links-container"></div>
 
     <div class="sidebar-bottom">
-      <div class="sync-status" id="syncStatus">⚪ Caricamento...</div>
-      <a class="btn btn-outline" href="index.html">← Torna all'app</a>
+      <div class="sync-status" id="syncStatus"><i class="ri-checkbox-blank-circle-line"></i> Caricamento...</div>
+      <a class="btn btn-outline" href="index.html"><i class="ri-arrow-left-line"></i> Torna all'app</a>
     </div>
   </div>
 
@@ -384,7 +385,7 @@ function initAdminApp() {
 
   const syncStatusEl = document.getElementById('syncStatus');
   if (syncStatusEl) {
-    syncStatusEl.innerHTML = "🟢 Connesso in sicurezza";
+    syncStatusEl.innerHTML = '<i class="ri-shield-check-fill"></i> Connesso in sicurezza';
     syncStatusEl.style.color = "var(--accent)";
   }
 

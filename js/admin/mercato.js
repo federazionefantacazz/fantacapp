@@ -75,7 +75,7 @@ export const MercatoSection = {
 
     // 2. Popola il select delle fanta-squadre
     tSelect.innerHTML = TEAMS.map(t =>
-      `<option value="${t.id}">${t.emoji || '⚽'} ${t.name}</option>`
+      `<option value="${t.id}">${t.name}</option>`
     ).join('');
 
     // 3. Ripristina l'ultima squadra selezionata se ancora presente tra i team
@@ -92,8 +92,8 @@ export const MercatoSection = {
     tbody.innerHTML = sorted.map(p => {
       const fantaTeam = TEAMS.find(t => t.id === p.teamId);
       const teamBadge = fantaTeam
-        ? `<span class="badge badge-blue">${fantaTeam.emoji || '⚽'} ${fantaTeam.name}</span>`
-        : `<span class="badge badge-gray">❌ Svincolato</span>`;
+        ? `<span class="badge badge-blue"><i class="ri-shield-line"></i> ${fantaTeam.name}</span>`
+        : `<span class="badge badge-gray"><i class="ri-close-circle-line"></i> Svincolato</span>`;
       return `
         <tr>
           <td><strong>${p.name}</strong></td>

@@ -3,7 +3,6 @@ import { MercatoService, ROLES, LOAN_MIN, LOAN_MAX } from './services/mercatoSer
 
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 const sid = (v) => String(v ?? '');
-const ROLE_COLOR = { P: '#475569', D: '#2196f3', C: '#e91e63', A: '#ff5722' };
 const ROLE_NAME = { P: 'Portieri', D: 'Difensori', C: 'Centrocampisti', A: 'Attaccanti' };
 
 const STATUS = {
@@ -223,7 +222,7 @@ export const MercatoPage = {
     const lockTxt = locked ? `In prestito fino alla G${p.loan.endGw}` : (p.club || '');
     return `
       <div class="mk-prow ${selected ? 'sel' : ''} ${locked ? 'lock' : ''}" ${locked ? '' : `data-act="toggle" data-side="${side}" data-pid="${esc(p.id)}"`}>
-        <div class="rbadge" style="background:${ROLE_COLOR[p.role] || '#555'}">${esc(p.role)}</div>
+        <div class="rbadge r${esc(p.role)}">${esc(p.role)}</div>
         <div><div class="nm">${esc(p.name)}</div><div class="sub">${esc(lockTxt)}</div></div>
         <div class="mk-check">${locked ? '<i class="ri-lock-line" style="font-size:.7rem"></i>' : (selected ? '<i class="ri-check-line"></i>' : '')}</div>
       </div>`;
@@ -271,7 +270,7 @@ export const MercatoPage = {
 
     const names = (ids) => ids.map(id => {
       const p = pmap.get(id);
-      return `<div class="mk-line"><span class="rbadge" style="width:20px;height:20px;font-size:.62rem;border-radius:5px;background:${ROLE_COLOR[p.role]}">${esc(p.role)}</span>${esc(p.name)}</div>`;
+      return `<div class="mk-line"><span class="rbadge r${esc(p.role)}" style="width:20px;height:20px;font-size:.62rem;border-radius:5px">${esc(p.role)}</span>${esc(p.name)}</div>`;
     }).join('') || `<div style="font-size:.75rem;color:var(--text3)">Nessuno</div>`;
 
     const gw = this._gw();
@@ -338,7 +337,7 @@ export const MercatoPage = {
     const cedo = mine ? t.giveInfo : t.getInfo;
     const ricevo = mine ? t.getInfo : t.giveInfo;
     const date = t.createdAt ? new Date(t.createdAt).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
-    const list = (arr) => (arr || []).map(p => `<div class="mk-line"><span class="rbadge" style="width:20px;height:20px;font-size:.62rem;border-radius:5px;background:${ROLE_COLOR[p.role] || '#555'}">${esc(p.role)}</span>${esc(p.name)}</div>`).join('');
+    const list = (arr) => (arr || []).map(p => `<div class="mk-line"><span class="rbadge r${esc(p.role)}" style="width:20px;height:20px;font-size:.62rem;border-radius:5px">${esc(p.role)}</span>${esc(p.name)}</div>`).join('');
 
     let loanInfo = '';
     if (t.tipo === 'prestito') {
@@ -346,7 +345,7 @@ export const MercatoPage = {
         const left = MercatoService.giornateRimaste(t, this._gw());
         loanInfo = `<div style="font-size:.75rem;color:var(--text2);margin-top:.6rem"><i class="ri-calendar-line"></i> Dalla G${t.startGw} alla G${t.endGw} · rientro alla G${t.endGw} (${left === 0 ? 'in scadenza' : `restano ${left} giornate`})</div>`;
       } else if (t.status === 'returned') {
-        loanInfo = `<div style="font-size:.75rem;color:var(--text2);margin-top:.6rem"><i class="ri-calendar-line"></i> G${t.startGw} → G${t.endGw} · giocatori rientrati (G${t.returnedAtGw})</div>`;
+        loanInfo = `<div style="font-size:.75rem;color:var(--text2);margin-top:.6rem"><i class="ri-calendar-line"></i> G${t.startGw} <i class="ri-arrow-right-line"></i> G${t.endGw} · giocatori rientrati (G${t.returnedAtGw})</div>`;
       } else {
         loanInfo = `<div style="font-size:.75rem;color:var(--text2);margin-top:.6rem"><i class="ri-calendar-line"></i> Durata proposta: ${t.durata} giornate</div>`;
       }

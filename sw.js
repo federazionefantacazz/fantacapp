@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.1.24'; // Incrementa ad ogni modifica dei file statici
+const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.1.25'; // Incrementa ad ogni modifica dei file statici
 const IMAGE_CACHE = 'fantacapp-images-v1'; // riempita da js/services/assetPreloader.js: non va cancellata agli aggiornamenti
 
 // 1. Array pulito e aggiornato
@@ -81,7 +81,7 @@ self.addEventListener('install', event => {
         return Promise.all(
           ASSETS_TO_CACHE.map(url => {
             return cache.add(url).catch(err => {
-              console.error(`⚠️ Impossibile inserire in cache (File mancante o errato): ${url}`, err);
+              console.error(`Impossibile inserire in cache (File mancante o errato): ${url}`, err);
             });
           })
         );

@@ -671,10 +671,8 @@ export const FormazionePage = {
           }
         }
 
-        let bgShirt = '#475569'; 
-        if (reparto.role === 'D') bgShirt = '#2196f3'; 
-        if (reparto.role === 'C') bgShirt = '#e91e63'; 
-        if (reparto.role === 'A') bgShirt = '#ff5722'; 
+        // colori del ruolo dal tema (sfondo e testo del badge)
+        const roleVar = String(reparto.role || 'P').toLowerCase();
 
         const playerDiv = document.createElement('div');
         playerDiv.className = 'field-player';
@@ -684,7 +682,7 @@ export const FormazionePage = {
         const shirtClass = photoUrl ? 'player-shirt has-png' : 'player-shirt is-circle';
         const shirtStyle = photoUrl 
           ? `background-image: url('${photoUrl}');`
-          : `background-color: ${bgShirt}; color: #fff;`;
+          : `background-color: var(--role-${roleVar}); color: var(--role-${roleVar}-text);`;
 
         const preObj = rosa.find(p => p.id === preselectedId);
 
@@ -723,7 +721,7 @@ export const FormazionePage = {
             labelEl.style.borderColor = '';
             
             shirtEl.className = 'player-shirt is-circle';
-            shirtEl.style.cssText = `background-color: ${bgShirt}; color: #fff;`;
+            shirtEl.style.cssText = `background-color: var(--role-${roleVar}); color: var(--role-${roleVar}-text);`;
             shirtEl.textContent = reparto.role;
           } else {
             const pObj = rosa.find(p => String(p.id) === String(val));
@@ -739,7 +737,7 @@ export const FormazionePage = {
               shirtEl.textContent = '';
             } else {
               shirtEl.className = 'player-shirt is-circle';
-              shirtEl.style.cssText = `background-color: ${bgShirt}; color: #fff;`;
+              shirtEl.style.cssText = `background-color: var(--role-${roleVar}); color: var(--role-${roleVar}-text);`;
               shirtEl.textContent = reparto.role;
             }
           }

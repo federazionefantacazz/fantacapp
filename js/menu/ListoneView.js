@@ -80,7 +80,7 @@ function createView({ mode, title, emptyMsg }) {
       return;
     }
 
-    const arrow = (c) => (st.sortKey === c.key ? (st.sortDir === 1 ? ' ▲' : ' ▼') : '');
+    const arrow = (c) => (st.sortKey === c.key ? ` <i class="${st.sortDir === 1 ? 'ri-arrow-up-s-fill' : 'ri-arrow-down-s-fill'}"></i>` : '');
     const head = cols.map(c =>
       `<th class="${c.cls || ''} ${st.sortKey === c.key ? 'on' : ''}" data-sort="${c.key}">${esc(c.label)}${arrow(c)}</th>`).join('');
 

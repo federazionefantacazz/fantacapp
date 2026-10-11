@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#0a0f1e">
+<meta name="theme-color" content="#121519">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<!-- black-translucent: la pagina va sotto la status bar di iOS, colorata da #status-bar come la barra in basso -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Fantacapp">
 <link rel="manifest" href="manifest.json">
 <link class="apple-touch-icon" href="icons/icon-192.png">
@@ -59,6 +60,10 @@
   --role-d: #0077ff;
   --role-c: #00e5a0;
   --role-a: #ff4757;
+  --role-p-text: #fff;     /* Testo dentro i badge ruolo */
+  --role-d-text: #fff;
+  --role-c-text: #0a0f1e;
+  --role-a-text: #fff;
 }
 
 /* ==================== HEADER COMPATTO GLASS ==================== */
@@ -280,7 +285,7 @@ body {
 .pcard{background:var(--card2);border-radius:12px;padding:.5rem .75rem;display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem;transition:background .15s ease}
 .pcard:active{background:rgba(255,255,255,0.04)}
 .rbadge{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15)}
-.rP{background:var(--role-p)}.rD{background:var(--role-d)}.rC{background:var(--role-c);color:#0a0f1e}.rA{background:var(--role-a)}
+.rP{background:var(--role-p);color:var(--role-p-text)}.rD{background:var(--role-d);color:var(--role-d-text)}.rC{background:var(--role-c);color:var(--role-c-text)}.rA{background:var(--role-a);color:var(--role-a-text)}
 .pi{flex:1;min-width:0}
 .pn{font-size:.9rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
 .pm{font-size:.72rem;color:var(--text2)}
@@ -292,6 +297,20 @@ body {
 .select-rose, .input-login{width:100%;background:var(--bg3);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:.7rem .9rem;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none}
 .input-login{background:var(--bg2);border-color:rgba(255,255,255,0.15);margin-bottom:1rem;user-select:text !important;-webkit-user-select:text !important;}
 .link-toggle{color:var(--accent2);font-size:.8rem;text-decoration:none;display:inline-block;margin-top:1rem;cursor:pointer}
+
+/* ==================== STATUS BAR (iPhone) ====================
+   Fascia sotto l'ora/batteria (safe area in alto): stesso colore della barra in basso.
+   Il tema imposta --nav-bg sia su #nav sia su #status-bar. */
+#status-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top, 0px);
+  background: var(--nav-bg);
+  z-index: 2500;
+  pointer-events: none;
+}
 
 /* ==================== BOTTOM NAV RIDISEGNATA ==================== */
 #nav {
@@ -384,6 +403,8 @@ body {
 </script>
 </head>
 <body>
+
+<div id="status-bar" aria-hidden="true"></div>
 
 <div id="app">
   <!-- HEADER: SELETTORE A SINISTRA, MENU A DESTRA -->
@@ -479,7 +500,7 @@ body {
 <script type="module">
 import { db, auth, ref, onValue, set, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from './js/firebase-config.js';
 import { isPatron } from './js/services/roleService.js';
-import { applyThemeVars, applyThemeCss, applyBackground, cacheUserTheme, getCachedUserTheme, LAST_UID_KEY } from './js/services/themeService.js';
+import { applyThemeVars, applyThemeCss, applyBackground, cacheUserTheme, getCachedUserTheme, syncStatusBarColor, LAST_UID_KEY } from './js/services/themeService.js';
 import { SettingsService } from './js/services/settingsService.js';
 import { MenuPanel } from './js/components/MenuPanel.js';
 import { ImpostazioniApp } from './js/menu/ImpostazioniApp.js';
@@ -496,6 +517,9 @@ import { LiveMatchModule } from "./js/liveMatch.js";
 import { ClassificaPage } from './js/classifica.js';
 import { AssetPreloader } from './js/services/assetPreloader.js';
 import { PlayerCard } from './js/components/PlayerCard.js';
+
+// il tema in cache è già applicato dallo script nell'<head>: allineo subito la status bar
+syncStatusBarColor();
 
 window.STATE = { 
   user: null, 
@@ -794,7 +818,7 @@ const MENU_VIEWS = {
 window.openMenuPage = function(name) {
   const view = MENU_VIEWS[name];
   window.closeSideMenu();
-  if (view) MenuPanel.open(view);
+  if (view) MenuPanel.open(view, name);
 };
 
 /* ─── Impostazioni utente (settings/{uid} + cache locale) ───────────────── */

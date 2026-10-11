@@ -227,9 +227,9 @@ export const HomePage = {
             const sizePx = Math.round(38 * (tr.scale / 100));
             const overlap = idx > 0 ? `margin-left: -${Math.round(sizePx * 0.28)}px;` : '';
             if (tr.image) {
-              return `<img src="${tr.image}" alt="${tr.name}" title="${tr.name} (${tr.season})" style="width: ${sizePx}px; height: ${sizePx}px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); ${overlap}" onerror="this.outerHTML='<span style=\\'font-size:1.4rem\\' title=\\'${tr.name} (${tr.season})\\'>🏆</span>'">`;
+              return `<img src="${tr.image}" alt="${tr.name}" title="${tr.name} (${tr.season})" style="width: ${sizePx}px; height: ${sizePx}px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); ${overlap}" onerror="this.outerHTML='<i class=\\'ri-trophy-fill\\' style=\\'font-size:1.4rem;color:var(--gold)\\' title=\\'${tr.name} (${tr.season})\\'></i>'">`;
             }
-            return `<span style="font-size: 1.4rem; ${overlap}" title="${tr.name} (${tr.season})">🏆</span>`;
+            return `<i class="ri-trophy-fill" style="font-size: 1.4rem; color: var(--gold); ${overlap}" title="${tr.name} (${tr.season})"></i>`;
           };
 
           trophiesContainer.style.gap = '0';
