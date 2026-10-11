@@ -298,7 +298,7 @@ export const LiveMatchModule = {
     this._pendingKey = null;
     this._data = {
       status, compData: compForStatus, gwKey, gwReale: Number(numeroGwReale) || null,
-      lineups: {}, matchesNode: {}, votes: {}, players: {},
+      lineups: {}, matchesNode: {}, votes: {}, players: {}, liveMatches: {},
       ready: { match: false, votes: false, players: false }
     };
     container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Caricamento dati live...</p>`;
@@ -317,7 +317,13 @@ export const LiveMatchModule = {
       markReady('votes');
     });
 
-    this.unsubscribers = [unsubMatch, unsubVotes];
+    // Orari e stato delle partite di Serie A (facoltativo: se manca si usano le probabili)
+    const unsubLiveMatches = onValue(ref(this.db, `liveMatches/gw${numeroGwReale}`), snap => {
+      this._data.liveMatches = snap.val() || {};
+      if (Object.values(this._data.ready).every(Boolean)) this.render();
+    }, () => {});
+
+    this.unsubscribers = [unsubMatch, unsubVotes, unsubLiveMatches];
     this.activeListener = () => this.unsubscribers.forEach(u => u());
 
     get(ref(this.db, 'players'))
@@ -405,6 +411,7 @@ export const LiveMatchModule = {
       players: this._playersList(d.players),
       votes: d.votes,
       gwReale: d.gwReale,
+      liveMatches: d.liveMatches,
       couple: sel
     });
 
@@ -576,12 +583,31 @@ export const LiveMatchModule = {
     return CalcoloMatchService.calcolaFantavoto({ voto, ...ev });
   },
 
-  /** Kickoff (ms) di una data delle probabili formazioni, o null. */
+  /**
+   * Kickoff (ms) o null. Formati gestiti:
+   *  - timestamp numerico (ms o secondi), ISO
+   *  - probabili formazioni: "sabato 10 ottobre, 15:00"
+   *  - "10/10 15:00", "10/10/2026 15:00"
+   */
   _parseDate(v) {
     if (v === null || v === undefined || v === '') return null;
-    if (typeof v === 'number') return v < 1e12 ? v * 1000 : v;
+    if (typeof v === 'number' || /^\d{9,13}$/.test(String(v))) {
+      const n = Number(v);
+      return n > 0 ? (n < 1e12 ? n * 1000 : n) : null;
+    }
     const s = String(v).trim();
     if (/^\d{4}-\d{2}-\d{2}/.test(s)) { const t = Date.parse(s); return Number.isNaN(t) ? null : t; }
+    const mesi = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+    const it = s.toLowerCase().match(/(\d{1,2})\s+([a-z]+)\D*?(\d{1,2})[:.](\d{2})/);
+    if (it) {
+      const mese = mesi.findIndex(m => m.startsWith(it[2].slice(0, 3)));
+      if (mese >= 0) {
+        // l'anno non c'è: prendo quello che rende la data più vicina a oggi (cambio d'anno)
+        const now = new Date();
+        const cands = [-1, 0, 1].map(dy => new Date(now.getFullYear() + dy, mese, Number(it[1]), Number(it[3]), Number(it[4])).getTime());
+        return cands.reduce((a, b) => Math.abs(b - now) < Math.abs(a - now) ? b : a);
+      }
+    }
     const m = s.match(/(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?\D+(\d{1,2})[:.](\d{2})/);
     if (m) {
       let y = m[3] ? Number(m[3]) : new Date().getFullYear();
@@ -593,7 +619,7 @@ export const LiveMatchModule = {
   },
 
   /** Contesto comune a tutti i giocatori della partita. */
-  _ctx({ mode, votes, playersById, gwReale }) {
+  _ctx({ mode, votes, playersById, gwReale, liveMatches = null }) {
     const STATE = window.STATE || {};
     const meta = ProbabiliService.meta(STATE);
     // Le probabili valgono solo per la loro giornata
@@ -611,7 +637,10 @@ export const LiveMatchModule = {
       if (!p) return;
       clubs.set(norm(p.club), { any: true });
     });
-    return { mode, votes: votes || {}, probOk, clubs, updatedAt, now: Date.now(), STATE };
+    // Partite di Serie A dal feed live (liveMatches/gw{n}, scritto dalla Cloud Function)
+    const matches = new Map();
+    Object.entries(liveMatches || {}).forEach(([k, m]) => { if (m && typeof m === 'object') matches.set(norm(m.name || k), m); });
+    return { mode, votes: votes || {}, probOk, clubs, matches, updatedAt, now: Date.now(), STATE };
   },
 
   _player(id, playersById, ctx) {
@@ -624,16 +653,17 @@ export const LiveMatchModule = {
     const entry = raw !== undefined && raw !== null && typeof raw !== 'object' ? { voto: raw } : raw;
     const ev = this._events(entry);
     base.ev = ev;
-    base.subIn = !!(entry && (entry.entrato || entry.subentrato || entry.in === true || entry.s === 's'));
-    base.subOut = !!(entry && (entry.uscito || entry.sostituito || entry.out === true));
+    base.subIn = !!(entry && (entry.in || entry.entrato || entry.subentrato || entry.s === 's'));
+    base.subOut = !!(entry && (entry.out || entry.uscito || entry.sostituito));
 
     if (ctx.mode === 'next') {
       return { ...base, ...this._todo(p, ctx) };
     }
 
     const todo = this._todo(p, ctx);
-    const kick = todo.kickoff;
-    const inCorso = !!kick && ctx.now >= kick && ctx.now < kick + MATCH_MINUTES * 60000;
+    const stato = this._matchState(base.club, todo.kickoff, ctx);
+    const kick = stato.kickoff;
+    const inCorso = stato.state === 'live';
 
     if (entry) {
       const voto = CalcoloMatchService.normalizzaVoto(entry.voto);
@@ -649,14 +679,29 @@ export const LiveMatchModule = {
 
     // Live, nessun voto: dipende da come sta andando la partita del suo club
     const club = ctx.clubs.get(norm(base.club));
-    if (kick) {
-      if (ctx.now < kick) return { ...base, ...todo };
+    if (stato.state) {
+      if (stato.state === 'todo') return { ...base, ...todo, kickoff: kick };
       if (inCorso) return { ...base, kind: 'playing', kickoff: kick };
-      return { ...base, kind: club?.any ? 'sv' : 'wait', kickoff: kick };
+      return { ...base, kind: club?.any || stato.fromFeed ? 'sv' : 'wait', kickoff: kick };
     }
     // Orario sconosciuto: se il suo club ha già i voti e lui no, non è entrato
     if (club?.any) return { ...base, kind: 'sv' };
     return { ...base, ...todo };
+  },
+
+  /**
+   * Stato della partita di Serie A di un club: { state: 'todo'|'live'|'done'|null, kickoff, fromFeed }.
+   * Prima il feed live (orario esatto e inizio secondo tempo), poi l'orario delle probabili.
+   */
+  _matchState(club, probKickoff, ctx) {
+    const m = ctx.matches?.get(norm(club));
+    const kick = (m && this._parseDate(m.date)) || probKickoff || null;
+    if (!kick) return { state: null, kickoff: null, fromFeed: !!m };
+    if (m && m.finished === true) return { state: 'done', kickoff: kick, fromFeed: true };
+    if (ctx.now < kick) return { state: 'todo', kickoff: kick, fromFeed: !!m };
+    const sh = m ? this._parseDate(m.sh) : null; // inizio secondo tempo
+    const fine = sh ? sh + 55 * 60000 : kick + MATCH_MINUTES * 60000;
+    return { state: ctx.now < fine ? 'live' : 'done', kickoff: kick, fromFeed: !!m };
   },
 
   /** Giocatore che deve ancora giocare: probabilità e stato dalle probabili formazioni. */
@@ -730,9 +775,9 @@ export const LiveMatchModule = {
   // ------------------------------------------------------------------
   // Markup
   // ------------------------------------------------------------------
-  _matchMarkup({ mode, homeId, awayId, lineups, players, votes, gwReale, couple }) {
+  _matchMarkup({ mode, homeId, awayId, lineups, players, votes, gwReale, couple, liveMatches }) {
     const playersById = new Map((players || []).filter(p => p && p.id !== undefined).map(p => [String(p.id), p]));
-    const ctx = this._ctx({ mode, votes, playersById, gwReale });
+    const ctx = this._ctx({ mode, votes, playersById, gwReale, liveMatches });
     const home = this._team(homeId, lineups, playersById, ctx);
     const away = this._team(awayId, lineups, playersById, ctx);
     const isLive = mode === 'live';
@@ -1036,7 +1081,7 @@ export const LiveMatchModule = {
     if (!p) return null;
     const votes = d?.votes || {};
     const playersById = new Map([[String(p.id), p]]);
-    const ctx = this._ctx({ mode: 'live', votes, playersById, gwReale: d?.gwReale });
+    const ctx = this._ctx({ mode: 'live', votes, playersById, gwReale: d?.gwReale, liveMatches: d?.liveMatches });
     return this._player(pid, playersById, ctx);
   },
 
