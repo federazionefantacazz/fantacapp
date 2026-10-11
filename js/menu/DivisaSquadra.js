@@ -1,14 +1,17 @@
 import { db, ref, update } from '../firebase-config.js';
-import { uploadImageToImgBB } from '../services/integrationImgBB.js';
+import { uploadPngToImgBB } from '../services/integrationImgBB.js';
+import { getCutout } from '../services/imageCutout.js';
+import { getTemplates, getTemplate, getPngPatterns, getPngBrands, onKitAssetsChange } from '../services/kitAssets.js';
 import { esc } from './menuUtils.js';
 import {
-  renderKitSvg, normalizeKit, defaultKit,
-  PRESETS, PATTERNS, COLLARS, SLEEVES, CUFFS, SLEEVE_DECO, BRANDS, SPONSOR_FONTS, PATCH_POSITIONS
+  drawKit, kitCanvasHTML, normalizeKit, defaultKit, patternLabel,
+  PRESETS, PATTERNS, BRANDS, SPONSOR_FONTS, PATCH_POSITIONS, ZONES
 } from '../components/KitRenderer.js';
 
 /**
  * Editor della divisa della squadra (menu laterale → Divisa squadra).
- * La divisa è salvata in teams/{id}/kit (vedi components/KitRenderer.js per lo schema).
+ * La maglia è composta su canvas dai PNG del modello scelto (vedi components/KitRenderer.js);
+ * modelli, disegni e marchi in PNG si aggiungono dall'area Patron (sezione Divise).
  */
 const MAX_LAYERS = 6;
 const MAX_PATCHES = 4;
@@ -19,11 +22,10 @@ const SWATCHES = ['#ffffff', '#000000', '#c62828', '#7a1f1f', '#e65100', '#ffd40
   '#0b5d3b', '#00bcd4', '#1e88e5', '#1e5bb8', '#0d1b4c', '#6a1b9a', '#ec407a', '#9e9e9e'];
 
 const COLOR_FIELDS = [
-  { key: 'base',    label: 'Colore principale' },
+  { key: 'base',    label: 'Busto' },
   { key: 'sleeves', label: 'Maniche' },
   { key: 'collar',  label: 'Colletto' },
-  { key: 'cuffs',   label: 'Polsini' },
-  { key: 'trim',    label: 'Finiture maniche' }
+  { key: 'cuffs',   label: 'Polsini' }
 ];
 
 const STYLE_ID = 'kit-editor-style';
@@ -35,7 +37,9 @@ function injectStyle() {
     .kit-stage { position: sticky; top: -1rem; z-index: 5; margin: -1rem -1rem 1rem; padding: 1rem 1rem .6rem;
       background-color: var(--bg); background-image: linear-gradient(var(--menu-bg, var(--bg)), var(--menu-bg, var(--bg))); border-bottom: 1px solid var(--border); }
     .kit-preview { display: flex; justify-content: center; }
-    .kit-preview svg { width: auto; height: 30vh; max-height: 280px; min-height: 170px; max-width: 100%; filter: drop-shadow(0 8px 14px rgba(0,0,0,.35)); }
+    .kit-preview { height: 30vh; max-height: 300px; min-height: 180px; }
+    .kit-preview > div { height: 100%; aspect-ratio: 800 / 840; max-width: 100%; }
+    .kit-preview canvas { width: 100% !important; height: 100% !important; object-fit: contain; }
     .kit-actions { display: flex; gap: .5rem; justify-content: center; margin-top: .5rem; flex-wrap: wrap; }
     .kit-dirty { font-size: .7rem; color: var(--gold); text-align: center; margin-top: .3rem; min-height: 1em; }
 
@@ -54,13 +58,13 @@ function injectStyle() {
     .kit-grid.wide { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
     .kit-opt { position: relative; background: var(--bg3); border: 2px solid transparent; border-radius: 10px; padding: .25rem .2rem .3rem;
       cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: .15rem; color: var(--text2); font-family: inherit; }
-    .kit-opt svg { width: 100%; height: auto; aspect-ratio: 400 / 420; pointer-events: none; }
+    .kit-opt > div { width: 100%; pointer-events: none; }
     .kit-opt .lb { font-size: .6rem; line-height: 1.15; text-align: center; pointer-events: none; }
     .kit-opt.on { border-color: var(--accent); color: var(--accent); }
     .kit-opt.on::after { content: '\\2713'; position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 50%;
       background: var(--accent); color: var(--bg); font-size: .7rem; font-weight: 700; display: flex; align-items: center; justify-content: center; }
     .kit-brand { height: 44px; width: 100%; border-radius: 6px; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-    .kit-brand svg { width: 52px; height: 36px; aspect-ratio: auto; }
+    .kit-brand img { max-width: 56px; max-height: 36px; object-fit: contain; }
 
     .kit-color-row { display: flex; align-items: center; gap: .6rem; padding: .45rem 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
     .kit-color-row:last-child { border-bottom: none; }
@@ -82,7 +86,7 @@ function injectStyle() {
     .kit-layer { display: flex; align-items: center; gap: .5rem; background: var(--bg3); border: 2px solid transparent; border-radius: 10px; padding: .35rem .5rem; margin-bottom: .4rem; cursor: pointer; }
     .kit-layer.on { border-color: var(--accent); }
     .kit-layer .th { width: 40px; flex-shrink: 0; pointer-events: none; }
-    .kit-layer .th svg { width: 100%; height: auto; }
+    .kit-layer .th > div { width: 100%; }
     .kit-layer .nm { flex: 1; min-width: 0; font-size: .8rem; font-weight: 600; color: var(--text); pointer-events: none; }
     .kit-layer .nm small { display: block; font-weight: 400; color: var(--text2); font-size: .68rem; }
     .kit-icon-btn { background: transparent; border: 1px solid var(--border); color: var(--text2); border-radius: 8px; width: 30px; height: 30px;
@@ -92,19 +96,22 @@ function injectStyle() {
 
     .kit-patch { display: flex; align-items: center; gap: .6rem; padding: .5rem 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
     .kit-patch:last-child { border-bottom: none; }
-    .kit-patch img { width: 38px; height: 38px; object-fit: contain; border-radius: 6px; background: #fff; flex-shrink: 0; }
+    .kit-patch img { width: 38px; height: 38px; object-fit: contain; flex-shrink: 0; filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
     .kit-patch .nm { flex: 1; min-width: 0; font-size: .8rem; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .kit-patch-pos { order: 5; flex-basis: 100%; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; color: var(--text);
       padding: .45rem .5rem; font-family: inherit; font-size: .8rem; }
     .kit-comp { display: flex; flex-direction: column; align-items: center; gap: .25rem; }
-    .kit-comp img { width: 44px; height: 44px; object-fit: contain; border-radius: 8px; background: #fff; pointer-events: none; }
+    .kit-comp img { width: 44px; height: 44px; object-fit: contain; pointer-events: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
     .kit-upload-thumb { width: 90px; height: 50px; object-fit: contain; background: var(--bg3); border-radius: 8px; border: 1px solid var(--border); }
   `;
   document.head.appendChild(style);
 }
 
+
 const clone = (o) => JSON.parse(JSON.stringify(o));
-const patternLabel = (id) => (PATTERNS.find(p => p.id === id) || {}).label || id;
+const svgUrl = (svg) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+const brandThumbUrl = (b, color, base) => svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40">${b.draw(color, base)}</svg>`);
+const patternThumbUrl = (p) => svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${400} ${420}" preserveAspectRatio="xMidYMid slice"><rect width="400" height="420" fill="#2b323c"/>${p.draw('#ffffff', 1, 'th' + p.id)}</svg>`);
 
 /** Patch disponibili: loghi delle competizioni + logo della Federazione. */
 function availablePatches(STATE) {
@@ -132,6 +139,7 @@ export const DivisaSquadra = {
     }
     this._teamId = team.id;
     this._kit = normalizeKit(team.kit || defaultKit());
+    if (!this._kit.template) this._kit.template = getTemplate('').id;
     this._saved = JSON.stringify(this._kit);
     this._layer = 0;
     this._open = 'model';
@@ -140,25 +148,33 @@ export const DivisaSquadra = {
     root.addEventListener('click', (e) => this._onClick(e));
     root.addEventListener('input', (e) => this._onInput(e));
     root.addEventListener('change', (e) => this._onChange(e));
+    // il Patron può aggiungere modelli, disegni e marchi mentre l'editor è aperto
+    this._unwatch = onKitAssetsChange(() => { if (this._root) { this._renderPreview(); this._renderSection(); } });
   },
 
-  refresh(STATE) {
+  refresh() {
     // lo stemma può cambiare (Configurazione squadra): aggiorno solo l'anteprima, senza toccare le modifiche
     if (this._root && this._kit) this._renderPreview();
   },
 
-  unmount() { this._root = null; this._kit = null; },
+  unmount() {
+    if (this._unwatch) this._unwatch();
+    this._unwatch = null;
+    this._root = null;
+    this._kit = null;
+  },
 
   /* -------------------------------------------------------------- render */
   _crest() { return (window.STATE.user && window.STATE.user.logo) || ''; },
   _dirty() { return JSON.stringify(this._kit) !== this._saved; },
 
-  _thumb(kit) { return renderKitSvg(kit, { crestUrl: this._crest(), simple: true }); },
+  /** Miniatura: maglia disegnata su canvas a bassa risoluzione. */
+  _thumb(kit, plain = true) { return kitCanvasHTML(kit, { crestUrl: this._crest(), width: 150, plain }); },
 
   _renderAll() {
     const sections = [
       ['model',   'FASE 1: Seleziona un modello'],
-      ['cut',     'FASE 2: Colletto e maniche'],
+      ['styles',  'FASE 2: Stili rapidi'],
       ['design',  'FASE 3: Disegno (livelli)'],
       ['colors',  'FASE 4: Seleziona i colori'],
       ['sponsor', 'FASE 5: Scelta dello SPONSOR'],
@@ -167,7 +183,7 @@ export const DivisaSquadra = {
     ];
     this._root.innerHTML = `
       <div class="kit-stage">
-        <div class="kit-preview" id="kit-preview"></div>
+        <div class="kit-preview"><div id="kit-preview"><canvas id="kit-preview-canvas" width="800" height="840"></canvas></div></div>
         <div class="kit-dirty" id="kit-dirty"></div>
         <div class="kit-actions">
           <button class="mp-btn ghost" data-act="undo"><i class="ri-arrow-go-back-line"></i> Annulla modifiche</button>
@@ -187,23 +203,31 @@ export const DivisaSquadra = {
 
   _renderPreview() {
     if (!this._root) return;
-    const box = this._root.querySelector('#kit-preview');
-    if (box) box.innerHTML = renderKitSvg(this._kit, { crestUrl: this._crest() });
+    const canvas = this._root.querySelector('#kit-preview-canvas');
+    if (canvas) drawKit(canvas, this._kit, { crestUrl: this._crest() }).catch(e => console.error('Divisa:', e));
     const dirty = this._root.querySelector('#kit-dirty');
     if (dirty) dirty.textContent = this._dirty() ? 'Modifiche non salvate' : '';
   },
 
+  /** Durante trascinamenti (cursori, selettore colore) ridisegno al massimo una volta per frame. */
+  _schedulePreview() {
+    if (this._raf) return;
+    this._raf = requestAnimationFrame(() => { this._raf = 0; this._renderPreview(); });
+  },
+
   /** Ridisegna il contenuto della sezione aperta (le altre restano vuote finché non si aprono). */
   _renderSection() {
+    if (!this._root) return;
     this._root.querySelectorAll('.kit-acc-body').forEach(b => { b.innerHTML = ''; });
     const key = this._open;
     const box = key && this._root.querySelector(`#kit-sec-${key}`);
     if (!box) return;
     const fn = {
-      model: this._secModel, cut: this._secCut, design: this._secDesign, colors: this._secColors,
+      model: this._secModel, styles: this._secStyles, design: this._secDesign, colors: this._secColors,
       sponsor: this._secSponsor, brand: this._secBrand, patches: this._secPatches
     }[key];
     box.innerHTML = fn.call(this);
+    box.querySelectorAll('img[data-cut]').forEach(img => getCutout(img.dataset.cut).then(u => { if (u) img.src = u; }));
   },
 
   /** Porta la sezione appena aperta subito sotto l'anteprima (che resta fissa in alto). */
@@ -222,8 +246,8 @@ export const DivisaSquadra = {
     if (section) this._renderSection();
   },
 
-  _opt(act, value, svg, label, on, extra = '') {
-    return `<button class="kit-opt ${on ? 'on' : ''}" data-act="${act}" data-v="${esc(value)}" ${extra} title="${esc(label)}">${svg}<span class="lb">${esc(label)}</span></button>`;
+  _opt(act, value, inner, label, on) {
+    return `<button class="kit-opt ${on ? 'on' : ''}" data-act="${act}" data-v="${esc(value)}" title="${esc(label)}">${inner}<span class="lb">${esc(label)}</span></button>`;
   },
 
   _colorPicker(path, value) {
@@ -244,35 +268,29 @@ export const DivisaSquadra = {
   _secModel() {
     const k = this._kit;
     return `
-      <div class="mp-muted" style="margin-bottom:.6rem;">Parti da un modello: puoi poi cambiare colletto, maniche, disegno e colori nelle fasi successive. Sponsor, stemma e patch restano invariati.</div>
-      <div class="kit-grid">
-        ${PRESETS.map((p, i) => this._opt('preset', i, this._thumb({ ...k, ...p.kit, sleeveDeco: p.kit.sleeveDeco || 'none', sponsor: { mode: 'none' }, patches: [], crest: { show: false }, brand: { id: 'none' } }), p.name, false)).join('')}
+      <div class="mp-muted" style="margin-bottom:.6rem;">Scegli il modello di maglia (colletto e maniche). Colori, disegno, sponsor e patch restano quelli scelti.</div>
+      <div class="kit-grid wide">
+        ${getTemplates().map(t => this._opt('template', t.id, this._thumb({ ...k, template: t.id }), t.name, k.template === t.id)).join('')}
       </div>`;
   },
 
-  _secCut() {
+  _secStyles() {
     const k = this._kit;
-    const base = { ...k, sponsor: { mode: 'none' }, patches: [], crest: { show: false } };
     return `
-      <div class="kit-sub">Colletto</div>
-      <div class="kit-grid">${COLLARS.map(c => this._opt('collar', c.id, this._thumb({ ...base, collar: c.id }), c.label, k.collar === c.id)).join('')}</div>
-      <div class="kit-sub">Maniche</div>
-      <div class="kit-grid">${SLEEVES.map(s => this._opt('sleeves', s.id, this._thumb({ ...base, sleeves: s.id }), s.label, k.sleeves === s.id)).join('')}</div>
-      <div class="kit-sub">Polsini</div>
-      <div class="kit-grid">${CUFFS.map(c => this._opt('cuffs', c.id, this._thumb({ ...base, cuffs: c.id }), c.label, k.cuffs === c.id)).join('')}</div>
-      <div class="kit-sub">Decorazioni maniche</div>
-      <div class="kit-grid">${SLEEVE_DECO.map(d => this._opt('sleeveDeco', d.id, this._thumb({ ...base, sleeveDeco: d.id }), d.label, k.sleeveDeco === d.id)).join('')}</div>
-      <div class="mp-muted" style="margin-top:.6rem;">Colori di polsini e decorazioni nella FASE 4.</div>`;
+      <div class="mp-muted" style="margin-bottom:.6rem;">Parti da un disegno già pronto: poi puoi modificarlo nella FASE 3. Cambia solo il disegno.</div>
+      <div class="kit-grid">
+        ${PRESETS.map((p, i) => this._opt('preset', i, this._thumb({ ...k, layers: normalizeKit({ layers: p.kit.layers }).layers }), p.name, false)).join('')}
+      </div>`;
   },
 
   _secDesign() {
     const k = this._kit;
-    const plain = { ...k, layers: [], sponsor: { mode: 'none' }, patches: [], crest: { show: false }, brand: { id: 'none' } };
     const sel = Math.min(this._layer, k.layers.length - 1);
+    const zoneLabel = (z) => (ZONES.find(x => x.id === z) || {}).label || '';
     const layers = k.layers.map((l, i) => `
       <div class="kit-layer ${i === sel ? 'on' : ''}" data-act="pick-layer" data-i="${i}">
-        <div class="th">${this._thumb({ ...plain, layers: [l] })}</div>
-        <div class="nm">Livello ${i + 1}<small>${esc(patternLabel(l.type))}</small></div>
+        <div class="th">${this._thumb({ ...k, layers: [l] })}</div>
+        <div class="nm">Livello ${i + 1}<small>${esc(patternLabel(l.type))} · ${esc(zoneLabel(l.zone))}</small></div>
         <button class="kit-icon-btn" data-act="layer-up" data-i="${i}" ${i === 0 ? 'disabled' : ''} title="Porta sotto"><i class="ri-arrow-up-line"></i></button>
         <button class="kit-icon-btn" data-act="layer-down" data-i="${i}" ${i === k.layers.length - 1 ? 'disabled' : ''} title="Porta sopra"><i class="ri-arrow-down-line"></i></button>
         <button class="kit-icon-btn" data-act="layer-del" data-i="${i}" title="Elimina"><i class="ri-delete-bin-line"></i></button>
@@ -282,10 +300,17 @@ export const DivisaSquadra = {
     if (sel >= 0) {
       const l = k.layers[sel];
       const p = `layers.${sel}`;
+      const png = getPngPatterns();
+      const cell = (type, src, label) => this._opt('layer-type', type, `<div class="kit-brand" style="height:auto; aspect-ratio:400/420; background:#2b323c;"><img src="${esc(src)}" alt="" style="width:100%; height:100%; max-width:none; max-height:none; object-fit:cover;"></div>`, label, l.type === type);
       editor = `
         <div class="kit-layer-edit">
           <div class="kit-sub">Disegno del livello ${sel + 1}</div>
-          <div class="kit-grid">${PATTERNS.map(pt => this._opt('layer-type', pt.id, this._thumb({ ...plain, layers: [{ ...l, type: pt.id, opacity: 100 }] }), pt.label, l.type === pt.id)).join('')}</div>
+          <div class="kit-grid">
+            ${png.map(pp => cell('png:' + pp.id, pp.url, pp.name)).join('')}
+            ${PATTERNS.map(pt => cell(pt.id, patternThumbUrl(pt), pt.label)).join('')}
+          </div>
+          <div class="kit-sub">Dove applicarlo</div>
+          <div class="kit-chips">${ZONES.map(z => this._chip('layer-zone', z.id, z.label, l.zone === z.id)).join('')}</div>
           <div class="kit-sub">Colore del livello</div>
           <div class="kit-color-row">${this._colorPicker(`${p}.color`, l.color)}</div>
           ${this._range(`${p}.opacity`, 'Opacità', l.opacity, 5, 100, '%')}
@@ -293,7 +318,6 @@ export const DivisaSquadra = {
           <div class="kit-chips" style="margin-top:.4rem;">
             ${this._chip('layer-flag', 'flipX', 'Specchia ↔', l.flipX)}
             ${this._chip('layer-flag', 'flipY', 'Capovolgi ↕', l.flipY)}
-            ${this._chip('layer-flag', 'onSleeves', 'Anche sulle maniche', l.onSleeves)}
           </div>
         </div>`;
     }
@@ -319,6 +343,11 @@ export const DivisaSquadra = {
       </div>`;
   },
 
+  _uploadBtn(kind, has, label) {
+    return `<label class="mp-btn"><i class="ri-upload-2-line"></i> ${has ? 'Cambia' : 'Carica'} ${label}
+      <input type="file" accept="image/png" data-upload="${kind}" style="display:none;"></label>`;
+  },
+
   _secSponsor() {
     const sp = this._kit.sponsor;
     let body = '';
@@ -326,11 +355,9 @@ export const DivisaSquadra = {
       body = `
         <div class="kit-field" style="flex-wrap:wrap;">
           ${sp.url ? `<img class="kit-upload-thumb" src="${esc(sp.url)}" alt="Sponsor">` : ''}
-          <label class="mp-btn"><i class="ri-upload-2-line"></i> ${sp.url ? 'Cambia immagine' : 'Carica immagine'}
-            <input type="file" accept="image/png,image/jpeg,image/webp" data-upload="sponsor" style="display:none;">
-          </label>
+          ${this._uploadBtn('sponsor', !!sp.url, 'immagine')}
         </div>
-        <div class="mp-muted">Consigliato un PNG con sfondo trasparente.</div>
+        <div class="mp-muted">Solo immagini <b>PNG</b>, meglio se con sfondo trasparente.</div>
         <div class="kit-chips" style="margin:.6rem 0;">
           ${this._chip('sponsor-mono', '0', 'Colori originali', !sp.mono)}
           ${this._chip('sponsor-mono', '1', 'Tinta unica', sp.mono)}
@@ -347,7 +374,7 @@ export const DivisaSquadra = {
     return `
       <div class="kit-chips" style="margin-bottom:.6rem;">
         ${this._chip('sponsor-mode', 'none', 'Nessuno', sp.mode === 'none')}
-        ${this._chip('sponsor-mode', 'image', 'Immagine', sp.mode === 'image')}
+        ${this._chip('sponsor-mode', 'image', 'Immagine PNG', sp.mode === 'image')}
         ${this._chip('sponsor-mode', 'text', 'Scritta', sp.mode === 'text')}
       </div>
       ${body}
@@ -357,15 +384,15 @@ export const DivisaSquadra = {
   _secBrand() {
     const k = this._kit;
     const crest = this._crest();
-    const brandCell = (b) => {
-      const inner = b.id === 'none'
-        ? '<i class="ri-forbid-line" style="font-size:1.3rem;"></i>'
-        : b.id === 'custom'
-          ? (k.brand.url ? `<img src="${esc(k.brand.url)}" alt="" style="max-width:52px; max-height:36px; object-fit:contain;">` : '<i class="ri-upload-2-line" style="font-size:1.3rem;"></i>')
-          : `<svg viewBox="0 0 60 40">${b.draw(k.brand.color, k.colors.base)}</svg>`;
-      return `<button class="kit-opt ${k.brand.id === b.id ? 'on' : ''}" data-act="brand" data-v="${b.id}" title="${esc(b.label)}">
-        <div class="kit-brand" style="background:${esc(k.colors.base)}; color:${esc(k.brand.color)};">${inner}</div><span class="lb">${esc(b.label)}</span></button>`;
-    };
+    const isPng = k.brand.id === 'custom' || String(k.brand.id).startsWith('png:');
+    const cell = (id, inner, label) => `<button class="kit-opt ${k.brand.id === id ? 'on' : ''}" data-act="brand" data-v="${esc(id)}" title="${esc(label)}">
+        <div class="kit-brand" style="background:${esc(k.colors.base)};">${inner}</div><span class="lb">${esc(label)}</span></button>`;
+    const cells = [
+      cell('none', '<i class="ri-forbid-line" style="font-size:1.3rem; color:var(--text2);"></i>', 'Nessuno'),
+      ...getPngBrands().map(b => cell('png:' + b.id, `<img src="${esc(b.url)}" alt="">`, b.name)),
+      ...BRANDS.filter(b => b.id !== 'none' && b.id !== 'custom').map(b => cell(b.id, `<img src="${brandThumbUrl(b, k.brand.color, k.colors.base)}" alt="">`, b.label)),
+      cell('custom', k.brand.url ? `<img src="${esc(k.brand.url)}" alt="">` : '<i class="ri-upload-2-line" style="font-size:1.3rem; color:var(--text2);"></i>', 'Il tuo PNG')
+    ];
     return `
       <div class="kit-sub">Stemma della squadra (in alto a sinistra)</div>
       ${crest ? `
@@ -373,14 +400,19 @@ export const DivisaSquadra = {
           ${this._chip('crest-show', '1', 'Mostra stemma', k.crest.show)}
           ${this._chip('crest-show', '0', 'Nascondi', !k.crest.show)}
         </div>
-        ${k.crest.show ? this._range('crest.size', 'Dimensione', k.crest.size, 60, 150, '%') : ''}`
+        ${k.crest.show ? this._range('crest.size', 'Dimensione', k.crest.size, 60, 150, '%') : ''}
+        <div class="mp-muted">Lo stemma viene scontornato automaticamente.</div>`
         : `<div class="mp-muted">Non hai ancora un logo: caricalo da <b>Configurazione squadra</b> e comparirà sulla maglia.</div>`}
       <div class="kit-sub">Marchio tecnico (in alto a destra)</div>
-      <div class="kit-grid wide">${BRANDS.map(brandCell).join('')}</div>
+      <div class="kit-grid wide">${cells.join('')}</div>
       ${k.brand.id === 'custom' ? `
-        <div class="kit-field"><label class="mp-btn"><i class="ri-upload-2-line"></i> ${k.brand.url ? 'Cambia marchio' : 'Carica marchio'}
-          <input type="file" accept="image/png,image/jpeg,image/webp" data-upload="brand" style="display:none;"></label></div>` : ''}
-      ${k.brand.id !== 'none' && k.brand.id !== 'custom' ? `<div class="kit-sub">Colore del marchio</div><div class="kit-color-row">${this._colorPicker('brand.color', k.brand.color)}</div>` : ''}`;
+        <div class="kit-field">${this._uploadBtn('brand', !!k.brand.url, 'marchio')}</div>
+        <div class="mp-muted">Solo immagini <b>PNG</b> con sfondo trasparente.</div>` : ''}
+      ${isPng ? `<div class="kit-chips" style="margin:.6rem 0;">
+          ${this._chip('brand-mono', '0', 'Colori originali', !k.brand.mono)}
+          ${this._chip('brand-mono', '1', 'Tinta unica', k.brand.mono)}
+        </div>` : ''}
+      ${k.brand.id !== 'none' && (!isPng || k.brand.mono) ? `<div class="kit-sub">Colore del marchio</div><div class="kit-color-row">${this._colorPicker('brand.color', k.brand.color)}</div>` : ''}`;
   },
 
   _secPatches() {
@@ -388,12 +420,11 @@ export const DivisaSquadra = {
     const avail = availablePatches(window.STATE);
     const current = k.patches.map((p, i) => `
       <div class="kit-patch">
-        <img src="${esc(p.src)}" alt="" onerror="this.style.visibility='hidden'">
+        <img data-cut="${esc(p.src)}" alt="">
         <div class="nm">${esc(p.name || 'Patch')}</div>
         <select class="kit-patch-pos" data-patch-pos="${i}">
           ${PATCH_POSITIONS.map(pp => `<option value="${pp.id}" ${p.pos === pp.id ? 'selected' : ''}>${pp.label}</option>`).join('')}
         </select>
-        <button class="kit-icon-btn" data-act="patch-bg" data-i="${i}" title="Sfondo bianco" style="${p.bg !== false ? 'color:var(--accent); border-color:var(--accent);' : ''}"><i class="ri-checkbox-blank-fill"></i></button>
         <button class="kit-icon-btn" data-act="patch-del" data-i="${i}" title="Rimuovi"><i class="ri-delete-bin-line"></i></button>
       </div>`).join('');
     const full = k.patches.length >= MAX_PATCHES;
@@ -404,9 +435,9 @@ export const DivisaSquadra = {
       ${full ? `<div class="mp-muted">Hai raggiunto il massimo di ${MAX_PATCHES} patch.</div>` : `
       <div class="kit-grid wide">
         ${avail.map(a => `<button class="kit-opt kit-comp" data-act="patch-add" data-v="${esc(a.id)}" title="${esc(a.name)}">
-          <img src="${esc(a.src)}" alt="" onerror="this.style.visibility='hidden'"><span class="lb">${esc(a.name)}</span></button>`).join('')}
+          <img data-cut="${esc(a.src)}" alt=""><span class="lb">${esc(a.name)}</span></button>`).join('')}
       </div>`}
-      <div class="mp-muted" style="margin-top:.6rem;">Per ogni patch scegli la posizione: centro petto, sotto lo sponsor, sulle maniche o in fondo alla maglia.</div>`;
+      <div class="mp-muted" style="margin-top:.6rem;">I loghi vengono scontornati automaticamente. Per ogni patch scegli la posizione: centro petto, sotto lo sponsor, sulle maniche o in fondo alla maglia.</div>`;
   },
 
   /* ------------------------------------------------------------- eventi */
@@ -419,20 +450,19 @@ export const DivisaSquadra = {
 
   _onClick(e) {
     const btn = e.target.closest('[data-act]');
-    if (!btn || !this._root || !this._root.contains(btn)) return;
+    if (!btn || !this._root || !this._root.contains(btn) || btn.disabled) return;
     const act = btn.dataset.act;
     const v = btn.dataset.v;
     const i = Number(btn.dataset.i);
     const k = this._kit;
 
     switch (act) {
-      case 'toggle': {
+      case 'toggle':
         this._open = this._open === btn.dataset.sec ? null : btn.dataset.sec;
         this._root.querySelectorAll('.kit-acc').forEach(a => a.classList.toggle('open', a.dataset.sec === this._open));
         this._renderSection();
         this._scrollToOpen();
         return;
-      }
       case 'save': this._save(); return;
       case 'undo':
         if (!this._dirty()) return;
@@ -440,20 +470,16 @@ export const DivisaSquadra = {
         this._layer = 0;
         this._renderPreview(); this._renderSection();
         return;
+      case 'template':
+        this._update(kit => { kit.template = v; });
+        return;
       case 'preset': {
         const p = PRESETS[Number(v)];
         if (!p) return;
-        this._update(kit => {
-          kit.collar = p.kit.collar; kit.sleeves = p.kit.sleeves; kit.cuffs = p.kit.cuffs;
-          kit.sleeveDeco = p.kit.sleeveDeco || 'none';
-          kit.layers = normalizeKit({ layers: clone(p.kit.layers) }).layers;
-        }, { section: false });
+        this._update(kit => { kit.layers = normalizeKit({ layers: clone(p.kit.layers) }).layers; }, { section: false });
         this._layer = 0;
         return;
       }
-      case 'collar': case 'sleeves': case 'cuffs': case 'sleeveDeco':
-        this._update(kit => { kit[act] = v; });
-        return;
       case 'swatch':
         this._update(() => this._set(btn.dataset.path, v));
         return;
@@ -464,7 +490,7 @@ export const DivisaSquadra = {
         this._update(kit => {
           const c = kit.colors;
           [c.base, c.collar] = [c.collar, c.base];
-          c.sleeves = c.base; c.cuffs = c.collar; c.trim = c.collar;
+          c.sleeves = c.base; c.cuffs = c.collar;
         });
         return;
 
@@ -472,7 +498,7 @@ export const DivisaSquadra = {
       case 'layer-add':
         if (k.layers.length >= MAX_LAYERS) return;
         this._update(kit => {
-          kit.layers.push({ type: 'stripes', color: kit.colors.collar || '#ffffff', opacity: 100, scale: 100, flipX: false, flipY: false, onSleeves: false });
+          kit.layers.push({ type: 'stripes', color: kit.colors.collar || '#ffffff', opacity: 100, scale: 100, flipX: false, flipY: false, zone: 'body' });
           this._layer = kit.layers.length - 1;
         });
         return;
@@ -494,28 +520,22 @@ export const DivisaSquadra = {
       case 'layer-type':
         this._update(kit => { kit.layers[this._layer].type = v; });
         return;
+      case 'layer-zone':
+        this._update(kit => { kit.layers[this._layer].zone = v; });
+        return;
       case 'layer-flag':
         this._update(kit => { const l = kit.layers[this._layer]; l[v] = !l[v]; });
         return;
 
       // sponsor
-      case 'sponsor-mode':
-        this._update(kit => { kit.sponsor.mode = v; });
-        return;
-      case 'sponsor-font':
-        this._update(kit => { kit.sponsor.font = v; });
-        return;
-      case 'sponsor-mono':
-        this._update(kit => { kit.sponsor.mono = v === '1'; });
-        return;
+      case 'sponsor-mode': this._update(kit => { kit.sponsor.mode = v; }); return;
+      case 'sponsor-font': this._update(kit => { kit.sponsor.font = v; }); return;
+      case 'sponsor-mono': this._update(kit => { kit.sponsor.mono = v === '1'; }); return;
 
       // stemma e marchio
-      case 'crest-show':
-        this._update(kit => { kit.crest.show = v === '1'; });
-        return;
-      case 'brand':
-        this._update(kit => { kit.brand.id = v; });
-        return;
+      case 'crest-show': this._update(kit => { kit.crest.show = v === '1'; }); return;
+      case 'brand': this._update(kit => { kit.brand.id = v; }); return;
+      case 'brand-mono': this._update(kit => { kit.brand.mono = v === '1'; }); return;
 
       // patch
       case 'patch-add': {
@@ -524,14 +544,11 @@ export const DivisaSquadra = {
         if (!a) return;
         const used = new Set(k.patches.map(p => p.pos));
         const pos = (PATCH_POSITIONS.find(pp => !used.has(pp.id)) || PATCH_POSITIONS[0]).id;
-        this._update(kit => { kit.patches.push({ id: a.id, name: a.name, src: a.src, pos, bg: true }); });
+        this._update(kit => { kit.patches.push({ id: a.id, name: a.name, src: a.src, pos }); });
         return;
       }
       case 'patch-del':
         this._update(kit => { kit.patches.splice(i, 1); });
-        return;
-      case 'patch-bg':
-        this._update(kit => { kit.patches[i].bg = kit.patches[i].bg === false; });
         return;
     }
   },
@@ -543,13 +560,13 @@ export const DivisaSquadra = {
       this._set(t.dataset.range, Number(t.value));
       const val = t.parentElement.querySelector('.val');
       if (val) val.textContent = t.value + (val.textContent.endsWith('%') ? '%' : '');
-      this._renderPreview();
+      this._schedulePreview();
     } else if (t.dataset.color) {
       this._set(t.dataset.color, t.value);
-      this._renderPreview();
+      this._schedulePreview();
     } else if (t.dataset.text) {
       this._set(t.dataset.text, t.value);
-      this._renderPreview();
+      this._schedulePreview();
     }
   },
 
@@ -568,13 +585,13 @@ export const DivisaSquadra = {
   },
 
   async _upload(kind, file) {
-    if (!file.type.startsWith('image/')) { window.showToast('Seleziona un file immagine', 'err'); return; }
+    if (file.type !== 'image/png') { window.showToast("Carica un'immagine in formato PNG", 'err'); return; }
     if (file.size > MAX_FILE_MB * 1024 * 1024) { window.showToast(`Immagine troppo pesante (max ${MAX_FILE_MB} MB)`, 'err'); return; }
     if (this._busy) return;
     this._busy = true;
     window.showToast('Caricamento in corso...', 'ok');
     try {
-      const url = await uploadImageToImgBB(file);
+      const url = await uploadPngToImgBB(file);
       if (!this._kit) return;
       this._update(kit => {
         if (kind === 'sponsor') kit.sponsor.url = url;

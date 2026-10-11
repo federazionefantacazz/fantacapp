@@ -242,6 +242,9 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
   <button class="snav" data-sec="themes">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 18a6 6 0 1 0 0-12v12z"/></svg>Temi
   </button>
+  <button class="snav" data-sec="divise">
+    <svg viewBox="0 0 24 24"><path d="M8 3 3 6l2 5 2-1v11h10V10l2 1 2-5-5-3a4 4 0 0 1-8 0z"/></svg>Divise
+  </button>
 </div>
 
 <div id="toast" class="toast"></div>
@@ -267,6 +270,7 @@ import { ClassificaSection }    from './js/admin/classifica.js';
 import { CalendarioSection }    from './js/admin/calendario/calendario.js';
 import { CompetizioniSection }  from './js/admin/competizioni.js';
 import { ThemesSection }        from './js/admin/themes.js';
+import { DiviseSection }        from './js/admin/divise.js';
 import { applyThemeVars, applyBackground } from './js/services/themeService.js';
 
 if ('serviceWorker' in navigator) {
@@ -364,6 +368,7 @@ function initAdminApp() {
   if (CalendarioSection && typeof CalendarioSection.init === 'function') CalendarioSection.init(db);
   if (CompetizioniSection && typeof CompetizioniSection.init === 'function') CompetizioniSection.init(db);
   if (ThemesSection && typeof ThemesSection.init === 'function') ThemesSection.init(db);
+  if (DiviseSection && typeof DiviseSection.init === 'function') DiviseSection.init(db);
 
   const navTemplate = document.getElementById('nav-template').innerHTML;
   document.querySelector('.sidebar .nav-links-container').innerHTML = navTemplate;
@@ -383,6 +388,7 @@ function initAdminApp() {
       ${typeof CalendarioSection.renderHTML === 'function' ? CalendarioSection.renderHTML() : ''}
       ${typeof CompetizioniSection.renderHTML === 'function' ? CompetizioniSection.renderHTML() : ''}
       ${typeof ThemesSection.renderHTML === 'function' ? ThemesSection.renderHTML() : ''}
+      ${typeof DiviseSection.renderHTML === 'function' ? DiviseSection.renderHTML() : ''}
     `;
   }
 
@@ -425,6 +431,7 @@ function refreshAll() {
   if (CalendarioSection && typeof CalendarioSection.render === 'function') CalendarioSection.render(state);
   if (CompetizioniSection && typeof CompetizioniSection.render === 'function') CompetizioniSection.render(state);
   if (ThemesSection && typeof ThemesSection.render === 'function') ThemesSection.render(state);
+  if (DiviseSection && typeof DiviseSection.render === 'function') DiviseSection.render(state);
 }
 
 /* ─── Gestione della Navigazione Sincronizzata ──────────────────────────── */

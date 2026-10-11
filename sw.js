@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.1.28'; // Incrementa ad ogni modifica dei file statici
+const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.1.29'; // Incrementa ad ogni modifica dei file statici
 const IMAGE_CACHE = 'fantacapp-images-v1'; // riempita da js/services/assetPreloader.js: non va cancellata agli aggiornamenti
 
 // 1. Array pulito e aggiornato
@@ -10,6 +10,25 @@ const ASSETS_TO_CACHE = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/logo-federazione.jpg',
+  // modelli provvisori della divisa (sostituibili dall'area Patron)
+  './icons/kit/crew-short/body.png',
+  './icons/kit/crew-short/sleeves.png',
+  './icons/kit/crew-short/collar.png',
+  './icons/kit/crew-short/cuffs.png',
+  './icons/kit/crew-short/shadow.png',
+  './icons/kit/crew-short/highlight.png',
+  './icons/kit/v-short/body.png',
+  './icons/kit/v-short/sleeves.png',
+  './icons/kit/v-short/collar.png',
+  './icons/kit/v-short/cuffs.png',
+  './icons/kit/v-short/shadow.png',
+  './icons/kit/v-short/highlight.png',
+  './icons/kit/polo-long/body.png',
+  './icons/kit/polo-long/sleeves.png',
+  './icons/kit/polo-long/collar.png',
+  './icons/kit/polo-long/cuffs.png',
+  './icons/kit/polo-long/shadow.png',
+  './icons/kit/polo-long/highlight.png',
   
   // Servizi
   './js/services/integrationImgBB.js',
@@ -24,6 +43,8 @@ const ASSETS_TO_CACHE = [
   './js/services/themeService.js',
   './js/services/playerStatsService.js',
   './js/services/probabiliService.js',
+  './js/services/imageCutout.js',
+  './js/services/kitAssets.js',
 
   // Componenti
   './js/components/AnteprimaClassifica.js',
@@ -65,6 +86,7 @@ const ASSETS_TO_CACHE = [
   './js/admin/competizioni.js',
   './js/admin/themes.js',
   './js/admin/accounts.js',
+  './js/admin/divise.js',
   './js/admin/calendario/calendario.js',
   './js/admin/calendario/calendario-state.js',
   './js/admin/calendario/calendario-ui.js',

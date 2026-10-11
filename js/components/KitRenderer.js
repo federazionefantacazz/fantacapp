@@ -1,93 +1,57 @@
+import { getTemplate, getPngPatterns, getPngBrands, loadImage } from '../services/kitAssets.js';
+import { getCutout } from '../services/imageCutout.js';
+
 /**
- * Disegno della divisa (maglia) in SVG, vista frontale.
- * La divisa è un oggetto semplice (salvato in teams/{id}/kit):
+ * Divisa della squadra composta su <canvas> sovrapponendo PNG (vedi services/kitAssets.js per i modelli).
+ * La divisa è salvata in teams/{id}/kit:
  * {
- *   collar, sleeves, cuffs, sleeveDeco,
- *   colors: { base, sleeves, collar, cuffs, trim },
- *   layers: [{ type, color, opacity, scale, flipX, flipY, onSleeves }],
- *   brand: { id, color, url },
+ *   template,                                   // id del modello (colletto + maniche + ombre)
+ *   colors: { base, sleeves, collar, cuffs },   // base = busto
+ *   layers: [{ type, color, opacity, scale, flipX, flipY, zone }],  // type: disegno integrato o 'png:<id>'; zone: body | all | sleeves
+ *   brand: { id, color, url, mono },            // id: marchio integrato, 'png:<id>' (caricato dal Patron) o 'custom'
  *   crest: { show, size },
  *   sponsor: { mode: 'none'|'image'|'text', url, text, font, color, mono, scale, y },
- *   patches: [{ id, src, name, pos, bg }]
+ *   patches: [{ id, src, name, pos }]
  * }
- * Tutte le coordinate sono nel viewBox 0 0 400 420 (centro maglia x = 200).
+ * I disegni integrati sono SVG nel riquadro 0 0 400 420 rasterizzati alla dimensione del modello.
  */
-
 const W = 400;
 const H = 420;
-let UID = 0;
 
-const escAttr = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const safeColor = (c, def = '#ffffff') => (/^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : def);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, Number.isFinite(+v) ? +v : a));
 
-/** Schiarisce (amt > 0) o scurisce (amt < 0) un colore esadecimale. */
-export function shade(hex, amt) {
-  let c = safeColor(hex, '#888888').slice(1);
-  if (c.length === 3) c = c.split('').map(x => x + x).join('');
-  const n = parseInt(c.slice(0, 6), 16);
-  const f = (v) => Math.round(amt < 0 ? v * (1 + amt) : v + (255 - v) * amt);
-  const r = f(n >> 16), g = f((n >> 8) & 255), b = f(n & 255);
-  return '#' + [r, g, b].map(v => clamp(v, 0, 255).toString(16).padStart(2, '0')).join('');
-}
-
-/* ------------------------------------------------------------------ forme */
-const TORSO = 'M166,24 L112,44 C104,80 100,112 102,146 L100,388 Q200,404 300,388 L298,146 C300,112 296,80 288,44 L234,24 Q200,42 166,24 Z';
-
-const SLEEVE = {
-  short: 'M116,42 C86,52 58,78 30,124 L72,170 C84,160 94,152 104,146 Z',
-  long:  'M116,42 C86,52 62,82 48,130 C38,200 30,280 26,340 L66,346 C72,290 84,220 100,170 L104,146 Z'
-};
-// polsini (sopra la manica sinistra, la destra è specchiata)
-const CUFF = {
-  short: { band: 'M30,124 L72,170 L79,160 L37,114 Z', thin: 'M37,114 L79,160 L82,156 L40,110 Z' },
-  long:  { band: 'M26,340 L66,346 L68,326 L28,320 Z', thin: 'M28,320 L68,326 L68.5,321 L28.5,315 Z' }
-};
-// raglan: spicchio della spalla col colore delle maniche
-const RAGLAN = 'M170,25 L112,44 C104,80 100,112 102,146 Q126,74 170,25 Z';
-const MIRROR = `transform="translate(${W},0) scale(-1,1)"`;
-
-export const COLLARS = [
-  { id: 'crew',     label: 'Girocollo' },
-  { id: 'v',        label: 'Scollo a V' },
-  { id: 'deepv',    label: 'V profondo' },
-  { id: 'wrap',     label: 'V incrociato' },
-  { id: 'polo',     label: 'Polo' },
-  { id: 'polobtn',  label: 'Polo con bottoni' },
-  { id: 'mandarin', label: 'Coreana' },
-  { id: 'henley',   label: 'Serafino' },
-  { id: 'laces',    label: 'Retrò con lacci' },
-  { id: 'doublecrew', label: 'Girocollo doppio' }
-];
-
-export const SLEEVES = [
-  { id: 'short',       label: 'Corte' },
-  { id: 'long',        label: 'Lunghe' },
-  { id: 'raglan',      label: 'Raglan corte' },
-  { id: 'raglan-long', label: 'Raglan lunghe' }
-];
-
-export const CUFFS = [
-  { id: 'none',   label: 'Nessuno' },
-  { id: 'band',   label: 'Fascia' },
-  { id: 'double', label: 'Doppia riga' },
-  { id: 'thin',   label: 'Profilo sottile' }
-];
-
-export const SLEEVE_DECO = [
-  { id: 'none',     label: 'Nessuna' },
-  { id: 'stripes3', label: 'Tre strisce' },
-  { id: 'stripes2', label: 'Due strisce' },
-  { id: 'shoulder', label: 'Spalla colorata' },
-  { id: 'band',     label: 'Fascia sul braccio' },
-  { id: 'chevrons', label: 'Chevron' },
-  { id: 'side',     label: 'Banda laterale' }
-];
-
 /* --------------------------------------------------------------- disegni */
-// Ogni disegno restituisce markup sull'intera area 0..400 × 0..420 (poi ritagliata sulla maglia).
-// s = scala (1 = normale), c = colore, id = prefisso univoco per i <defs>.
 const range = (from, to, step) => { const out = []; for (let v = from; v <= to; v += step) out.push(v); return out; };
+
+/** Rete di crepe (tipo marmo screpolato): celle irregolari con bordi frastagliati, deterministica. */
+function crackle(c, s) {
+  let seed = 23;
+  const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  const g = 46 * s;
+  const cols = Math.ceil(W / g) + 2, rows = Math.ceil(H / g) + 2;
+  const pt = [];
+  for (let i = 0; i < cols; i++) {
+    pt.push([]);
+    for (let j = 0; j < rows; j++) pt[i].push([(i - .5) * g + (rnd() - .5) * g * .8, (j - .5) * g + (rnd() - .5) * g * .8]);
+  }
+  const edge = (a, b) => {
+    let d = `M${a[0].toFixed(1)},${a[1].toFixed(1)}`;
+    const nx = -(b[1] - a[1]), ny = b[0] - a[0], len = Math.hypot(nx, ny) || 1;
+    for (let k = 1; k < 4; k++) {
+      const t = k / 4, off = (rnd() - .5) * 9 * s;
+      d += ` L${(a[0] + (b[0] - a[0]) * t + nx / len * off).toFixed(1)},${(a[1] + (b[1] - a[1]) * t + ny / len * off).toFixed(1)}`;
+    }
+    return `<path d="${d} L${b[0].toFixed(1)},${b[1].toFixed(1)}" stroke-width="${((.9 + rnd() * 2.4) * s).toFixed(2)}"/>`;
+  };
+  let o = '';
+  for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
+    if (i + 1 < cols && rnd() < .9) o += edge(pt[i][j], pt[i + 1][j]);
+    if (j + 1 < rows && rnd() < .9) o += edge(pt[i][j], pt[i][j + 1]);
+    if (i + 1 < cols && j + 1 < rows && rnd() < .25) o += edge(pt[i][j], pt[i + 1][j + 1]);
+  }
+  return `<g fill="none" stroke="${c}" stroke-linejoin="round" stroke-linecap="round">${o}</g>`;
+}
 
 export const PATTERNS = [
   { id: 'stripes', label: 'Strisce verticali', draw: (c, s) => range(-20, W, 40 * s).map(x => `<rect x="${x}" y="0" width="${20 * s}" height="${H}" fill="${c}"/>`).join('') },
@@ -126,11 +90,14 @@ export const PATTERNS = [
   { id: 'grid', label: 'Quadri (tartan)', draw: (c, s) => range(0, W, 40 * s).map(x => `<rect x="${x}" y="0" width="${8 * s}" height="${H}" fill="${c}" opacity=".7"/>`).join('') + range(0, H, 40 * s).map(y => `<rect x="0" y="${y}" width="${W}" height="${8 * s}" fill="${c}" opacity=".7"/>`).join('') },
   { id: 'camo', label: 'Mimetico', draw: (c, s) => { let seed = 7, o = ''; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280; for (let i = 0; i < 46; i++) { const x = rnd() * W, y = rnd() * H, rx = (14 + rnd() * 26) * s, ry = (8 + rnd() * 16) * s; o += `<ellipse cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" rx="${rx.toFixed(0)}" ry="${ry.toFixed(0)}" transform="rotate(${(rnd() * 180).toFixed(0)} ${x.toFixed(0)} ${y.toFixed(0)})" fill="${c}"/>`; } return o; } },
   { id: 'brush', label: 'Pennellate', draw: (c, s) => range(0, 5, 1).map(i => `<path d="M${40 + i * 10},${120 + i * 50} Q200,${80 + i * 55 - 30 * s} ${380 - i * 8},${140 + i * 48} L${380 - i * 8},${150 + i * 48 + 8 * s} Q200,${95 + i * 55 - 20 * s} ${40 + i * 10},${132 + i * 50 + 4 * s} Z" fill="${c}" opacity="${(1 - i * 0.12).toFixed(2)}"/>`).join('') },
-  { id: 'flames', label: 'Fiamme', draw: (c, s) => { let p = `M0,420 L0,${330}`; range(0, W, 40).forEach((x, i) => { const h = (i % 2 ? 90 : 140) * s; p += ` Q${x + 10},${330 - h * .4} ${x + 20},${330 - h} Q${x + 26},${330 - h * .4} ${x + 40},${330}`; }); return `<path d="${p} L400,420 Z" fill="${c}"/>`; } }
+  { id: 'flames', label: 'Fiamme', draw: (c, s) => { let p = `M0,420 L0,${330}`; range(0, W, 40).forEach((x, i) => { const h = (i % 2 ? 90 : 140) * s; p += ` Q${x + 10},${330 - h * .4} ${x + 20},${330 - h} Q${x + 26},${330 - h * .4} ${x + 40},${330}`; }); return `<path d="${p} L400,420 Z" fill="${c}"/>`; } },
+  { id: 'crackle', label: 'Crepe', draw: (c, s) => crackle(c, s) },
+  { id: 'marble', label: 'Marmo', draw: (c, s, id) => { let seed = 11; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280; let o = ''; for (let i = 0; i < 9; i++) { const y = -40 + i * 55 * s + rnd() * 20; o += `<path d="M-20,${y.toFixed(0)} C${(80 + rnd() * 60).toFixed(0)},${(y - 60 + rnd() * 120).toFixed(0)} ${(220 + rnd() * 60).toFixed(0)},${(y + 80 - rnd() * 120).toFixed(0)} 420,${(y + 40 + rnd() * 60).toFixed(0)}" fill="none" stroke="${c}" stroke-width="${((1 + rnd() * 5) * s).toFixed(1)}" stroke-opacity="${(.45 + rnd() * .5).toFixed(2)}"/>`; } return `<defs><filter id="${id}b" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="1.2"/></filter></defs><g filter="url(#${id}b)">${o}</g>`; } },
+  { id: 'contour', label: 'Curve di livello', draw: (c, s) => range(0, H + 40, 16 * s).map((y, i) => { let d = `M-10,${y}`; for (let x = -10; x <= W + 20; x += 20) d += ` L${x},${(y + Math.sin(x / 45 + i * .7) * 10 * s + Math.sin(x / 17 + i) * 3).toFixed(1)}`; return `<path d="${d}" fill="none" stroke="${c}" stroke-width="${(1.6 * s).toFixed(1)}"/>`; }).join('') },
 ];
 
 /* ---------------------------------------------------------- marchi tecnici */
-// Marchi stilizzati disegnati in un riquadro 60×40 centrato in (30,20)
+// Marchi stilizzati disegnati in un riquadro 60×40
 export const BRANDS = [
   { id: 'none', label: 'Nessuno', draw: () => '' },
   { id: 'nike', label: 'Nike', draw: (c) => `<path d="M2,27 C1,33 6,35 14,32 L58,13 L17,25 C9,27 6,25 9,19 C3,22 2,25 2,27 Z" fill="${c}"/>` },
@@ -168,271 +135,291 @@ export const PATCH_POSITIONS = [
   { id: 'hem',    label: 'Fondo maglia' }
 ];
 
-/* --------------------------------------------------------------- default */
+
+/* ---------------------------------------------------------------- dati */
+export const ZONES = [
+  { id: 'body',    label: 'Solo busto' },
+  { id: 'all',     label: 'Busto e maniche' },
+  { id: 'sleeves', label: 'Solo maniche' }
+];
+
 export function defaultKit() {
   return {
-    collar: 'crew', sleeves: 'short', cuffs: 'band', sleeveDeco: 'none',
-    colors: { base: '#1e5bb8', sleeves: '#1e5bb8', collar: '#ffffff', cuffs: '#ffffff', trim: '#ffffff' },
+    template: '',
+    colors: { base: '#1e5bb8', sleeves: '#1e5bb8', collar: '#ffffff', cuffs: '#ffffff' },
     layers: [],
-    brand: { id: 'nike', color: '#ffffff', url: '' },
+    brand: { id: 'nike', color: '#ffffff', url: '', mono: false },
     crest: { show: true, size: 100 },
     sponsor: { mode: 'none', url: '', text: '', font: 'bebas', color: '#ffffff', mono: false, scale: 100, y: 0 },
     patches: []
   };
 }
 
-/** Completa una divisa letta dal DB con i valori mancanti. */
+/** Completa una divisa letta dal DB (anche nel vecchio formato SVG) con i valori mancanti. */
 export function normalizeKit(raw) {
   const d = defaultKit();
   const k = raw && typeof raw === 'object' ? raw : {};
   const toArr = (v) => Array.isArray(v) ? v.filter(Boolean) : (v && typeof v === 'object' ? Object.values(v).filter(Boolean) : []);
   return {
-    ...d, ...k,
+    template: k.template || '',
     colors: { ...d.colors, ...(k.colors || {}) },
     brand: { ...d.brand, ...(k.brand || {}) },
     crest: { ...d.crest, ...(k.crest || {}) },
     sponsor: { ...d.sponsor, ...(k.sponsor || {}) },
-    layers: toArr(k.layers).map(l => ({ type: 'stripes', color: '#ffffff', opacity: 100, scale: 100, flipX: false, flipY: false, onSleeves: false, ...l })),
-    patches: toArr(k.patches)
+    layers: toArr(k.layers).map(l => ({
+      type: 'stripes', color: '#ffffff', opacity: 100, scale: 100, flipX: false, flipY: false,
+      ...l, zone: l.zone || (l.onSleeves ? 'all' : 'body')
+    })),
+    patches: toArr(k.patches).map(p => ({ id: p.id, name: p.name || '', src: p.src || '', pos: p.pos || 'chest' }))
   };
 }
 
-/* ---------------------------------------------------------------- colletti */
-function collarSvg(type, col, inside, base) {
-  const back = (d) => `<path d="${d}" fill="${inside}"/>`;
-  const band = (d) => `<path d="${d}" fill="${col}" stroke="rgba(0,0,0,.18)" stroke-width="1"/>`;
-  const btn = (x, y) => `<circle cx="${x}" cy="${y}" r="2.6" fill="${shade(col, -0.25)}"/>`;
-  switch (type) {
-    case 'v':
-      return back('M168,24 L200,66 L232,24 Q200,14 168,24 Z') + band('M156,24 L200,80 L244,24 L232,22 L200,64 L168,22 Z');
-    case 'deepv':
-      return back('M170,24 L200,92 L230,24 Q200,14 170,24 Z') + band('M157,24 L200,106 L243,24 L231,22 L200,90 L169,22 Z');
-    case 'wrap':
-      return back('M168,24 L200,70 L232,24 Q200,14 168,24 Z')
-        + band('M244,24 L232,22 L198,72 L188,86 Z')
-        + band('M156,24 L168,22 L212,82 L200,92 Z');
-    case 'polo':
-    case 'polobtn': {
-      const placket = type === 'polobtn'
-        ? `<rect x="191" y="34" width="18" height="${62}" rx="2" fill="${shade(base, -0.06)}" stroke="rgba(0,0,0,.15)"/>${btn(200, 50)}${btn(200, 68)}${btn(200, 86)}`
-        : `<path d="M196,36 L200,74 L204,36 Z" fill="${inside}"/>`;
-      return back('M166,24 Q200,14 234,24 Q200,40 166,24 Z') + placket
-        + band('M162,20 Q200,10 238,20 L236,26 Q200,18 164,26 Z')
-        + band('M164,22 L134,44 L176,64 L199,38 Z')
-        + band('M236,22 L266,44 L224,64 L201,38 Z');
+/** Etichetta di un disegno (integrato o PNG del Patron). */
+export function patternLabel(type) {
+  if (String(type).startsWith('png:')) return (getPngPatterns().find(p => 'png:' + p.id === type) || {}).name || 'Disegno';
+  return (PATTERNS.find(p => p.id === type) || {}).label || type;
+}
+
+/* ------------------------------------------------------------ utilità */
+const svgUrl = (svg) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+
+function canvasOf(w, h) {
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(w));
+  c.height = Math.max(1, Math.round(h));
+  return c;
+}
+
+/** Disegno integrato rasterizzato (in bianco: viene colorato dopo). Cache per parametri. */
+const rasterCache = new Map();
+function builtinPattern(layer, w, h) {
+  const p = PATTERNS.find(x => x.id === layer.type);
+  if (!p) return Promise.resolve(null);
+  const s = clamp(layer.scale, 30, 250) / 100;
+  const key = [layer.type, s, !!layer.flipX, !!layer.flipY, w, h].join('|');
+  if (rasterCache.has(key)) return rasterCache.get(key);
+  const sx = layer.flipX ? -1 : 1, sy = layer.flipY ? -1 : 1;
+  const tf = (sx < 0 || sy < 0) ? `transform="translate(${sx < 0 ? W : 0},${sy < 0 ? H : 0}) scale(${sx},${sy})"` : '';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><g ${tf}>${p.draw('#ffffff', s, 'p' + rasterCache.size)}</g></svg>`;
+  const job = loadImage(svgUrl(svg));
+  if (rasterCache.size > 120) rasterCache.delete(rasterCache.keys().next().value);
+  rasterCache.set(key, job);
+  return job;
+}
+
+function brandSvgImage(brand, color, base) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 60 40">${brand.draw(safeColor(color), safeColor(base))}</svg>`;
+  return loadImage(svgUrl(svg));
+}
+
+/** Colora un'immagine (pieno colore dove l'immagine non è trasparente). */
+function tint(img, color, w, h) {
+  const c = canvasOf(w, h);
+  const x = c.getContext('2d');
+  x.drawImage(img, 0, 0, c.width, c.height);
+  x.globalCompositeOperation = 'source-in';
+  x.fillStyle = color;
+  x.fillRect(0, 0, c.width, c.height);
+  return c;
+}
+
+/** Ritaglia un canvas sulla maschera (o su più maschere unite). */
+function clipTo(c, masks) {
+  const valid = masks.filter(Boolean);
+  if (!valid.length) return c;
+  const x = c.getContext('2d');
+  let mask = valid[0];
+  if (valid.length > 1) {
+    mask = canvasOf(c.width, c.height);
+    const m = mask.getContext('2d');
+    valid.forEach(v => m.drawImage(v, 0, 0, mask.width, mask.height));
+  }
+  x.globalCompositeOperation = 'destination-in';
+  x.drawImage(mask, 0, 0, c.width, c.height);
+  x.globalCompositeOperation = 'source-over';
+  return c;
+}
+
+function drawContain(ctx, img, cx, cy, bw, bh, rot = 0) {
+  if (!img) return;
+  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+  if (!iw || !ih) return;
+  const r = Math.min(bw / iw, bh / ih);
+  const w = iw * r, h = ih * r;
+  ctx.save();
+  ctx.translate(cx, cy);
+  if (rot) ctx.rotate(rot * Math.PI / 180);
+  ctx.drawImage(img, -w / 2, -h / 2, w, h);
+  ctx.restore();
+}
+
+async function loadCut(url) {
+  if (!url) return null;
+  return loadImage(await getCutout(url));
+}
+
+/* --------------------------------------------------------- composizione */
+/**
+ * Disegna la divisa sul canvas indicato.
+ * opts: { crestUrl, width (px del canvas, default = larghezza del modello), plain (senza loghi),
+ *         template (oggetto modello da usare al posto di kit.template, es. bozza nell'area Patron) }
+ */
+export async function drawKit(target, rawKit, opts = {}) {
+  const k = normalizeKit(rawKit);
+  const t = opts.template || getTemplate(k.template);
+  const token = (target._kitToken = (target._kitToken || 0) + 1);
+  const tw = t.w || 800, th = t.h || 840;
+  const outW = Math.round(opts.width || tw);
+  const sc = outW / tw;
+  const w = outW, h = Math.round(th * sc);
+
+  const L = t.layers || {};
+  const [body, sleeves, collar, cuffs, shadow, highlight, overlay] = await Promise.all(
+    ['body', 'sleeves', 'collar', 'cuffs', 'shadow', 'highlight', 'overlay'].map(key => loadImage(L[key]))
+  );
+  const pngPatterns = getPngPatterns();
+  const patternImgs = await Promise.all(k.layers.map(l => {
+    if (String(l.type).startsWith('png:')) {
+      const p = pngPatterns.find(x => 'png:' + x.id === l.type);
+      return loadImage(p && p.url);
     }
-    case 'mandarin':
-      return back('M170,18 Q200,10 230,18 Q200,34 170,18 Z')
-        + `<path d="M162,14 Q200,4 238,14 L240,28 Q200,46 160,28 Z M170,18 Q200,34 230,18 Q200,10 170,18 Z" fill="${col}" fill-rule="evenodd" stroke="rgba(0,0,0,.18)" stroke-width="1"/>`
-        + `<path d="M196,30 L200,48 L204,30 Z" fill="${inside}"/>`;
-    case 'henley':
-      return back('M168,22 Q200,48 232,22 Q200,14 168,22 Z')
-        + band('M158,24 Q200,62 242,24 L232,22 Q200,48 168,22 Z')
-        + `<rect x="193" y="40" width="14" height="48" rx="2" fill="${col}" stroke="rgba(0,0,0,.15)"/>${btn(200, 56)}${btn(200, 74)}`;
-    case 'laces':
-      return back('M168,24 L200,70 L232,24 Q200,14 168,24 Z')
-        + band('M156,24 L200,82 L244,24 L232,22 L200,66 L168,22 Z')
-        + `<g stroke="${col}" stroke-width="2.4" stroke-linecap="round"><path d="M184,40 L216,52"/><path d="M216,40 L184,52"/><path d="M190,54 L210,62"/><path d="M210,54 L190,62"/></g>`;
-    case 'doublecrew':
-      return back('M168,22 Q200,48 232,22 Q200,14 168,22 Z')
-        + band('M156,24 Q200,66 244,24 L232,22 Q200,48 168,22 Z')
-        + `<path d="M161,26 Q200,58 239,26" fill="none" stroke="${base}" stroke-width="3"/>`;
-    case 'crew':
-    default:
-      return back('M168,22 Q200,48 232,22 Q200,14 168,22 Z') + band('M158,24 Q200,62 242,24 L232,22 Q200,48 168,22 Z');
-  }
-}
+    return builtinPattern(l, w, h);
+  }));
 
-/* -------------------------------------------------- decorazioni maniche */
-function sleeveDecoSvg(type, long, c) {
-  switch (type) {
-    case 'stripes3':
-    case 'stripes2': {
-      const n = type === 'stripes3' ? 3 : 2;
-      return range(0, n - 1, 1).map(i => {
-        const o = 10 + i * 9;
-        const d = long
-          ? `M${118 - o * .2},${44 + o * .9} C${92 - o * .1},${56 + o} ${66 + o * .5},${84 + o * .5} ${56 + o * .4},${132 + o * .2} C${46 + o * .4},${200} ${38 + o * .4},${280} ${32 + o * .4},${334}`
-          : `M${118 - o * .2},${44 + o * .9} C${92 - o * .1},${56 + o} ${64 + o * .6},${82 + o * .6} ${36 + o * .9},${126 + o * .2}`;
-        return `<path d="${d}" fill="none" stroke="${c}" stroke-width="4.2"/>`;
-      }).join('');
+  let brandImg = null;
+  if (!opts.plain) {
+    const b = k.brand;
+    if (b.id === 'custom') brandImg = await loadImage(b.url);
+    else if (String(b.id).startsWith('png:')) {
+      const pb = getPngBrands().find(x => 'png:' + x.id === b.id);
+      brandImg = await loadImage(pb && pb.url);
+    } else {
+      const bb = BRANDS.find(x => x.id === b.id);
+      if (bb && bb.id !== 'none' && bb.id !== 'custom') brandImg = await brandSvgImage(bb, b.color, k.colors.base);
     }
-    case 'shoulder':
-      return `<path d="M120,30 C90,40 50,70 10,130 L46,140 C70,100 96,80 124,66 Z" fill="${c}"/>`;
-    case 'band':
-      return long
-        ? `<polygon points="20,240 100,246 100,268 20,262" fill="${c}"/>`
-        : `<polygon points="44,104 94,150 102,140 54,94" fill="${c}"/>`;
-    case 'chevrons':
-      return range(0, 2, 1).map(i => {
-        const y = (long ? 150 : 82) + i * (long ? 22 : 12);
-        const x = long ? 66 - i * 2 : 80 - i * 9;
-        return `<path d="M${x - 40},${y - 10} L${x},${y + 8} L${x + 40},${y - 10}" fill="none" stroke="${c}" stroke-width="5" transform="rotate(${long ? 6 : 42} ${x} ${y})"/>`;
-      }).join('');
-    case 'side':
-      return `<path d="M104,146 L100,388 L114,390 L118,146 Z" fill="${c}"/><path d="M104,146 C84,160 76,166 72,170 L66,160 C80,150 92,146 104,140 Z" fill="${c}"/>`;
-    default:
-      return '';
   }
+  const crestImg = !opts.plain && k.crest.show ? await loadCut(opts.crestUrl) : null;
+  const sponsorImg = !opts.plain && k.sponsor.mode === 'image' ? await loadImage(k.sponsor.url) : null;
+  const patchImgs = opts.plain ? [] : await Promise.all(k.patches.map(p => loadCut(p.src)));
+
+  if (target._kitToken !== token) return; // nel frattempo è stato richiesto un altro disegno
+
+  const out = canvasOf(w, h);
+  const ctx = out.getContext('2d');
+  const zone = (mask, color) => { if (mask) ctx.drawImage(tint(mask, safeColor(color), w, h), 0, 0); };
+
+  // 1. zone colorate e disegni
+  zone(body, k.colors.base);
+  zone(sleeves, k.colors.sleeves);
+  k.layers.forEach((l, i) => {
+    const img = patternImgs[i];
+    if (!img) return;
+    const masks = l.zone === 'sleeves' ? [sleeves] : l.zone === 'all' ? [body, sleeves] : [body];
+    if (!masks.some(Boolean)) return;
+    let painted;
+    if (String(l.type).startsWith('png:')) {
+      // PNG del Patron: dimensione e specchiatura applicate qui
+      const c = canvasOf(w, h), x = c.getContext('2d');
+      const s = clamp(l.scale, 30, 250) / 100;
+      x.translate(w / 2, h / 2);
+      x.scale((l.flipX ? -1 : 1) * s, (l.flipY ? -1 : 1) * s);
+      x.drawImage(img, -w / 2, -h / 2, w, h);
+      painted = tint(c, safeColor(l.color), w, h);
+    } else {
+      painted = tint(img, safeColor(l.color), w, h);
+    }
+    clipTo(painted, masks);
+    ctx.globalAlpha = clamp(l.opacity, 0, 100) / 100;
+    ctx.drawImage(painted, 0, 0);
+    ctx.globalAlpha = 1;
+  });
+  zone(collar, k.colors.collar);
+  zone(cuffs, k.colors.cuffs);
+
+  // 2. loghi (sotto le ombre, così sembrano stampati sul tessuto)
+  const A = t.anchors || {};
+  const at = (a) => a && { x: a.x * sc, y: a.y * sc, s: (a.s || 60) * sc, r: a.r || 0 };
+  if (crestImg && A.crest) {
+    const a = at(A.crest), s = a.s * clamp(k.crest.size, 60, 150) / 100;
+    drawContain(ctx, crestImg, a.x, a.y, s, s);
+  }
+  if (brandImg && A.brand) {
+    const a = at(A.brand);
+    const img = (k.brand.id === 'custom' || String(k.brand.id).startsWith('png:')) && k.brand.mono
+      ? tint(brandImg, safeColor(k.brand.color), brandImg.naturalWidth || brandImg.width, brandImg.naturalHeight || brandImg.height)
+      : brandImg;
+    drawContain(ctx, img, a.x, a.y, a.s, a.s * 0.75);
+  }
+  if (!opts.plain && A.sponsor) {
+    const sp = k.sponsor;
+    const f = clamp(sp.scale, 40, 160) / 100;
+    const bw = A.sponsor.w * sc * f, bh = A.sponsor.h * sc * f;
+    const cx = A.sponsor.x * sc, cy = (A.sponsor.y + clamp(sp.y, -60, 80) * 2) * sc;
+    if (sp.mode === 'image' && sponsorImg) {
+      const img = sp.mono ? tint(sponsorImg, safeColor(sp.color), sponsorImg.naturalWidth, sponsorImg.naturalHeight) : sponsorImg;
+      drawContain(ctx, img, cx, cy, bw, bh);
+    } else if (sp.mode === 'text' && String(sp.text || '').trim()) {
+      const ft = SPONSOR_FONTS.find(x => x.id === sp.font) || SPONSOR_FONTS[0];
+      const txt = String(sp.text).trim().slice(0, 24);
+      let px = bh * 0.62;
+      ctx.font = `${ft.style} ${ft.weight} ${px}px ${ft.css}`;
+      const mw = ctx.measureText(txt).width;
+      if (mw > bw) { px *= bw / mw; ctx.font = `${ft.style} ${ft.weight} ${px}px ${ft.css}`; }
+      ctx.fillStyle = safeColor(sp.color);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(txt, cx, cy);
+    }
+  }
+  k.patches.forEach((p, i) => {
+    const a = at(A[p.pos]);
+    if (a && patchImgs[i]) drawContain(ctx, patchImgs[i], a.x, a.y, a.s, a.s, a.r);
+  });
+
+  // 3. realismo: ombre (moltiplica), luci (schermo), dettagli fissi
+  if (shadow) { ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(shadow, 0, 0, w, h); }
+  if (highlight) { ctx.globalCompositeOperation = 'screen'; ctx.drawImage(highlight, 0, 0, w, h); }
+  ctx.globalCompositeOperation = 'source-over';
+  if (overlay) ctx.drawImage(overlay, 0, 0, w, h);
+
+  // 4. sul canvas visibile
+  if (target._kitToken !== token) return;
+  if (target.width !== w || target.height !== h) { target.width = w; target.height = h; }
+  const tctx = target.getContext('2d');
+  tctx.clearRect(0, 0, w, h);
+  tctx.drawImage(out, 0, 0);
 }
 
-/* ------------------------------------------------------------- immagini */
-function imageTag(href, cx, cy, w, h, extra = '') {
-  return `<image href="${escAttr(href)}" x="${(cx - w / 2).toFixed(1)}" y="${(cy - h / 2).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" preserveAspectRatio="xMidYMid meet" ${extra}/>`;
-}
-
-function patchAt(pos, sleevesLong) {
-  switch (pos) {
-    case 'chest': return { x: 200, y: 116, s: 30, r: 0 };
-    case 'belly': return { x: 200, y: 292, s: 34, r: 0 };
-    case 'sleeveL': return sleevesLong ? { x: 72, y: 118, s: 30, r: 18 } : { x: 76, y: 104, s: 30, r: 40 };
-    case 'sleeveR': return sleevesLong ? { x: 328, y: 118, s: 30, r: -18 } : { x: 324, y: 104, s: 30, r: -40 };
-    case 'hem': return { x: 132, y: 356, s: 26, r: 0 };
-    default: return { x: 200, y: 116, s: 30, r: 0 };
-  }
-}
+/* ------------------------------------------------------------ inserimento */
+let SLOT = 0;
+const pendingSlots = new Map();
 
 /**
- * Restituisce l'SVG completo della maglia.
- * opts: { crestUrl, width, height, className, simple } (simple = senza ombre, per le miniature)
+ * HTML di un <canvas> con la divisa: viene disegnata appena il canvas è nella pagina.
+ * opts come drawKit (width = risoluzione in px, di solito 2× la dimensione a schermo).
  */
-export function renderKitSvg(rawKit, opts = {}) {
-  const k = normalizeKit(rawKit);
-  const id = `kit${++UID}`;
-  const col = {
-    base: safeColor(k.colors.base, '#1e5bb8'),
-    sleeves: safeColor(k.colors.sleeves, '#1e5bb8'),
-    collar: safeColor(k.colors.collar, '#ffffff'),
-    cuffs: safeColor(k.colors.cuffs, '#ffffff'),
-    trim: safeColor(k.colors.trim, '#ffffff')
-  };
-  const long = k.sleeves === 'long' || k.sleeves === 'raglan-long';
-  const raglan = k.sleeves === 'raglan' || k.sleeves === 'raglan-long';
-  const sl = long ? SLEEVE.long : SLEEVE.short;
-  const both = (d, attrs) => `<path d="${d}" ${attrs}/><path d="${d}" ${attrs} ${MIRROR}/>`;
-
-  // livelli del disegno
-  const layerSvg = (onSleevesOnly) => k.layers.map((l, i) => {
-    if (onSleevesOnly && !l.onSleeves) return '';
-    const p = PATTERNS.find(x => x.id === l.type);
-    if (!p) return '';
-    const s = clamp(l.scale, 30, 250) / 100;
-    const sx = l.flipX ? -1 : 1, sy = l.flipY ? -1 : 1;
-    const tf = (sx < 0 || sy < 0) ? `transform="translate(${sx < 0 ? W : 0},${sy < 0 ? H : 0}) scale(${sx},${sy})"` : '';
-    return `<g opacity="${clamp(l.opacity, 0, 100) / 100}" ${tf}>${p.draw(safeColor(l.color), s, `${id}l${i}${onSleevesOnly ? 's' : ''}`)}</g>`;
-  }).join('');
-
-  const outline = 'stroke="rgba(0,0,0,.35)" stroke-width="1.5" stroke-linejoin="round"';
-
-  // marchio tecnico (alto a destra, guardando la maglia)
-  let brandSvg = '';
-  const brand = BRANDS.find(b => b.id === k.brand.id);
-  if (k.brand.id === 'custom' && k.brand.url) {
-    brandSvg = imageTag(k.brand.url, 254, 104, 40, 30);
-  } else if (brand && brand.id !== 'none') {
-    brandSvg = `<g transform="translate(236,92) scale(.62)">${brand.draw(safeColor(k.brand.color), col.base)}</g>`;
-  }
-
-  // stemma della squadra (alto a sinistra, guardando la maglia)
-  let crestSvg = '';
-  if (k.crest.show && opts.crestUrl) {
-    const cs = 40 * clamp(k.crest.size, 60, 150) / 100;
-    crestSvg = imageTag(opts.crestUrl, 146, 106, cs, cs);
-  }
-
-  // sponsor
-  let sponsorSvg = '';
-  const sp = k.sponsor;
-  const spScale = clamp(sp.scale, 40, 160) / 100;
-  const spY = 196 + clamp(sp.y, -60, 80);
-  const monoFilter = `<filter id="${id}mono" color-interpolation-filters="sRGB"><feFlood flood-color="${safeColor(sp.color)}"/><feComposite in2="SourceAlpha" operator="in"/></filter>`;
-  if (sp.mode === 'image' && sp.url) {
-    sponsorSvg = imageTag(sp.url, 200, spY, 150 * spScale, 70 * spScale, sp.mono ? `filter="url(#${id}mono)"` : '');
-  } else if (sp.mode === 'text' && String(sp.text || '').trim()) {
-    const f = SPONSOR_FONTS.find(x => x.id === sp.font) || SPONSOR_FONTS[0];
-    const txt = String(sp.text).trim().slice(0, 24);
-    const fs = Math.min(46, 260 / Math.max(4, txt.length)) * spScale * (f.id === 'bebas' ? 1.35 : 1);
-    sponsorSvg = `<text x="200" y="${spY}" text-anchor="middle" dominant-baseline="central" font-family="${escAttr(f.css)}" font-weight="${f.weight}" font-style="${f.style}" font-size="${fs.toFixed(1)}" fill="${safeColor(sp.color)}">${escAttr(txt)}</text>`;
-  }
-
-  // patch delle competizioni
-  const patchSvg = k.patches.map(p => {
-    if (!p || !p.src) return '';
-    const a = patchAt(p.pos, long);
-    const bg = p.bg !== false
-      ? `<rect x="${a.x - a.s / 2 - 3}" y="${a.y - a.s / 2 - 3}" width="${a.s + 6}" height="${a.s + 6}" rx="5" fill="#ffffff" stroke="rgba(0,0,0,.2)"/>`
-      : '';
-    return `<g transform="rotate(${a.r} ${a.x} ${a.y})">${bg}${imageTag(p.src, a.x, a.y, a.s, a.s)}</g>`;
-  }).join('');
-
-  // ombre e luci per dare volume
-  const shading = opts.simple ? '' : `
-    <defs>
-      <linearGradient id="${id}shT" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0" stop-color="#000" stop-opacity=".28"/><stop offset=".22" stop-color="#000" stop-opacity="0"/>
-        <stop offset=".45" stop-color="#fff" stop-opacity=".10"/><stop offset=".78" stop-color="#000" stop-opacity="0"/>
-        <stop offset="1" stop-color="#000" stop-opacity=".30"/>
-      </linearGradient>
-      <linearGradient id="${id}shV" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#fff" stop-opacity=".08"/><stop offset=".7" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".18"/>
-      </linearGradient>
-    </defs>
-    <g clip-path="url(#${id}body)">
-      <rect width="${W}" height="${H}" fill="url(#${id}shT)"/><rect width="${W}" height="${H}" fill="url(#${id}shV)"/>
-    </g>
-    <g clip-path="url(#${id}slv)" opacity=".9">
-      <path d="${sl}" fill="#000" fill-opacity=".14"/><path d="${sl}" fill="#000" fill-opacity=".14" ${MIRROR}/>
-    </g>`;
-
-  const cuffSvg = (() => {
-    if (k.cuffs === 'none') return '';
-    const set = long ? CUFF.long : CUFF.short;
-    if (k.cuffs === 'thin') return both(set.thin, `fill="${col.cuffs}"`);
-    if (k.cuffs === 'double') {
-      return both(set.band, `fill="${col.cuffs}"`) + both(set.thin, `fill="${col.sleeves}"`);
-    }
-    return both(set.band, `fill="${col.cuffs}"`);
-  })();
-
-  const deco = sleeveDecoSvg(k.sleeveDeco, long, col.trim);
-  const decoBoth = deco ? `<g>${deco}</g><g ${MIRROR}>${deco}</g>` : '';
-  const inside = shade(col.base, -0.45);
-
-  const attrs = [
-    `viewBox="0 0 ${W} ${H}"`,
-    opts.width ? `width="${opts.width}"` : '',
-    opts.height ? `height="${opts.height}"` : '',
-    opts.className ? `class="${escAttr(opts.className)}"` : '',
-    'xmlns="http://www.w3.org/2000/svg"',
-    'role="img" aria-label="Divisa"'
-  ].join(' ');
-
-  return `<svg ${attrs}>
-  <defs>
-    <clipPath id="${id}body"><path d="${TORSO}"/></clipPath>
-    <clipPath id="${id}slv"><path d="${sl}"/><path d="${sl}" ${MIRROR}/></clipPath>
-    ${monoFilter}
-  </defs>
-  <!-- maniche -->
-  ${both(sl, `fill="${col.sleeves}" ${outline}`)}
-  <g clip-path="url(#${id}slv)">${layerSvg(true)}${decoBoth}${cuffSvg}</g>
-  <!-- busto -->
-  <path d="${TORSO}" fill="${col.base}"/>
-  <g clip-path="url(#${id}body)">
-    ${layerSvg(false)}
-    ${raglan ? `<path d="${RAGLAN}" fill="${col.sleeves}"/><path d="${RAGLAN}" fill="${col.sleeves}" ${MIRROR}/>` : ''}
-    ${k.sleeveDeco === 'side' ? decoBoth : ''}
-  </g>
-  ${shading}
-  <path d="${TORSO}" fill="none" ${outline}/>
-  ${collarSvg(k.collar, col.collar, inside, col.base)}
-  ${brandSvg}${crestSvg}${sponsorSvg}${patchSvg}
-</svg>`;
+export function kitCanvasHTML(kit, opts = {}, attrs = '') {
+  const id = `kc${++SLOT}`;
+  const t = opts.template || getTemplate(normalizeKit(kit).template);
+  const w = Math.round(opts.width || 400);
+  const h = Math.round(w * (t.h || 840) / (t.w || 800));
+  pendingSlots.set(id, { kit, opts });
+  if (pendingSlots.size === 1) requestAnimationFrame(flushSlots);
+  return `<div ${attrs}><canvas data-kit-canvas="${id}" width="${w}" height="${h}" style="width:100%; height:auto; display:block;"></canvas></div>`;
 }
 
-/* ------------------------------------------------------------- modelli */
-// Punti di partenza rapidi (FASE 1): sovrascrivono taglio e disegno, non sponsor/patch/stemma
+function flushSlots() {
+  pendingSlots.forEach((v, id) => {
+    const el = document.querySelector(`canvas[data-kit-canvas="${id}"]`);
+    if (el) drawKit(el, v.kit, v.opts).catch(e => console.error('Divisa:', e));
+  });
+  pendingSlots.clear();
+}
+
+/* ------------------------------------------------------------- stili rapidi */
+// Solo il disegno: colori, modello, sponsor, stemma e patch restano invariati
 export const PRESETS = [
+  { name: 'Crepe',            kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'crackle', color: '#0d1b4c', opacity: 85, onSleeves: true }] } },
   { name: 'Tinta unita',      kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [] } },
   { name: 'Strisce',          kit: { collar: 'v', sleeves: 'short', cuffs: 'band', layers: [{ type: 'stripes', color: '#000000' }] } },
   { name: 'Strisce larghe',   kit: { collar: 'polo', sleeves: 'short', cuffs: 'thin', layers: [{ type: 'wideStripes', color: '#ffffff' }] } },
@@ -452,9 +439,7 @@ export const PRESETS = [
   { name: 'Geometrico',       kit: { collar: 'wrap', sleeves: 'short', cuffs: 'band', layers: [{ type: 'shards', color: '#ffffff', opacity: 35 }, { type: 'centerStripe', color: '#000000', opacity: 40, scale: 40 }] } },
   { name: 'Mimetico',         kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'camo', color: '#000000', opacity: 25, onSleeves: true }] } },
   { name: 'Esagoni',          kit: { collar: 'v', sleeves: 'short', cuffs: 'band', layers: [{ type: 'hexagons', color: '#ffffff', opacity: 35, onSleeves: true }] } },
-  { name: 'Retrò',            kit: { collar: 'laces', sleeves: 'long', cuffs: 'double', layers: [] } },
   { name: 'Pannelli',         kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'sidePanels', color: '#000000', opacity: 70 }] } },
-  { name: 'Tre strisce',      kit: { collar: 'v', sleeves: 'short', cuffs: 'none', sleeveDeco: 'stripes3', layers: [] } },
   { name: 'Fiamme',           kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'flames', color: '#ff7a00' }] } },
   { name: 'Spalle',           kit: { collar: 'henley', sleeves: 'raglan', cuffs: 'band', layers: [{ type: 'yoke', color: '#ffffff' }] } }
 ];

@@ -3,7 +3,7 @@ import { uploadImageToImgBB } from '../services/integrationImgBB.js';
 import { AssetPreloader } from '../services/assetPreloader.js';
 import { esc, sid, playerThumb } from './menuUtils.js';
 import { MenuPanel } from '../components/MenuPanel.js';
-import { renderKitSvg } from '../components/KitRenderer.js';
+import { kitCanvasHTML } from '../components/KitRenderer.js';
 import { DivisaSquadra } from './DivisaSquadra.js';
 
 const MAX_FILE_MB = 8;
@@ -77,10 +77,14 @@ export const ConfigurazioneSquadra = {
     const card = this._root.querySelector('#cfg-kit-card');
     if (!card) return;
     const team = STATE.user || {};
+    // ridisegno solo se divisa o logo sono cambiati (refresh arriva spesso: eviterebbe sfarfallii)
+    const key = JSON.stringify([team.kit || null, team.logo || '']);
+    if (card.dataset.key === key) return;
+    card.dataset.key = key;
     card.innerHTML = `
       <div class="mp-card-title">Divisa</div>
       <div style="display:flex; align-items:center; gap:1rem;">
-        <div style="width:84px; flex-shrink:0;">${renderKitSvg(team.kit, { crestUrl: team.logo || '' })}</div>
+        ${kitCanvasHTML(team.kit, { crestUrl: team.logo || '', width: 200 }, 'style="width:96px; flex-shrink:0;"')}
         <div style="min-width:0;">
           <div class="mp-muted">${team.kit ? 'Modifica colletto, maniche, disegno, colori, sponsor e patch della tua maglia.' : 'Non hai ancora creato la tua maglia: personalizzala ora!'}</div>
           <button class="mp-btn" data-action="open-kit" style="margin-top:.6rem;"><i class="ri-shirt-line"></i> ${team.kit ? 'Modifica divisa' : 'Crea divisa'}</button>

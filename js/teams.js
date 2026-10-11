@@ -1,4 +1,4 @@
-import { renderKitSvg } from './components/KitRenderer.js';
+import { kitCanvasHTML } from './components/KitRenderer.js';
 
 export const TeamsPage = {
   // Struttura HTML unificata: Lista -> Dettaglio Rosa -> Modal Info Club
@@ -277,7 +277,7 @@ export const TeamsPage = {
       ${team.kit ? `
       <div class="card" style="margin-bottom:1rem; background:var(--card); text-align:left;">
         <div class="label">Divisa</div>
-        <div style="width:180px; max-width:70%; margin:.4rem auto 0;">${renderKitSvg(team.kit, { crestUrl: team.logo || '' })}</div>
+        ${kitCanvasHTML(team.kit, { crestUrl: team.logo || '', width: 440 }, 'style="width:220px; max-width:75%; margin:.4rem auto 0;"')}
       </div>` : ''}
 
       <div class="card" style="margin-bottom:1rem; background:var(--card); text-align:left;">
