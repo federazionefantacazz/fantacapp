@@ -1,4 +1,4 @@
-import { kitSlot } from './components/KitRenderer.js';
+import { renderKitSvg } from './components/KitRenderer.js';
 
 export const TeamsPage = {
   // Struttura HTML unificata: Lista -> Dettaglio Rosa -> Modal Info Club
@@ -277,7 +277,7 @@ export const TeamsPage = {
       ${team.kit ? `
       <div class="card" style="margin-bottom:1rem; background:var(--card); text-align:left;">
         <div class="label">Divisa</div>
-        ${kitSlot(team.kit, { crestUrl: team.logo || '' }, 'style="width:200px; max-width:75%; margin:.4rem auto 0;"')}
+        <div style="width:180px; max-width:70%; margin:.4rem auto 0;">${renderKitSvg(team.kit, { crestUrl: team.logo || '' })}</div>
       </div>` : ''}
 
       <div class="card" style="margin-bottom:1rem; background:var(--card); text-align:left;">
