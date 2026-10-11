@@ -15,15 +15,15 @@ export const ThemesSection = {
   renderHTML() {
     return `
     <div id="sec-themes" class="admin-sec" style="display:none">
-      <div class="sec-title">🎨 Gestione Temi & Personalizzazione</div>
+      <div class="sec-title"><i class="ri-palette-line"></i> Gestione Temi & Personalizzazione</div>
 
       <!-- NAVIGAZIONE SOTTO-MENU (TAB) -->
       <div style="display: flex; gap: .5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: .8rem;">
         <button id="tab-btn-theme-competizioni" class="btn btn-blue" onclick="window.switchThemeSubTab('competizioni')" style="padding: .4rem .8rem; font-size: .85rem; width: auto;">
-          🏆 Competizioni
+          <i class="ri-trophy-line"></i> Competizioni
         </button>
         <button id="tab-btn-theme-squadre" class="btn" onclick="window.switchThemeSubTab('squadre')" style="padding: .4rem .8rem; font-size: .85rem; width: auto; background: var(--bg3); color: var(--text2);">
-          🛡️ Squadre <span style="font-size: .7rem; background: var(--gold); color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-left: 4px;">WIP</span>
+          <i class="ri-shield-line"></i> Squadre <span style="font-size: .7rem; background: var(--gold); color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-left: 4px;">WIP</span>
         </button>
       </div>
 
@@ -49,7 +49,7 @@ export const ThemesSection = {
               Nessun Sfondo Impostato
             </div>
             <button id="btn-remove-theme-bg" class="btn btn-red" onclick="window.rimuoviSfondoCompetizione()" style="margin-top: .5rem; padding: .3rem .6rem; font-size: .75rem; width: auto; display: none;">
-              🗑️ Rimuovi Sfondo
+              <i class="ri-delete-bin-line"></i> Rimuovi Sfondo
             </button>
           </div>
 
@@ -57,7 +57,7 @@ export const ThemesSection = {
           <input type="file" id="themeBgFile" name="themeBgFile" class="input-login" accept=".jpg, .jpeg, .png, .JPG, .JPEG, .PNG, image/jpeg, image/png" style="padding-top:.5rem;">
 
           <div style="margin-top: 1.5rem;">
-            <button id="btn-save-theme-bg" class="btn btn-green" onclick="window.salvaSfondoCompetizione()">🎨 Salva Sfondo</button>
+            <button id="btn-save-theme-bg" class="btn btn-green" onclick="window.salvaSfondoCompetizione()"><i class="ri-image-line"></i> Salva Sfondo</button>
           </div>
         </div>
 
@@ -84,8 +84,8 @@ export const ThemesSection = {
           ${this.renderPagePanels()}
 
           <div style="display: flex; gap: .8rem; margin-top: 1.5rem;">
-            <button id="btn-save-theme-colors" class="btn btn-green" onclick="window.salvaPaletteColori()" style="flex: 1;">🎨 Salva Tema</button>
-            <button id="btn-reset-theme-colors" class="btn btn-red" onclick="window.resetPaletteColori()" style="width: auto;">🗑️ Reset Tema</button>
+            <button id="btn-save-theme-colors" class="btn btn-green" onclick="window.salvaPaletteColori()" style="flex: 1;"><i class="ri-palette-line"></i> Salva Tema</button>
+            <button id="btn-reset-theme-colors" class="btn btn-red" onclick="window.resetPaletteColori()" style="width: auto;"><i class="ri-delete-bin-line"></i> Reset Tema</button>
           </div>
         </div>
       </div>
@@ -93,7 +93,7 @@ export const ThemesSection = {
       <!-- SOTTO-PAGINA 2: SQUADRE (WIP) -->
       <div id="subtab-theme-squadre" style="display: none;">
         <div class="card" style="text-align: center; padding: 3rem 1rem; border-left: 4px solid var(--gold); max-width: 600px;">
-          <div class="num" style="font-size: 2rem; color: var(--gold); margin-bottom: 0.5rem;">⚠️ WORK IN PROGRESS</div>
+          <div class="num" style="font-size: 2rem; color: var(--gold); margin-bottom: 0.5rem;"><i class="ri-error-warning-line"></i> WORK IN PROGRESS</div>
           <p style="color: var(--text2); font-size: 0.95rem; max-width: 400px; margin: 0 auto; line-height: 1.5;">
             La personalizzazione dei temi e degli sfondi specifici per le <strong>Squadre</strong> è in fase di sviluppo.<br>
             Presto potrai personalizzare i colori sociali e gli sfondi dei singoli club!
@@ -295,8 +295,8 @@ export const ThemesSection = {
       }
 
       const btnSave = document.getElementById('btn-save-theme-bg');
-      const originalText = btnSave.innerText;
-      btnSave.innerText = "⌛ Caricamento Sfondo...";
+      const originalText = btnSave.innerHTML;
+      btnSave.innerHTML = '<i class="ri-loader-4-line"></i> Caricamento Sfondo...';
       btnSave.disabled = true;
 
       try {
@@ -334,7 +334,7 @@ export const ThemesSection = {
         console.error("Errore salvataggio sfondo:", err);
         window.toast(err.message || "Errore durante il caricamento dello sfondo", "err");
       } finally {
-        btnSave.innerText = originalText;
+        btnSave.innerHTML = originalText;
         btnSave.disabled = false;
       }
     };

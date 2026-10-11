@@ -311,7 +311,7 @@ window.creaTabelloneFaseFinale = async function () {
       }
     });
 
-    window.toast?.("🏆 Tabellone e Turni ad eliminazione salvati con successo!", "ok");
+    window.toast?.("Tabellone e Turni ad eliminazione salvati con successo!", "ok");
 
     comp.tabelloneStructure = { fasi: strutturaAlberofasi };
     if (CalendarioUI && CalendarioUI.updateBadgeDinamici) {

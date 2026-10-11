@@ -17,19 +17,18 @@ export const RULE_MATCH = {
   porta_inviolata: 1
 };
 
-// Emoji da mostrare nel live in base al tipo di bonus/malus registrato.
-// Usata da liveMatch.js per costruire la stringa di icone accanto al voto.
-export const EMOJI_BONUS = {
-  gol: "⚽",
-  assist: "🅰️",
-  ammonizione: "🟨",
-  espulsione: "🟥",
-  autogol: "⚫",
-  rigore_parato: "🧤",
-  rigore_sbagliato: "❌",
-  rigore_segnato: "🎯",
-  gol_subito: "🥅",
-  porta_inviolata: "🛡️"
+// Icone (Remix Icon) da mostrare in base al tipo di bonus/malus registrato.
+export const ICON_BONUS = {
+  gol: "ri-football-fill",
+  assist: "ri-share-forward-fill",
+  ammonizione: "ri-file-fill",
+  espulsione: "ri-file-fill",
+  autogol: "ri-football-line",
+  rigore_parato: "ri-shield-check-fill",
+  rigore_sbagliato: "ri-close-circle-fill",
+  rigore_segnato: "ri-focus-3-fill",
+  gol_subito: "ri-arrow-down-circle-line",
+  porta_inviolata: "ri-shield-fill"
 };
 
 export const CalcoloMatchService = {
@@ -45,17 +44,17 @@ export const CalcoloMatchService = {
   },
 
   /**
-   * Costruisce la stringa di emoji da mostrare nel live a partire
-   * dall'oggetto bonus (es: {gol: 2, ammonizione: 1} -> "⚽⚽🟨").
+   * Costruisce l'HTML delle icone da mostrare a partire
+   * dall'oggetto bonus (es: {gol: 2, ammonizione: 1} -> 2 icone gol + 1 ammonizione).
    * @param {Object} bonus - conteggio bonus/malus, es. {gol: 1, assist: 1}
-   * @returns {String} emoji concatenate, stringa vuota se nessun bonus
+   * @returns {String} HTML delle icone, stringa vuota se nessun bonus
    */
-  emojiFromBonus(bonus) {
+  iconsFromBonus(bonus) {
     if (!bonus) return "";
     let out = "";
-    Object.keys(EMOJI_BONUS).forEach(evento => {
+    Object.keys(ICON_BONUS).forEach(evento => {
       const quantita = parseInt(bonus[evento]) || 0;
-      out += EMOJI_BONUS[evento].repeat(quantita);
+      out += `<i class="${ICON_BONUS[evento]}" title="${evento.replace('_', ' ')}"></i>`.repeat(quantita);
     });
     return out;
   },

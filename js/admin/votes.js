@@ -40,8 +40,8 @@ export const VotesSection = {
           </select>
         </div>
         <div style="margin-top: auto; display: flex; gap: .5rem;">
-          <button class="btn" id="btnFillDefaultVotes" style="background-color: var(--accent2, #ff9800); color: #fff;">⚡ Imposta tutti a 6</button>
-          <button class="btn btn-green" id="btnSaveVotes">💾 Salva Voti Sezione</button>
+          <button class="btn" id="btnFillDefaultVotes" style="background-color: var(--accent2, #ff9800); color: #fff;"><i class="ri-flashlight-line"></i> Imposta tutti a 6</button>
+          <button class="btn btn-green" id="btnSaveVotes"><i class="ri-save-line"></i> Salva Voti Sezione</button>
         </div>
       </div>
 

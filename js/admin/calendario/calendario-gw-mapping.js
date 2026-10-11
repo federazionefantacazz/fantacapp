@@ -80,7 +80,7 @@ window.salvaAssociazioniGwReali = async function () {
 
     if (giornateRealiUsate.has(reale)) {
       // Segnala duplicato ma non blocca — l'ultimo vince (l'utente è avvisato)
-      window.toast?.(`⚠️ Giornata reale ${reale} assegnata più volte!`, "warn");
+      window.toast?.(`Giornata reale ${reale} assegnata più volte!`, "warn");
     }
 
     associazioni[reale] = gwKey;
@@ -100,7 +100,7 @@ window.salvaAssociazioniGwReali = async function () {
     const comp = CalendarioState.getCompetizione(compId);
     if (comp) comp.associazioniGwReali = associazioni;
 
-    window.toast?.(`✅ Associazioni salvate (${Object.keys(associazioni).length} giornate mappate)!`, "ok");
+    window.toast?.(`Associazioni salvate (${Object.keys(associazioni).length} giornate mappate)!`, "ok");
 
   } catch (err) {
     console.error(err);

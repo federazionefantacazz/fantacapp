@@ -10,7 +10,11 @@ function injectStyle() {
   style.id = STYLE_ID;
   style.textContent = `
     #menu-panel { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 1500; display: flex; flex-direction: column;
-      background: var(--bg); transform: translateX(100%); visibility: hidden;
+      background-color: var(--bg);
+      /* colore del tema (--menu-bg) sopra lo sfondo della competizione: con un colore trasparente lo sfondo si vede */
+      background-image: linear-gradient(var(--menu-bg, var(--bg)), var(--menu-bg, var(--bg))), var(--comp-bg-image, none);
+      background-size: cover; background-position: center bottom; background-repeat: no-repeat;
+      transform: translateX(100%); visibility: hidden;
       transition: transform .25s ease, visibility 0s linear .25s; }
     #menu-panel.open { transform: translateX(0); visibility: visible; transition: transform .25s ease; }
     .mp-head { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; min-height: 52px;
@@ -99,10 +103,12 @@ function ensurePanel() {
 export const MenuPanel = {
   _view: null,
 
-  open(view) {
+  /** name = chiave della vista (settings, team, ...): scope del tema #menu-panel[data-view="..."] */
+  open(view, name = '') {
     const panel = ensurePanel();
     if (this._view && this._view.unmount) this._view.unmount();
     this._view = view;
+    panel.dataset.view = name;
 
     panel.querySelector('.mp-title').textContent = view.title;
     const body = panel.querySelector('.mp-body');

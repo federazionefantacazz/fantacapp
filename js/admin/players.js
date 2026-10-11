@@ -221,8 +221,8 @@ export const PlayersSection = {
         
         <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem;">
           <button class="btn btn-blue" style="width:auto; padding:0.5rem 1.5rem;" onclick="window.importPlayersData()">Elabora ed Importa</button>
-          <button class="btn btn-outline" style="width:auto; padding:0.5rem 1.5rem; border-color: var(--accent);" onclick="window.updateStandardPhotosImgBB()">🖼️ Aggiorna Campioncini Standard</button>
-          <button class="btn btn-red" style="width:auto; padding:0.5rem 1.5rem; background: var(--accent3);" onclick="window.clearPlayersDatabase()">❌ Svuota Intero Listone</button>
+          <button class="btn btn-outline" style="width:auto; padding:0.5rem 1.5rem; border-color: var(--accent);" onclick="window.updateStandardPhotosImgBB()"><i class="ri-image-line"></i> Aggiorna Campioncini Standard</button>
+          <button class="btn btn-red" style="width:auto; padding:0.5rem 1.5rem; background: var(--accent3);" onclick="window.clearPlayersDatabase()"><i class="ri-delete-bin-line"></i> Svuota Intero Listone</button>
         </div>
 
         <div id="campionciniStatus" style="display:none; font-size: 0.8rem; color: var(--accent); font-weight: 600; padding: 0.5rem; background: rgba(0,0,0,0.2); border-radius: 6px;"></div>

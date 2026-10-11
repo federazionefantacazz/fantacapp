@@ -19,7 +19,7 @@ export const TrofeiSection = {
   renderHTML() {
     return `
     <div id="sec-trofei" class="admin-sec" style="display:none">
-      <div class="sec-title">🏆 Gestione Trofei</div>
+      <div class="sec-title"><i class="ri-trophy-line"></i> Gestione Trofei</div>
       
       <div class="card" style="max-width:500px">
         <div id="formTitleTrophy" class="label" style="color:var(--accent); margin-bottom:.5rem">Aggiungi Nuovo Trofeo</div>
@@ -90,7 +90,7 @@ export const TrofeiSection = {
 
       const imageHtml = t.image 
         ? `<img src="${t.image}" alt="Trofeo" style="width:48px; height:48px; object-fit:contain; border-radius:6px; vertical-align:middle;">`
-        : `<div style="width:48px; height:48px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.5rem; color:var(--gold); vertical-align:middle;">🏆</div>`;
+        : `<div style="width:48px; height:48px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.5rem; color:var(--gold); vertical-align:middle;"><i class="ri-trophy-line"></i></div>`;
 
       return `
       <tr>

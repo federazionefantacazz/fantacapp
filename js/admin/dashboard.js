@@ -42,13 +42,13 @@ export const DashboardSection = {
       ? `<span class="badge badge-green">${gws.length} giornate importate (ultima: ${gws[gws.length - 1]}ª)</span>`
       : `<span class="badge badge-gray">Nessuna giornata importata</span>`;
     if (st) {
-      if (st.skipped) html += `<br><span style="color: var(--gold); font-size:.75rem;">⏸️ Richiesta non eseguita ora (${fmt(st.at)}): ${esc(st.reason)}. Riprova più tardi o attendi il recupero automatico.</span>`;
-      else if (st.ok === false) html += `<br><span style="color: var(--accent3); font-size:.75rem;">⚠️ Ultimo tentativo fallito (${fmt(st.at)}): ${esc(st.error)}. Verrà ritentato in automatico.</span>`;
-      else if (st.inCorso) html += `<br><span style="color: var(--gold); font-size:.75rem;">⏳ Import in corso... importate: ${(st.importate || []).join(', ')}</span>`;
-      else if (st.importate) html += `<br><span style="font-size:.75rem;">✅ ${fmt(st.at)}: importate giornate ${(st.importate || []).join(', ')}${st.restanti ? ` · ne restano ${st.restanti}, proseguo in automatico` : ''}</span>`;
+      if (st.skipped) html += `<br><span style="color: var(--gold); font-size:.75rem;"><i class="ri-pause-circle-line"></i> Richiesta non eseguita ora (${fmt(st.at)}): ${esc(st.reason)}. Riprova più tardi o attendi il recupero automatico.</span>`;
+      else if (st.ok === false) html += `<br><span style="color: var(--accent3); font-size:.75rem;"><i class="ri-error-warning-line"></i> Ultimo tentativo fallito (${fmt(st.at)}): ${esc(st.error)}. Verrà ritentato in automatico.</span>`;
+      else if (st.inCorso) html += `<br><span style="color: var(--gold); font-size:.75rem;"><i class="ri-hourglass-line"></i> Import in corso... importate: ${(st.importate || []).join(', ')}</span>`;
+      else if (st.importate) html += `<br><span style="font-size:.75rem;"><i class="ri-checkbox-circle-line"></i> ${fmt(st.at)}: importate giornate ${(st.importate || []).join(', ')}${st.restanti ? ` · ne restano ${st.restanti}, proseguo in automatico` : ''}</span>`;
     }
     if (this._statsPending && (!st || !st.at || st.at < this._statsPending)) {
-      html += `<br><span style="color: var(--gold); font-size:.75rem;">⏳ Richiesta inviata, attendi qualche secondo...</span>`;
+      html += `<br><span style="color: var(--gold); font-size:.75rem;"><i class="ri-hourglass-line"></i> Richiesta inviata, attendi qualche secondo...</span>`;
     }
     el.innerHTML = html;
   },
@@ -62,14 +62,14 @@ export const DashboardSection = {
       ? `<span class="badge badge-green">${m.giornata}ª giornata · ${m.matches} partite · ${m.players} giocatori</span><br><span style="font-size:.75rem;">Ultimo aggiornamento dati: ${fmt(m.updatedAt)}</span>`
       : `<span class="badge badge-gray">Nessun dato ancora scaricato</span>`;
     if (st && st.skipped) {
-      html += `<br><span style="color: var(--gold); font-size:.75rem;">⏸️ Richiesta non eseguita (${fmt(st.at)}): ${String(st.reason || '').replace(/</g, '&lt;')}</span>`;
+      html += `<br><span style="color: var(--gold); font-size:.75rem;"><i class="ri-pause-circle-line"></i> Richiesta non eseguita (${fmt(st.at)}): ${String(st.reason || '').replace(/</g, '&lt;')}</span>`;
     } else if (st && st.ok && st.invariata) {
-      html += `<br><span style="font-size:.75rem;">✅ Controllo del ${fmt(st.at)}: nessuna novità su fantacalcio.it</span>`;
+      html += `<br><span style="font-size:.75rem;"><i class="ri-checkbox-circle-line"></i> Controllo del ${fmt(st.at)}: nessuna novità su fantacalcio.it</span>`;
     } else if (st && st.ok === false) {
-      html += `<br><span style="color: var(--accent3); font-size:.75rem;">⚠️ Ultimo tentativo fallito (${fmt(st.at)}): ${String(st.error || '').replace(/</g, '&lt;')}</span>`;
+      html += `<br><span style="color: var(--accent3); font-size:.75rem;"><i class="ri-error-warning-line"></i> Ultimo tentativo fallito (${fmt(st.at)}): ${String(st.error || '').replace(/</g, '&lt;')}</span>`;
     }
     if (this._probPending && (!st || !st.at || st.at < this._probPending)) {
-      html += `<br><span style="color: var(--gold); font-size:.75rem;">⏳ Aggiornamento richiesto, attendi qualche secondo...</span>`;
+      html += `<br><span style="color: var(--gold); font-size:.75rem;"><i class="ri-hourglass-line"></i> Aggiornamento richiesto, attendi qualche secondo...</span>`;
     }
     el.innerHTML = html;
   },
@@ -77,7 +77,7 @@ export const DashboardSection = {
   renderHTML() {
     return `
       <div id="sec-dashboard" class="admin-sec" style="display:block;">
-        <h2 class="sec-title">📊 Dashboard Patron</h2>
+        <h2 class="sec-title"><i class="ri-dashboard-line"></i> Dashboard Patron</h2>
         
         <div class="card" style="max-width: 500px;">
           <div class="label" style="color: var(--accent); margin-bottom: .6rem; font-size: .85rem;">
@@ -97,7 +97,7 @@ export const DashboardSection = {
 
         <div class="card" style="max-width: 500px;">
           <div class="label" style="color: var(--accent); margin-bottom: .6rem; font-size: .85rem;">
-            🔴 Stato Calcolo Live Piattaforma
+            <i class="ri-record-circle-line"></i> Stato Calcolo Live Piattaforma
           </div>
           <p style="font-size: .8rem; color: var(--text2); margin-bottom: 1rem;">
             Abilita o disabilita il calcolo in tempo reale su tutto il sito (Stato Globale). Successivamente questo stato condizionerà le competizioni.
@@ -106,8 +106,8 @@ export const DashboardSection = {
           <div style="display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1rem;">
             <label class="label" for="globalLiveSelect">Stato Live Generale:</label>
             <select id="globalLiveSelect" class="input-login" style="margin: 0; padding: .75rem;" onchange="window.changeGlobalLiveStatus(this.value)">
-              <option value="false">❌ Disabilitato (Statico / Risultati Definitivi)</option>
-              <option value="true">🟢 Abilitato (Calcolo in Tempo Reale Attivo)</option>
+              <option value="false">Disabilitato (Statico / Risultati Definitivi)</option>
+              <option value="true">Abilitato (Calcolo in Tempo Reale Attivo)</option>
             </select>
           </div>
           <div id="dashboard-live-badge" style="font-size: .85rem; font-weight: 500;"></div>
@@ -115,7 +115,7 @@ export const DashboardSection = {
 
         <div class="card" style="max-width: 500px;">
           <div class="label" style="color: var(--accent); margin-bottom: .6rem; font-size: .85rem;">
-            🔥 Giocatori On Fire (Home)
+            <i class="ri-fire-line"></i> Giocatori On Fire (Home)
           </div>
           <p style="font-size: .8rem; color: var(--text2); margin-bottom: 1rem;">
             Nella home di ogni patron compaiono i giocatori della sua rosa con la media fantavoto più alta nelle ultime giornate.
@@ -139,19 +139,19 @@ export const DashboardSection = {
 
         <div class="card" style="max-width: 500px;">
           <div class="label" style="color: var(--accent); margin-bottom: .6rem; font-size: .85rem;">
-            📋 Probabili Formazioni (fantacalcio.it)
+            <i class="ri-clipboard-line"></i> Probabili Formazioni (fantacalcio.it)
           </div>
           <p style="font-size: .8rem; color: var(--text2); margin-bottom: 1rem;">
             Percentuali di impiego, infortunati, squalificati e avversari mostrati ai patron quando scelgono la formazione.
             Si aggiornano da sole ogni 2 ore (dalle 8 alle 22). Qui puoi forzare un aggiornamento: per non sovraccaricare fantacalcio.it è consentito al massimo una volta ogni 20 minuti.
           </p>
           <div id="dashboard-probabili-status" style="font-size: .8rem; color: var(--text2); margin-bottom: .8rem;">Caricamento...</div>
-          <button class="btn btn-blue" onclick="window.aggiornaProbabiliOra()">🔄 Aggiorna probabili ora</button>
+          <button class="btn btn-blue" onclick="window.aggiornaProbabiliOra()"><i class="ri-refresh-line"></i> Aggiorna probabili ora</button>
         </div>
 
         <div class="card" style="max-width: 500px;">
           <div class="label" style="color: var(--accent); margin-bottom: .6rem; font-size: .85rem;">
-            📊 Statistiche Calciatori (fantacalcio.it)
+            <i class="ri-bar-chart-line"></i> Statistiche Calciatori (fantacalcio.it)
           </div>
           <p style="font-size: .8rem; color: var(--text2); margin-bottom: 1rem;">
             Gol, assist, cartellini, rigori, gol subiti, titolare/subentrato di ogni giornata. Si aggiornano da sole
@@ -160,13 +160,13 @@ export const DashboardSection = {
           <div id="dashboard-stats-status" style="font-size: .8rem; color: var(--text2); margin-bottom: .8rem;">Caricamento...</div>
           <div style="display:flex; gap:.5rem; align-items:center;">
             <input type="number" id="statsGwInput" class="input-login" min="1" max="38" placeholder="Giornata" style="margin:0; padding:.6rem; max-width:110px;">
-            <button class="btn btn-blue" style="flex:1;" onclick="window.importaStatisticheOra()">📥 Importa fino a questa giornata</button>
+            <button class="btn btn-blue" style="flex:1;" onclick="window.importaStatisticheOra()"><i class="ri-download-line"></i> Importa fino a questa giornata</button>
           </div>
         </div>
 
         <div class="card" style="max-width: 500px;">
           <div class="label" style="color: var(--accent); margin-bottom: .6rem; font-size: .85rem;">
-            🧮 Calcolatore Risultati Giornata (Salvataggio Master)
+            <i class="ri-calculator-line"></i> Calcolatore Risultati Giornata (Salvataggio Master)
           </div>
           <p style="font-size: .8rem; color: var(--text2); margin-bottom: 1rem;">
             Elabora i fantavoti, calcola i punteggi delle squadre, congela i match di questa giornata e aggiorna la classifica o il tabellone.
@@ -185,7 +185,7 @@ export const DashboardSection = {
             </div>
           </div>
           
-          <button class="btn btn-green" onclick="window.eseguiCalcoloPunteggi()">⚡ Salva Risultati Ufficiali e Classifica</button>
+          <button class="btn btn-green" onclick="window.eseguiCalcoloPunteggi()"><i class="ri-flashlight-line"></i> Salva Risultati Ufficiali e Classifica</button>
         </div>
       </div>
     `;
@@ -197,9 +197,9 @@ export const DashboardSection = {
 
     const selectEl = document.getElementById('realGwSelect');
     if (selectEl && selectEl.options.length === 0) {
-      let optionsHtml = `<option value="0">⏳ Giornata 0 (Prima del Campionato)</option>`;
+      let optionsHtml = `<option value="0">Giornata 0 (Prima del Campionato)</option>`;
       for (let i = 1; i <= 38; i++) {
-        optionsHtml += `<option value="${i}">⚽ Giornata ${i}</option>`;
+        optionsHtml += `<option value="${i}">Giornata ${i}</option>`;
       }
       selectEl.innerHTML = optionsHtml;
     }
@@ -233,7 +233,7 @@ export const DashboardSection = {
         calcCompSelect.innerHTML = '<option value="">Nessuna competizione trovata</option>';
       } else {
         calcCompSelect.innerHTML = this._competitions.map(c => `
-          <option value="${c.id}" ${activeCompId === c.id ? 'selected' : ''}>🏆 ${c.name}</option>
+          <option value="${c.id}" ${activeCompId === c.id ? 'selected' : ''}>${c.name}</option>
         `).join('');
       }
     }
@@ -584,7 +584,7 @@ export const DashboardSection = {
 
         // 8. Applicazione Atomica degli Aggiornamenti
         await update(ref(this.db), updates);
-        window.toast(`🎯 Giornata ${gwId.toUpperCase()} salvata e dati aggiornati correttamente!`, "ok");
+        window.toast(`Giornata ${gwId.toUpperCase()} salvata e dati aggiornati correttamente!`, "ok");
 
         // Aggiornamento statistiche calciatori (lo fa la Cloud Function da fantacalcio.it)
         try {

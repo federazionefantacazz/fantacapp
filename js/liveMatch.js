@@ -113,7 +113,7 @@ const LIVE_STYLES = `
 .lv-name{font-weight:600;font-size:.82rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lv-evs{display:flex;gap:3px;align-items:center;margin-top:3px;min-height:12px;flex-wrap:wrap}
 .lv-half.away .lv-evs{justify-content:flex-end}
-.lv-ev{font-size:.62rem;line-height:1;display:inline-flex;align-items:center}
+.lv-ev{font-size:.8rem;color:var(--text);line-height:1;display:inline-flex;align-items:center}
 .lv-card{width:8px;height:11px;border-radius:2px;display:inline-block}
 .lv-card.y{background:#f5d90a}.lv-card.r{background:#e53935}
 .lv-chip{font-size:.52rem;font-weight:700;padding:1px 3px;border-radius:3px;background:var(--bg3);color:var(--text2)}
@@ -267,7 +267,7 @@ export const LiveMatchModule = {
       this.stopLiveTracking();
       container.innerHTML = `
         <div style="text-align:center; padding: 2rem; color:var(--text2);">
-          <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">🔴 Live Match non attivo</p>
+          <p style="font-size: 1.1rem; margin-bottom: 0.5rem;"><i class="ri-record-circle-fill" style="color:var(--accent3);"></i> Live Match non attivo</p>
           <p style="font-size: 0.85rem; opacity: 0.7;">Nessuna giornata di questa competizione è associata alla giornata di Serie A ${esc(gwReale)}.</p>
         </div>`;
       return;
@@ -368,7 +368,7 @@ export const LiveMatchModule = {
     if (couples.length === 0) {
       container.innerHTML = `
         <div class="card" style="margin-top:.5rem; text-align:center; padding:2rem; color:var(--text2);">
-          <p style="font-size:1.05rem; margin-bottom:.4rem;">🔴 Nessun incontro</p>
+          <p style="font-size:1.05rem; margin-bottom:.4rem;"><i class="ri-record-circle-fill" style="color:var(--accent3);"></i> Nessun incontro</p>
           <p style="font-size:.85rem; opacity:.7;">Non ci sono partite in calendario per ${esc(GwService.label(d.gwKey))}.</p>
         </div>`;
       return;
@@ -391,7 +391,7 @@ export const LiveMatchModule = {
       const h = this._teamInfo(c.homeId).name;
       const a = this._teamInfo(c.awayId).name;
       const label = c.label ? `${c.label}: ` : '';
-      return `<option value="${esc(c.key)}" ${c.key === selKey ? 'selected' : ''}>${isMyKey(c) ? '★ ' : ''}${esc(label)}${esc(h)} vs ${esc(a)}</option>`;
+      return `<option value="${esc(c.key)}" ${c.key === selKey ? 'selected' : ''}>${esc(label)}${esc(h)} vs ${esc(a)}${isMyKey(c) ? ' (la tua)' : ''}</option>`;
     }).join('');
 
     const notice = d.status.canPlay ? '' : `
@@ -933,10 +933,10 @@ export const LiveMatchModule = {
     const ev = pl.ev || {};
     const rep = (n, html) => Array.from({ length: Math.min(n, 5) }, () => html).join('');
     let h = '';
-    if (ev.gol) h += rep(ev.gol, `<span class="lv-ev" title="Gol">⚽</span>`);
+    if (ev.gol) h += rep(ev.gol, `<i class="lv-ev ri-football-fill" title="Gol"></i>`);
     if (ev.rigore_segnato) h += rep(ev.rigore_segnato, `<span class="lv-chip ok" title="Rigore segnato">R</span>`);
     if (ev.assist) h += rep(ev.assist, `<span class="lv-chip ok" title="Assist">A</span>`);
-    if (ev.rigore_parato) h += rep(ev.rigore_parato, `<span class="lv-ev" title="Rigore parato">🧤</span>`);
+    if (ev.rigore_parato) h += rep(ev.rigore_parato, `<i class="lv-ev ri-shield-check-fill" title="Rigore parato"></i>`);
     if (ev.porta_inviolata) h += `<span class="lv-chip ok" title="Porta inviolata">PI</span>`;
     if (ev.gol_subito) h += `<span class="lv-chip bad" title="Gol subiti">-${ev.gol_subito}</span>`;
     if (ev.autogol) h += rep(ev.autogol, `<span class="lv-chip bad" title="Autogol">AG</span>`);
@@ -1000,7 +1000,6 @@ export const LiveMatchModule = {
       const byRole = { P: [], D: [], C: [], A: [] };
       t.tit.forEach(p => { if (byRole[p.role]) byRole[p.role].push(p); });
       const rowY = { A: 18, C: 44, D: 70, P: 89 };
-      const shirtBg = { P: '#475569', D: '#2196f3', C: '#e91e63', A: '#ff5722' };
       let html = '';
       ['P', 'D', 'C', 'A'].forEach(role => {
         const list = byRole[role];
@@ -1012,7 +1011,7 @@ export const LiveMatchModule = {
             : (p.kind === 'sv' ? `<span class="lf-score sv">s.v.</span>` : '');
           const shirt = p.photo
             ? `<div class="lf-shirt has-png" style="background-image:url('${esc(p.photo)}')">`
-            : `<div class="lf-shirt is-circle" style="background-color:${shirtBg[role]}">${role}`;
+            : `<div class="lf-shirt is-circle" style="background-color:var(--role-${role.toLowerCase()});color:var(--role-${role.toLowerCase()}-text)">${role}`;
           html += `
             <div class="lf-player" style="left:${x}%; top:${rowY[role]}%;" data-player-id="${esc(p.id)}">
               ${shirt}${scoreTag}</div>

@@ -76,7 +76,7 @@ export const TeamsSection = {
       // Loghi modificati: portati da 32px a 48px con object-fit proporzionale
       const logoHtml = t.logo 
         ? `<img src="${t.logo}" alt="Logo" style="width:48px; height:48px; object-fit:contain; border-radius:6px; vertical-align:middle;">`
-        : `<div style="width:48px; height:48px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.5rem; color:var(--text3); vertical-align:middle;">🛡️</div>`;
+        : `<div style="width:48px; height:48px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.5rem; color:var(--text3); vertical-align:middle;"><i class="ri-shield-line"></i></div>`;
 
       return `
       <tr>

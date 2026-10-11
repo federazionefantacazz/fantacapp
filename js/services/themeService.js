@@ -11,7 +11,10 @@
  *     header:    { bg, text },                                    // barra in alto
  *     nav:       { bg, text, btn },                               // barra in basso
  *     drawer:    { bg, title, text, sub },                        // menu laterale
- *     menuPanel: { title, text, sub, label, btn, btnText },       // pannelli del menu
+ *     menuPanel | menuSettings | menuTeam | menuListone | menuSvincolati:
+ *                { bg, title, text, sub, label, btn, btnText }     // pannelli del menu
+ *     liveEditor | matchViewer | formPicker | playerCard:
+ *                { bg, title, text, sub, label, btn, btnText }     // finestre sopra le pagine
  *     login | home | calendario | classifica | formazione |
  *     mercato | teams | live | patron:
  *                { title, text, sub, label, btn, btnText }
@@ -35,6 +38,13 @@ const TYPE_BTN      = { key: 'btn',     css: '--btn-primary',      kind: 'color'
 const TYPE_BTN_TEXT = { key: 'btnText', css: '--btn-primary-text', kind: 'color', def: '#0a0f1e', label: 'Testi dei pulsanti', hint: 'Testo sul pulsante principale' };
 
 const CONTENT_TYPES = [TYPE_TITLE, TYPE_TEXT, TYPE_SUB, TYPE_LABEL, TYPE_BTN, TYPE_BTN_TEXT];
+
+/* Sfondo dei pannelli del menu: sotto il colore c'è lo sfondo della competizione,
+   quindi un colore trasparente (rgba) lo lascia vedere come nelle altre pagine */
+const MENU_BG  = { key: 'bg', css: '--menu-bg', kind: 'text', def: '#1a1e24', label: 'Sfondo',
+  hint: 'Colore di sfondo (vuoto = come Sfondo pagina). Con un rgba trasparente si vede lo sfondo della competizione' };
+/* Sfondo delle finestre che si aprono sopra le pagine */
+const SHEET_BG = { key: 'bg', css: '--bg', kind: 'color', def: '#1a1e24', label: 'Sfondo', hint: 'Sfondo della finestra (vuoto = come Sfondo pagina)' };
 
 const withGroup = (group, fields) => fields.map(f => ({ ...f, group }));
 
@@ -65,7 +75,11 @@ const GENERAL_ONLY_FIELDS = [
     { key: 'roleP', css: '--role-p', kind: 'color', def: '#4a5568', hint: 'Badge ruolo Portiere' },
     { key: 'roleD', css: '--role-d', kind: 'color', def: '#0077ff', hint: 'Badge ruolo Difensore' },
     { key: 'roleC', css: '--role-c', kind: 'color', def: '#00e5a0', hint: 'Badge ruolo Centrocampista' },
-    { key: 'roleA', css: '--role-a', kind: 'color', def: '#ff4757', hint: 'Badge ruolo Attaccante' }
+    { key: 'roleA', css: '--role-a', kind: 'color', def: '#ff4757', hint: 'Badge ruolo Attaccante' },
+    { key: 'roleTextP', css: '--role-p-text', kind: 'color', def: '#ffffff', hint: 'Testo nel badge Portiere' },
+    { key: 'roleTextD', css: '--role-d-text', kind: 'color', def: '#ffffff', hint: 'Testo nel badge Difensore' },
+    { key: 'roleTextC', css: '--role-c-text', kind: 'color', def: '#0a0f1e', hint: 'Testo nel badge Centrocampista' },
+    { key: 'roleTextA', css: '--role-a-text', kind: 'color', def: '#ffffff', hint: 'Testo nel badge Attaccante' }
   ])
 ];
 
@@ -84,8 +98,8 @@ export const THEME_PAGES = [
     ]
   },
   {
-    key: 'nav', label: 'Barra in basso', selector: '#nav',
-    desc: 'Navigazione principale (Home, Calendario, Classifica, ...).',
+    key: 'nav', label: 'Barra in basso', selector: '#nav, #status-bar',
+    desc: 'Navigazione principale (Home, Calendario, Classifica, ...). Lo sfondo colora anche la fascia in alto sotto l\'ora su iPhone.',
     fields: [
       { key: 'bg',   css: '--nav-bg',       kind: 'color', def: '#13171c', label: 'Sfondo',               hint: 'Sfondo della barra (vuoto = automatico, più scuro dello sfondo)' },
       { key: 'text', css: '--nav-inactive', kind: 'color', def: '#6b7a90', label: 'Testi (tab inattivo)', hint: 'Testo e icona dei tab non selezionati' },
@@ -122,15 +136,33 @@ export const THEME_PAGES = [
     ]
   },
   { key: 'menuPanel', label: 'Pannelli del menu', selector: '#menu-panel',
-    desc: 'Impostazioni, configurazione squadra, listone, svincolati.', fields: CONTENT_TYPES },
+    desc: 'Base di tutti i pannelli del menu (impostazioni, configurazione squadra, listone, svincolati): ognuno può poi essere specializzato nella sua scheda.',
+    fields: [MENU_BG, ...CONTENT_TYPES] },
+  { key: 'menuSettings',   label: 'Impostazioni',            selector: '#menu-panel[data-view="settings"]',
+    desc: 'Pannello Impostazioni applicazione (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
+  { key: 'menuTeam',       label: 'Configurazione squadra',  selector: '#menu-panel[data-view="team"]',
+    desc: 'Pannello Configurazione squadra (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
+  { key: 'menuListone',    label: 'Listone',                 selector: '#menu-panel[data-view="listone"]',
+    desc: 'Pannello Listone (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
+  { key: 'menuSvincolati', label: 'Svincolati',              selector: '#menu-panel[data-view="svincolati"]',
+    desc: 'Pannello Svincolati (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
   { key: 'login',       label: 'Login',        selector: '#page-login',       desc: 'Accesso e scelta squadra.',   fields: CONTENT_TYPES },
   { key: 'home',        label: 'Home',         selector: '#page-home',        desc: 'Schermata principale.',       fields: CONTENT_TYPES },
-  { key: 'calendario',  label: 'Calendario',   selector: '#page-calendario',  desc: 'Calendario incontri.',        fields: CONTENT_TYPES },
+  { key: 'calendario',  label: 'Calendario',   selector: '#page-calendario, #cal-popup',  desc: 'Calendario incontri.',        fields: CONTENT_TYPES },
   { key: 'classifica',  label: 'Classifica',   selector: '#page-classifica',  desc: 'Classifica e tabellone.',     fields: CONTENT_TYPES },
   { key: 'formazione',  label: 'Formazione',   selector: '#page-formazione',  desc: 'Schieramento formazione.',    fields: CONTENT_TYPES },
   { key: 'mercato',     label: 'Mercato',      selector: '#page-mercato',     desc: 'Scambi e prestiti.',          fields: CONTENT_TYPES },
   { key: 'teams',       label: 'Squadre',      selector: '#page-teams',       desc: 'Elenco squadre e scheda club.', fields: CONTENT_TYPES },
   { key: 'live',        label: 'Live',         selector: '#page-live',        desc: 'Partita in diretta.',         fields: CONTENT_TYPES },
+  { key: 'liveEditor',  label: 'Modifica voto (Live)', selector: '#lv-editor',
+    desc: 'Finestra per simulare voto e bonus di un giocatore nel Live.', fields: [SHEET_BG, ...CONTENT_TYPES] },
+  { key: 'matchViewer', label: 'Partita (replay)',     selector: '#match-viewer',
+    desc: 'Replay delle giornate passate e formazioni schierate (aperto da Home e Calendario).', fields: [SHEET_BG, ...CONTENT_TYPES] },
+  { key: 'formPicker',  label: 'Scelta giocatore',     selector: '.fp-overlay',
+    desc: 'Finestra di scelta del giocatore in Formazione (con le probabili formazioni).', fields: [SHEET_BG, ...CONTENT_TYPES] },
+  { key: 'playerCard',  label: 'Scheda giocatore',     selector: '#pc-overlay',
+    desc: 'Scheda con statistiche e voti del giocatore (si apre toccando un giocatore).',
+    fields: [SHEET_BG, ...CONTENT_TYPES, { key: 'accent', css: '--accent', kind: 'color', def: '#50e3c2', label: 'Evidenze', hint: 'Media, selezione giornata, alone della foto (vuoto = come Generale)' }] },
   { key: 'patron',      label: 'Patron',       selector: 'body.page-patron',  desc: 'Pannello Patron (admin.html).', fields: CONTENT_TYPES }
 ];
 
@@ -204,6 +236,32 @@ export function applyThemeCss(css) {
     document.head.appendChild(tag);
   }
   tag.textContent = css || '';
+  syncStatusBarColor();
+}
+
+/**
+ * Allinea il meta "theme-color" (barra del browser / status bar) al colore della barra in basso.
+ * Il colore calcolato può essere color-mix(...) o color(srgb ...): passa da un canvas per avere un #rrggbb.
+ */
+export function syncStatusBarColor() {
+  const bar = document.getElementById('status-bar');
+  if (!bar) return;
+  try {
+    const computed = getComputedStyle(bar).backgroundColor;
+    const ctx = document.createElement('canvas').getContext('2d');
+    ctx.fillStyle = '#000';
+    ctx.fillStyle = computed;
+    ctx.fillRect(0, 0, 1, 1);
+    const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+    const hex = '#' + [r, g, b].map(n => n.toString(16).padStart(2, '0')).join('');
+    let meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'theme-color';
+      document.head.appendChild(meta);
+    }
+    meta.content = hex;
+  } catch (e) { /* resta il colore di default */ }
 }
 
 /** Applica (o rimuove) il tema e ritorna il CSS generato (utile per salvarlo in cache). */
@@ -295,9 +353,14 @@ export function applyBackground(url) {
   const clean = (typeof url === 'string') ? url.trim() : '';
   const token = ++bgToken;
 
+  // Lo stesso sfondo è disponibile come variabile CSS (--comp-bg-image) per i pannelli
+  // a schermo intero che coprono il livello di sfondo (es. pannelli del menu)
+  const rootStyle = document.documentElement.style;
+
   if (!clean) {
     layer.classList.remove('on');
     layer.style.backgroundImage = 'none';
+    rootStyle.setProperty('--comp-bg-image', 'none');
     return;
   }
 
@@ -309,11 +372,13 @@ export function applyBackground(url) {
     if (token !== bgToken) return; // nel frattempo è arrivato un altro sfondo
     layer.style.backgroundImage = `url("${safe}")`;
     layer.classList.add('on');
+    rootStyle.setProperty('--comp-bg-image', `url("${safe}")`);
   };
   img.onerror = () => {
     if (token !== bgToken) return;
     layer.classList.remove('on');
     layer.style.backgroundImage = 'none';
+    rootStyle.setProperty('--comp-bg-image', 'none');
   };
   img.src = clean;
 }
