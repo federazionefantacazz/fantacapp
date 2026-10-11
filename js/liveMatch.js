@@ -691,13 +691,16 @@ export const LiveMatchModule = {
 
   /**
    * Stato della partita di Serie A di un club: { state: 'todo'|'live'|'done'|null, kickoff, fromFeed }.
-   * Prima il feed live (orario esatto e inizio secondo tempo), poi l'orario delle probabili.
+   * Prima il feed live (status, orario esatto e inizio secondo tempo), poi l'orario delle probabili.
    */
   _matchState(club, probKickoff, ctx) {
     const m = ctx.matches?.get(norm(club));
     const kick = (m && this._parseDate(m.date)) || probKickoff || null;
     if (!kick) return { state: null, kickoff: null, fromFeed: !!m };
-    if (m && m.finished === true) return { state: 'done', kickoff: kick, fromFeed: true };
+    // status del feed: 4 = finita, 3 = secondo tempo (gli altri valori non sono ancora verificati)
+    const status = m ? Number(m.status) || 0 : 0;
+    if (m && (m.finished === true || status === 4)) return { state: 'done', kickoff: kick, fromFeed: true };
+    if (status === 3) return { state: 'live', kickoff: kick, fromFeed: true };
     if (ctx.now < kick) return { state: 'todo', kickoff: kick, fromFeed: !!m };
     const sh = m ? this._parseDate(m.sh) : null; // inizio secondo tempo
     const fine = sh ? sh + 55 * 60000 : kick + MATCH_MINUTES * 60000;
