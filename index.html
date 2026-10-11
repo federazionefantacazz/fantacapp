@@ -387,6 +387,26 @@ body {
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.ok{border-color:var(--accent);color:var(--accent)}
 .toast.err{border-color:var(--accent3);color:var(--accent3)}
+
+/* ==================== AVVIO CON SESSIONE ATTIVA ====================
+   Se sul dispositivo c'è già un utente (html.resuming, impostata nell'<head>) non si mostra il login:
+   solo il logo della competizione sul tema dell'utente, finché l'app non è pronta. */
+#splash{display:none;position:fixed;inset:0;z-index:1100;align-items:center;justify-content:center;pointer-events:none}
+html.resuming #splash{display:flex}
+html.resuming #page-login{visibility:hidden}
+#splash-logo{width:120px;height:120px;display:flex;align-items:center;justify-content:center;animation:splashPulse 1.6s ease-in-out infinite}
+#splash-logo img{max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 6px 18px rgba(0,0,0,.45))}
+#splash-logo i{font-size:4.5rem;color:var(--gold)}
+@keyframes splashPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.75;transform:scale(.96)}}
+@media (prefers-reduced-motion:reduce){#splash-logo{animation:none}}
+
+/* Avviso primo Patron / account in attesa */
+.login-note{font-size:.8rem;color:var(--text2);line-height:1.45;text-align:left}
+.login-note i{color:var(--gold);margin-right:.3rem}
+#box-account-pending .pending-ico{font-size:2.4rem;color:var(--gold);margin-bottom:.4rem}
+.badge-dot{position:absolute;top:4px;right:4px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--accent3);color:#fff;font-size:.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1}
+.menu-header-btn{position:relative}
+.side-menu-count{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--accent3);color:#fff;font-size:.7rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
 </style>
 <style id="dynamic-theme"></style>
 <script>
@@ -398,6 +418,11 @@ body {
     var raw = uid && localStorage.getItem('fantacapp-theme-' + uid);
     var t = raw && JSON.parse(raw);
     if (t && t.css) document.getElementById('dynamic-theme').textContent = t.css;
+    // utente già loggato su questo dispositivo: niente schermata di login, solo il logo
+    if (uid) {
+      document.documentElement.classList.add('resuming');
+      window.__splashLogo = (t && t.logo) || '';
+    }
   } catch (e) {}
 })();
 </script>
@@ -405,6 +430,25 @@ body {
 <body>
 
 <div id="status-bar" aria-hidden="true"></div>
+
+<div id="splash" aria-hidden="true"><div id="splash-logo"></div></div>
+<script>
+(function () {
+  var box = document.getElementById('splash-logo');
+  var url = window.__splashLogo;
+  if (url) {
+    var img = new Image();
+    img.alt = '';
+    img.onerror = function () { box.innerHTML = '<i class="ri-trophy-line"></i>'; };
+    img.src = url;
+    box.appendChild(img);
+  } else {
+    box.innerHTML = '<i class="ri-trophy-line"></i>';
+  }
+  // Rete lenta o assente (anche se l'app non riesce a caricarsi): dopo un po' si mostra comunque il login
+  setTimeout(function () { document.documentElement.classList.remove('resuming'); }, 12000);
+})();
+</script>
 
 <div id="app">
   <!-- HEADER: SELETTORE A SINISTRA, MENU A DESTRA -->
@@ -418,11 +462,17 @@ body {
 
     <button class="menu-header-btn" id="menuHeaderBtn" onclick="window.openSideMenu()" aria-label="Apri menu" aria-expanded="false">
       <i class="ri-menu-line" style="font-size: 1.5rem;"></i>
+      <span class="badge-dot" id="menuReqBadge" style="display:none;"></span>
     </button>
   </div>
 
   <div id="page-login">
     <div class="logo" style="font-size:3rem; margin-bottom:2rem;">FANTACAPP</div>
+
+    <div class="card login-note" id="first-patron-notice" style="display:none;">
+      <i class="ri-vip-crown-2-line"></i>Non c'è ancora nessun Patron: il primo account che registri diventerà il <strong>Patron</strong> dell'app.
+      I successivi dovranno essere accettati da lui.
+    </div>
     
     <div class="card" id="box-firebase-login">
       <div class="label" style="text-align:left;">Email</div>
@@ -438,8 +488,16 @@ body {
       <input type="email" id="registerEmail" class="input-login" placeholder="Scegli una email">
       <div class="label" style="text-align:left;">Scegli Password</div>
       <input type="password" id="registerPassword" class="input-login" placeholder="Minimo 6 caratteri">
+      <div class="login-note" style="margin-bottom:1rem;"><i class="ri-information-line"></i>Il nuovo account dovrà essere accettato da un Patron prima di poter entrare.</div>
       <button class="btn btn-green" onclick="window.doFirebaseRegister()">Crea Account</button>
       <span class="link-toggle" onclick="window.toggleAuthBoxes('login')">Hai già un account? Accedi</span>
+    </div>
+
+    <div class="card" id="box-account-pending" style="display:none;">
+      <div class="pending-ico"><i class="ri-time-line" id="pendingIcon"></i></div>
+      <div class="label" id="pendingTitle" style="font-size:.85rem; color:var(--text); margin-bottom:.6rem;">Account in attesa di approvazione</div>
+      <div class="login-note" id="pendingMsg" style="text-align:center; margin-bottom:1.2rem;"></div>
+      <button class="btn btn-outline" style="padding: .5rem;" onclick="window.doFirebaseLogout()">Disconnetti Account</button>
     </div>
 
     <div class="card" id="box-select-team" style="display:none;">
@@ -491,7 +549,7 @@ body {
   <button class="side-menu-item" onclick="window.openMenuPage('listone')"><i class="ri-list-check-2"></i>Listone</button>
   <button class="side-menu-item" onclick="window.openMenuPage('svincolati')"><i class="ri-user-unfollow-line"></i>Svincolati</button>
   <div class="side-menu-sep"></div>
-  <button class="side-menu-item patron" id="menuPatronItem" style="display:none;" onclick="window.goToPatron()"><i class="ri-vip-crown-2-line"></i>Passa a Patron</button>
+  <button class="side-menu-item patron" id="menuPatronItem" style="display:none;" onclick="window.goToPatron()"><i class="ri-vip-crown-2-line"></i>Passa a Patron<span class="side-menu-count" id="menuReqCount" style="display:none;" title="Richieste di nuovi account"></span></button>
   <button class="side-menu-item danger" onclick="window.closeSideMenu(); window.doFirebaseLogout()"><i class="ri-logout-box-r-line"></i>Log out</button>
 </aside>
 
@@ -500,6 +558,7 @@ body {
 <script type="module">
 import { db, auth, ref, onValue, set, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from './js/firebase-config.js';
 import { isPatron } from './js/services/roleService.js';
+import { patronExists, registerAccount, getAccessStatus, watchAccessStatus, watchAccountRequests, ensurePatronFlag, notifyNewRequest, STATUS_APPROVED, STATUS_REJECTED } from './js/services/accountService.js';
 import { applyThemeVars, applyThemeCss, applyBackground, cacheUserTheme, getCachedUserTheme, syncStatusBarColor, LAST_UID_KEY } from './js/services/themeService.js';
 import { SettingsService } from './js/services/settingsService.js';
 import { MenuPanel } from './js/components/MenuPanel.js';
@@ -555,7 +614,12 @@ onValue(ref(db, 'trophies'), snap => {
   refreshUI();
 });
 
+// Le squadre servono per riconoscere gli account creati prima delle approvazioni
+let resolveTeamsReady;
+const teamsReady = new Promise(r => { resolveTeamsReady = r; });
+
 onValue(ref(db, 'teams'), snap => {
+  resolveTeamsReady();
   const raw = snap.val() || {};
   window.STATE.teams = Object.values(raw).sort((a,b) => b.pts - a.pts);
 
@@ -571,21 +635,85 @@ onValue(ref(db, 'teams'), snap => {
   }
   
   refreshUI();
-});
+}, err => { console.warn('Squadre non leggibili:', err?.message); resolveTeamsReady(); });
 
-onAuthStateChanged(auth, firebaseUser => {
+/* ─── Avvio e accesso ───────────────────────────────────────────────────── */
+// Fine della schermata con il logo (html.resuming): da qui in poi si vede il login o l'app
+function endResume() {
+  document.documentElement.classList.remove('resuming');
+}
+
+const LOGIN_BOXES = { login: 'box-firebase-login', register: 'box-firebase-register', pending: 'box-account-pending', team: 'box-select-team' };
+function showLoginBox(name) {
+  Object.entries(LOGIN_BOXES).forEach(([k, id]) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = k === name ? 'block' : 'none';
+  });
+}
+
+// Avviso "il primo account sarà Patron" (solo finché non esiste un Patron)
+async function refreshFirstPatronNotice() {
+  const note = document.getElementById('first-patron-notice');
+  if (!note) return;
+  note.style.display = 'none';
+  if (auth.currentUser) return;
+  const exists = await patronExists();
+  if (!auth.currentUser) note.style.display = exists ? 'none' : 'block';
+}
+
+function showPending(status) {
+  const rejected = status === STATUS_REJECTED;
+  document.getElementById('pendingIcon').className = rejected ? 'ri-close-circle-line' : 'ri-time-line';
+  document.getElementById('pendingTitle').textContent = rejected ? 'Richiesta di accesso rifiutata' : 'Account in attesa di approvazione';
+  document.getElementById('pendingMsg').textContent = rejected
+    ? 'Un Patron ha rifiutato la creazione di questo account. Contatta il Patron della lega se pensi sia un errore.'
+    : 'Il tuo account è stato creato. Un Patron deve accettarlo prima che tu possa entrare: appena lo farà, l\'app si aprirà da sola.';
+  showLoginBox('pending');
+}
+
+let registering = null;   // promessa della registrazione in corso (crea profilo / richiesta)
+let accessUnsub = null;
+
+onAuthStateChanged(auth, async firebaseUser => {
   updatePatronMenuItem(firebaseUser);
   loadUserSettings(firebaseUser);
-  if (firebaseUser) {
-    document.getElementById('box-firebase-login').style.display = 'none';
-    document.getElementById('box-firebase-register').style.display = 'none';
-    document.getElementById('box-select-team').style.display = 'block';
-    populateLoginDropdown();
-  } else {
-    document.getElementById('box-firebase-login').style.display = 'block';
-    document.getElementById('box-firebase-register').style.display = 'none';
-    document.getElementById('box-select-team').style.display = 'none';
+  if (accessUnsub) { accessUnsub(); accessUnsub = null; }
+  window.STATE.accessOk = false;
+  document.getElementById('first-patron-notice').style.display = 'none';
+
+  if (!firebaseUser) {
+    showLoginBox('login');
+    endResume();
+    refreshFirstPatronNotice();
+    return;
   }
+
+  // durante la registrazione si aspetta che profilo e richiesta siano scritti
+  if (registering) await registering;
+  await teamsReady;
+  const status = await getAccessStatus(firebaseUser, window.STATE.teams);
+  if (!auth.currentUser || auth.currentUser.uid !== firebaseUser.uid) return;
+
+  const enter = () => {
+    window.STATE.accessOk = true;
+    showLoginBox('team');
+    populateLoginDropdown();
+  };
+
+  if (status === STATUS_APPROVED) { enter(); return; }
+
+  showPending(status);
+  endResume();
+  // appena il Patron accetta, si entra senza ricaricare
+  accessUnsub = watchAccessStatus(firebaseUser.uid, st => {
+    if (st === STATUS_APPROVED) {
+      if (accessUnsub) { accessUnsub(); accessUnsub = null; }
+      window.showToast('Account approvato!', 'ok');
+      enter();
+    } else if (st) {
+      showPending(st);
+    }
+  });
 });
 
 // IMPOSTAZIONI "GIOCATORI ON FIRE" (settimane e numero giocatori, gestite dal Patron)
@@ -783,12 +911,16 @@ window.doFirebaseRegister = function() {
     window.showToast('La password deve avere almeno 6 caratteri!', 'err');
     return;
   }
-  createUserWithEmailAndPassword(auth, email, pass)
-    .then(() => { window.showToast('Account creato con successo!', 'ok'); })
-    .catch(error => { 
+  registering = createUserWithEmailAndPassword(auth, email, pass)
+    .then(cred => registerAccount(cred.user))
+    .then(result => {
+      window.showToast(result === 'patron' ? 'Account Patron creato!' : 'Account creato: in attesa di approvazione', 'ok');
+    })
+    .catch(error => {
       console.error(error);
-      window.showToast('Errore durante la registrazione!', 'err'); 
-    });
+      window.showToast('Errore durante la registrazione!', 'err');
+    })
+    .finally(() => { registering = null; });
 };
 
 /* ─── Menu laterale ─────────────────────────────────────────────────────── */
@@ -893,15 +1025,44 @@ window.goToPatron = function() {
 };
 
 // "Passa a Patron" compare solo se il profilo ha il ruolo patron (users/{uid}/role)
+// Per il Patron: richieste di nuovi account (badge sul menu + notifica alle nuove)
+let requestsUnsub = null;
+function showRequestsCount(n) {
+  const badge = document.getElementById('menuReqBadge');
+  const count = document.getElementById('menuReqCount');
+  [badge, count].forEach(el => {
+    if (!el) return;
+    el.textContent = n;
+    el.style.display = n ? (el === badge ? 'flex' : 'inline-flex') : 'none';
+  });
+}
+function watchRequestsAsPatron() {
+  let known = null;
+  requestsUnsub = watchAccountRequests(list => {
+    if (known) {
+      list.filter(r => !known.has(r.uid)).forEach(r => {
+        notifyNewRequest(r.email);
+        window.showToast(`Nuova richiesta di account: ${r.email || 'nuovo utente'}`, 'ok');
+      });
+    }
+    known = new Set(list.map(r => r.uid));
+    showRequestsCount(list.length);
+  });
+}
+
 async function updatePatronMenuItem(firebaseUser) {
   const item = document.getElementById('menuPatronItem');
   if (!item) return;
   item.style.display = 'none';
+  if (requestsUnsub) { requestsUnsub(); requestsUnsub = null; }
+  showRequestsCount(0);
   if (!firebaseUser) return;
   const autorizzato = await isPatron(firebaseUser);
   // l'utente potrebbe essere cambiato nel frattempo
   if (autorizzato && auth.currentUser && auth.currentUser.uid === firebaseUser.uid) {
     item.style.display = 'flex';
+    ensurePatronFlag();
+    watchRequestsAsPatron();
   }
 }
 
@@ -917,7 +1078,7 @@ window.doFirebaseLogout = function() {
 };
 
 function populateLoginDropdown() {
-  if (window.STATE.booted) return;
+  if (window.STATE.booted || !window.STATE.accessOk) return;
   const currentUser = auth.currentUser;
   if (!currentUser) return; 
 
@@ -949,9 +1110,11 @@ function populateLoginDropdown() {
     optionsHTML += `<option value="${t.id}">${t.name} (${t.owner || 'Nessun proprietario'})</option>`;
   });
   select.innerHTML = optionsHTML;
+  endResume(); // nessuna squadra associata: serve la scelta
 }
 
 window.doTeamSelection = function() {
+  if (!window.STATE.accessOk) return;
   const select = document.getElementById('loginSelect');
   if (!select) return;
   const id = select.value;
@@ -1030,7 +1193,10 @@ function bootApp() {
   AssetPreloader.startSync(window.STATE);
 
   window.goPage('home', document.querySelector('.nav-btn'));
+  endResume();
 }
+
+let lastCachedLogo = null;
 
 function refreshUI() {
   if (!window.STATE.booted || !window.STATE.user) return;
@@ -1047,6 +1213,13 @@ function refreshUI() {
   if (globalNavbarLogoContainer) {
     const currentCompId = window.STATE.currentCompetition || window.STATE.activeCompetitionId;
     const compData = (window.STATE.competitions || []).find(c => String(c.id) === String(currentCompId));
+
+    // logo salvato con il tema dell'utente: al prossimo avvio è quello della schermata iniziale
+    const logoUrl = (compData && compData.logo) ? compData.logo.trim() : '';
+    if (compData && logoUrl !== lastCachedLogo) {
+      lastCachedLogo = logoUrl;
+      cacheUserTheme(currentUid(), { logo: logoUrl });
+    }
 
     if (compData && compData.logo && compData.logo.trim() !== "") {
       globalNavbarLogoContainer.innerHTML = `

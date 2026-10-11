@@ -78,6 +78,9 @@ export const DashboardSection = {
     return `
       <div id="sec-dashboard" class="admin-sec" style="display:block;">
         <h2 class="sec-title"><i class="ri-dashboard-line"></i> Dashboard Patron</h2>
+
+        <!-- Richieste nuovi account (js/admin/accounts.js) -->
+        <div id="account-requests-box"></div>
         
         <div class="card" style="max-width: 500px;">
           <div class="label" style="color: var(--accent); margin-bottom: .6rem; font-size: .85rem;">

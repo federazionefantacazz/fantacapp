@@ -252,6 +252,8 @@ import { db, auth, ref, onValue, set, update, onAuthStateChanged, signInWithEmai
 import { get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { MercatoService } from './js/services/mercatoService.js';
 import { isPatron } from './js/services/roleService.js';
+import { ensurePatronFlag } from './js/services/accountService.js';
+import { AccountRequestsSection } from './js/admin/accounts.js';
   
 // Importazione di tutti i sottomoduli amministrativi
 import { DashboardSection }     from './js/admin/dashboard.js';
@@ -321,6 +323,7 @@ onAuthStateChanged(auth, async (user) => {
 
   showAuthView(null);
   layout.style.display = 'flex';
+  ensurePatronFlag();
   if (!adminInitialized) {
     adminInitialized = true;
     initAdminApp();
@@ -391,6 +394,7 @@ function initAdminApp() {
 
   startFirebaseSubscriptions();
   window.showSec('dashboard');
+  AccountRequestsSection.init(auth);
 }
 
 function refreshAll() {
