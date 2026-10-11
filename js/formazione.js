@@ -362,8 +362,20 @@ export const FormazionePage = {
     this._rosa = miaRosa;
     if (this._picker) this._closePicker();
 
-    const savedTitolariIds = savedLineup?.titolari || [];
-    const savedPanchinaIds = savedLineup?.panchina || [];
+    let savedTitolariIds = savedLineup?.titolari || [];
+    let savedPanchinaIds = savedLineup?.panchina || [];
+
+    // Cambio modulo: tengo i giocatori già schierati (anche se non ancora salvati).
+    // Se nel nuovo modulo un reparto ha meno posti, restano i primi e gli altri escono.
+    if (userChangedModulo) {
+      const current = (sel) => Array.from(document.querySelectorAll(sel))
+        .map(s => s.value)
+        .filter(Boolean)
+        .map(v => miaRosa.find(p => String(p.id) === String(v))?.id)
+        .filter(id => id !== undefined);
+      savedTitolariIds = current('#titolari-field-slots select');
+      savedPanchinaIds = current('#panchina-slots select');
+    }
 
     this.drawFieldTitolari(def, mid, att, miaRosa, savedTitolariIds);
     const schemaPan = [{role:'P', count:1}, {role:'D', count:2}, {role:'C', count:2}, {role:'A', count:2}];
