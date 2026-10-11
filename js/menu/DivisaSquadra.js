@@ -1,17 +1,19 @@
 import { db, ref, update } from '../firebase-config.js';
 import { uploadPngToImgBB } from '../services/integrationImgBB.js';
+import { createKitViewer, renderKitImage, kitImageHTML, dataUrlToBlob } from '../components/Kit3D.js';
 import { getCutout } from '../services/imageCutout.js';
-import { getTemplates, getTemplate, getPngPatterns, getPngBrands, onKitAssetsChange } from '../services/kitAssets.js';
+import { getPngPatterns, getPngBrands, onKitAssetsChange } from '../services/kitAssets.js';
 import { esc } from './menuUtils.js';
 import {
-  drawKit, kitCanvasHTML, normalizeKit, defaultKit, patternLabel,
-  PRESETS, PATTERNS, BRANDS, SPONSOR_FONTS, PATCH_POSITIONS, ZONES
+  normalizeKit, defaultKit, patternLabel,
+  PRESETS, PATTERNS, BRANDS, SPONSOR_FONTS, PATCH_POSITIONS, ZONES, COLLARS, CUFFS, SLEEVE_DECO
 } from '../components/KitRenderer.js';
 
 /**
  * Editor della divisa della squadra (menu laterale → Divisa squadra).
- * La maglia è composta su canvas dai PNG del modello scelto (vedi components/KitRenderer.js);
- * modelli, disegni e marchi in PNG si aggiungono dall'area Patron (sezione Divise).
+ * La maglia è un modello 3D (components/Kit3D.js) vestito con la texture dipinta da components/KitRenderer.js;
+ * disegni e marchi in PNG si aggiungono dall'area Patron (sezione Divise).
+ * Al salvataggio si genera anche una foto PNG (kit.image) usata nel resto dell'app.
  */
 const MAX_LAYERS = 6;
 const MAX_PATCHES = 4;
@@ -25,7 +27,8 @@ const COLOR_FIELDS = [
   { key: 'base',    label: 'Busto' },
   { key: 'sleeves', label: 'Maniche' },
   { key: 'collar',  label: 'Colletto' },
-  { key: 'cuffs',   label: 'Polsini' }
+  { key: 'cuffs',   label: 'Polsini' },
+  { key: 'trim',    label: 'Finiture (righe colletto, maniche)' }
 ];
 
 const STYLE_ID = 'kit-editor-style';
@@ -36,10 +39,13 @@ function injectStyle() {
   style.textContent = `
     .kit-stage { position: sticky; top: -1rem; z-index: 5; margin: -1rem -1rem 1rem; padding: 1rem 1rem .6rem;
       background-color: var(--bg); background-image: linear-gradient(var(--menu-bg, var(--bg)), var(--menu-bg, var(--bg))); border-bottom: 1px solid var(--border); }
-    .kit-preview { display: flex; justify-content: center; }
-    .kit-preview { height: 30vh; max-height: 300px; min-height: 180px; }
-    .kit-preview > div { height: 100%; aspect-ratio: 800 / 840; max-width: 100%; }
-    .kit-preview canvas { width: 100% !important; height: 100% !important; object-fit: contain; }
+    .kit-preview { position: relative; height: 34vh; max-height: 320px; min-height: 200px; }
+    .kit-preview > #kit-3d { position: absolute; inset: 0; }
+    .kit-view-btns { position: absolute; right: 0; bottom: 0; display: flex; gap: .3rem; z-index: 2; }
+    .kit-view-btns button { background: color-mix(in srgb, var(--bg2) 85%, transparent); color: var(--text2); border: 1px solid var(--border);
+      border-radius: 999px; padding: .2rem .6rem; font-family: inherit; font-size: .7rem; font-weight: 600; cursor: pointer; }
+    .kit-hint { position: absolute; left: 0; bottom: 0; font-size: .65rem; color: var(--text3); z-index: 2; }
+    .kit-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text3); font-size: .8rem; }
     .kit-actions { display: flex; gap: .5rem; justify-content: center; margin-top: .5rem; flex-wrap: wrap; }
     .kit-dirty { font-size: .7rem; color: var(--gold); text-align: center; margin-top: .3rem; min-height: 1em; }
 
@@ -139,7 +145,6 @@ export const DivisaSquadra = {
     }
     this._teamId = team.id;
     this._kit = normalizeKit(team.kit || defaultKit());
-    if (!this._kit.template) this._kit.template = getTemplate('').id;
     this._saved = JSON.stringify(this._kit);
     this._layer = 0;
     this._open = 'model';
@@ -160,6 +165,8 @@ export const DivisaSquadra = {
   unmount() {
     if (this._unwatch) this._unwatch();
     this._unwatch = null;
+    if (this._viewer) this._viewer.dispose();
+    this._viewer = null;
     this._root = null;
     this._kit = null;
   },
@@ -169,11 +176,11 @@ export const DivisaSquadra = {
   _dirty() { return JSON.stringify(this._kit) !== this._saved; },
 
   /** Miniatura: maglia disegnata su canvas a bassa risoluzione. */
-  _thumb(kit, plain = true) { return kitCanvasHTML(kit, { crestUrl: this._crest(), width: 150, plain }); },
+  _thumb(kit, plain = true) { return kitImageHTML(kit, { crestUrl: this._crest(), width: 180, textureSize: 512, plain, live: true }); },
 
   _renderAll() {
     const sections = [
-      ['model',   'FASE 1: Seleziona un modello'],
+      ['model',   'FASE 1: Colletto e maniche'],
       ['styles',  'FASE 2: Stili rapidi'],
       ['design',  'FASE 3: Disegno (livelli)'],
       ['colors',  'FASE 4: Seleziona i colori'],
@@ -183,7 +190,12 @@ export const DivisaSquadra = {
     ];
     this._root.innerHTML = `
       <div class="kit-stage">
-        <div class="kit-preview"><div id="kit-preview"><canvas id="kit-preview-canvas" width="800" height="840"></canvas></div></div>
+        <div class="kit-preview">
+          <div class="kit-loading" id="kit-loading">Caricamento maglia 3D…</div>
+          <div id="kit-3d"></div>
+          <div class="kit-hint"><i class="ri-drag-move-line"></i> Trascina per ruotare</div>
+          <div class="kit-view-btns"><button data-act="view" data-v="front">Davanti</button><button data-act="view" data-v="back">Retro</button></div>
+        </div>
         <div class="kit-dirty" id="kit-dirty"></div>
         <div class="kit-actions">
           <button class="mp-btn ghost" data-act="undo"><i class="ri-arrow-go-back-line"></i> Annulla modifiche</button>
@@ -203,8 +215,13 @@ export const DivisaSquadra = {
 
   _renderPreview() {
     if (!this._root) return;
-    const canvas = this._root.querySelector('#kit-preview-canvas');
-    if (canvas) drawKit(canvas, this._kit, { crestUrl: this._crest() }).catch(e => console.error('Divisa:', e));
+    const box = this._root.querySelector('#kit-3d');
+    if (box && !this._viewer) {
+      this._viewer = createKitViewer(box);
+      this._viewer.ready.then(() => { const l = this._root && this._root.querySelector('#kit-loading'); if (l) l.remove(); })
+        .catch(e => { console.error(e); const l = this._root && this._root.querySelector('#kit-loading'); if (l) l.textContent = 'Il 3D non è supportato su questo dispositivo'; });
+    }
+    if (this._viewer) this._viewer.update(this._kit, { crestUrl: this._crest() }).catch(e => console.error('Divisa:', e));
     const dirty = this._root.querySelector('#kit-dirty');
     if (dirty) dirty.textContent = this._dirty() ? 'Modifiche non salvate' : '';
   },
@@ -267,11 +284,15 @@ export const DivisaSquadra = {
   /* ------------------------------------------------------------ sezioni */
   _secModel() {
     const k = this._kit;
+    const base = { ...k, sponsor: { mode: 'none' }, patches: [], crest: { show: false } };
     return `
-      <div class="mp-muted" style="margin-bottom:.6rem;">Scegli il modello di maglia (colletto e maniche). Colori, disegno, sponsor e patch restano quelli scelti.</div>
-      <div class="kit-grid wide">
-        ${getTemplates().map(t => this._opt('template', t.id, this._thumb({ ...k, template: t.id }), t.name, k.template === t.id)).join('')}
-      </div>`;
+      <div class="kit-sub">Colletto</div>
+      <div class="kit-grid">${COLLARS.map(c => this._opt('collar', c.id, this._thumb({ ...base, collar: c.id }), c.label, k.collar === c.id)).join('')}</div>
+      <div class="kit-sub">Polsini</div>
+      <div class="kit-grid">${CUFFS.map(c => this._opt('cuffs', c.id, this._thumb({ ...base, cuffs: c.id }), c.label, k.cuffs === c.id)).join('')}</div>
+      <div class="kit-sub">Decorazioni maniche</div>
+      <div class="kit-grid">${SLEEVE_DECO.map(d => this._opt('sleeveDeco', d.id, this._thumb({ ...base, sleeveDeco: d.id }), d.label, k.sleeveDeco === d.id)).join('')}</div>
+      <div class="mp-muted" style="margin-top:.6rem;">Colori di colletto, polsini e finiture nella FASE 4. Ruota la maglia per vedere maniche e retro.</div>`;
   },
 
   _secStyles() {
@@ -279,7 +300,7 @@ export const DivisaSquadra = {
     return `
       <div class="mp-muted" style="margin-bottom:.6rem;">Parti da un disegno già pronto: poi puoi modificarlo nella FASE 3. Cambia solo il disegno.</div>
       <div class="kit-grid">
-        ${PRESETS.map((p, i) => this._opt('preset', i, this._thumb({ ...k, layers: normalizeKit({ layers: p.kit.layers }).layers }), p.name, false)).join('')}
+        ${PRESETS.map((p, i) => this._opt('preset', i, this._thumb({ ...k, sleeveDeco: p.kit.sleeveDeco || k.sleeveDeco, layers: normalizeKit({ layers: p.kit.layers }).layers }), p.name, false)).join('')}
       </div>`;
   },
 
@@ -470,13 +491,19 @@ export const DivisaSquadra = {
         this._layer = 0;
         this._renderPreview(); this._renderSection();
         return;
-      case 'template':
-        this._update(kit => { kit.template = v; });
+      case 'view':
+        if (this._viewer) this._viewer.setView(v);
+        return;
+      case 'collar': case 'cuffs': case 'sleeveDeco':
+        this._update(kit => { kit[act] = v; });
         return;
       case 'preset': {
         const p = PRESETS[Number(v)];
         if (!p) return;
-        this._update(kit => { kit.layers = normalizeKit({ layers: clone(p.kit.layers) }).layers; }, { section: false });
+        this._update(kit => {
+          kit.layers = normalizeKit({ layers: clone(p.kit.layers) }).layers;
+          if (p.kit.sleeveDeco) kit.sleeveDeco = p.kit.sleeveDeco;
+        }, { section: false });
         this._layer = 0;
         return;
       }
@@ -490,7 +517,7 @@ export const DivisaSquadra = {
         this._update(kit => {
           const c = kit.colors;
           [c.base, c.collar] = [c.collar, c.base];
-          c.sleeves = c.base; c.cuffs = c.collar;
+          c.sleeves = c.base; c.cuffs = c.collar; c.trim = c.collar;
         });
         return;
 
@@ -613,10 +640,21 @@ export const DivisaSquadra = {
     this._busy = true;
     const btn = this._root.querySelector('[data-act="save"]');
     if (btn) btn.classList.add('busy');
+    window.showToast('Salvataggio in corso...', 'ok');
     const kit = clone(this._kit);
+    delete kit.image;
     try {
+      // foto della maglia per il resto dell'app (scheda club, configurazione squadra)
+      try {
+        const dataUrl = await renderKitImage(kit, { crestUrl: this._crest(), width: 600 });
+        if (dataUrl) {
+          const blob = await dataUrlToBlob(dataUrl);
+          kit.image = await uploadPngToImgBB(new File([blob], `divisa-${team.id}.png`, { type: 'image/png' }), 600);
+        }
+      } catch (e) { console.warn('Foto della divisa non caricata', e); }
       await update(ref(db, `teams/${team.id}`), { kit });
       team.kit = kit; // aggiornamento immediato; il listener del DB lo riconferma
+      if (kit.image) this._kit.image = kit.image;
       this._saved = JSON.stringify(this._kit);
       this._renderPreview();
       window.showToast('Divisa salvata!', 'ok');

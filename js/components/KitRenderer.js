@@ -1,19 +1,20 @@
-import { getTemplate, getPngPatterns, getPngBrands, loadImage } from '../services/kitAssets.js';
+import { getPngPatterns, getPngBrands } from '../services/kitAssets.js';
 import { getCutout } from '../services/imageCutout.js';
 
 /**
- * Divisa della squadra composta su <canvas> sovrapponendo PNG (vedi services/kitAssets.js per i modelli).
+ * Divisa della squadra: dati e pittura della texture UV della maglia 3D (vedi components/Kit3D.js).
  * La divisa è salvata in teams/{id}/kit:
  * {
- *   template,                                   // id del modello (colletto + maniche + ombre)
- *   colors: { base, sleeves, collar, cuffs },   // base = busto
+ *   collar, cuffs, sleeveDeco,                              // stile di colletto, polsini, decorazioni maniche
+ *   colors: { base, sleeves, collar, cuffs, trim },
  *   layers: [{ type, color, opacity, scale, flipX, flipY, zone }],  // type: disegno integrato o 'png:<id>'; zone: body | all | sleeves
- *   brand: { id, color, url, mono },            // id: marchio integrato, 'png:<id>' (caricato dal Patron) o 'custom'
+ *   brand: { id, color, url, mono },                        // id: marchio integrato, 'png:<id>' (dal Patron) o 'custom'
  *   crest: { show, size },
  *   sponsor: { mode: 'none'|'image'|'text', url, text, font, color, mono, scale, y },
- *   patches: [{ id, src, name, pos }]
+ *   patches: [{ id, src, name, pos }],
+ *   image                                                   // foto PNG della maglia (fronte) generata al salvataggio
  * }
- * I disegni integrati sono SVG nel riquadro 0 0 400 420 rasterizzati alla dimensione del modello.
+ * I disegni integrati sono SVG pensati sulla vista frontale 0 0 400 420 e vengono adattati a ogni pezzo della maglia.
  */
 const W = 400;
 const H = 420;
@@ -143,10 +144,36 @@ export const ZONES = [
   { id: 'sleeves', label: 'Solo maniche' }
 ];
 
+// Colletto: la striscia del colletto del modello 3D + eventuale bordo sul petto/schiena
+export const COLLARS = [
+  { id: 'plain',   label: 'Semplice' },
+  { id: 'twotone', label: 'Bicolore' },
+  { id: 'striped', label: 'Con righe' },
+  { id: 'trim',    label: 'Con bordino' },
+  { id: 'wide',    label: 'Bordo largo' }
+];
+
+export const CUFFS = [
+  { id: 'none',   label: 'Nessuno' },
+  { id: 'band',   label: 'Fascia' },
+  { id: 'double', label: 'Doppia riga' },
+  { id: 'thin',   label: 'Profilo sottile' }
+];
+
+export const SLEEVE_DECO = [
+  { id: 'none',     label: 'Nessuna' },
+  { id: 'stripes3', label: 'Tre strisce' },
+  { id: 'stripes2', label: 'Due strisce' },
+  { id: 'shoulder', label: 'Spalla colorata' },
+  { id: 'band',     label: 'Fascia sul braccio' },
+  { id: 'chevrons', label: 'Chevron' },
+  { id: 'side',     label: 'Bande laterali' }
+];
+
 export function defaultKit() {
   return {
-    template: '',
-    colors: { base: '#1e5bb8', sleeves: '#1e5bb8', collar: '#ffffff', cuffs: '#ffffff' },
+    collar: 'plain', cuffs: 'band', sleeveDeco: 'none',
+    colors: { base: '#1e5bb8', sleeves: '#1e5bb8', collar: '#ffffff', cuffs: '#ffffff', trim: '#ffffff' },
     layers: [],
     brand: { id: 'nike', color: '#ffffff', url: '', mono: false },
     crest: { show: true, size: 100 },
@@ -155,13 +182,15 @@ export function defaultKit() {
   };
 }
 
-/** Completa una divisa letta dal DB (anche nel vecchio formato SVG) con i valori mancanti. */
+/** Completa una divisa letta dal DB (anche dei formati precedenti) con i valori mancanti. */
 export function normalizeKit(raw) {
   const d = defaultKit();
   const k = raw && typeof raw === 'object' ? raw : {};
   const toArr = (v) => Array.isArray(v) ? v.filter(Boolean) : (v && typeof v === 'object' ? Object.values(v).filter(Boolean) : []);
   return {
-    template: k.template || '',
+    collar: COLLARS.some(c => c.id === k.collar) ? k.collar : d.collar,
+    cuffs: CUFFS.some(c => c.id === k.cuffs) ? k.cuffs : d.cuffs,
+    sleeveDeco: SLEEVE_DECO.some(c => c.id === k.sleeveDeco) ? k.sleeveDeco : d.sleeveDeco,
     colors: { ...d.colors, ...(k.colors || {}) },
     brand: { ...d.brand, ...(k.brand || {}) },
     crest: { ...d.crest, ...(k.crest || {}) },
@@ -170,7 +199,8 @@ export function normalizeKit(raw) {
       type: 'stripes', color: '#ffffff', opacity: 100, scale: 100, flipX: false, flipY: false,
       ...l, zone: l.zone || (l.onSleeves ? 'all' : 'body')
     })),
-    patches: toArr(k.patches).map(p => ({ id: p.id, name: p.name || '', src: p.src || '', pos: p.pos || 'chest' }))
+    patches: toArr(k.patches).map(p => ({ id: p.id, name: p.name || '', src: p.src || '', pos: p.pos || 'chest' })),
+    ...(k.image ? { image: k.image } : {})
   };
 }
 
@@ -179,6 +209,32 @@ export function patternLabel(type) {
   if (String(type).startsWith('png:')) return (getPngPatterns().find(p => 'png:' + p.id === type) || {}).name || 'Disegno';
   return (PATTERNS.find(p => p.id === type) || {}).label || type;
 }
+
+/* ------------------------------------------------- mappa UV del modello */
+// Riquadri dei pezzi nella texture della maglia (coordinate 0..1, origine in alto a sinistra).
+// Davanti e dietro non sono specchiati; la manica "L" è quella a sinistra guardando la maglia di fronte.
+export const UV = {
+  front:   { x: .1523, y: .2598, w: .3252, h: .4629 },
+  back:    { x: .5391, y: .2451, w: .3252, h: .4805 },
+  sleeveL: { x: .2031, y: .7656, w: .2578, h: .1250 },
+  sleeveR: { x: .5391, y: .7656, w: .2578, h: .1250 },
+  collar:  { x: .3301, y: .1611, w: .3076, h: .0225 }
+};
+
+// Posizioni sul pezzo (0..1 nel riquadro del pezzo): s = lato rispetto alla larghezza del pezzo
+export const ANCHORS = {
+  crest:   { part: 'front', x: .30, y: .19, s: .17 },
+  brand:   { part: 'front', x: .70, y: .19, s: .15 },
+  sponsor: { part: 'front', x: .50, y: .40, w: .66, h: .20 },
+  chest:   { part: 'front', x: .50, y: .19, s: .10 },
+  belly:   { part: 'front', x: .50, y: .63, s: .14 },
+  hem:     { part: 'front', x: .27, y: .90, s: .10 },
+  sleeveL: { part: 'sleeveL', x: .50, y: .42, s: .24 },
+  sleeveR: { part: 'sleeveR', x: .50, y: .42, s: .24 }
+};
+
+const ASSET_BASE = 'icons/kit3d/';
+export const KIT3D_FILES = { model: ASSET_BASE + 'shirt.glb', mask: ASSET_BASE + 'mask.png', seams: ASSET_BASE + 'seams.jpg' };
 
 /* ------------------------------------------------------------ utilità */
 const svgUrl = (svg) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
@@ -190,26 +246,51 @@ function canvasOf(w, h) {
   return c;
 }
 
-/** Disegno integrato rasterizzato (in bianco: viene colorato dopo). Cache per parametri. */
+/**
+ * Immagine pulita per la texture 3D (WebGL non accetta immagini "contaminate" da altri siti):
+ * provo in CORS, poi tramite un proxy che aggiunge l'intestazione CORS; se nessuno va, la salto.
+ */
+const cleanCache = new Map();
+export function loadCleanImage(url) {
+  if (!url) return Promise.resolve(null);
+  if (cleanCache.has(url)) return cleanCache.get(url);
+  const attempt = (src) => new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+  const local = /^(data:|blob:)/i.test(url) || !/^https?:/i.test(url) || url.startsWith(location.origin);
+  const job = (local ? attempt(url) : attempt(url).catch(() => attempt('https://wsrv.nl/?url=' + encodeURIComponent(url))))
+    .catch(() => { console.warn('Divisa: immagine non utilizzabile', url); return null; });
+  cleanCache.set(url, job);
+  return job;
+}
+
+/** Disegno integrato rasterizzato in bianco su un pezzo (viewBox = porzione della vista frontale). */
 const rasterCache = new Map();
-function builtinPattern(layer, w, h) {
+function builtinPattern(layer, part, w, h) {
   const p = PATTERNS.find(x => x.id === layer.type);
   if (!p) return Promise.resolve(null);
   const s = clamp(layer.scale, 30, 250) / 100;
-  const key = [layer.type, s, !!layer.flipX, !!layer.flipY, w, h].join('|');
+  const key = [layer.type, s, !!layer.flipX, !!layer.flipY, part, w, h].join('|');
   if (rasterCache.has(key)) return rasterCache.get(key);
+  // il busto (davanti/dietro) corrisponde a x 100..300, y 20..400 della vista frontale;
+  // le maniche a una porzione con la stessa densità
+  const vb = part === 'front' || part === 'back' ? [100, 20, 200, 380] : [100, 20, 159, 103];
   const sx = layer.flipX ? -1 : 1, sy = layer.flipY ? -1 : 1;
   const tf = (sx < 0 || sy < 0) ? `transform="translate(${sx < 0 ? W : 0},${sy < 0 ? H : 0}) scale(${sx},${sy})"` : '';
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><g ${tf}>${p.draw('#ffffff', s, 'p' + rasterCache.size)}</g></svg>`;
-  const job = loadImage(svgUrl(svg));
-  if (rasterCache.size > 120) rasterCache.delete(rasterCache.keys().next().value);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${vb.join(' ')}" preserveAspectRatio="none"><g ${tf}>${p.draw('#ffffff', s, 'p' + rasterCache.size)}</g></svg>`;
+  const job = loadCleanImage(svgUrl(svg));
+  if (rasterCache.size > 200) rasterCache.delete(rasterCache.keys().next().value);
   rasterCache.set(key, job);
   return job;
 }
 
 function brandSvgImage(brand, color, base) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 60 40">${brand.draw(safeColor(color), safeColor(base))}</svg>`;
-  return loadImage(svgUrl(svg));
+  return loadCleanImage(svgUrl(svg));
 }
 
 /** Colora un'immagine (pieno colore dove l'immagine non è trasparente). */
@@ -220,23 +301,6 @@ function tint(img, color, w, h) {
   x.globalCompositeOperation = 'source-in';
   x.fillStyle = color;
   x.fillRect(0, 0, c.width, c.height);
-  return c;
-}
-
-/** Ritaglia un canvas sulla maschera (o su più maschere unite). */
-function clipTo(c, masks) {
-  const valid = masks.filter(Boolean);
-  if (!valid.length) return c;
-  const x = c.getContext('2d');
-  let mask = valid[0];
-  if (valid.length > 1) {
-    mask = canvasOf(c.width, c.height);
-    const m = mask.getContext('2d');
-    valid.forEach(v => m.drawImage(v, 0, 0, mask.width, mask.height));
-  }
-  x.globalCompositeOperation = 'destination-in';
-  x.drawImage(mask, 0, 0, c.width, c.height);
-  x.globalCompositeOperation = 'source-over';
   return c;
 }
 
@@ -255,170 +319,231 @@ function drawContain(ctx, img, cx, cy, bw, bh, rot = 0) {
 
 async function loadCut(url) {
   if (!url) return null;
-  return loadImage(await getCutout(url));
+  return loadCleanImage(await getCutout(url));
+}
+
+/* --------------------------------------------- maschera e scollo del modello */
+let maskJob = null;
+/** Maschera dei pezzi + profilo superiore di davanti/dietro (per il bordino del colletto). */
+function loadMask() {
+  if (maskJob) return maskJob;
+  maskJob = loadCleanImage(KIT3D_FILES.mask).then(img => {
+    if (!img) return null;
+    const c = canvasOf(img.naturalWidth, img.naturalHeight);
+    const x = c.getContext('2d', { willReadFrequently: true });
+    x.drawImage(img, 0, 0);
+    const d = x.getImageData(0, 0, c.width, c.height).data;
+    // per davanti e dietro: bordo superiore della sagoma tra le due "spalle" più alte = scollo
+    const neck = {};
+    ['front', 'back'].forEach(part => {
+      const r = UV[part];
+      const x0 = Math.round(r.x * c.width), x1 = Math.round((r.x + r.w) * c.width);
+      const y0 = Math.round(r.y * c.height), y1 = Math.round((r.y + r.h) * c.height);
+      const top = [];
+      for (let px = x0; px < x1; px++) {
+        let ty = -1;
+        for (let py = y0; py < y1; py++) if (d[(py * c.width + px) * 4 + 3] > 128) { ty = py; break; }
+        top.push(ty);
+      }
+      const n = top.length;
+      const minIn = (a, b) => { let best = a; for (let i = a; i < b; i++) if (top[i] >= 0 && top[i] < top[best]) best = i; return best; };
+      const l = minIn(Math.round(n * .15), Math.round(n * .5)), rr = minIn(Math.round(n * .5), Math.round(n * .85));
+      neck[part] = top.slice(l, rr + 1).map((ty, i) => [(x0 + l + i) / c.width, ty / c.height]);
+    });
+    return { img, neck };
+  });
+  return maskJob;
 }
 
 /* --------------------------------------------------------- composizione */
 /**
- * Disegna la divisa sul canvas indicato.
- * opts: { crestUrl, width (px del canvas, default = larghezza del modello), plain (senza loghi),
- *         template (oggetto modello da usare al posto di kit.template, es. bozza nell'area Patron) }
+ * Dipinge la texture UV della maglia. Restituisce un canvas size×size (default 2048).
+ * opts: { crestUrl, size, plain (senza loghi) }
  */
-export async function drawKit(target, rawKit, opts = {}) {
+export async function paintKitTexture(rawKit, opts = {}) {
   const k = normalizeKit(rawKit);
-  const t = opts.template || getTemplate(k.template);
-  const token = (target._kitToken = (target._kitToken || 0) + 1);
-  const tw = t.w || 800, th = t.h || 840;
-  const outW = Math.round(opts.width || tw);
-  const sc = outW / tw;
-  const w = outW, h = Math.round(th * sc);
+  const S = Math.round(opts.size || 2048);
+  const R = (part) => { const r = UV[part]; return { x: r.x * S, y: r.y * S, w: r.w * S, h: r.h * S }; };
+  const mask = await loadMask();
+  const seams = await loadCleanImage(KIT3D_FILES.seams);
 
-  const L = t.layers || {};
-  const [body, sleeves, collar, cuffs, shadow, highlight, overlay] = await Promise.all(
-    ['body', 'sleeves', 'collar', 'cuffs', 'shadow', 'highlight', 'overlay'].map(key => loadImage(L[key]))
-  );
-  const pngPatterns = getPngPatterns();
-  const patternImgs = await Promise.all(k.layers.map(l => {
-    if (String(l.type).startsWith('png:')) {
-      const p = pngPatterns.find(x => 'png:' + x.id === l.type);
-      return loadImage(p && p.url);
+  const out = canvasOf(S, S);
+  const ctx = out.getContext('2d');
+
+  /** Disegna dentro un pezzo, ritagliato sulla sagoma del modello. */
+  const inPart = (part, paint) => {
+    const r = R(part);
+    const c = canvasOf(S, S), x = c.getContext('2d');
+    paint(x, r);
+    if (mask) {
+      x.globalCompositeOperation = 'destination-in';
+      x.save(); x.beginPath(); x.rect(r.x - 2, r.y - 2, r.w + 4, r.h + 4); x.clip();
+      x.drawImage(mask.img, 0, 0, S, S);
+      x.restore();
+      // fuori dal riquadro del pezzo non deve restare niente
+      x.globalCompositeOperation = 'destination-in';
+      x.fillRect(r.x - 2, r.y - 2, r.w + 4, r.h + 4);
     }
-    return builtinPattern(l, w, h);
+    ctx.drawImage(c, 0, 0);
+  };
+  const fill = (color) => (x, r) => { x.fillStyle = safeColor(color); x.fillRect(r.x - 2, r.y - 2, r.w + 4, r.h + 4); };
+  const c = k.colors;
+
+  // 1. colori di base
+  ctx.fillStyle = safeColor(c.base); ctx.fillRect(0, 0, S, S); // anche l'etichetta interna e i margini
+  ['front', 'back'].forEach(p => inPart(p, fill(c.base)));
+  ['sleeveL', 'sleeveR'].forEach(p => inPart(p, fill(c.sleeves)));
+
+  // 2. disegni (livelli)
+  const pngPatterns = getPngPatterns();
+  for (const l of k.layers) {
+    const parts = l.zone === 'sleeves' ? ['sleeveL', 'sleeveR'] : l.zone === 'all' ? ['front', 'back', 'sleeveL', 'sleeveR'] : ['front', 'back'];
+    const alpha = clamp(l.opacity, 0, 100) / 100;
+    if (String(l.type).startsWith('png:')) {
+      const pp = pngPatterns.find(x => 'png:' + x.id === l.type);
+      const img = await loadCleanImage(pp && pp.url);
+      if (!img) continue;
+      if (pp.mode === 'uv') {
+        // grafica disegnata sulla mappa UV completa: la applico così com'è (o colorata) sui pezzi scelti
+        const src = pp.colors === 'original' ? img : tint(img, safeColor(l.color), S, S);
+        parts.forEach(p => inPart(p, (x) => { x.globalAlpha = alpha; x.drawImage(src, 0, 0, S, S); }));
+      } else {
+        const s = clamp(l.scale, 30, 250) / 100;
+        parts.forEach(p => inPart(p, (x, r) => {
+          const t = tint(img, safeColor(l.color), r.w, r.h);
+          x.save(); x.globalAlpha = alpha;
+          x.translate(r.x + r.w / 2, r.y + r.h / 2);
+          x.scale((l.flipX ? -1 : 1) * s, (l.flipY ? -1 : 1) * s);
+          x.drawImage(t, -r.w / 2, -r.h / 2, r.w, r.h);
+          x.restore();
+        }));
+      }
+      continue;
+    }
+    for (const p of parts) {
+      const r = R(p);
+      const img = await builtinPattern(l, p.startsWith('sleeve') ? 'sleeve' : p, Math.round(r.w), Math.round(r.h));
+      if (!img) continue;
+      inPart(p, (x) => { x.globalAlpha = alpha; x.drawImage(tint(img, safeColor(l.color), r.w, r.h), r.x, r.y, r.w, r.h); });
+    }
+  }
+
+  // 3. decorazioni delle maniche e polsini
+  const trim = safeColor(c.trim);
+  ['sleeveL', 'sleeveR'].forEach(p => inPart(p, (x, r) => {
+    x.fillStyle = trim;
+    const cuffTop = r.y + r.h * .84;
+    switch (k.sleeveDeco) {
+      case 'stripes3': case 'stripes2': {
+        const n = k.sleeveDeco === 'stripes3' ? 3 : 2, lw = r.w * .022, gap = r.w * .05;
+        for (let i = 0; i < n; i++) x.fillRect(r.x + r.w / 2 + (i - (n - 1) / 2) * gap - lw / 2, r.y, lw, cuffTop - r.y);
+        break;
+      }
+      case 'shoulder': x.fillRect(r.x, r.y, r.w, r.h * .32); break;
+      case 'band': x.fillRect(r.x, r.y + r.h * .58, r.w, r.h * .1); break;
+      case 'chevrons':
+        x.strokeStyle = trim; x.lineWidth = r.h * .035;
+        for (let i = 0; i < 3; i++) {
+          const y = r.y + r.h * (.42 + i * .1);
+          x.beginPath(); x.moveTo(r.x + r.w * .3, y - r.h * .08); x.lineTo(r.x + r.w / 2, y); x.lineTo(r.x + r.w * .7, y - r.h * .08); x.stroke();
+        }
+        break;
+      case 'side': x.fillRect(r.x, r.y, r.w * .07, r.h); x.fillRect(r.x + r.w * .93, r.y, r.w * .07, r.h); break;
+    }
+    // polsino: in fondo al pezzo della manica
+    const cuff = safeColor(c.cuffs);
+    if (k.cuffs === 'band') { x.fillStyle = cuff; x.fillRect(r.x - 2, cuffTop, r.w + 4, r.y + r.h - cuffTop + 2); }
+    if (k.cuffs === 'double') {
+      x.fillStyle = cuff; x.fillRect(r.x - 2, cuffTop, r.w + 4, r.y + r.h - cuffTop + 2);
+      x.fillStyle = safeColor(c.sleeves); x.fillRect(r.x - 2, cuffTop + r.h * .06, r.w + 4, r.h * .03);
+    }
+    if (k.cuffs === 'thin') { x.fillStyle = cuff; x.fillRect(r.x - 2, cuffTop, r.w + 4, r.h * .035); }
+  }));
+  if (k.sleeveDeco === 'side') ['front', 'back'].forEach(p => inPart(p, (x, r) => {
+    x.fillStyle = trim; x.fillRect(r.x, r.y, r.w * .045, r.h); x.fillRect(r.x + r.w * .955, r.y, r.w * .045, r.h);
   }));
 
-  let brandImg = null;
+  // 4. colletto (striscia intorno al collo) ed eventuale bordo sul petto e sulla schiena
+  inPart('collar', (x, r) => {
+    x.fillStyle = safeColor(c.collar); x.fillRect(r.x - 2, r.y - 2, r.w + 4, r.h + 4);
+    x.fillStyle = trim;
+    if (k.collar === 'twotone') x.fillRect(r.x - 2, r.y + r.h * .5, r.w + 4, r.h * .5 + 2);
+    if (k.collar === 'striped') { x.fillRect(r.x - 2, r.y + r.h * .3, r.w + 4, r.h * .12); x.fillRect(r.x - 2, r.y + r.h * .58, r.w + 4, r.h * .12); }
+  });
+  if ((k.collar === 'trim' || k.collar === 'wide') && mask) {
+    ['front', 'back'].forEach(p => inPart(p, (x) => {
+      const pts = mask.neck[p];
+      if (!pts || pts.length < 2) return;
+      const lw = S * (k.collar === 'wide' ? .012 : .005);
+      x.strokeStyle = safeColor(c.collar); x.lineWidth = lw; x.lineJoin = 'round';
+      x.beginPath();
+      pts.forEach(([u, v], i) => (i ? x.lineTo(u * S, v * S + lw / 2) : x.moveTo(u * S, v * S + lw / 2)));
+      x.stroke();
+    }));
+  }
+
+  // 5. loghi, sponsor e patch sul davanti / maniche
   if (!opts.plain) {
+    const at = (a) => { const r = R(a.part); return { x: r.x + a.x * r.w, y: r.y + a.y * r.h, s: (a.s || .1) * r.w, r }; };
+    if (k.crest.show && opts.crestUrl) {
+      const img = await loadCut(opts.crestUrl);
+      const a = at(ANCHORS.crest), s = a.s * clamp(k.crest.size, 60, 150) / 100;
+      drawContain(ctx, img, a.x, a.y, s, s);
+    }
     const b = k.brand;
-    if (b.id === 'custom') brandImg = await loadImage(b.url);
+    let brandImg = null;
+    if (b.id === 'custom') brandImg = await loadCleanImage(b.url);
     else if (String(b.id).startsWith('png:')) {
       const pb = getPngBrands().find(x => 'png:' + x.id === b.id);
-      brandImg = await loadImage(pb && pb.url);
+      brandImg = await loadCleanImage(pb && pb.url);
     } else {
       const bb = BRANDS.find(x => x.id === b.id);
-      if (bb && bb.id !== 'none' && bb.id !== 'custom') brandImg = await brandSvgImage(bb, b.color, k.colors.base);
+      if (bb && bb.id !== 'none' && bb.id !== 'custom') brandImg = await brandSvgImage(bb, b.color, c.base);
     }
-  }
-  const crestImg = !opts.plain && k.crest.show ? await loadCut(opts.crestUrl) : null;
-  const sponsorImg = !opts.plain && k.sponsor.mode === 'image' ? await loadImage(k.sponsor.url) : null;
-  const patchImgs = opts.plain ? [] : await Promise.all(k.patches.map(p => loadCut(p.src)));
-
-  if (target._kitToken !== token) return; // nel frattempo è stato richiesto un altro disegno
-
-  const out = canvasOf(w, h);
-  const ctx = out.getContext('2d');
-  const zone = (mask, color) => { if (mask) ctx.drawImage(tint(mask, safeColor(color), w, h), 0, 0); };
-
-  // 1. zone colorate e disegni
-  zone(body, k.colors.base);
-  zone(sleeves, k.colors.sleeves);
-  k.layers.forEach((l, i) => {
-    const img = patternImgs[i];
-    if (!img) return;
-    const masks = l.zone === 'sleeves' ? [sleeves] : l.zone === 'all' ? [body, sleeves] : [body];
-    if (!masks.some(Boolean)) return;
-    let painted;
-    if (String(l.type).startsWith('png:')) {
-      // PNG del Patron: dimensione e specchiatura applicate qui
-      const c = canvasOf(w, h), x = c.getContext('2d');
-      const s = clamp(l.scale, 30, 250) / 100;
-      x.translate(w / 2, h / 2);
-      x.scale((l.flipX ? -1 : 1) * s, (l.flipY ? -1 : 1) * s);
-      x.drawImage(img, -w / 2, -h / 2, w, h);
-      painted = tint(c, safeColor(l.color), w, h);
-    } else {
-      painted = tint(img, safeColor(l.color), w, h);
+    if (brandImg) {
+      const a = at(ANCHORS.brand);
+      const img = (b.id === 'custom' || String(b.id).startsWith('png:')) && b.mono
+        ? tint(brandImg, safeColor(b.color), brandImg.naturalWidth || brandImg.width, brandImg.naturalHeight || brandImg.height) : brandImg;
+      drawContain(ctx, img, a.x, a.y, a.s, a.s * .75);
     }
-    clipTo(painted, masks);
-    ctx.globalAlpha = clamp(l.opacity, 0, 100) / 100;
-    ctx.drawImage(painted, 0, 0);
-    ctx.globalAlpha = 1;
-  });
-  zone(collar, k.colors.collar);
-  zone(cuffs, k.colors.cuffs);
-
-  // 2. loghi (sotto le ombre, così sembrano stampati sul tessuto)
-  const A = t.anchors || {};
-  const at = (a) => a && { x: a.x * sc, y: a.y * sc, s: (a.s || 60) * sc, r: a.r || 0 };
-  if (crestImg && A.crest) {
-    const a = at(A.crest), s = a.s * clamp(k.crest.size, 60, 150) / 100;
-    drawContain(ctx, crestImg, a.x, a.y, s, s);
-  }
-  if (brandImg && A.brand) {
-    const a = at(A.brand);
-    const img = (k.brand.id === 'custom' || String(k.brand.id).startsWith('png:')) && k.brand.mono
-      ? tint(brandImg, safeColor(k.brand.color), brandImg.naturalWidth || brandImg.width, brandImg.naturalHeight || brandImg.height)
-      : brandImg;
-    drawContain(ctx, img, a.x, a.y, a.s, a.s * 0.75);
-  }
-  if (!opts.plain && A.sponsor) {
     const sp = k.sponsor;
-    const f = clamp(sp.scale, 40, 160) / 100;
-    const bw = A.sponsor.w * sc * f, bh = A.sponsor.h * sc * f;
-    const cx = A.sponsor.x * sc, cy = (A.sponsor.y + clamp(sp.y, -60, 80) * 2) * sc;
-    if (sp.mode === 'image' && sponsorImg) {
-      const img = sp.mono ? tint(sponsorImg, safeColor(sp.color), sponsorImg.naturalWidth, sponsorImg.naturalHeight) : sponsorImg;
-      drawContain(ctx, img, cx, cy, bw, bh);
-    } else if (sp.mode === 'text' && String(sp.text || '').trim()) {
-      const ft = SPONSOR_FONTS.find(x => x.id === sp.font) || SPONSOR_FONTS[0];
-      const txt = String(sp.text).trim().slice(0, 24);
-      let px = bh * 0.62;
-      ctx.font = `${ft.style} ${ft.weight} ${px}px ${ft.css}`;
-      const mw = ctx.measureText(txt).width;
-      if (mw > bw) { px *= bw / mw; ctx.font = `${ft.style} ${ft.weight} ${px}px ${ft.css}`; }
-      ctx.fillStyle = safeColor(sp.color);
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(txt, cx, cy);
+    if (sp.mode !== 'none') {
+      const A = ANCHORS.sponsor, r = R('front'), f = clamp(sp.scale, 40, 160) / 100;
+      const bw = A.w * r.w * f, bh = A.h * r.h * f;
+      const cx = r.x + A.x * r.w, cy = r.y + (A.y + clamp(sp.y, -60, 80) / 400) * r.h;
+      if (sp.mode === 'image' && sp.url) {
+        const img0 = await loadCleanImage(sp.url);
+        if (img0) drawContain(ctx, sp.mono ? tint(img0, safeColor(sp.color), img0.naturalWidth, img0.naturalHeight) : img0, cx, cy, bw, bh);
+      } else if (sp.mode === 'text' && String(sp.text || '').trim()) {
+        const ft = SPONSOR_FONTS.find(x => x.id === sp.font) || SPONSOR_FONTS[0];
+        const txt = String(sp.text).trim().slice(0, 24);
+        let px = bh * .62;
+        ctx.font = `${ft.style} ${ft.weight} ${px}px ${ft.css}`;
+        const mw = ctx.measureText(txt).width;
+        if (mw > bw) { px *= bw / mw; ctx.font = `${ft.style} ${ft.weight} ${px}px ${ft.css}`; }
+        ctx.fillStyle = safeColor(sp.color); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(txt, cx, cy);
+      }
+    }
+    for (const p of k.patches) {
+      const A = ANCHORS[p.pos];
+      if (!A || !p.src) continue;
+      const img = await loadCut(p.src);
+      const a = at(A);
+      drawContain(ctx, img, a.x, a.y, a.s, a.s);
     }
   }
-  k.patches.forEach((p, i) => {
-    const a = at(A[p.pos]);
-    if (a && patchImgs[i]) drawContain(ctx, patchImgs[i], a.x, a.y, a.s, a.s, a.r);
-  });
 
-  // 3. realismo: ombre (moltiplica), luci (schermo), dettagli fissi
-  if (shadow) { ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(shadow, 0, 0, w, h); }
-  if (highlight) { ctx.globalCompositeOperation = 'screen'; ctx.drawImage(highlight, 0, 0, w, h); }
-  ctx.globalCompositeOperation = 'source-over';
-  if (overlay) ctx.drawImage(overlay, 0, 0, w, h);
-
-  // 4. sul canvas visibile
-  if (target._kitToken !== token) return;
-  if (target.width !== w || target.height !== h) { target.width = w; target.height = h; }
-  const tctx = target.getContext('2d');
-  tctx.clearRect(0, 0, w, h);
-  tctx.drawImage(out, 0, 0);
-}
-
-/* ------------------------------------------------------------ inserimento */
-let SLOT = 0;
-const pendingSlots = new Map();
-
-/**
- * HTML di un <canvas> con la divisa: viene disegnata appena il canvas è nella pagina.
- * opts come drawKit (width = risoluzione in px, di solito 2× la dimensione a schermo).
- */
-export function kitCanvasHTML(kit, opts = {}, attrs = '') {
-  const id = `kc${++SLOT}`;
-  const t = opts.template || getTemplate(normalizeKit(kit).template);
-  const w = Math.round(opts.width || 400);
-  const h = Math.round(w * (t.h || 840) / (t.w || 800));
-  pendingSlots.set(id, { kit, opts });
-  if (pendingSlots.size === 1) requestAnimationFrame(flushSlots);
-  return `<div ${attrs}><canvas data-kit-canvas="${id}" width="${w}" height="${h}" style="width:100%; height:auto; display:block;"></canvas></div>`;
-}
-
-function flushSlots() {
-  pendingSlots.forEach((v, id) => {
-    const el = document.querySelector(`canvas[data-kit-canvas="${id}"]`);
-    if (el) drawKit(el, v.kit, v.opts).catch(e => console.error('Divisa:', e));
-  });
-  pendingSlots.clear();
+  // 6. cuciture e dettagli di stampa della base (moltiplica)
+  if (seams) { ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(seams, 0, 0, S, S); ctx.globalCompositeOperation = 'source-over'; }
+  return out;
 }
 
 /* ------------------------------------------------------------- stili rapidi */
-// Solo il disegno: colori, modello, sponsor, stemma e patch restano invariati
+// Solo il disegno (livelli e decorazioni delle maniche): colori, sponsor, stemma e patch restano invariati
 export const PRESETS = [
+  { name: 'Tre strisce',      kit: { sleeveDeco: 'stripes3', layers: [] } },
+  { name: 'Bande laterali',   kit: { sleeveDeco: 'side', layers: [] } },
   { name: 'Crepe',            kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'crackle', color: '#0d1b4c', opacity: 85, onSleeves: true }] } },
   { name: 'Tinta unita',      kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [] } },
   { name: 'Strisce',          kit: { collar: 'v', sleeves: 'short', cuffs: 'band', layers: [{ type: 'stripes', color: '#000000' }] } },
