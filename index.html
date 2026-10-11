@@ -546,6 +546,7 @@ html.resuming #page-login{visibility:hidden}
   </div>
   <button class="side-menu-item" onclick="window.openMenuPage('settings')"><i class="ri-settings-3-line"></i>Impostazioni applicazione</button>
   <button class="side-menu-item" onclick="window.openMenuPage('team')"><i class="ri-shield-star-line"></i>Configurazione squadra</button>
+  <button class="side-menu-item" onclick="window.openMenuPage('kit')"><i class="ri-shirt-line"></i>Divisa squadra</button>
   <button class="side-menu-item" onclick="window.openMenuPage('listone')"><i class="ri-list-check-2"></i>Listone</button>
   <button class="side-menu-item" onclick="window.openMenuPage('svincolati')"><i class="ri-user-unfollow-line"></i>Svincolati</button>
   <div class="side-menu-sep"></div>
@@ -564,6 +565,7 @@ import { SettingsService } from './js/services/settingsService.js';
 import { MenuPanel } from './js/components/MenuPanel.js';
 import { ImpostazioniApp } from './js/menu/ImpostazioniApp.js';
 import { ConfigurazioneSquadra } from './js/menu/ConfigurazioneSquadra.js';
+import { DivisaSquadra } from './js/menu/DivisaSquadra.js';
 import { ListoneView, SvincolatiView } from './js/menu/ListoneView.js';
 
 import { HomePage } from './js/home.js';
@@ -943,6 +945,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') window.close
 const MENU_VIEWS = {
   settings: ImpostazioniApp,
   team: ConfigurazioneSquadra,
+  kit: DivisaSquadra,
   listone: ListoneView,
   svincolati: SvincolatiView
 };

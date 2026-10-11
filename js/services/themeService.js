@@ -11,7 +11,7 @@
  *     header:    { bg, text },                                    // barra in alto
  *     nav:       { bg, text, btn },                               // barra in basso
  *     drawer:    { bg, title, text, sub },                        // menu laterale
- *     menuPanel | menuSettings | menuTeam | menuListone | menuSvincolati:
+ *     menuPanel | menuSettings | menuTeam | menuKit | menuListone | menuSvincolati:
  *                { bg, title, text, sub, label, btn, btnText }     // pannelli del menu
  *     liveEditor | matchViewer | formPicker | playerCard:
  *                { bg, title, text, sub, label, btn, btnText }     // finestre sopra le pagine
@@ -136,12 +136,14 @@ export const THEME_PAGES = [
     ]
   },
   { key: 'menuPanel', label: 'Pannelli del menu', selector: '#menu-panel',
-    desc: 'Base di tutti i pannelli del menu (impostazioni, configurazione squadra, listone, svincolati): ognuno può poi essere specializzato nella sua scheda.',
+    desc: 'Base di tutti i pannelli del menu (impostazioni, configurazione squadra, divisa, listone, svincolati): ognuno può poi essere specializzato nella sua scheda.',
     fields: [MENU_BG, ...CONTENT_TYPES] },
   { key: 'menuSettings',   label: 'Impostazioni',            selector: '#menu-panel[data-view="settings"]',
     desc: 'Pannello Impostazioni applicazione (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
   { key: 'menuTeam',       label: 'Configurazione squadra',  selector: '#menu-panel[data-view="team"]',
     desc: 'Pannello Configurazione squadra (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
+  { key: 'menuKit',        label: 'Divisa squadra',          selector: '#menu-panel[data-view="kit"]',
+    desc: 'Pannello Divisa squadra (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
   { key: 'menuListone',    label: 'Listone',                 selector: '#menu-panel[data-view="listone"]',
     desc: 'Pannello Listone (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
   { key: 'menuSvincolati', label: 'Svincolati',              selector: '#menu-panel[data-view="svincolati"]',
