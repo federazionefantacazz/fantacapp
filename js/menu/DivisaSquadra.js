@@ -6,7 +6,7 @@ import { getPngPatterns, getPngBrands, onKitAssetsChange } from '../services/kit
 import { esc } from './menuUtils.js';
 import {
   normalizeKit, defaultKit, patternLabel,
-  PRESETS, PATTERNS, BRANDS, SPONSOR_FONTS, PATCH_POSITIONS, ZONES, COLLARS, CUFFS, SLEEVE_DECO
+  PRESETS, PATTERNS, BRANDS, SPONSOR_FONTS, PATCH_POSITIONS, ZONES, COLLARS, COLLAR_SHAPES, CUFFS, SLEEVE_DECO
 } from '../components/KitRenderer.js';
 
 /**
@@ -286,7 +286,9 @@ export const DivisaSquadra = {
     const k = this._kit;
     const base = { ...k, sponsor: { mode: 'none' }, patches: [], crest: { show: false } };
     return `
-      <div class="kit-sub">Colletto</div>
+      <div class="kit-sub">Forma del colletto</div>
+      <div class="kit-grid">${COLLAR_SHAPES.map(c => this._opt('collarShape', c.id, this._thumb({ ...base, collarShape: c.id }), c.label, k.collarShape === c.id)).join('')}</div>
+      <div class="kit-sub">Rifinitura del colletto</div>
       <div class="kit-grid">${COLLARS.map(c => this._opt('collar', c.id, this._thumb({ ...base, collar: c.id }), c.label, k.collar === c.id)).join('')}</div>
       <div class="kit-sub">Polsini</div>
       <div class="kit-grid">${CUFFS.map(c => this._opt('cuffs', c.id, this._thumb({ ...base, cuffs: c.id }), c.label, k.cuffs === c.id)).join('')}</div>
@@ -494,7 +496,7 @@ export const DivisaSquadra = {
       case 'view':
         if (this._viewer) this._viewer.setView(v);
         return;
-      case 'collar': case 'cuffs': case 'sleeveDeco':
+      case 'collarShape': case 'collar': case 'cuffs': case 'sleeveDeco':
         this._update(kit => { kit[act] = v; });
         return;
       case 'preset': {

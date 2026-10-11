@@ -1,4 +1,5 @@
-import { paintKitTexture, KIT3D_FILES } from './KitRenderer.js';
+import { paintKitTexture, normalizeKit, KIT3D_FILES } from './KitRenderer.js';
+import { deformPoint, isDeformed } from './kitShapes.js';
 
 /**
  * Maglia 3D (three.js, in vendor/three): il modello in icons/kit3d/shirt.glb viene "vestito"
@@ -34,6 +35,49 @@ function loadModel() {
   return modelJob;
 }
 
+/** Pezzo del modello a cui appartiene una mesh (nome del nodo glTF). */
+function partOf(o) {
+  const n = `${o.name}|${o.parent ? o.parent.name : ''}`;
+  if (/(^|\|)42(_|\||$)/.test(n)) return 'front';
+  if (/Pattern2D_3805002/.test(n)) return 'collar';
+  return '';
+}
+
+/** Modello con la forma di colletto richiesta (geometria deformata, una volta per forma). */
+const variants = new Map();
+function loadVariant(shape) {
+  const key = isDeformed(shape) ? shape : 'v';
+  if (!variants.has(key)) {
+    variants.set(key, Promise.all([loadLib(), loadModel()]).then(([L, base]) => {
+      if (key === 'v') return base;
+      const { THREE } = L;
+      const model = base.clone(true);
+      model.updateMatrixWorld(true);
+      const v = new THREE.Vector3(), inv = new THREE.Matrix4();
+      model.traverse(o => {
+        if (!o.isMesh) return;
+        const part = partOf(o);
+        if (!part) return;
+        const g = o.geometry.clone();
+        const src = g.getAttribute('position');
+        const out = new Float32Array(src.count * 3);
+        inv.copy(o.matrixWorld).invert();
+        for (let i = 0; i < src.count; i++) {
+          v.fromBufferAttribute(src, i).applyMatrix4(o.matrixWorld);
+          const p = deformPoint(key, part, [v.x, v.y, v.z]);
+          v.set(p[0], p[1], p[2]).applyMatrix4(inv);
+          out[i * 3] = v.x; out[i * 3 + 1] = v.y; out[i * 3 + 2] = v.z;
+        }
+        g.setAttribute('position', new THREE.BufferAttribute(out, 3));
+        g.computeBoundingBox(); g.computeBoundingSphere();
+        o.geometry = g;
+      });
+      return model;
+    }));
+  }
+  return variants.get(key);
+}
+
 class Stage {
   constructor(L, model, canvas, { interactive = false, width = 600, height = 640 } = {}) {
     const { THREE } = L;
@@ -53,25 +97,17 @@ class Stage {
     key.position.set(2.5, 3, 2);
     this.scene.add(key);
 
-    // copia del modello con materiali propri (la texture cambia per ogni maglia)
-    this.model = model.clone(true);
     this.texture = new THREE.CanvasTexture(document.createElement('canvas'));
     this.texture.flipY = false;
     this.texture.colorSpace = THREE.SRGBColorSpace;
     this.texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
-    this.model.traverse(o => {
-      if (!o.isMesh) return;
-      o.material = o.material.clone();
-      o.material.metalness = 0;
-      if (o.material.name === 'shirt_outer') { o.material.map = this.texture; o.material.needsUpdate = true; }
-    });
-    this.scene.add(this.model);
+    this.setModel(model);
 
     const box = new THREE.Box3().setFromObject(this.model);
     this.center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
     this.camera = new THREE.PerspectiveCamera(22, width / height, 0.01, 50);
-    this.dist = Math.max(size.y, size.x * height / width) / 2 / Math.tan(THREE.MathUtils.degToRad(11)) * 1.06;
+    this.dist = Math.max(size.y, size.x * height / width) / 2 / Math.tan(THREE.MathUtils.degToRad(11)) * 1.13; // margine anche per i colli alti
     this.setView(0);
 
     if (interactive) {
@@ -84,6 +120,21 @@ class Stage {
       this.controls = c;
       this.setView(0); // i controlli appena creati puntano all'origine: riallineo sulla maglia
     }
+  }
+
+  /** Copia del modello (forma del colletto) con materiali propri: la texture cambia per ogni maglia. */
+  setModel(model) {
+    if (this.source === model) return;
+    if (this.model) this.scene.remove(this.model);
+    this.source = model;
+    this.model = model.clone(true);
+    this.model.traverse(o => {
+      if (!o.isMesh) return;
+      o.material = o.material.clone();
+      o.material.metalness = 0;
+      if (o.material.name === 'shirt_outer') { o.material.map = this.texture; o.material.needsUpdate = true; }
+    });
+    this.scene.add(this.model);
   }
 
   setView(yawDeg) {
@@ -143,8 +194,9 @@ export function createKitViewer(container) {
     ready,
     async update(kit, opts = {}) {
       const my = ++token;
-      const [st, tex] = await Promise.all([ready, paintKitTexture(kit, { ...opts, size: opts.size || 2048 })]);
+      const [st, tex, model] = await Promise.all([ready, paintKitTexture(kit, { ...opts, size: opts.size || 2048 }), loadVariant(normalizeKit(kit).collarShape)]);
       if (!st || disposed || my !== token) return;
+      st.setModel(model);
       st.setTexture(tex);
       st.render();
       requestAnimationFrame(() => { if (!disposed) st.render(); });
@@ -180,7 +232,11 @@ export function renderKitImage(kit, opts = {}) {
     const [L, model] = await Promise.all([loadLib(), loadModel()]);
     if (!shot) shot = new Stage(L, model, document.createElement('canvas'), { width, height });
     shot.resize(width, height);
-    const tex = await paintKitTexture(kit, { crestUrl: opts.crestUrl, size: opts.textureSize || 2048, plain: opts.plain });
+    const [tex, variant] = await Promise.all([
+      paintKitTexture(kit, { crestUrl: opts.crestUrl, size: opts.textureSize || 2048, plain: opts.plain }),
+      loadVariant(normalizeKit(kit).collarShape)
+    ]);
+    shot.setModel(variant);
     shot.setTexture(tex);
     shot.setView(opts.view === 'back' ? 180 : 0);
     shot.render();

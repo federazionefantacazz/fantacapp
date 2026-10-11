@@ -1,11 +1,15 @@
 import { getPngPatterns, getPngBrands } from '../services/kitAssets.js';
 import { getCutout } from '../services/imageCutout.js';
+import { COLLAR_SHAPES } from './kitShapes.js';
+
+export { COLLAR_SHAPES };
 
 /**
  * Divisa della squadra: dati e pittura della texture UV della maglia 3D (vedi components/Kit3D.js).
  * La divisa è salvata in teams/{id}/kit:
  * {
- *   collar, cuffs, sleeveDeco,                              // stile di colletto, polsini, decorazioni maniche
+ *   collarShape,                                            // forma del colletto (geometria 3D, vedi kitShapes.js)
+ *   collar, cuffs, sleeveDeco,                              // rifinitura del colletto, polsini, decorazioni maniche
  *   colors: { base, sleeves, collar, cuffs, trim },
  *   layers: [{ type, color, opacity, scale, flipX, flipY, zone }],  // type: disegno integrato o 'png:<id>'; zone: body | all | sleeves
  *   brand: { id, color, url, mono },                        // id: marchio integrato, 'png:<id>' (dal Patron) o 'custom'
@@ -172,7 +176,7 @@ export const SLEEVE_DECO = [
 
 export function defaultKit() {
   return {
-    collar: 'plain', cuffs: 'band', sleeveDeco: 'none',
+    collarShape: 'crew', collar: 'plain', cuffs: 'band', sleeveDeco: 'none',
     colors: { base: '#1e5bb8', sleeves: '#1e5bb8', collar: '#ffffff', cuffs: '#ffffff', trim: '#ffffff' },
     layers: [],
     brand: { id: 'nike', color: '#ffffff', url: '', mono: false },
@@ -182,12 +186,17 @@ export function defaultKit() {
   };
 }
 
+// colletti del primo editor (disegno SVG) → forma 3D più vicina
+const OLD_COLLARS = { crew: 'crew', doublecrew: 'crew', v: 'v', wrap: 'v', laces: 'v', deepv: 'deepv', polo: 'henley', polobtn: 'henley', henley: 'henley', mandarin: 'mandarin' };
+
 /** Completa una divisa letta dal DB (anche dei formati precedenti) con i valori mancanti. */
 export function normalizeKit(raw) {
   const d = defaultKit();
   const k = raw && typeof raw === 'object' ? raw : {};
   const toArr = (v) => Array.isArray(v) ? v.filter(Boolean) : (v && typeof v === 'object' ? Object.values(v).filter(Boolean) : []);
   return {
+    // le divise salvate prima delle forme del colletto avevano lo scollo a V
+    collarShape: COLLAR_SHAPES.some(c => c.id === k.collarShape) ? k.collarShape : (OLD_COLLARS[k.collar] || (k.collar ? 'v' : d.collarShape)),
     collar: COLLARS.some(c => c.id === k.collar) ? k.collar : d.collar,
     cuffs: CUFFS.some(c => c.id === k.cuffs) ? k.cuffs : d.cuffs,
     sleeveDeco: SLEEVE_DECO.some(c => c.id === k.sleeveDeco) ? k.sleeveDeco : d.sleeveDeco,
@@ -221,14 +230,15 @@ export const UV = {
   collar:  { x: .3301, y: .1611, w: .3076, h: .0225 }
 };
 
-// Posizioni sul pezzo (0..1 nel riquadro del pezzo): s = lato rispetto alla larghezza del pezzo
+// Posizioni sul pezzo (0..1 nel riquadro del pezzo): s = lato rispetto alla larghezza del pezzo.
+// Guardando la maglia: marchio tecnico in alto a sinistra, stemma della squadra in alto a destra (sul cuore).
 export const ANCHORS = {
-  crest:   { part: 'front', x: .30, y: .19, s: .17 },
-  brand:   { part: 'front', x: .70, y: .19, s: .15 },
-  sponsor: { part: 'front', x: .50, y: .40, w: .66, h: .20 },
-  chest:   { part: 'front', x: .50, y: .19, s: .10 },
-  belly:   { part: 'front', x: .50, y: .63, s: .14 },
-  hem:     { part: 'front', x: .27, y: .90, s: .10 },
+  crest:   { part: 'front', x: .70, y: .31, s: .17 },
+  brand:   { part: 'front', x: .30, y: .31, s: .15 },
+  sponsor: { part: 'front', x: .50, y: .53, w: .66, h: .20 },
+  chest:   { part: 'front', x: .50, y: .31, s: .10 },
+  belly:   { part: 'front', x: .50, y: .75, s: .14 },
+  hem:     { part: 'front', x: .27, y: .92, s: .10 },
   sleeveL: { part: 'sleeveL', x: .50, y: .42, s: .24 },
   sleeveR: { part: 'sleeveR', x: .50, y: .42, s: .24 }
 };
@@ -480,6 +490,21 @@ export async function paintKitTexture(rawKit, opts = {}) {
       pts.forEach(([u, v], i) => (i ? x.lineTo(u * S, v * S + lw / 2) : x.moveTo(u * S, v * S + lw / 2)));
       x.stroke();
     }));
+  }
+
+  // abbottonatura del serafino: listino sotto lo scollo con tre bottoni
+  if (k.collarShape === 'henley' && mask && mask.neck.front && mask.neck.front.length) {
+    const tip = mask.neck.front.reduce((a, b) => (b[1] > a[1] ? b : a));
+    const r = R('front');
+    const cx = r.x + r.w / 2, top = tip[1] * S, len = r.h * .17, w = r.w * .07;
+    inPart('front', (x) => {
+      x.fillStyle = safeColor(c.collar); x.fillRect(cx - w / 2, top - S * .01, w, len);
+      x.fillStyle = 'rgba(0,0,0,.18)'; x.fillRect(cx - w / 2, top - S * .01, S * .0015, len); x.fillRect(cx + w / 2 - S * .0015, top - S * .01, S * .0015, len);
+      for (let i = 0; i < 3; i++) {
+        x.fillStyle = safeColor(c.trim);
+        x.beginPath(); x.arc(cx, top + len * (.28 + i * .27), w * .2, 0, Math.PI * 2); x.fill();
+      }
+    });
   }
 
   // 5. loghi, sponsor e patch sul davanti / maniche
