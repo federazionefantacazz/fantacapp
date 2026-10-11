@@ -64,7 +64,7 @@ const LIVE_STYLES = `
 .lv-seg button.on{background:var(--accent);color:#0a0f1e}
 .lv-wip{font-size:.55rem;font-weight:700;background:var(--lv-warn);color:#0a0f1e;padding:1px 4px;border-radius:4px}
 
-.lv-head{position:relative;overflow:hidden;border-radius:16px;padding:1rem .6rem .9rem;background:linear-gradient(135deg,color-mix(in srgb,var(--accent2) 55%,#0a0f1e),color-mix(in srgb,var(--accent2) 25%,#0a0f1e) 60%,#0a0f1e);color:#fff;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:.4rem;box-shadow:0 6px 20px rgba(0,0,0,.3)}
+.lv-head{position:relative;overflow:hidden;border-radius:16px;padding:1rem .6rem .9rem;background:linear-gradient(135deg,color-mix(in srgb,var(--accent2) 55%,#0a0f1e),color-mix(in srgb,var(--accent2) 25%,#0a0f1e) 60%,#0a0f1e);color:#fff;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:.4rem;box-shadow:0 6px 20px rgba(0,0,0,.3)}
 .lv-head::after{content:'';position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--accent)}
 .lv-team{display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0;gap:2px}
 .lv-logo{width:54px;height:54px;object-fit:contain;filter:drop-shadow(0 3px 6px rgba(0,0,0,.4))}
@@ -73,7 +73,7 @@ const LIVE_STYLES = `
 .lv-towner{font-size:.68rem;opacity:.75;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lv-tmod{font-size:.68rem;opacity:.6;font-family:'DM Mono',monospace}
 .lv-score{text-align:center;padding:0 .2rem}
-.lv-pts{font:2.3rem/1 'Bebas Neue',sans-serif;letter-spacing:1px;white-space:nowrap}
+.lv-pts{font:2rem/1 'Bebas Neue',sans-serif;letter-spacing:1px;white-space:nowrap}
 .lv-pts-sub{font-size:.58rem;text-transform:uppercase;letter-spacing:.6px;opacity:.75;margin-top:3px}
 .lv-pts-goals{font-size:.7rem;opacity:.85;margin-top:4px;font-family:'DM Mono',monospace}
 .lv-livechip{display:inline-flex;align-items:center;gap:4px;font-size:.6rem;font-weight:700;background:var(--accent3);color:#fff;padding:1px 7px;border-radius:10px;margin-bottom:4px}
@@ -600,18 +600,18 @@ export const LiveMatchModule = {
     const probOk = ProbabiliService.hasData(STATE) &&
       (!meta?.giornata || !gwReale || String(meta.giornata) === String(gwReale) || mode === 'next');
 
-    // Stato delle partite di Serie A ricavato dai voti dei club
+    // Club che hanno già dei voti (la loro partita è iniziata o finita).
+    // Nota: l'import live scrive live:true su tutti i voti della giornata, anche delle
+    // partite finite, quindi "in corso" si ricava solo dall'orario della partita.
     const clubs = new Map();
+    let updatedAt = 0;
     Object.entries(votes || {}).forEach(([pid, e]) => {
+      if (e && typeof e === 'object' && Number(e.updatedAt) > updatedAt) updatedAt = Number(e.updatedAt);
       const p = playersById.get(String(pid));
       if (!p) return;
-      const c = norm(p.club);
-      const st = clubs.get(c) || { any: false, live: false };
-      st.any = true;
-      if (e && typeof e === 'object' && e.live === true) st.live = true;
-      clubs.set(c, st);
+      clubs.set(norm(p.club), { any: true });
     });
-    return { mode, votes: votes || {}, probOk, clubs, now: Date.now(), STATE };
+    return { mode, votes: votes || {}, probOk, clubs, updatedAt, now: Date.now(), STATE };
   },
 
   _player(id, playersById, ctx) {
@@ -631,28 +631,30 @@ export const LiveMatchModule = {
       return { ...base, ...this._todo(p, ctx) };
     }
 
+    const todo = this._todo(p, ctx);
+    const kick = todo.kickoff;
+    const inCorso = !!kick && ctx.now >= kick && ctx.now < kick + MATCH_MINUTES * 60000;
+
     if (entry) {
       const voto = CalcoloMatchService.normalizzaVoto(entry.voto);
       if (voto > 0) {
         const saved = entry.fantavoto ?? entry.fVoto;
         const fv = saved !== undefined && saved !== null && Number.isFinite(Number(saved)) ? Number(saved) : this._fantavoto(voto, ev);
-        return { ...base, kind: 'voto', voto, fv, live: entry.live === true };
+        return { ...base, kind: 'voto', voto, fv, live: ctx.mode === 'live' && inCorso };
       }
-      return { ...base, kind: 'sv', live: entry.live === true };
+      return { ...base, kind: 'sv', live: ctx.mode === 'live' && inCorso };
     }
 
     if (ctx.mode === 'past') return { ...base, kind: 'sv' };
 
     // Live, nessun voto: dipende da come sta andando la partita del suo club
     const club = ctx.clubs.get(norm(base.club));
-    const todo = this._todo(p, ctx);
-    const kick = todo.kickoff;
-    if (club?.live) return { ...base, kind: 'playing', kickoff: kick };
     if (kick) {
       if (ctx.now < kick) return { ...base, ...todo };
-      if (ctx.now < kick + MATCH_MINUTES * 60000) return { ...base, kind: 'playing', kickoff: kick };
+      if (inCorso) return { ...base, kind: 'playing', kickoff: kick };
       return { ...base, kind: club?.any ? 'sv' : 'wait', kickoff: kick };
     }
+    // Orario sconosciuto: se il suo club ha già i voti e lui no, non è entrato
     if (club?.any) return { ...base, kind: 'sv' };
     return { ...base, ...todo };
   },
@@ -752,7 +754,7 @@ export const LiveMatchModule = {
     const subsMark = (subs) => ({ out: new Set(subs.map(s => String(s.out))), in: new Set(subs.map(s => String(s.in))) });
     const mH = subsMark(subsH), mA = subsMark(subsA);
 
-    const header = this._headerMarkup({ mode, home, away, tH, tA, couple });
+    const header = this._headerMarkup({ mode, home, away, tH, tA, couple, updatedAt: ctx.updatedAt });
     const simBox = isLive ? this._simMarkup(home, away, simH, simA) : '';
 
     const content = this.view === 'stadio'
@@ -767,7 +769,7 @@ export const LiveMatchModule = {
     `;
   },
 
-  _headerMarkup({ mode, home, away, tH, tA, couple }) {
+  _headerMarkup({ mode, home, away, tH, tA, couple, updatedAt }) {
     const team = (t) => `
       <div class="lv-team">
         ${t.info.logo
@@ -783,7 +785,8 @@ export const LiveMatchModule = {
       center = `
         <span class="lv-livechip"><i></i>LIVE</span>
         <div class="lv-pts">${tH ? fmt(tH.fv) : '-'} - ${tA ? fmt(tA.fv) : '-'}</div>
-        <div class="lv-pts-sub">Parziale titolari</div>`;
+        <div class="lv-pts-sub">Parziale titolari</div>
+        ${updatedAt ? `<div class="lv-pts-goals">voti delle ${new Date(updatedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</div>` : ''}`;
     } else if (mode === 'past') {
       const gH = couple?.goalHome ?? couple?.homeScore ?? (tH ? CalcoloMatchService.calcolaGol(tH.fv) : null);
       const gA = couple?.goalAway ?? couple?.awayScore ?? (tA ? CalcoloMatchService.calcolaGol(tA.fv) : null);
