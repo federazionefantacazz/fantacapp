@@ -40,9 +40,8 @@ export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
   const scoreHome = (isFinished || match.goalHome != null) ? match.goalHome : '-';
   const scoreAway = (isFinished || match.goalAway != null) ? match.goalAway : '-';
   
-  const pointsHTML = isFinished && (match.punteggioFinaleHome != null || match.punteggioFinaleAway != null) 
-    ? `<div style="font-size:.65rem; color:var(--text2); text-align:center; margin-top:.3rem; white-space:nowrap;">${match.punteggioFinaleHome ?? 0} - ${match.punteggioFinaleAway ?? 0} pt</div>` 
-    : '';
+  const hasPoints = isFinished && (match.punteggioFinaleHome != null || match.punteggioFinaleAway != null);
+  const pointsText = hasPoints ? `${match.punteggioFinaleHome ?? 0} - ${match.punteggioFinaleAway ?? 0} pt` : '';
 
   // Intestazione: "Match N" (+ etichetta girone/playoff) a sinistra, stato a destra
   const labelText = opts.label || match.label || match.girone;
@@ -59,8 +58,19 @@ export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
     ? `<span class="status-chip${chip.live ? ' live' : ''}" style="--chip-color:${chip.color || 'var(--text2)'};">${chip.live ? '<span class="dot"></span>' : `<i class="${chip.icon}"></i>`}${chip.text}</span>`
     : '';
 
-  const headerHTML = (labelText || chip || opts.matchNumber)
-    ? `<div style="display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom:.6rem; min-height:20px;">${leftHTML}${chipHTML}</div>`
+  const hasHeader = !!(labelText || chip || opts.matchNumber);
+
+  // Con l'intestazione i punti vanno a destra, nella stessa riga dello stato: così tutte le card
+  // hanno la stessa altezza (concluse, live, formazioni). Senza intestazione restano sotto il risultato.
+  const pointsHeaderHTML = pointsText
+    ? `<span style="font-size:.65rem; color:var(--text2); font-weight:600; white-space:nowrap; flex-shrink:0;">${pointsText}</span>`
+    : '';
+  const pointsHTML = (pointsText && !hasHeader)
+    ? `<div style="font-size:.65rem; color:var(--text2); text-align:center; margin-top:.3rem; white-space:nowrap;">${pointsText}</div>`
+    : '';
+
+  const headerHTML = hasHeader
+    ? `<div style="display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom:.6rem; min-height:22px;">${leftHTML}<div style="display:flex; align-items:center; gap:.4rem; flex-shrink:0;">${pointsHeaderHTML}${chipHTML}</div></div>`
     : '';
 
   return `
