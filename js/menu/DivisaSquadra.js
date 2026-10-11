@@ -1,5 +1,6 @@
 import { db, ref, update } from '../firebase-config.js';
-import { uploadImageToImgBB } from '../services/integrationImgBB.js';
+import { uploadPngToImgBB } from '../services/integrationImgBB.js';
+import { getCutout, whenCutoutsReady } from '../services/imageCutout.js';
 import { esc } from './menuUtils.js';
 import {
   renderKitSvg, normalizeKit, defaultKit,
@@ -92,12 +93,12 @@ function injectStyle() {
 
     .kit-patch { display: flex; align-items: center; gap: .6rem; padding: .5rem 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
     .kit-patch:last-child { border-bottom: none; }
-    .kit-patch img { width: 38px; height: 38px; object-fit: contain; border-radius: 6px; background: #fff; flex-shrink: 0; }
+    .kit-patch img { width: 38px; height: 38px; object-fit: contain; flex-shrink: 0; filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
     .kit-patch .nm { flex: 1; min-width: 0; font-size: .8rem; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .kit-patch-pos { order: 5; flex-basis: 100%; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; color: var(--text);
       padding: .45rem .5rem; font-family: inherit; font-size: .8rem; }
     .kit-comp { display: flex; flex-direction: column; align-items: center; gap: .25rem; }
-    .kit-comp img { width: 44px; height: 44px; object-fit: contain; border-radius: 8px; background: #fff; pointer-events: none; }
+    .kit-comp img { width: 44px; height: 44px; object-fit: contain; pointer-events: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
     .kit-upload-thumb { width: 90px; height: 50px; object-fit: contain; background: var(--bg3); border-radius: 8px; border: 1px solid var(--border); }
   `;
   document.head.appendChild(style);
@@ -189,8 +190,17 @@ export const DivisaSquadra = {
     if (!this._root) return;
     const box = this._root.querySelector('#kit-preview');
     if (box) box.innerHTML = renderKitSvg(this._kit, { crestUrl: this._crest() });
+    // stemma e patch vengono scontornati in background: appena pronti ridisegno
+    const wait = whenCutoutsReady(this._kit.patches.map(p => p.src).concat(this._kit.crest.show ? [this._crest()] : []).filter(Boolean));
+    if (wait) wait.then(() => { if (this._root && this._kit) this._renderPreview(); });
     const dirty = this._root.querySelector('#kit-dirty');
     if (dirty) dirty.textContent = this._dirty() ? 'Modifiche non salvate' : '';
+  },
+
+  /** Durante trascinamenti (cursori, selettore colore) ridisegno al massimo una volta per frame. */
+  _schedulePreview() {
+    if (this._raf) return;
+    this._raf = requestAnimationFrame(() => { this._raf = 0; this._renderPreview(); });
   },
 
   /** Ridisegna il contenuto della sezione aperta (le altre restano vuote finché non si aprono). */
@@ -204,6 +214,7 @@ export const DivisaSquadra = {
       sponsor: this._secSponsor, brand: this._secBrand, patches: this._secPatches
     }[key];
     box.innerHTML = fn.call(this);
+    box.querySelectorAll('img[data-cut]').forEach(img => getCutout(img.dataset.cut).then(u => { if (u) img.src = u; }));
   },
 
   /** Porta la sezione appena aperta subito sotto l'anteprima (che resta fissa in alto). */
@@ -327,10 +338,10 @@ export const DivisaSquadra = {
         <div class="kit-field" style="flex-wrap:wrap;">
           ${sp.url ? `<img class="kit-upload-thumb" src="${esc(sp.url)}" alt="Sponsor">` : ''}
           <label class="mp-btn"><i class="ri-upload-2-line"></i> ${sp.url ? 'Cambia immagine' : 'Carica immagine'}
-            <input type="file" accept="image/png,image/jpeg,image/webp" data-upload="sponsor" style="display:none;">
+            <input type="file" accept="image/png" data-upload="sponsor" style="display:none;">
           </label>
         </div>
-        <div class="mp-muted">Consigliato un PNG con sfondo trasparente.</div>
+        <div class="mp-muted">Solo immagini <b>PNG</b>, meglio se con sfondo trasparente.</div>
         <div class="kit-chips" style="margin:.6rem 0;">
           ${this._chip('sponsor-mono', '0', 'Colori originali', !sp.mono)}
           ${this._chip('sponsor-mono', '1', 'Tinta unica', sp.mono)}
@@ -379,7 +390,8 @@ export const DivisaSquadra = {
       <div class="kit-grid wide">${BRANDS.map(brandCell).join('')}</div>
       ${k.brand.id === 'custom' ? `
         <div class="kit-field"><label class="mp-btn"><i class="ri-upload-2-line"></i> ${k.brand.url ? 'Cambia marchio' : 'Carica marchio'}
-          <input type="file" accept="image/png,image/jpeg,image/webp" data-upload="brand" style="display:none;"></label></div>` : ''}
+          <input type="file" accept="image/png" data-upload="brand" style="display:none;"></label></div>
+        <div class="mp-muted">Solo immagini <b>PNG</b> con sfondo trasparente.</div>` : ''}
       ${k.brand.id !== 'none' && k.brand.id !== 'custom' ? `<div class="kit-sub">Colore del marchio</div><div class="kit-color-row">${this._colorPicker('brand.color', k.brand.color)}</div>` : ''}`;
   },
 
@@ -388,12 +400,11 @@ export const DivisaSquadra = {
     const avail = availablePatches(window.STATE);
     const current = k.patches.map((p, i) => `
       <div class="kit-patch">
-        <img src="${esc(p.src)}" alt="" onerror="this.style.visibility='hidden'">
+        <img data-cut="${esc(p.src)}" alt="">
         <div class="nm">${esc(p.name || 'Patch')}</div>
         <select class="kit-patch-pos" data-patch-pos="${i}">
           ${PATCH_POSITIONS.map(pp => `<option value="${pp.id}" ${p.pos === pp.id ? 'selected' : ''}>${pp.label}</option>`).join('')}
         </select>
-        <button class="kit-icon-btn" data-act="patch-bg" data-i="${i}" title="Sfondo bianco" style="${p.bg !== false ? 'color:var(--accent); border-color:var(--accent);' : ''}"><i class="ri-checkbox-blank-fill"></i></button>
         <button class="kit-icon-btn" data-act="patch-del" data-i="${i}" title="Rimuovi"><i class="ri-delete-bin-line"></i></button>
       </div>`).join('');
     const full = k.patches.length >= MAX_PATCHES;
@@ -404,9 +415,9 @@ export const DivisaSquadra = {
       ${full ? `<div class="mp-muted">Hai raggiunto il massimo di ${MAX_PATCHES} patch.</div>` : `
       <div class="kit-grid wide">
         ${avail.map(a => `<button class="kit-opt kit-comp" data-act="patch-add" data-v="${esc(a.id)}" title="${esc(a.name)}">
-          <img src="${esc(a.src)}" alt="" onerror="this.style.visibility='hidden'"><span class="lb">${esc(a.name)}</span></button>`).join('')}
+          <img data-cut="${esc(a.src)}" alt=""><span class="lb">${esc(a.name)}</span></button>`).join('')}
       </div>`}
-      <div class="mp-muted" style="margin-top:.6rem;">Per ogni patch scegli la posizione: centro petto, sotto lo sponsor, sulle maniche o in fondo alla maglia.</div>`;
+      <div class="mp-muted" style="margin-top:.6rem;">I loghi vengono scontornati automaticamente. Per ogni patch scegli la posizione: centro petto, sotto lo sponsor, sulle maniche o in fondo alla maglia.</div>`;
   },
 
   /* ------------------------------------------------------------- eventi */
@@ -524,14 +535,11 @@ export const DivisaSquadra = {
         if (!a) return;
         const used = new Set(k.patches.map(p => p.pos));
         const pos = (PATCH_POSITIONS.find(pp => !used.has(pp.id)) || PATCH_POSITIONS[0]).id;
-        this._update(kit => { kit.patches.push({ id: a.id, name: a.name, src: a.src, pos, bg: true }); });
+        this._update(kit => { kit.patches.push({ id: a.id, name: a.name, src: a.src, pos }); });
         return;
       }
       case 'patch-del':
         this._update(kit => { kit.patches.splice(i, 1); });
-        return;
-      case 'patch-bg':
-        this._update(kit => { kit.patches[i].bg = kit.patches[i].bg === false; });
         return;
     }
   },
@@ -543,13 +551,13 @@ export const DivisaSquadra = {
       this._set(t.dataset.range, Number(t.value));
       const val = t.parentElement.querySelector('.val');
       if (val) val.textContent = t.value + (val.textContent.endsWith('%') ? '%' : '');
-      this._renderPreview();
+      this._schedulePreview();
     } else if (t.dataset.color) {
       this._set(t.dataset.color, t.value);
-      this._renderPreview();
+      this._schedulePreview();
     } else if (t.dataset.text) {
       this._set(t.dataset.text, t.value);
-      this._renderPreview();
+      this._schedulePreview();
     }
   },
 
@@ -568,13 +576,13 @@ export const DivisaSquadra = {
   },
 
   async _upload(kind, file) {
-    if (!file.type.startsWith('image/')) { window.showToast('Seleziona un file immagine', 'err'); return; }
+    if (file.type !== 'image/png') { window.showToast("Carica un'immagine in formato PNG", 'err'); return; }
     if (file.size > MAX_FILE_MB * 1024 * 1024) { window.showToast(`Immagine troppo pesante (max ${MAX_FILE_MB} MB)`, 'err'); return; }
     if (this._busy) return;
     this._busy = true;
     window.showToast('Caricamento in corso...', 'ok');
     try {
-      const url = await uploadImageToImgBB(file);
+      const url = await uploadPngToImgBB(file);
       if (!this._kit) return;
       this._update(kit => {
         if (kind === 'sponsor') kit.sponsor.url = url;

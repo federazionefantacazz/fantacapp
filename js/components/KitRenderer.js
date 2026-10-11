@@ -13,6 +13,8 @@
  * Tutte le coordinate sono nel viewBox 0 0 400 420 (centro maglia x = 200).
  */
 
+import { cutoutSync, whenCutoutsReady } from '../services/imageCutout.js';
+
 const W = 400;
 const H = 420;
 let UID = 0;
@@ -32,19 +34,19 @@ export function shade(hex, amt) {
 }
 
 /* ------------------------------------------------------------------ forme */
-const TORSO = 'M166,24 L112,44 C104,80 100,112 102,146 L100,388 Q200,404 300,388 L298,146 C300,112 296,80 288,44 L234,24 Q200,42 166,24 Z';
+const TORSO = 'M166,24 C150,30 130,37 112,44 C104,80 100,112 102,148 C106,220 102,320 98,392 Q200,410 302,392 C298,320 294,220 298,148 C300,112 296,80 288,44 C270,37 250,30 234,24 Q200,42 166,24 Z';
 
 const SLEEVE = {
-  short: 'M116,42 C86,52 58,78 30,124 L72,170 C84,160 94,152 104,146 Z',
-  long:  'M116,42 C86,52 62,82 48,130 C38,200 30,280 26,340 L66,346 C72,290 84,220 100,170 L104,146 Z'
+  short: 'M116,42 C88,50 58,72 36,98 C30,106 24,114 20,122 L72,178 C82,168 94,156 103,148 Z',
+  long:  'M116,42 C86,52 62,82 48,130 C38,200 30,280 26,340 L66,346 C72,290 84,220 100,170 L103,148 Z'
 };
 // polsini (sopra la manica sinistra, la destra è specchiata)
 const CUFF = {
-  short: { band: 'M30,124 L72,170 L79,160 L37,114 Z', thin: 'M37,114 L79,160 L82,156 L40,110 Z' },
+  short: { band: 'M20,122 L72,178 L81,169 L29,113 Z', thin: 'M29,113 L81,169 L84,166 L32,110 Z' },
   long:  { band: 'M26,340 L66,346 L68,326 L28,320 Z', thin: 'M28,320 L68,326 L68.5,321 L28.5,315 Z' }
 };
 // raglan: spicchio della spalla col colore delle maniche
-const RAGLAN = 'M170,25 L112,44 C104,80 100,112 102,146 Q126,74 170,25 Z';
+const RAGLAN = 'M170,25 L112,44 C104,80 100,112 102,148 Q126,74 170,25 Z';
 const MIRROR = `transform="translate(${W},0) scale(-1,1)"`;
 
 export const COLLARS = [
@@ -89,6 +91,35 @@ export const SLEEVE_DECO = [
 // s = scala (1 = normale), c = colore, id = prefisso univoco per i <defs>.
 const range = (from, to, step) => { const out = []; for (let v = from; v <= to; v += step) out.push(v); return out; };
 
+/** Rete di crepe (tipo marmo screpolato): celle irregolari con bordi frastagliati, deterministica. */
+function crackle(c, s) {
+  let seed = 23;
+  const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  const g = 46 * s;
+  const cols = Math.ceil(W / g) + 2, rows = Math.ceil(H / g) + 2;
+  const pt = [];
+  for (let i = 0; i < cols; i++) {
+    pt.push([]);
+    for (let j = 0; j < rows; j++) pt[i].push([(i - .5) * g + (rnd() - .5) * g * .8, (j - .5) * g + (rnd() - .5) * g * .8]);
+  }
+  const edge = (a, b) => {
+    let d = `M${a[0].toFixed(1)},${a[1].toFixed(1)}`;
+    const nx = -(b[1] - a[1]), ny = b[0] - a[0], len = Math.hypot(nx, ny) || 1;
+    for (let k = 1; k < 4; k++) {
+      const t = k / 4, off = (rnd() - .5) * 9 * s;
+      d += ` L${(a[0] + (b[0] - a[0]) * t + nx / len * off).toFixed(1)},${(a[1] + (b[1] - a[1]) * t + ny / len * off).toFixed(1)}`;
+    }
+    return `<path d="${d} L${b[0].toFixed(1)},${b[1].toFixed(1)}" stroke-width="${((.9 + rnd() * 2.4) * s).toFixed(2)}"/>`;
+  };
+  let o = '';
+  for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
+    if (i + 1 < cols && rnd() < .9) o += edge(pt[i][j], pt[i + 1][j]);
+    if (j + 1 < rows && rnd() < .9) o += edge(pt[i][j], pt[i][j + 1]);
+    if (i + 1 < cols && j + 1 < rows && rnd() < .25) o += edge(pt[i][j], pt[i + 1][j + 1]);
+  }
+  return `<g fill="none" stroke="${c}" stroke-linejoin="round" stroke-linecap="round">${o}</g>`;
+}
+
 export const PATTERNS = [
   { id: 'stripes', label: 'Strisce verticali', draw: (c, s) => range(-20, W, 40 * s).map(x => `<rect x="${x}" y="0" width="${20 * s}" height="${H}" fill="${c}"/>`).join('') },
   { id: 'wideStripes', label: 'Strisce larghe', draw: (c, s) => range(-30, W, 80 * s).map(x => `<rect x="${x}" y="0" width="${40 * s}" height="${H}" fill="${c}"/>`).join('') },
@@ -126,7 +157,10 @@ export const PATTERNS = [
   { id: 'grid', label: 'Quadri (tartan)', draw: (c, s) => range(0, W, 40 * s).map(x => `<rect x="${x}" y="0" width="${8 * s}" height="${H}" fill="${c}" opacity=".7"/>`).join('') + range(0, H, 40 * s).map(y => `<rect x="0" y="${y}" width="${W}" height="${8 * s}" fill="${c}" opacity=".7"/>`).join('') },
   { id: 'camo', label: 'Mimetico', draw: (c, s) => { let seed = 7, o = ''; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280; for (let i = 0; i < 46; i++) { const x = rnd() * W, y = rnd() * H, rx = (14 + rnd() * 26) * s, ry = (8 + rnd() * 16) * s; o += `<ellipse cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" rx="${rx.toFixed(0)}" ry="${ry.toFixed(0)}" transform="rotate(${(rnd() * 180).toFixed(0)} ${x.toFixed(0)} ${y.toFixed(0)})" fill="${c}"/>`; } return o; } },
   { id: 'brush', label: 'Pennellate', draw: (c, s) => range(0, 5, 1).map(i => `<path d="M${40 + i * 10},${120 + i * 50} Q200,${80 + i * 55 - 30 * s} ${380 - i * 8},${140 + i * 48} L${380 - i * 8},${150 + i * 48 + 8 * s} Q200,${95 + i * 55 - 20 * s} ${40 + i * 10},${132 + i * 50 + 4 * s} Z" fill="${c}" opacity="${(1 - i * 0.12).toFixed(2)}"/>`).join('') },
-  { id: 'flames', label: 'Fiamme', draw: (c, s) => { let p = `M0,420 L0,${330}`; range(0, W, 40).forEach((x, i) => { const h = (i % 2 ? 90 : 140) * s; p += ` Q${x + 10},${330 - h * .4} ${x + 20},${330 - h} Q${x + 26},${330 - h * .4} ${x + 40},${330}`; }); return `<path d="${p} L400,420 Z" fill="${c}"/>`; } }
+  { id: 'flames', label: 'Fiamme', draw: (c, s) => { let p = `M0,420 L0,${330}`; range(0, W, 40).forEach((x, i) => { const h = (i % 2 ? 90 : 140) * s; p += ` Q${x + 10},${330 - h * .4} ${x + 20},${330 - h} Q${x + 26},${330 - h * .4} ${x + 40},${330}`; }); return `<path d="${p} L400,420 Z" fill="${c}"/>`; } },
+  { id: 'crackle', label: 'Crepe', draw: (c, s) => crackle(c, s) },
+  { id: 'marble', label: 'Marmo', draw: (c, s, id) => { let seed = 11; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280; let o = ''; for (let i = 0; i < 9; i++) { const y = -40 + i * 55 * s + rnd() * 20; o += `<path d="M-20,${y.toFixed(0)} C${(80 + rnd() * 60).toFixed(0)},${(y - 60 + rnd() * 120).toFixed(0)} ${(220 + rnd() * 60).toFixed(0)},${(y + 80 - rnd() * 120).toFixed(0)} 420,${(y + 40 + rnd() * 60).toFixed(0)}" fill="none" stroke="${c}" stroke-width="${((1 + rnd() * 5) * s).toFixed(1)}" stroke-opacity="${(.45 + rnd() * .5).toFixed(2)}"/>`; } return `<defs><filter id="${id}b" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="1.2"/></filter></defs><g filter="url(#${id}b)">${o}</g>`; } },
+  { id: 'contour', label: 'Curve di livello', draw: (c, s) => range(0, H + 40, 16 * s).map((y, i) => { let d = `M-10,${y}`; for (let x = -10; x <= W + 20; x += 20) d += ` L${x},${(y + Math.sin(x / 45 + i * .7) * 10 * s + Math.sin(x / 17 + i) * 3).toFixed(1)}`; return `<path d="${d}" fill="none" stroke="${c}" stroke-width="${(1.6 * s).toFixed(1)}"/>`; }).join('') },
 ];
 
 /* ---------------------------------------------------------- marchi tecnici */
@@ -198,9 +232,10 @@ export function normalizeKit(raw) {
 }
 
 /* ---------------------------------------------------------------- colletti */
-function collarSvg(type, col, inside, base) {
-  const back = (d) => `<path d="${d}" fill="${inside}"/>`;
-  const band = (d) => `<path d="${d}" fill="${col}" stroke="rgba(0,0,0,.18)" stroke-width="1"/>`;
+function collarSvg(type, col, inside, base, id = '') {
+  // id presente = versione realistica: interno del collo in ombra e colletto a costine
+  const back = (d) => `<path d="${d}" fill="${inside}"/>` + (id ? `<path d="${d}" fill="url(#${id}neck)"/>` : '');
+  const band = (d) => `<path d="${d}" fill="${col}" stroke="rgba(0,0,0,.22)" stroke-width="1"/>` + (id ? `<path d="${d}" fill="url(#${id}rib)"/>` : '');
   const btn = (x, y) => `<circle cx="${x}" cy="${y}" r="2.6" fill="${shade(col, -0.25)}"/>`;
   switch (type) {
     case 'v':
@@ -253,24 +288,24 @@ function sleeveDecoSvg(type, long, c) {
         const o = 10 + i * 9;
         const d = long
           ? `M${118 - o * .2},${44 + o * .9} C${92 - o * .1},${56 + o} ${66 + o * .5},${84 + o * .5} ${56 + o * .4},${132 + o * .2} C${46 + o * .4},${200} ${38 + o * .4},${280} ${32 + o * .4},${334}`
-          : `M${118 - o * .2},${44 + o * .9} C${92 - o * .1},${56 + o} ${64 + o * .6},${82 + o * .6} ${36 + o * .9},${126 + o * .2}`;
+          : `M${118 - o * .2},${44 + o * .9} C${92 - o * .1},${56 + o} ${60 + o * .6},${78 + o * .6} ${26 + o * .9},${118 + o * .3}`;
         return `<path d="${d}" fill="none" stroke="${c}" stroke-width="4.2"/>`;
       }).join('');
     }
     case 'shoulder':
-      return `<path d="M120,30 C90,40 50,70 10,130 L46,140 C70,100 96,80 124,66 Z" fill="${c}"/>`;
+      return `<path d="M120,30 C90,40 50,66 6,120 L44,134 C70,100 96,80 124,66 Z" fill="${c}"/>`;
     case 'band':
       return long
         ? `<polygon points="20,240 100,246 100,268 20,262" fill="${c}"/>`
-        : `<polygon points="44,104 94,150 102,140 54,94" fill="${c}"/>`;
+        : `<polygon points="36,98 90,158 99,149 45,89" fill="${c}"/>`;
     case 'chevrons':
       return range(0, 2, 1).map(i => {
-        const y = (long ? 150 : 82) + i * (long ? 22 : 12);
-        const x = long ? 66 - i * 2 : 80 - i * 9;
+        const y = (long ? 150 : 84) + i * (long ? 22 : 13);
+        const x = long ? 66 - i * 2 : 76 - i * 10;
         return `<path d="M${x - 40},${y - 10} L${x},${y + 8} L${x + 40},${y - 10}" fill="none" stroke="${c}" stroke-width="5" transform="rotate(${long ? 6 : 42} ${x} ${y})"/>`;
       }).join('');
     case 'side':
-      return `<path d="M104,146 L100,388 L114,390 L118,146 Z" fill="${c}"/><path d="M104,146 C84,160 76,166 72,170 L66,160 C80,150 92,146 104,140 Z" fill="${c}"/>`;
+      return `<path d="M102,148 L98,392 L113,394 L117,148 Z" fill="${c}"/><path d="M104,148 C90,160 80,170 72,178 L64,170 C78,156 92,146 104,140 Z" fill="${c}"/>`;
     default:
       return '';
   }
@@ -283,22 +318,108 @@ function imageTag(href, cx, cy, w, h, extra = '') {
 
 function patchAt(pos, sleevesLong) {
   switch (pos) {
-    case 'chest': return { x: 200, y: 116, s: 30, r: 0 };
-    case 'belly': return { x: 200, y: 292, s: 34, r: 0 };
-    case 'sleeveL': return sleevesLong ? { x: 72, y: 118, s: 30, r: 18 } : { x: 76, y: 104, s: 30, r: 40 };
-    case 'sleeveR': return sleevesLong ? { x: 328, y: 118, s: 30, r: -18 } : { x: 324, y: 104, s: 30, r: -40 };
+    case 'chest': return { x: 200, y: 118, s: 32, r: 0 };
+    case 'belly': return { x: 200, y: 294, s: 38, r: 0 };
+    case 'sleeveL': return sleevesLong ? { x: 72, y: 118, s: 32, r: 18 } : { x: 70, y: 108, s: 32, r: 42 };
+    case 'sleeveR': return sleevesLong ? { x: 328, y: 118, s: 32, r: -18 } : { x: 330, y: 108, s: 32, r: -42 };
     case 'hem': return { x: 132, y: 356, s: 26, r: 0 };
-    default: return { x: 200, y: 116, s: 30, r: 0 };
+    default: return { x: 200, y: 118, s: 32, r: 0 };
   }
+}
+
+/* ------------------------------------------------- realismo (tessuto) */
+// Pieghe e luci del tessuto: forme sfocate in coordinate della maglia (sinistra; la destra è specchiata)
+const FOLDS_DARK = [
+  'M104,152 C124,186 140,214 150,250',           // piega dall'ascella verso il centro
+  'M110,262 C118,300 120,340 116,392',           // fianco basso
+  'M168,58 C176,74 184,84 200,92',                // sotto il colletto
+  'M40,112 C58,128 72,146 84,166',                // piega della manica
+  'M150,300 C162,330 168,360 166,396'             // piega verticale sul ventre
+];
+const FOLDS_LIGHT = [
+  'M146,120 C150,170 152,220 146,280',            // luce sul petto
+  'M60,82 C78,72 96,62 116,54',                   // luce sulla spalla
+  'M196,250 C202,290 204,330 200,380'             // luce centrale
+];
+
+function realismDefs(id) {
+  const box = `filterUnits="userSpaceOnUse" x="-20" y="-20" width="${W + 40}" height="${H + 40}"`;
+  return `
+    <filter id="${id}warp" ${box}>
+      <feTurbulence type="fractalNoise" baseFrequency="0.004 0.009" numOctaves="1" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="7" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="${id}soft" ${box}><feGaussianBlur stdDeviation="9"/></filter>
+    <filter id="${id}soft2" ${box}><feGaussianBlur stdDeviation="3.5"/></filter>
+    <filter id="${id}drop" ${box}><feGaussianBlur stdDeviation="7"/></filter>
+    <filter id="${id}grain" ${box}>
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="3" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.4 1.1"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+    <pattern id="${id}mesh" width="4" height="4" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r=".75" fill="#000" fill-opacity=".22"/><circle cx="3" cy="3" r=".6" fill="#fff" fill-opacity=".10"/>
+    </pattern>
+    <pattern id="${id}rib" width="3" height="3" patternUnits="userSpaceOnUse" patternTransform="rotate(90)">
+      <rect width="1.2" height="3" fill="#000" fill-opacity=".18"/>
+    </pattern>
+    <linearGradient id="${id}side" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#000" stop-opacity=".42"/><stop offset=".16" stop-color="#000" stop-opacity=".08"/>
+      <stop offset=".38" stop-color="#000" stop-opacity="0"/><stop offset=".62" stop-color="#000" stop-opacity="0"/>
+      <stop offset=".84" stop-color="#000" stop-opacity=".1"/><stop offset="1" stop-color="#000" stop-opacity=".46"/>
+    </linearGradient>
+    <linearGradient id="${id}vert" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".10"/><stop offset=".35" stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".85" stop-color="#000" stop-opacity=".06"/><stop offset="1" stop-color="#000" stop-opacity=".28"/>
+    </linearGradient>
+    <radialGradient id="${id}neck" cx=".5" cy=".1" r=".75">
+      <stop offset="0" stop-color="#000" stop-opacity=".75"/><stop offset="1" stop-color="#000" stop-opacity=".25"/>
+    </radialGradient>`;
+}
+
+function realismOverlay(id, sl, long) {
+  const mirrorPaths = (list, attrs) => list.map(d => `<path d="${d}" ${attrs}/><path d="${d}" ${attrs} ${MIRROR}/>`).join('');
+  const cuffY = long ? 'M26,340 L66,346' : 'M20,122 L72,178';
+  return `
+  <g clip-path="url(#${id}all)" pointer-events="none">
+    <!-- volume: fianchi in ombra e luce dall'alto -->
+    <rect width="${W}" height="${H}" fill="url(#${id}side)" clip-path="url(#${id}body)"/>
+    <rect width="${W}" height="${H}" fill="url(#${id}vert)"/>
+    <!-- maniche: parte interna in ombra -->
+    <g clip-path="url(#${id}slv)">
+      <path d="M103,148 C92,158 82,168 72,178 L84,190 L118,150 Z" fill="#000" fill-opacity=".38" filter="url(#${id}soft)"/>
+      <path d="M103,148 C92,158 82,168 72,178 L84,190 L118,150 Z" fill="#000" fill-opacity=".38" filter="url(#${id}soft)" ${MIRROR}/>
+      <path d="${cuffY}" stroke="#000" stroke-opacity=".35" stroke-width="10" fill="none" filter="url(#${id}soft2)"/>
+      <path d="${cuffY}" stroke="#000" stroke-opacity=".35" stroke-width="10" fill="none" filter="url(#${id}soft2)" ${MIRROR}/>
+    </g>
+    <!-- ombra dell'attaccatura delle maniche sul busto -->
+    <path d="M112,44 C104,80 100,112 102,148" stroke="#000" stroke-opacity=".35" stroke-width="9" fill="none" filter="url(#${id}soft2)"/>
+    <path d="M112,44 C104,80 100,112 102,148" stroke="#000" stroke-opacity=".35" stroke-width="9" fill="none" filter="url(#${id}soft2)" ${MIRROR}/>
+    <!-- pieghe -->
+    <g style="mix-blend-mode:multiply">${mirrorPaths(FOLDS_DARK, `stroke="#000" stroke-opacity=".30" stroke-width="16" stroke-linecap="round" fill="none" filter="url(#${id}soft)"`)}</g>
+    <g style="mix-blend-mode:screen">${mirrorPaths(FOLDS_LIGHT, `stroke="#fff" stroke-opacity=".20" stroke-width="22" stroke-linecap="round" fill="none" filter="url(#${id}soft)"`)}</g>
+    <!-- trama del tessuto -->
+    <rect width="${W}" height="${H}" fill="url(#${id}mesh)"/>
+    <rect width="${W}" height="${H}" fill="#000" opacity=".16" filter="url(#${id}grain)" style="mix-blend-mode:multiply"/>
+  </g>
+  <!-- cuciture -->
+  <g fill="none" pointer-events="none">
+    ${mirrorPaths(['M112,46 C104,80 100,112 102,148'], `stroke="#fff" stroke-opacity=".22" stroke-width=".9" stroke-dasharray="2.4 2"`)}
+    <path d="M100,384 Q200,401 300,384" stroke="#fff" stroke-opacity=".22" stroke-width=".9" stroke-dasharray="2.4 2"/>
+    <path d="M100,386 Q200,403 300,386" stroke="#000" stroke-opacity=".2" stroke-width=".8"/>
+  </g>`;
 }
 
 /**
  * Restituisce l'SVG completo della maglia.
- * opts: { crestUrl, width, height, className, simple } (simple = senza ombre, per le miniature)
+ * opts: { crestUrl, width, height, className, simple } (simple = senza effetti tessuto, per le miniature)
+ * Stemma e patch vengono scontornati (services/imageCutout.js): finché non sono pronti non si vedono,
+ * usa kitSlot() per ridisegnare automaticamente quando lo sono.
  */
 export function renderKitSvg(rawKit, opts = {}) {
   const k = normalizeKit(rawKit);
   const id = `kit${++UID}`;
+  const real = !opts.simple;
   const col = {
     base: safeColor(k.colors.base, '#1e5bb8'),
     sleeves: safeColor(k.colors.sleeves, '#1e5bb8'),
@@ -310,6 +431,7 @@ export function renderKitSvg(rawKit, opts = {}) {
   const raglan = k.sleeves === 'raglan' || k.sleeves === 'raglan-long';
   const sl = long ? SLEEVE.long : SLEEVE.short;
   const both = (d, attrs) => `<path d="${d}" ${attrs}/><path d="${d}" ${attrs} ${MIRROR}/>`;
+  const warp = real ? `filter="url(#${id}warp)"` : '';
 
   // livelli del disegno
   const layerSvg = (onSleevesOnly) => k.layers.map((l, i) => {
@@ -322,32 +444,31 @@ export function renderKitSvg(rawKit, opts = {}) {
     return `<g opacity="${clamp(l.opacity, 0, 100) / 100}" ${tf}>${p.draw(safeColor(l.color), s, `${id}l${i}${onSleevesOnly ? 's' : ''}`)}</g>`;
   }).join('');
 
-  const outline = 'stroke="rgba(0,0,0,.35)" stroke-width="1.5" stroke-linejoin="round"';
-
   // marchio tecnico (alto a destra, guardando la maglia)
   let brandSvg = '';
   const brand = BRANDS.find(b => b.id === k.brand.id);
   if (k.brand.id === 'custom' && k.brand.url) {
-    brandSvg = imageTag(k.brand.url, 254, 104, 40, 30);
+    brandSvg = imageTag(k.brand.url, 254, 106, 42, 32);
   } else if (brand && brand.id !== 'none') {
-    brandSvg = `<g transform="translate(236,92) scale(.62)">${brand.draw(safeColor(k.brand.color), col.base)}</g>`;
+    brandSvg = `<g transform="translate(236,94) scale(.62)">${brand.draw(safeColor(k.brand.color), col.base)}</g>`;
   }
 
-  // stemma della squadra (alto a sinistra, guardando la maglia)
+  // stemma della squadra (alto a sinistra, guardando la maglia), scontornato
   let crestSvg = '';
-  if (k.crest.show && opts.crestUrl) {
-    const cs = 40 * clamp(k.crest.size, 60, 150) / 100;
-    crestSvg = imageTag(opts.crestUrl, 146, 106, cs, cs);
+  const crest = k.crest.show && opts.crestUrl ? cutoutSync(opts.crestUrl) : '';
+  if (crest) {
+    const cs = 44 * clamp(k.crest.size, 60, 150) / 100;
+    crestSvg = imageTag(crest, 146, 108, cs, cs);
   }
 
   // sponsor
   let sponsorSvg = '';
   const sp = k.sponsor;
   const spScale = clamp(sp.scale, 40, 160) / 100;
-  const spY = 196 + clamp(sp.y, -60, 80);
+  const spY = 198 + clamp(sp.y, -60, 80);
   const monoFilter = `<filter id="${id}mono" color-interpolation-filters="sRGB"><feFlood flood-color="${safeColor(sp.color)}"/><feComposite in2="SourceAlpha" operator="in"/></filter>`;
   if (sp.mode === 'image' && sp.url) {
-    sponsorSvg = imageTag(sp.url, 200, spY, 150 * spScale, 70 * spScale, sp.mono ? `filter="url(#${id}mono)"` : '');
+    sponsorSvg = imageTag(sp.url, 200, spY, 160 * spScale, 74 * spScale, sp.mono ? `filter="url(#${id}mono)"` : '');
   } else if (sp.mode === 'text' && String(sp.text || '').trim()) {
     const f = SPONSOR_FONTS.find(x => x.id === sp.font) || SPONSOR_FONTS[0];
     const txt = String(sp.text).trim().slice(0, 24);
@@ -355,48 +476,43 @@ export function renderKitSvg(rawKit, opts = {}) {
     sponsorSvg = `<text x="200" y="${spY}" text-anchor="middle" dominant-baseline="central" font-family="${escAttr(f.css)}" font-weight="${f.weight}" font-style="${f.style}" font-size="${fs.toFixed(1)}" fill="${safeColor(sp.color)}">${escAttr(txt)}</text>`;
   }
 
-  // patch delle competizioni
-  const patchSvg = k.patches.map(p => {
+  // patch delle competizioni, scontornate: quelle sulle maniche seguono la manica
+  const patchSvg = (onSleeve) => k.patches.map(p => {
     if (!p || !p.src) return '';
+    if (onSleeve !== /^sleeve/.test(p.pos)) return '';
+    const src = cutoutSync(p.src);
+    if (!src) return '';
     const a = patchAt(p.pos, long);
-    const bg = p.bg !== false
-      ? `<rect x="${a.x - a.s / 2 - 3}" y="${a.y - a.s / 2 - 3}" width="${a.s + 6}" height="${a.s + 6}" rx="5" fill="#ffffff" stroke="rgba(0,0,0,.2)"/>`
-      : '';
-    return `<g transform="rotate(${a.r} ${a.x} ${a.y})">${bg}${imageTag(p.src, a.x, a.y, a.s, a.s)}</g>`;
+    return `<g transform="rotate(${a.r} ${a.x} ${a.y})">${imageTag(src, a.x, a.y, a.s, a.s)}</g>`;
   }).join('');
 
-  // ombre e luci per dare volume
-  const shading = opts.simple ? '' : `
+  // ombre leggere per le miniature
+  const simpleShading = real ? '' : `
     <defs>
       <linearGradient id="${id}shT" x1="0" y1="0" x2="1" y2="0">
         <stop offset="0" stop-color="#000" stop-opacity=".28"/><stop offset=".22" stop-color="#000" stop-opacity="0"/>
         <stop offset=".45" stop-color="#fff" stop-opacity=".10"/><stop offset=".78" stop-color="#000" stop-opacity="0"/>
         <stop offset="1" stop-color="#000" stop-opacity=".30"/>
       </linearGradient>
-      <linearGradient id="${id}shV" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#fff" stop-opacity=".08"/><stop offset=".7" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".18"/>
-      </linearGradient>
     </defs>
-    <g clip-path="url(#${id}body)">
-      <rect width="${W}" height="${H}" fill="url(#${id}shT)"/><rect width="${W}" height="${H}" fill="url(#${id}shV)"/>
-    </g>
-    <g clip-path="url(#${id}slv)" opacity=".9">
-      <path d="${sl}" fill="#000" fill-opacity=".14"/><path d="${sl}" fill="#000" fill-opacity=".14" ${MIRROR}/>
-    </g>`;
+    <rect width="${W}" height="${H}" fill="url(#${id}shT)" clip-path="url(#${id}body)"/>
+    <g clip-path="url(#${id}slv)"><rect width="${W}" height="${H}" fill="#000" fill-opacity=".14"/></g>`;
 
   const cuffSvg = (() => {
     if (k.cuffs === 'none') return '';
     const set = long ? CUFF.long : CUFF.short;
+    const rib = real ? both(set.band, `fill="url(#${id}rib)"`) : '';
     if (k.cuffs === 'thin') return both(set.thin, `fill="${col.cuffs}"`);
     if (k.cuffs === 'double') {
-      return both(set.band, `fill="${col.cuffs}"`) + both(set.thin, `fill="${col.sleeves}"`);
+      return both(set.band, `fill="${col.cuffs}"`) + both(set.thin, `fill="${col.sleeves}"`) + rib;
     }
-    return both(set.band, `fill="${col.cuffs}"`);
+    return both(set.band, `fill="${col.cuffs}"`) + rib;
   })();
 
   const deco = sleeveDecoSvg(k.sleeveDeco, long, col.trim);
   const decoBoth = deco ? `<g>${deco}</g><g ${MIRROR}>${deco}</g>` : '';
   const inside = shade(col.base, -0.45);
+  const outline = `stroke="${shade(col.base, -0.6)}" stroke-opacity=".55" stroke-width="1.3" stroke-linejoin="round" fill="none"`;
 
   const attrs = [
     `viewBox="0 0 ${W} ${H}"`,
@@ -411,28 +527,53 @@ export function renderKitSvg(rawKit, opts = {}) {
   <defs>
     <clipPath id="${id}body"><path d="${TORSO}"/></clipPath>
     <clipPath id="${id}slv"><path d="${sl}"/><path d="${sl}" ${MIRROR}/></clipPath>
+    <clipPath id="${id}all"><path d="${TORSO}"/><path d="${sl}"/><path d="${sl}" ${MIRROR}/></clipPath>
     ${monoFilter}
+    ${real ? realismDefs(id) : ''}
   </defs>
+  ${real ? `<g filter="url(#${id}drop)" opacity=".45" transform="translate(0,7)"><path d="${TORSO}"/>${both(sl, '')}</g>` : ''}
   <!-- maniche -->
-  ${both(sl, `fill="${col.sleeves}" ${outline}`)}
-  <g clip-path="url(#${id}slv)">${layerSvg(true)}${decoBoth}${cuffSvg}</g>
+  ${both(sl, `fill="${col.sleeves}"`)}
+  <g clip-path="url(#${id}slv)"><g ${warp}>${layerSvg(true)}${decoBoth}${patchSvg(true)}</g>${cuffSvg}</g>
   <!-- busto -->
   <path d="${TORSO}" fill="${col.base}"/>
   <g clip-path="url(#${id}body)">
-    ${layerSvg(false)}
-    ${raglan ? `<path d="${RAGLAN}" fill="${col.sleeves}"/><path d="${RAGLAN}" fill="${col.sleeves}" ${MIRROR}/>` : ''}
-    ${k.sleeveDeco === 'side' ? decoBoth : ''}
+    <g ${warp}>
+      ${layerSvg(false)}
+      ${raglan ? `<path d="${RAGLAN}" fill="${col.sleeves}"/><path d="${RAGLAN}" fill="${col.sleeves}" ${MIRROR}/>` : ''}
+      ${k.sleeveDeco === 'side' ? decoBoth : ''}
+      ${brandSvg}${crestSvg}${sponsorSvg}${patchSvg(false)}
+    </g>
   </g>
-  ${shading}
-  <path d="${TORSO}" fill="none" ${outline}/>
-  ${collarSvg(k.collar, col.collar, inside, col.base)}
-  ${brandSvg}${crestSvg}${sponsorSvg}${patchSvg}
+  ${collarSvg(k.collar, col.collar, inside, col.base, real ? id : '')}
+  ${real ? realismOverlay(id, sl, long) : simpleShading}
+  <path d="${TORSO}" ${outline}/>${both(sl, outline)}
 </svg>`;
+}
+
+/**
+ * Contenitore della maglia che si ridisegna da solo quando stemma e patch scontornati sono pronti.
+ * Restituisce una stringa HTML da inserire con innerHTML.
+ */
+let SLOT = 0;
+export function kitSlot(kit, opts = {}, attrs = '') {
+  const slot = `ks${++SLOT}`;
+  const k = normalizeKit(kit);
+  const urls = k.patches.map(p => p && p.src).concat(k.crest.show ? [opts.crestUrl] : []);
+  const wait = whenCutoutsReady(urls.filter(Boolean));
+  if (wait) {
+    wait.then(() => {
+      const el = document.querySelector(`[data-kit-slot="${slot}"]`);
+      if (el) el.innerHTML = renderKitSvg(kit, opts);
+    });
+  }
+  return `<div data-kit-slot="${slot}" ${attrs}>${renderKitSvg(kit, opts)}</div>`;
 }
 
 /* ------------------------------------------------------------- modelli */
 // Punti di partenza rapidi (FASE 1): sovrascrivono taglio e disegno, non sponsor/patch/stemma
 export const PRESETS = [
+  { name: 'Crepe',            kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'crackle', color: '#0d1b4c', opacity: 85, onSleeves: true }] } },
   { name: 'Tinta unita',      kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [] } },
   { name: 'Strisce',          kit: { collar: 'v', sleeves: 'short', cuffs: 'band', layers: [{ type: 'stripes', color: '#000000' }] } },
   { name: 'Strisce larghe',   kit: { collar: 'polo', sleeves: 'short', cuffs: 'thin', layers: [{ type: 'wideStripes', color: '#ffffff' }] } },

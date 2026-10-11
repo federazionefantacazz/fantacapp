@@ -229,3 +229,32 @@ export async function uploadUrlToImgBB(imageUrl) {
     throw new Error("Il server ImgBB ha rifiutato il caricamento dell'URL.");
   }
 }
+
+/**
+ * Carica su ImgBB un PNG da applicare sulla maglia (sponsor, marchio personalizzato):
+ * resta PNG (con trasparenza), ridimensionato al massimo a maxSide px.
+ */
+export async function uploadPngToImgBB(file, maxSide = 600) {
+  if (!file || file.type !== 'image/png') throw new Error('Serve un file PNG.');
+  const bitmap = await new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+    img.src = url;
+  });
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+
+  const formData = new FormData();
+  formData.append('image', blob, file.name.replace(/\.[^/.]+$/, '') + '.png');
+  const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: 'POST', body: formData });
+  if (!response.ok) throw new Error(`Errore di rete durante l'upload: ${response.status}`);
+  const resData = await response.json();
+  if (resData.success && resData.data && resData.data.url) return resData.data.url;
+  throw new Error('Il server ImgBB ha rifiutato il caricamento.');
+}

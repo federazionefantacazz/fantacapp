@@ -3,7 +3,7 @@ import { uploadImageToImgBB } from '../services/integrationImgBB.js';
 import { AssetPreloader } from '../services/assetPreloader.js';
 import { esc, sid, playerThumb } from './menuUtils.js';
 import { MenuPanel } from '../components/MenuPanel.js';
-import { renderKitSvg } from '../components/KitRenderer.js';
+import { kitSlot } from '../components/KitRenderer.js';
 import { DivisaSquadra } from './DivisaSquadra.js';
 
 const MAX_FILE_MB = 8;
@@ -80,7 +80,7 @@ export const ConfigurazioneSquadra = {
     card.innerHTML = `
       <div class="mp-card-title">Divisa</div>
       <div style="display:flex; align-items:center; gap:1rem;">
-        <div style="width:84px; flex-shrink:0;">${renderKitSvg(team.kit, { crestUrl: team.logo || '' })}</div>
+        ${kitSlot(team.kit, { crestUrl: team.logo || '' }, 'style="width:90px; flex-shrink:0;"')}
         <div style="min-width:0;">
           <div class="mp-muted">${team.kit ? 'Modifica colletto, maniche, disegno, colori, sponsor e patch della tua maglia.' : 'Non hai ancora creato la tua maglia: personalizzala ora!'}</div>
           <button class="mp-btn" data-action="open-kit" style="margin-top:.6rem;"><i class="ri-shirt-line"></i> ${team.kit ? 'Modifica divisa' : 'Crea divisa'}</button>
