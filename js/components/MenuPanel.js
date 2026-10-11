@@ -43,30 +43,30 @@ function injectStyle() {
     .mp-switch input:checked + span { background: color-mix(in srgb, var(--accent) 30%, transparent); border-color: var(--accent); }
     .mp-switch input:checked + span::after { transform: translateX(20px); background: var(--accent); }
 
-    .lv-controls { display: flex; flex-direction: column; gap: .6rem; margin-bottom: .8rem; }
-    .lv-search { width: 100%; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: .6rem .8rem; color: var(--text);
+    #menu-panel .lv-controls { display: flex; flex-direction: column; gap: .6rem; margin-bottom: .8rem; }
+    #menu-panel .lv-search { width: 100%; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: .6rem .8rem; color: var(--text);
       font-family: inherit; font-size: .85rem; outline: none; user-select: text; -webkit-user-select: text; }
-    .lv-chips { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
-    .lv-chip { background: var(--bg2); color: var(--text2); border: 1px solid var(--border); border-radius: 999px; padding: .25rem .8rem;
+    #menu-panel .lv-chips { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+    #menu-panel .lv-chip { background: var(--bg2); color: var(--text2); border: 1px solid var(--border); border-radius: 999px; padding: .25rem .8rem;
       font-family: inherit; font-size: .75rem; font-weight: 600; cursor: pointer; }
-    .lv-chip.on { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); border-color: var(--accent); }
-    .lv-count { margin-left: auto; font-size: .72rem; color: var(--text3); }
-    .lv-wrap { overflow: auto; -webkit-overflow-scrolling: touch; max-height: 62vh; max-height: calc(100dvh - 250px); border: 1px solid var(--border); border-radius: 12px; background: var(--bg2); }
-    .lv-table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 560px; font-size: .78rem; }
-    .lv-table th { position: sticky; top: 0; background: var(--bg3); color: var(--label, var(--text2)); font-size: .68rem; font-weight: 700; text-transform: uppercase;
+    #menu-panel .lv-chip.on { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); border-color: var(--accent); }
+    #menu-panel .lv-count { margin-left: auto; font-size: .72rem; color: var(--text3); }
+    #menu-panel .lv-wrap { overflow: auto; -webkit-overflow-scrolling: touch; max-height: 62vh; max-height: calc(100dvh - 250px); border: 1px solid var(--border); border-radius: 12px; background: var(--bg2); }
+    #menu-panel .lv-table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 560px; font-size: .78rem; }
+    #menu-panel .lv-table th { position: sticky; top: 0; background: var(--bg3); color: var(--label, var(--text2)); font-size: .68rem; font-weight: 700; text-transform: uppercase;
       letter-spacing: .4px; padding: .55rem .5rem; text-align: center; white-space: nowrap; cursor: pointer; user-select: none; z-index: 2; }
-    .lv-table th.on { color: var(--accent); }
-    .lv-table td { padding: .4rem .5rem; border-top: 1px solid var(--border); text-align: center; color: var(--text); white-space: nowrap; }
-    .lv-table .l { text-align: left; }
-    .lv-table .c-r { position: sticky; left: 0; width: 34px; min-width: 34px; background: var(--bg2); z-index: 1; padding-left: .5rem; padding-right: .2rem; }
-    .lv-table th.c-r { background: var(--bg3); z-index: 3; }
-    .lv-table .c-n { position: sticky; left: 34px; background: var(--bg2); z-index: 1; min-width: 150px; max-width: 190px; box-shadow: 4px 0 6px -4px rgba(0,0,0,.4); }
-    .lv-table th.c-n { background: var(--bg3); z-index: 3; text-align: left; }
-    .lv-name { display: flex; align-items: center; gap: .5rem; min-width: 0; }
-    .lv-name img, .lv-name .ph { width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; object-fit: contain; }
-    .lv-name span { overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
-    .lv-more { display: block; margin: .8rem auto 0; }
-    .lv-empty { text-align: center; color: var(--text3); font-size: .85rem; padding: 2rem 1rem; }
+    #menu-panel .lv-table th.on { color: var(--accent); }
+    #menu-panel .lv-table td { padding: .4rem .5rem; border-top: 1px solid var(--border); text-align: center; color: var(--text); white-space: nowrap; }
+    #menu-panel .lv-table .l { text-align: left; }
+    #menu-panel .lv-table .c-r { position: sticky; left: 0; width: 34px; min-width: 34px; background: var(--bg2); z-index: 1; padding-left: .5rem; padding-right: .2rem; }
+    #menu-panel .lv-table th.c-r { background: var(--bg3); z-index: 3; }
+    #menu-panel .lv-table .c-n { position: sticky; left: 34px; background: var(--bg2); z-index: 1; min-width: 150px; max-width: 190px; box-shadow: 4px 0 6px -4px rgba(0,0,0,.4); }
+    #menu-panel .lv-table th.c-n { background: var(--bg3); z-index: 3; text-align: left; }
+    #menu-panel .lv-name { display: flex; align-items: center; gap: .5rem; min-width: 0; }
+    #menu-panel .lv-name img, #menu-panel .lv-name .ph { width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; object-fit: contain; }
+    #menu-panel .lv-name span { overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+    #menu-panel .lv-more { display: block; margin: .8rem auto 0; }
+    #menu-panel .lv-empty { text-align: center; color: var(--text3); font-size: .85rem; padding: 2rem 1rem; }
 
     .cfg-logo { width: 72px; height: 72px; border-radius: 14px; background: var(--bg3); border: 1px solid var(--border); object-fit: contain; flex-shrink: 0; }
     .cfg-player { display: flex; align-items: center; gap: .7rem; padding: .6rem 0; border-bottom: 1px solid var(--border); }
