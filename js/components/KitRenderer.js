@@ -221,13 +221,14 @@ export const UV = {
   collar:  { x: .3301, y: .1611, w: .3076, h: .0225 }
 };
 
-// Posizioni sul pezzo (0..1 nel riquadro del pezzo): s = lato rispetto alla larghezza del pezzo
+// Posizioni sul pezzo (0..1 nel riquadro del pezzo): s = lato rispetto alla larghezza del pezzo.
+// Guardando la maglia: marchio tecnico in alto a sinistra, stemma della squadra in alto a destra (sul cuore).
 export const ANCHORS = {
-  crest:   { part: 'front', x: .30, y: .19, s: .17 },
-  brand:   { part: 'front', x: .70, y: .19, s: .15 },
-  sponsor: { part: 'front', x: .50, y: .40, w: .66, h: .20 },
-  chest:   { part: 'front', x: .50, y: .19, s: .10 },
-  belly:   { part: 'front', x: .50, y: .63, s: .14 },
+  crest:   { part: 'front', x: .70, y: .30, s: .17 },
+  brand:   { part: 'front', x: .30, y: .30, s: .15 },
+  sponsor: { part: 'front', x: .50, y: .51, w: .66, h: .20 },
+  chest:   { part: 'front', x: .50, y: .30, s: .10 },
+  belly:   { part: 'front', x: .50, y: .73, s: .14 },
   hem:     { part: 'front', x: .27, y: .90, s: .10 },
   sleeveL: { part: 'sleeveL', x: .50, y: .42, s: .24 },
   sleeveR: { part: 'sleeveR', x: .50, y: .42, s: .24 }
@@ -311,6 +312,8 @@ function drawContain(ctx, img, cx, cy, bw, bh, rot = 0) {
   const r = Math.min(bw / iw, bh / ih);
   const w = iw * r, h = ih * r;
   ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.translate(cx, cy);
   if (rot) ctx.rotate(rot * Math.PI / 180);
   ctx.drawImage(img, -w / 2, -h / 2, w, h);

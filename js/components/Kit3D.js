@@ -59,6 +59,9 @@ class Stage {
     this.texture.flipY = false;
     this.texture.colorSpace = THREE.SRGBColorSpace;
     this.texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+    // la maglia si vede quasi alla risoluzione della texture: senza mipmap loghi e scritte restano nitidi
+    this.texture.generateMipmaps = false;
+    this.texture.minFilter = THREE.LinearFilter;
     this.model.traverse(o => {
       if (!o.isMesh) return;
       o.material = o.material.clone();
