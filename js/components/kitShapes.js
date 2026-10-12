@@ -17,12 +17,14 @@ export const isDeformed = (shape) => shape === 'polo';
 
 const ZC = -0.004;          // centro del collo (z)
 const FALLOFF = 0.07;       // fin dove scende sulla maglia il cambio di forma del collo
-const TUCK_Y = -0.002, TUCK_R = 0.003; // il bordo sale appena dentro il piede del colletto: coperto, senza fessure né sovrapposizioni
-// bordo del collo (in cima alla costina) per angolo attorno al collo: [gradi (0 = davanti, 180 = dietro), y, raggio]
-const SHIRT_NECK = [[0, 1.534, .067], [10, 1.539, .066], [20, 1.543, .067], [30, 1.551, .066], [40, 1.556, .066],
-  [50, 1.564, .066], [60, 1.569, .069], [70, 1.576, .068], [80, 1.582, .070], [90, 1.592, .076], [100, 1.604, .079],
-  [110, 1.613, .083], [120, 1.617, .085], [130, 1.617, .083], [140, 1.617, .082], [150, 1.615, .077], [160, 1.614, .073],
-  [170, 1.614, .070], [180, 1.613, .070]];
+const FRONT = 22;           // davanti (sotto i 22° circa) la V resta quella originale: la coprono le strisce del colletto
+const TUCK_Y = -0.003; // la stoffa sale 3 mm dentro il piede del colletto (il colletto è disegnato davanti: vedi Kit3D)
+// bordo della stoffa della maglia al collo (cucitura della costina, che col colletto alto si nasconde), per angolo attorno
+// al collo: [gradi (0 = davanti, 180 = dietro), y, raggio]
+const SHIRT_NECK = [[0, 1.5198, .0759], [10, 1.5252, .0749], [20, 1.5317, .0753], [30, 1.539, .076], [40, 1.5466, .0771],
+  [50, 1.5544, .0784], [60, 1.5612, .0792], [70, 1.5679, .0806], [80, 1.5778, .0837], [90, 1.5858, .0868], [100, 1.5969, .0918],
+  [110, 1.6064, .0964], [120, 1.6093, .0977], [130, 1.609, .0969], [140, 1.6079, .0942], [150, 1.6054, .0879], [160, 1.6037, .0829],
+  [170, 1.6025, .079], [180, 1.6021, .077]];
 // attaccatura del colletto nella maglia retrò (già spostata come collar-polo.glb)
 const RETRO_NECK = [[0, 1.5052, .0887], [10, 1.5082, .0905], [20, 1.547, .0753], [30, 1.5702, .0707], [40, 1.5713, .0694],
   [50, 1.5749, .0717], [60, 1.5812, .075], [70, 1.5902, .0786], [80, 1.5984, .0812], [90, 1.6093, .0843], [100, 1.6169, .0856],
@@ -50,9 +52,9 @@ export function deformPoint(shape, p) {
   const [x, y, z] = p;
   const th = Math.atan2(x, z - ZC), deg = Math.abs(th) * 180 / Math.PI, r = Math.hypot(x, z - ZC);
   const yE = at(SHIRT_NECK, deg, 1), rE = at(SHIRT_NECK, deg, 2);
-  const w = smooth(1 - (yE - y) / FALLOFF) * smooth(1 - (r - rE - 0.02) / 0.06) * smooth((deg - 22) / 22);
+  const w = smooth(1 - (yE - y) / FALLOFF) * smooth(1 - (r - rE - 0.02) / 0.06) * smooth((deg - FRONT) / 22);
   if (w <= 0) return p;
-  const r2 = r + (at(RETRO_NECK, deg, 2) - TUCK_R - rE) * w;
+  const r2 = r + (at(RETRO_NECK, deg, 2) - rE) * w;
   p[0] = Math.sin(th) * r2;
   p[1] = y + (at(RETRO_NECK, deg, 1) - TUCK_Y - yE) * w;
   p[2] = ZC + Math.cos(th) * r2;

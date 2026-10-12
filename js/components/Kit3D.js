@@ -54,6 +54,7 @@ function floatGeometry(THREE, geometry) {
  *         già posizionato sulla maglia.
  */
 const variants = new Map();
+const COLLAR_TOP = 1.675; // punto più alto del colletto alto (collar-polo.glb), con un po' di margine
 function loadVariant(shape) {
   const key = isDeformed(shape) ? shape : 'v';
   if (!variants.has(key)) {
@@ -78,6 +79,8 @@ function loadVariant(shape) {
         o.geometry = g;
       });
       if (key === 'polo') {
+        // la costina dello scollo a V non serve: il colletto è cucito direttamente alla stoffa
+        model.traverse(o => { if (o.isMesh && /Pattern2D_3805002/.test(`${o.name}|${o.parent ? o.parent.name : ''}`)) o.visible = false; });
         const loader = new L.GLTFLoader();
         const collar = (await loader.loadAsync(KIT3D_FILES.collarPolo)).scene;
         collar.traverse(o => { if (o.isMesh) o.geometry.computeVertexNormals(); });
@@ -120,6 +123,7 @@ class Stage {
     this.setModel(model);
 
     const box = new THREE.Box3().setFromObject(this.model);
+    box.max.y = Math.max(box.max.y, COLLAR_TOP); // inquadratura uguale per tutte le forme: c'è posto anche per il colletto alto
     this.center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
     this.camera = new THREE.PerspectiveCamera(22, width / height, 0.01, 50);
@@ -167,7 +171,11 @@ class Stage {
     const M = this.collarMats || {};
     const each = (name, fn) => (M[name] || []).forEach(fn);
     // colletto alto: tinta unita del colore del colletto
-    each('polo_collar', m => { m.color.set(validColor(kit.colors.collar)); m.roughness = 0.85; });
+    // il colletto vince sulla maglia dove le due superfici quasi coincidono (attaccatura): niente sfarfallii né punte che bucano
+    each('polo_collar', m => {
+      m.color.set(validColor(kit.colors.collar)); m.roughness = 0.85;
+      m.polygonOffset = true; m.polygonOffsetFactor = -2; m.polygonOffsetUnits = -6;
+    });
   }
 
   setView(yawDeg) {
