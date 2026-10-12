@@ -67,33 +67,6 @@ function camo(c, s) {
   return o;
 }
 
-/** Marmo: venature sottili e ramificate che attraversano la maglia in diagonale, con un velo sfumato sotto. */
-function marble(c, s, id) {
-  const rnd = rng(17), f = (v) => v.toFixed(1);
-  let fine = '', soft = '';
-  // una vena: cammino con piccoli scarti, la direzione cambia piano piano; ogni tanto un ramo
-  const vein = (x, y, ang, len, w, depth) => {
-    let d = `M${f(x)},${f(y)}`, a = ang, curve = 0;
-    const step = 6 * s;
-    for (let t = 0; t < len; t += step) {
-      curve += (rnd() - .5) * .25; curve *= .85; a += curve * .3;
-      x += Math.cos(a) * step + (rnd() - .5) * 2.4 * s; y += Math.sin(a) * step + (rnd() - .5) * 2.4 * s;
-      d += ` L${f(x)},${f(y)}`;
-      if (depth < 2 && rnd() < .025) vein(x, y, a + (rnd() < .5 ? -1 : 1) * (.5 + rnd() * .6), len * (.25 + rnd() * .3), w * .55, depth + 1);
-    }
-    fine += `<path d="${d}" stroke-width="${f(w)}" stroke-opacity="${(.55 + rnd() * .45).toFixed(2)}"/>`;
-    if (depth === 0) soft += `<path d="${d}" stroke-width="${f(w * 9 + 8 * s)}"/>`;
-  };
-  const n = Math.round(7 / s) + 3;
-  for (let i = 0; i < n; i++) {
-    const t = (i + rnd() * .6) / n;
-    vein(-40 + t * (W + H) * .75 - H * .3, -30 + rnd() * 40, .9 + (rnd() - .5) * .35, (H + W) * (.8 + rnd() * .5), (.8 + rnd() * rnd() * 2.6) * s, 0);
-  }
-  return `<defs><filter id="${id}b" filterUnits="userSpaceOnUse" x="${-W}" y="${-H}" width="${W * 3}" height="${H * 3}"><feGaussianBlur stdDeviation="${f(10 * s)}"/></filter></defs>`
-    + `<g filter="url(#${id}b)" stroke="${c}" stroke-opacity=".22" fill="none" stroke-linecap="round">${soft}</g>`
-    + `<g stroke="${c}" fill="none" stroke-linecap="round" stroke-linejoin="round">${fine}</g>`;
-}
-
 /** Fiamme: una fila di lingue di fuoco che salgono dal fondo del busto, punte piegate alternate. */
 function flames(c, s) {
   const f = (v) => v.toFixed(1), x0 = 90, x1 = 310, n = 6, step = (x1 - x0) / n, base = H + 10;
@@ -208,7 +181,6 @@ export const PATTERNS = [
   { id: 'brush', label: 'Pennellate', draw: (c, s) => range(0, 5, 1).map(i => `<path d="M${40 + i * 10},${120 + i * 50} Q200,${80 + i * 55 - 30 * s} ${380 - i * 8},${140 + i * 48} L${380 - i * 8},${150 + i * 48 + 8 * s} Q200,${95 + i * 55 - 20 * s} ${40 + i * 10},${132 + i * 50 + 4 * s} Z" fill="${c}" opacity="${(1 - i * 0.12).toFixed(2)}"/>`).join('') },
   { id: 'flames', label: 'Fiamme', draw: (c, s) => flames(c, s) },
   { id: 'crackle', label: 'Crepe', draw: (c, s) => crackle(c, s) },
-  { id: 'marble', tile: true, hidden: true, label: 'Marmo', draw: (c, s, id) => marble(c, s, id) },
   { id: 'lowPoly', tile: true, label: 'Low poly', draw: (c, s) => lowPoly(c, s) },
   { id: 'speedLines', tile: true, label: 'Linee di velocità', draw: (c, s) => speedLines(c, s) },
   { id: 'sunburst', label: 'Raggi', draw: (c, s) => range(0, 23, 1).filter(i => i % 2 === 0).map(i => { const a0 = i * 15 * Math.PI / 180, a1 = (i + 1) * 15 * Math.PI / 180, R = 700; return `<polygon points="200,190 ${(200 + R * Math.cos(a0)).toFixed(0)},${(190 + R * Math.sin(a0)).toFixed(0)} ${(200 + R * Math.cos(a1)).toFixed(0)},${(190 + R * Math.sin(a1)).toFixed(0)}" fill="${c}"/>`; }).join('') + `<circle cx="200" cy="190" r="${36 * s}" fill="${c}"/>` },
