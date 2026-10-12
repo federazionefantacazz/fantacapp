@@ -421,7 +421,7 @@ export const LiveMatchModule = {
       <div class="lv-wrap" style="margin-top:.5rem;">
         <div class="sec" style="justify-content:space-between; align-items:center; margin-bottom:.7rem;">
           <span style="display:flex; align-items:center; gap:.5rem;"><span class="lv-livechip" style="margin:0;"><i></i>LIVE</span> Live Match</span>
-          <span style="font-family:'DM Sans',sans-serif; font-size:.78rem; background:var(--bg3); padding:.2rem .6rem; border-radius:20px; color:var(--text2); font-weight:500; letter-spacing:0;">${esc(GwService.label(d.gwKey))}</span>
+          <span style="font-family:'DM Sans',sans-serif; font-size:.78rem; background:var(--bg3); padding:.2rem .6rem; border-radius:20px; color:var(--accent); font-weight:500; letter-spacing:0;">${esc(GwService.label(d.gwKey))}</span>
         </div>
         ${notice}
         <div class="lv-toolbar">
