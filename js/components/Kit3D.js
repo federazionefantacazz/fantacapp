@@ -1,5 +1,5 @@
 import { paintKitTexture, normalizeKit, KIT3D_FILES } from './KitRenderer.js';
-import { deformPoint, isDeformed } from './kitShapes.js';
+import { deformPoint, isDeformed, fitCollarToV } from './kitShapes.js';
 
 /**
  * Maglia 3D (three.js, in vendor/three): il modello in icons/kit3d/shirt.glb viene "vestito"
@@ -58,7 +58,7 @@ function floatGeometry(THREE, geometry) {
 
 /**
  * Maglia con la forma di colletto richiesta (una volta per forma).
- * 'polo': scollo chiuso in un collo tondo + colletto, abbottonatura e bottoni di icons/kit3d/collar-polo.glb.
+ * 'polo': colletto alto di icons/kit3d/collar-polo.glb adattato allo scollo a V.
  */
 const variants = new Map();
 function loadVariant(shape) {
@@ -89,6 +89,17 @@ function loadVariant(shape) {
       if (key === 'polo') {
         const loader = new L.GLTFLoader();
         const collar = (await loader.loadAsync(KIT3D_FILES.collarPolo)).scene;
+        collar.traverse(o => {
+          if (!o.isMesh) return;
+          const g = floatGeometry(THREE, o.geometry);
+          const pos = g.getAttribute('position');
+          for (let i = 0; i < pos.count; i++) {
+            const p = fitCollarToV([pos.getX(i), pos.getY(i), pos.getZ(i)]);
+            pos.setXYZ(i, p[0], p[1], p[2]);
+          }
+          g.computeVertexNormals(); g.computeBoundingBox(); g.computeBoundingSphere();
+          o.geometry = g;
+        });
         model.add(collar);
       }
       return model;
@@ -99,20 +110,12 @@ function loadVariant(shape) {
 
 const validColor = (c, def = '#ffffff') => (/^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : def);
 
-/** Texture del colletto polo: colore del colletto e rifiniture verso il bordo esterno (in alto nell'immagine). */
+/** Texture del colletto alto: tinta unita del colore del colletto, con le costine. */
 function paintPoloCollar(kit) {
   const c = document.createElement('canvas');
   c.width = 1024; c.height = 128;
   const x = c.getContext('2d');
   x.fillStyle = validColor(kit.colors.collar); x.fillRect(0, 0, c.width, c.height);
-  x.fillStyle = validColor(kit.colors.trim);
-  const band = (v0, v1) => x.fillRect(0, v0 * c.height, c.width, (v1 - v0) * c.height);
-  switch (kit.collar) {
-    case 'twotone': band(0.55, 1); break;   // fascia interna (piede del colletto) nel secondo colore
-    case 'striped': band(0.055, 0.11); band(0.15, 0.205); break;
-    case 'trim': band(0, 0.06); break;
-    case 'wide': band(0, 0.16); break;
-  }
   x.fillStyle = 'rgba(0,0,0,.05)';
   for (let i = 0; i < c.width; i += 3) x.fillRect(i, 0, 1, c.height); // costine
   return c;
@@ -187,7 +190,7 @@ class Stage {
     this.scene.add(this.model);
   }
 
-  /** Veste la maglia: texture UV dipinta + colori del colletto polo (se c'è). */
+  /** Veste la maglia: texture UV dipinta + colore del colletto alto (se c'è). */
   applyKit(kit, full) {
     this.setTexture(full);
     const M = this.collarMats || {};
@@ -200,9 +203,6 @@ class Stage {
       this.collarTexture.needsUpdate = true;
       each('polo_collar', m => { m.map = this.collarTexture; m.color.set('#ffffff'); m.needsUpdate = true; });
     }
-    each('polo_placket', m => m.color.set(validColor(kit.colors.base)));
-    each('polo_label', m => m.color.set(validColor(kit.colors.base)));
-    each('polo_buttons', m => m.color.set('#f2f2f2'));
   }
 
   setView(yawDeg) {

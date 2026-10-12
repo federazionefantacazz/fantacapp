@@ -370,6 +370,7 @@ function loadMask() {
  */
 export async function paintKitTexture(rawKit, opts = {}) {
   const k = normalizeKit(rawKit);
+  if (k.collarShape === 'polo') k.collar = 'plain'; // il colletto alto è in tinta unita: niente rifiniture sotto
   const S = Math.round(opts.size || 2048);
   const R = (part) => { const r = UV[part]; return { x: r.x * S, y: r.y * S, w: r.w * S, h: r.h * S }; };
   const mask = await loadMask();

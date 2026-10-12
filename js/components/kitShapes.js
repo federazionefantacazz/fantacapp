@@ -1,8 +1,9 @@
 /**
  * Forme del colletto della maglia 3D.
  * - 'v':    scollo a V del modello originale.
- * - 'polo': colletto alto (polo) (icons/kit3d/collar-polo.glb, preso dal modello "t-shirt-polo" di Sketchfab),
- *           con lo scollo a V chiuso in un collo tondo su cui il colletto si appoggia.
+ * - 'polo': colletto alto, tinta unita (icons/kit3d/collar-polo.glb, preso dal modello "t-shirt-polo" di Sketchfab),
+ *           sullo scollo a V: davanti le alette del colletto scendono lungo i bordi della V fino alla punta
+ *           (come le maglie retrò con colletto). La maglia non viene deformata.
  * Misure in metri, coordinate del modello (y in alto, z verso chi guarda, collo centrato in x = 0).
  */
 export const COLLAR_SHAPES = [
@@ -27,13 +28,32 @@ function interp(tbl, ax) {
   return tbl[tbl.length - 1][1];
 }
 
-// scollo davanti per ogni forma (y dell'attaccatura in funzione di x)
-const NECK = {
-  polo: (x) => NECK_SIDE_Y - 0.014 * Math.sqrt(Math.max(0, 1 - (x / NECK_X) ** 2))
-};
+// scollo davanti per ogni forma che deforma la maglia (y dell'attaccatura in funzione di x)
+const NECK = {};
 
-/** true se la forma richiede di modificare la geometria della maglia. */
-export const isDeformed = (shape) => !!NECK[shape];
+/** true se la forma richiede una variante del modello (maglia deformata o colletto aggiunto). */
+export const isDeformed = (shape) => shape === 'polo' || !!NECK[shape];
+
+// collo tondo su cui è stato posizionato il file del colletto (collar-polo.glb)
+const COLLAR_FILE_NECK = (x) => NECK_SIDE_Y - 0.014 * Math.sqrt(Math.max(0, 1 - (x / NECK_X) ** 2));
+const ZC = -0.004;          // centro del collo (z)
+
+/**
+ * Colletto alto sullo scollo a V: sposta in basso (e un po' in avanti, come il petto) la parte davanti del colletto,
+ * di quanto la V scende sotto il collo tondo per cui il colletto è stato modellato. Lo spostamento dipende
+ * dall'angolo attorno al collo, così piede e risvolto del colletto si muovono insieme. p = [x, y, z].
+ */
+export function fitCollarToV(p) {
+  const [x, , z] = p;
+  const th = Math.atan2(x, z - ZC);                  // 0 davanti, ±π dietro
+  if (Math.abs(th) >= Math.PI / 2) return p;
+  const xn = NECK_X * Math.sin(Math.abs(th));        // punto del bordo del collo a quell'angolo
+  const d = COLLAR_FILE_NECK(xn) - interp(V_EDGE, xn);
+  if (d <= 0) return p;
+  p[1] -= d;
+  p[2] += 0.45 * d;
+  return p;
+}
 
 const smooth = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 
