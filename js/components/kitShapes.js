@@ -39,39 +39,78 @@ export const isDeformed = (shape) => shape === 'polo' || !!NECK[shape];
 // collo tondo su cui è stato posizionato il file del colletto (collar-polo.glb)
 const COLLAR_FILE_NECK = (x) => NECK_SIDE_Y - 0.014 * Math.sqrt(Math.max(0, 1 - (x / NECK_X) ** 2));
 const ZC = -0.004;          // centro del collo (z)
-// raggio dell'apertura del collo della maglia e raggio interno del piede del colletto, per angolo (0 = davanti, 180 = dietro)
-const FOLD_DROP = 0.85;
+const FOLD_DROP = 0.85;      // quanto scende il risvolto sulle spalle per ogni metro di distanza dal piede del colletto
+const COLLAR_GAP = 0.006;   // il piede del colletto resta appena fuori dalla fascia del collo (non la attraversa)
+const CREST = 0.012;        // fascia sotto il bordo alto del colletto che resta rigida (bordo liscio e simmetrico)
+// raggio dell'apertura del collo della maglia per angolo (0 = davanti, 180 = dietro)
 const SHIRT_R = [[0, .067], [30, .066], [50, .066], [60, .069], [70, .068], [80, .070], [90, .076], [100, .079], [110, .083],
   [120, .085], [130, .083], [140, .082], [150, .077], [160, .073], [170, .070], [180, .070]];
+// raggio interno del piede del colletto (collar-polo.glb) per angolo
 const COLLAR_R = [[0, .061], [30, .059], [50, .060], [60, .061], [70, .062], [80, .060], [90, .060], [100, .059], [110, .060],
   [120, .062], [130, .064], [140, .067], [150, .069], [160, .069], [170, .068], [180, .067]];
 
+const BIN = 5, NB = 360 / BIN;
+const binOf = (deg) => ((Math.round(deg / BIN) % NB) + NB) % NB;
+/** Valore a un angolo qualsiasi da una tabella a passi di BIN gradi (interpolata, giro chiuso). */
+function atAngle(arr, deg) {
+  const f = (((deg / BIN) % NB) + NB) % NB, i = Math.floor(f), t = f - i;
+  return arr[i % NB] * (1 - t) + arr[(i + 1) % NB] * t;
+}
+/** Media simmetrica (destra/sinistra) e ammorbidita sugli angoli vicini. */
+function symmetric(arr) {
+  return arr.map((_, b) => {
+    let s = 0;
+    for (let j = -2; j <= 2; j++) s += (arr[(b + j + NB) % NB] + arr[(NB - b - j + NB) % NB]) / 2;
+    return s / 5;
+  });
+}
+
 /**
- * Colletto alto sullo scollo a V: sposta in basso (e un po' in avanti, come il petto) la parte davanti del colletto,
- * di quanto la V scende sotto il collo tondo per cui il colletto è stato modellato. Lo spostamento dipende
- * dall'angolo attorno al collo, così piede e risvolto del colletto si muovono insieme. p = [x, y, z].
+ * Colletto alto sullo scollo a V. points = vertici del colletto ([x, y, z], coordinate del modello), modificati.
+ * - Il bordo alto diventa liscio e uguale a destra e a sinistra (il file originale è un po' storto).
+ * - Ai lati e dietro il colletto si allarga fino all'apertura del collo della maglia (niente spazio vuoto tra i due)
+ *   e il risvolto scende sulle spalle, più spioventi di quelle della polo.
+ * - Davanti scende (e viene un po' avanti, come il petto) di quanto la V scende sotto il collo tondo per cui il colletto
+ *   è stato modellato, così le alette arrivano alla punta della V.
  */
-export function fitCollarToV(p) {
-  const [x, , z] = p;
-  const th = Math.atan2(x, z - ZC);                  // 0 davanti, ±π dietro
-  // ai lati e dietro allarga il colletto fino all'apertura del collo della maglia (niente spazio vuoto tra i due)
-  const deg = Math.abs(th) * 180 / Math.PI;
-  const w = smooth((deg - 40) / 30);
-  if (w > 0) {
-    const k = 1 + w * Math.max(0, (interp(SHIRT_R, deg) + 0.002) / interp(COLLAR_R, deg) - 1);
-    p[0] = x * k;
-    p[2] = ZC + (z - ZC) * k;
-    // il risvolto scende sulle spalle (che qui sono più spioventi di quelle della polo): più è lontano dal collo, più si abbassa
-    const out = Math.hypot(x, z - ZC) - interp(COLLAR_R, deg) - 0.004;
-    if (out > 0) p[1] -= w * FOLD_DROP * out;
+export function fitCollarToV(points) {
+  // bordo alto del colletto per angolo (con i vuoti riempiti dal vicino) e la sua versione liscia e simmetrica
+  const top = new Array(NB).fill(-Infinity);
+  const polar = points.map(([x, y, z]) => {
+    const deg = Math.atan2(x, z - ZC) * 180 / Math.PI, b = binOf(deg);
+    if (y > top[b]) top[b] = y;
+    return { deg, r: Math.hypot(x, z - ZC) };
+  });
+  for (let pass = 0; pass < NB && top.some(v => !isFinite(v)); pass++) {
+    top.forEach((v, b) => { if (!isFinite(v)) top[b] = isFinite(top[(b + NB - 1) % NB]) ? top[(b + NB - 1) % NB] : top[(b + 1) % NB]; });
   }
-  if (Math.abs(th) >= Math.PI / 2) return p;
-  const xn = NECK_X * Math.sin(Math.abs(th));        // punto del bordo del collo a quell'angolo
-  const d = COLLAR_FILE_NECK(xn) - interp(V_EDGE, xn);
-  if (d <= 0) return p;
-  p[1] -= d;
-  p[2] += 0.45 * d;
-  return p;
+  const topGoal = symmetric(top);
+
+  points.forEach((p, i) => {
+    const { deg, r } = polar[i];
+    const ad = Math.abs(deg);
+    // bordo alto liscio e simmetrico: sposto la fascia alta del colletto sulla curva media
+    // (solo dietro e ai lati: davanti le alette hanno già la loro forma)
+    const crestY = atAngle(top, deg);
+    const wc = smooth(1 - (crestY - p[1]) / CREST) * smooth((ad - 75) / 30);
+    p[1] += wc * (atAngle(topGoal, deg) - crestY);
+    // allargamento ai lati e dietro
+    const w = smooth((ad - 40) / 30);
+    const k = 1 + w * Math.max(0, (interp(SHIRT_R, ad) + COLLAR_GAP) / interp(COLLAR_R, ad) - 1);
+    p[0] *= k;
+    p[2] = ZC + (p[2] - ZC) * k;
+    // risvolto sulle spalle: più è lontano dal piede del colletto, più scende (il bordo alto resta dov'è)
+    const out = r - interp(COLLAR_R, ad) - 0.004;
+    if (w > 0 && out > 0) p[1] -= w * (1 - wc) * FOLD_DROP * out;
+    // davanti: segue la V
+    if (ad >= 90) return;
+    const xn = NECK_X * Math.sin(ad * Math.PI / 180);
+    const d = COLLAR_FILE_NECK(xn) - interp(V_EDGE, xn);
+    if (d <= 0) return;
+    p[1] -= d;
+    p[2] += 0.45 * d;
+  });
+  return points;
 }
 
 /**
