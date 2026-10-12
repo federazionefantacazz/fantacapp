@@ -288,8 +288,9 @@ export const DivisaSquadra = {
     return `
       <div class="kit-sub">Forma del colletto</div>
       <div class="kit-grid wide">${COLLAR_SHAPES.map(c => this._opt('collarShape', c.id, this._thumb({ ...base, collarShape: c.id }), c.label, k.collarShape === c.id)).join('')}</div>
+      ${k.collarShape === 'polo' ? '' : `
       <div class="kit-sub">Rifinitura del colletto</div>
-      <div class="kit-grid">${COLLARS.map(c => this._opt('collar', c.id, this._thumb({ ...base, collar: c.id }), c.label, k.collar === c.id)).join('')}</div>
+      <div class="kit-grid">${COLLARS.map(c => this._opt('collar', c.id, this._thumb({ ...base, collar: c.id }), c.label, k.collar === c.id)).join('')}</div>`}
       <div class="kit-sub">Polsini</div>
       <div class="kit-grid">${CUFFS.map(c => this._opt('cuffs', c.id, this._thumb({ ...base, cuffs: c.id }), c.label, k.cuffs === c.id)).join('')}</div>
       <div class="kit-sub">Decorazioni maniche</div>
