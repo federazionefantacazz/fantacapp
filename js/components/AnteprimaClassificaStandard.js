@@ -10,8 +10,9 @@ const GO_CLASSIFICA = `
  *  - campionato / misto-speciale: tutte le squadre iscritte alla competizione
  *  - misto: solo il girone della squadra
  * Mostra posizione, squadra, partite giocate (G), punti classifica (Pt) e totale punti fanta (Tot).
+ * opts.compact: per mezza card (Home), solo posizione, squadra e Pt, senza riquadro proprio.
  */
-export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId) {
+export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId, opts = {}) {
   if (!comp || !teamsList || !myTeamId) {
     return `<div style="font-size: 0.7rem; color: var(--text3);">Dati competizione o squadra non disponibili.</div>`;
   }
@@ -47,6 +48,38 @@ export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId) {
   if (myIndex < sortedTeams.length - 1) subset.push({ team: sortedTeams[myIndex + 1], pos: myIndex + 2 });
 
   const colHead = 'font-size: 0.6rem; font-weight: 700; color: var(--text3); text-transform: uppercase; text-align: center;';
+
+  if (opts.compact) {
+    // sempre 3 righe quando possibile (anche se la squadra è prima o ultima)
+    const from = Math.max(0, Math.min(myIndex - 1, sortedTeams.length - 3));
+    const rows = sortedTeams.slice(from, from + 3).map((team, i) => ({ team, pos: from + i + 1 }));
+    return `
+    <div onclick="${GO_CLASSIFICA}" style="display: flex; flex-direction: column; gap: 0.3rem; width: 100%; cursor: pointer;" title="Clicca per visualizzare la classifica completa">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.3rem; margin-bottom: 0.1rem;">
+        <div style="font-size: 0.7rem; font-weight: 700; color: var(--text2); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Classifica${gironeLabel ? ` · ${gironeLabel}` : ''}</div>
+        <div style="font-size: 0.65rem; color: var(--accent); display: flex; align-items: center; flex-shrink: 0;">Vedi intera <i class="ri-arrow-right-s-line"></i></div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 0.35rem; padding: 0 0.4rem;">
+        <span style="${colHead} width: 24px; text-align: left;">Psz</span>
+        <span style="${colHead} flex: 1; text-align: left;">Squadra</span>
+        <span style="${colHead} width: 22px;">Pt</span>
+      </div>
+      ${rows.map(({ team, pos }) => {
+        const s = stats[team.id] || { pts: 0 };
+        const isMe = String(team.id) === String(myTeamId);
+        const rowBg = isMe
+          ? 'background: color-mix(in srgb, var(--accent) 15%, transparent); border: 1px solid var(--accent);'
+          : 'background: rgba(0,0,0,0.2); border: 1px solid transparent;';
+        const col = isMe ? 'var(--accent)' : 'var(--text)';
+        return `
+          <div style="display: flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.4rem; border-radius: 6px; ${rowBg} font-size: 0.74rem;">
+            <span style="width: 24px; color: ${isMe ? 'var(--accent)' : 'var(--text2)'}; font-weight: bold;">${pos}°</span>
+            <span style="flex: 1; min-width: 0; color: ${col}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: ${isMe ? 'bold' : 'normal'};">${team.name}</span>
+            <span style="font-family: 'DM Mono', monospace; width: 22px; text-align: center; font-weight: bold; color: ${col};">${s.pts}</span>
+          </div>`;
+      }).join('')}
+    </div>`;
+  }
 
   return `
     <div onclick="${GO_CLASSIFICA}"

@@ -5,6 +5,8 @@ import { CalcoloMatchService } from './services/calcoloMatch.js';
 import { createMatchCardResult } from './components/MatchCardResult.js';
 import { LiveMatchModule } from './liveMatch.js';
 import { kitImageHTML } from './components/Kit3D.js';
+import { MenuPanel } from './components/MenuPanel.js';
+import { DivisaSquadra } from './menu/DivisaSquadra.js';
 
 const isByeId = (id) => /BYE|RIPOSO/i.test(String(id ?? ''));
 
@@ -33,6 +35,12 @@ function findLastPlayedMatch(comp, teamId) {
   return best;
 }
 
+// riquadri dentro la card della squadra (maglia, classifica, palmarès)
+const BOX = 'background: rgba(0,0,0,0.18); border: 1px solid var(--border); border-radius: 14px; padding: 0.6rem 0.7rem;';
+
+// "Modifica" sulla maglia apre direttamente l'editor della divisa
+window.openKitEditor = () => MenuPanel.open(DivisaSquadra, 'kit');
+
 export const HomePage = {
   renderHTML(STATE = {}) {
     return `
@@ -51,19 +59,23 @@ export const HomePage = {
             </div>
           </div>
 
-          <!-- DIVISA DELLA SQUADRA (al centro, visibile solo se la squadra ha una divisa) -->
-          <div id="homeTeamKit" style="display:none; padding:0.8rem 0; border-top: 1px dashed var(--border); width: 100%;"></div>
-
-          <!-- MINI CLASSIFICA (a tutta larghezza) -->
-          <div id="homeMiniClassifica" style="padding-top: 0.8rem; border-top: 1px dashed var(--border); width: 100%;">
-            <div style="font-size: 0.7rem; font-weight: 600; color: var(--text2);">Caricamento...</div>
-          </div>
-
-          <!-- RIGA TROFEI / PALMARÈS -->
-          <div style="margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed var(--border); width: 100%;">
-            <div class="label" style="margin-bottom: 0.4rem; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase;"><i class="ri-trophy-line"></i> Palmarès / Trofei</div>
-            <div id="homeTeamTrophies" style="display: flex; align-items: flex-end; gap: 0.6rem; flex-wrap: wrap;">
-              <span style="font-size: 0.75rem; color: var(--text3); font-style: italic;">Nessun trofeo</span>
+          <!-- RIQUADRI: MAGLIA + CLASSIFICA affiancati, PALMARÈS sotto -->
+          <div id="homeBoxes" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; width: 100%;">
+            <div id="homeKitBox" style="${BOX} display: flex; flex-direction: column; min-width: 0;">
+              <div onclick="window.openKitEditor && window.openKitEditor()" style="display: flex; align-items: center; justify-content: space-between; gap: 0.3rem; margin-bottom: 0.3rem; cursor: pointer;">
+                <div style="font-size: 0.7rem; font-weight: 700; color: var(--text2); text-transform: uppercase;">Maglia</div>
+                <div id="homeKitAction" style="font-size: 0.65rem; color: var(--accent); display: flex; align-items: center; flex-shrink: 0;">Modifica <i class="ri-arrow-right-s-line"></i></div>
+              </div>
+              <div id="homeTeamKit" onclick="window.openKitEditor && window.openKitEditor()" style="flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer;"></div>
+            </div>
+            <div id="homeMiniClassifica" style="${BOX} min-width: 0;">
+              <div style="font-size: 0.7rem; font-weight: 600; color: var(--text2);">Caricamento...</div>
+            </div>
+            <div style="${BOX} grid-column: 1 / -1;">
+              <div class="label" style="margin-bottom: 0.4rem; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase;"><i class="ri-trophy-line"></i> Palmarès / Trofei</div>
+              <div id="homeTeamTrophies" style="display: flex; align-items: flex-end; justify-content: center; gap: 0.6rem; flex-wrap: wrap; min-height: 48px;">
+                <span style="font-size: 0.75rem; color: var(--text3); font-style: italic;">Nessun trofeo</span>
+              </div>
             </div>
           </div>
 
@@ -102,6 +114,9 @@ export const HomePage = {
     const teamLogoContainer = document.getElementById('userTeamLogo');
     const miniClassificaBox = document.getElementById('homeMiniClassifica');
     const kitBox = document.getElementById('homeTeamKit');
+    const kitWrap = document.getElementById('homeKitBox');
+    const kitAction = document.getElementById('homeKitAction');
+    const boxes = document.getElementById('homeBoxes');
 
     let competitionsList = [];
     if (STATE.competitions) {
@@ -169,16 +184,20 @@ export const HomePage = {
       }
 
       if (kitBox) {
-        const key = myTeam.kit ? (myTeam.kit.image || JSON.stringify(myTeam.kit)) + '|' + (myTeam.logo || '') : '';
+        const key = myTeam.kit ? (myTeam.kit.image || JSON.stringify(myTeam.kit)) + '|' + (myTeam.logo || '') : 'none';
         if (kitBox.dataset.key !== key) {
           kitBox.dataset.key = key;
-          kitBox.style.display = key ? 'block' : 'none';
-          kitBox.innerHTML = key ? kitImageHTML(myTeam.kit, { crestUrl: myTeam.logo || '', width: 480 }, 'style="width:220px; max-width:70%; margin:0 auto;"') : '';
+          kitBox.innerHTML = myTeam.kit
+            ? kitImageHTML(myTeam.kit, { crestUrl: myTeam.logo || '', width: 360 }, 'style="width:100%; max-width:150px; margin:0 auto;"')
+            : `<i class="ri-shirt-line" style="font-size: 3rem; color: var(--text3);"></i>`;
+          if (kitAction) kitAction.innerHTML = `${myTeam.kit ? 'Modifica' : 'Crea'} <i class="ri-arrow-right-s-line"></i>`;
         }
       }
+      if (kitWrap) kitWrap.style.display = '';
+      if (boxes) boxes.style.gridTemplateColumns = '1fr 1fr';
 
       if (miniClassificaBox && comp) {
-        miniClassificaBox.innerHTML = renderAnteprimaClassifica(comp, teamsList, myTeam.id);
+        miniClassificaBox.innerHTML = renderAnteprimaClassifica(comp, teamsList, myTeam.id, { compact: true });
       }
 
       // --- RECUPERO ED ORDINAMENTO TROFEI IN HOME ---
@@ -261,7 +280,9 @@ export const HomePage = {
       if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:52px; height:52px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-eye-line" style="font-size:1.5rem; color:var(--text2)"></i></div>`;
       if (trophiesContainer) trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3);">--</span>`;
       if (miniClassificaBox) miniClassificaBox.innerHTML = `<div style="font-size: 0.7rem; color: var(--text3);">Non associato a una squadra.</div>`;
-      if (kitBox) { kitBox.dataset.key = ''; kitBox.style.display = 'none'; kitBox.innerHTML = ''; }
+      if (kitBox) { kitBox.dataset.key = ''; kitBox.innerHTML = ''; }
+      if (kitWrap) kitWrap.style.display = 'none';
+      if (boxes) boxes.style.gridTemplateColumns = '1fr';
     }
 
     if (comp) {

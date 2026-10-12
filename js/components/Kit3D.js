@@ -89,14 +89,16 @@ function loadVariant(shape) {
       if (key === 'polo') {
         const loader = new L.GLTFLoader();
         const collar = (await loader.loadAsync(KIT3D_FILES.collarPolo)).scene;
-        collar.traverse(o => {
-          if (!o.isMesh) return;
-          const g = floatGeometry(THREE, o.geometry);
+        // tutti i vertici insieme: l'adattamento guarda la forma del colletto intero
+        const parts = [];
+        collar.traverse(o => { if (o.isMesh) parts.push({ o, g: floatGeometry(THREE, o.geometry) }); });
+        const pts = [];
+        parts.forEach(({ g }) => { const pos = g.getAttribute('position'); for (let i = 0; i < pos.count; i++) pts.push([pos.getX(i), pos.getY(i), pos.getZ(i)]); });
+        fitCollarToV(pts);
+        let n = 0;
+        parts.forEach(({ o, g }) => {
           const pos = g.getAttribute('position');
-          for (let i = 0; i < pos.count; i++) {
-            const p = fitCollarToV([pos.getX(i), pos.getY(i), pos.getZ(i)]);
-            pos.setXYZ(i, p[0], p[1], p[2]);
-          }
+          for (let i = 0; i < pos.count; i++, n++) pos.setXYZ(i, pts[n][0], pts[n][1], pts[n][2]);
           g.computeVertexNormals(); g.computeBoundingBox(); g.computeBoundingSphere();
           o.geometry = g;
         });
@@ -179,20 +181,25 @@ class Stage {
     this.source = model;
     this.model = model.clone(true);
     this.collarMats = {};
+    this.innerMats = [];
     this.model.traverse(o => {
       if (!o.isMesh) return;
       const name = o.material.name;
       o.material = o.material.clone();
       o.material.metalness = 0;
       if (name === 'shirt_outer') { o.material.map = this.texture; o.material.needsUpdate = true; }
+      if (name === 'shirt_inner') (this.innerMats ||= []).push(o.material);
       if (/^polo_/.test(name)) (this.collarMats[name] ||= []).push(o.material);
     });
     this.scene.add(this.model);
   }
 
-  /** Veste la maglia: texture UV dipinta + colore del colletto alto (se c'è). */
+  /** Veste la maglia: texture UV dipinta, interno in ombra, colore del colletto alto (se c'è). */
   applyKit(kit, full) {
     this.setTexture(full);
+    // interno della maglia in ombra: colore della maglia molto scurito
+    const inner = new this.L.THREE.Color(validColor(kit.colors.base, '#888888')).multiplyScalar(0.22);
+    this.innerMats.forEach(m => { m.color.copy(inner); m.roughness = 1; m.envMapIntensity = 0.4; });
     const M = this.collarMats || {};
     const each = (name, fn) => (M[name] || []).forEach(fn);
     if (M.polo_collar) {
