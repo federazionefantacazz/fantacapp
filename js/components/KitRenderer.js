@@ -240,7 +240,7 @@ export const ANCHORS = {
 };
 
 const ASSET_BASE = 'icons/kit3d/';
-export const KIT3D_FILES = { model: ASSET_BASE + 'shirt.glb', collarPolo: ASSET_BASE + 'collar-polo.glb', mask: ASSET_BASE + 'mask.png', seams: ASSET_BASE + 'seams.jpg' };
+export const KIT3D_FILES = { model: ASSET_BASE + 'shirt.glb', collarPolo: ASSET_BASE + 'collar-polo.glb', neckPolo: ASSET_BASE + 'neck-polo.bin', mask: ASSET_BASE + 'mask.png', seams: ASSET_BASE + 'seams.jpg' };
 
 /* ------------------------------------------------------------ utilità */
 const svgUrl = (svg) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
