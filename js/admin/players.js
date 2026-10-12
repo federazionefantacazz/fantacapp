@@ -148,6 +148,41 @@ export const PlayersSection = {
     // Stagioni Fantacalcio da cui prendere il campioncino, dalla più recente
     const CAMPIONCINI_SEASONS = [21, 20, 19];
 
+    // Giocatori il cui campioncino non è stato aggiornato, con il motivo: { id, name, reason }
+    this._photoFailures = [];
+
+    // Carica su ImgBB il campioncino di un giocatore e lo salva in 'photoStandard'.
+    // Restituisce l'URL finale, altrimenti lancia l'errore con il motivo.
+    const uploadStandardPhoto = async (player) => {
+      if (!player.id || isNaN(player.id)) throw new Error("ID giocatore non valido");
+
+      // Se la foto della stagione corrente non esiste (giocatore nuovo o non più in Serie A)
+      // ImgBB risponde 400: si riprova con le stagioni precedenti prima di arrendersi.
+      let finalImgUrl = null;
+      let lastErr = null;
+      for (const season of CAMPIONCINI_SEASONS) {
+        const fantacalcioUrl = `https://content.fantacalcio.it/web/campioncini/${season}/medium/${player.id}.png`;
+        try {
+          finalImgUrl = await uploadUrlToImgBB(fantacalcioUrl, `campioncino_${player.id}`);
+          if (finalImgUrl) break;
+        } catch (err) {
+          lastErr = err;
+          // Solo un 400 indica un'immagine sorgente non valida: per gli altri errori
+          // (chiave, limiti, rete) cambiare stagione non serve.
+          if (err.status !== 400) break;
+        }
+      }
+      if (!finalImgUrl) throw lastErr || new Error("Errore durante l'upload su ImgBB");
+
+      await update(ref(this._db, `players/${player.id}`), { photoStandard: finalImgUrl });
+      return finalImgUrl;
+    };
+
+    const setFailure = (player, err) => {
+      this._photoFailures = this._photoFailures.filter(f => String(f.id) !== String(player.id));
+      if (err) this._photoFailures.push({ id: player.id, name: player.name, reason: err.message });
+    };
+
     window.updateStandardPhotosImgBB = async () => {
       if (!window.PLAYERS || window.PLAYERS.length === 0) {
         if (typeof window.toast === 'function') window.toast("Nessun giocatore nel database!", "err");
@@ -162,65 +197,68 @@ export const PlayersSection = {
       if (statusBox) statusBox.style.display = 'block';
 
       let successCount = 0;
-      let failCount = 0;
-      const failures = [];
-      const total = window.PLAYERS.length;
+      const players = [...window.PLAYERS];
+      const total = players.length;
+      this._photoFailures = [];
+      this.renderPhotoFailures();
 
       for (let i = 0; i < total; i++) {
-        const player = window.PLAYERS[i];
-        
-        if (!player.id || isNaN(player.id)) {
-          failCount++;
-          continue;
-        }
+        const player = players[i];
 
         if (statusBox) {
-          statusBox.textContent = `Elaborazione ${i + 1}/${total}: ${player.name}... (Caricati: ${successCount}, Errore: ${failCount})`;
-        }
-
-        // Se la foto della stagione corrente non esiste (giocatore nuovo o non più in Serie A)
-        // ImgBB risponde 400: si riprova con le stagioni precedenti prima di arrendersi.
-        let finalImgUrl = null;
-        let lastErr = null;
-        for (const season of CAMPIONCINI_SEASONS) {
-          const fantacalcioUrl = `https://content.fantacalcio.it/web/campioncini/${season}/medium/${player.id}.png`;
-          try {
-            finalImgUrl = await uploadUrlToImgBB(fantacalcioUrl, `campioncino_${player.id}`);
-            if (finalImgUrl) break;
-          } catch (err) {
-            lastErr = err;
-            // Solo un 400 indica un'immagine sorgente non valida: per gli altri errori
-            // (chiave, limiti, rete) cambiare stagione non serve.
-            if (err.status !== 400) break;
-          }
+          statusBox.textContent = `Elaborazione ${i + 1}/${total}: ${player.name}... (Caricati: ${successCount}, Errore: ${this._photoFailures.length})`;
         }
 
         try {
-          if (!finalImgUrl) throw lastErr || new Error("Errore durante l'upload su ImgBB");
-
-          // Salvataggio su Firebase sotto 'photoStandard'
-          await update(ref(this._db, `players/${player.id}`), {
-            photoStandard: finalImgUrl
-          });
+          await uploadStandardPhoto(player);
           successCount++;
         } catch (err) {
           console.warn(`Errore caricamento per ${player.name} (ID: ${player.id}): ${err.message}`);
-          failures.push(`${player.name} (${player.id}): ${err.message}`);
-          failCount++;
+          setFailure(player, err);
         }
       }
 
-      if (failures.length) {
-        console.warn(`Campioncini non aggiornati (${failures.length}):\n` + failures.join('\n'));
+      const failCount = this._photoFailures.length;
+      if (failCount) {
+        console.warn(`Campioncini non aggiornati (${failCount}):\n` +
+          this._photoFailures.map(f => `${f.name} (${f.id}): ${f.reason}`).join('\n'));
       }
 
       if (statusBox) {
         statusBox.textContent = `Completato! Caricate ${successCount} foto su ImgBB (${failCount} non trovate o fallite).`;
       }
+      this.renderPhotoFailures();
 
       if (typeof window.toast === 'function') {
-        window.toast(`Aggiornati ${successCount} campioncini standard!`, 'ok');
+        if (failCount) window.toast(`Aggiornati ${successCount} campioncini, ${failCount} in errore: vedi elenco sotto.`, 'err');
+        else window.toast(`Aggiornati ${successCount} campioncini standard!`, 'ok');
       }
+    };
+
+    // Ricarica il campioncino di un solo giocatore (dall'elenco errori o dalla tabella)
+    window.retryStandardPhoto = async (playerId, btn) => {
+      const player = (window.PLAYERS || []).find(p => String(p.id) === String(playerId));
+      if (!player) return;
+      if (btn) { btn.disabled = true; btn.textContent = '...'; }
+
+      try {
+        await uploadStandardPhoto(player);
+        setFailure(player, null);
+        if (typeof window.toast === 'function') window.toast(`Campioncino di ${player.name} aggiornato.`, 'ok');
+      } catch (err) {
+        console.warn(`Errore caricamento per ${player.name} (ID: ${player.id}): ${err.message}`);
+        setFailure(player, err);
+        if (typeof window.toast === 'function') window.toast(`${player.name}: ${err.message}`, 'err');
+      }
+
+      if (btn) { btn.disabled = false; btn.textContent = 'Foto'; }
+      this.renderPhotoFailures();
+    };
+
+    // Riprova tutti i giocatori rimasti in errore
+    window.retryFailedStandardPhotos = async () => {
+      const ids = this._photoFailures.map(f => f.id);
+      for (const id of ids) await window.retryStandardPhoto(id);
     };
   },
 
@@ -244,6 +282,7 @@ export const PlayersSection = {
         </div>
 
         <div id="campionciniStatus" style="display:none; font-size: 0.8rem; color: var(--accent); font-weight: 600; padding: 0.5rem; background: rgba(0,0,0,0.2); border-radius: 6px;"></div>
+        <div id="campionciniErrors" style="display:none; margin-top: 0.5rem;"></div>
       </div>
 
       <div class="card">
@@ -292,11 +331,41 @@ export const PlayersSection = {
         <td>${p.club || 'Svincolato'}</td>
         <td><strong>${p.value || '—'}</strong></td>
         <td>
+          <button class="btn btn-outline" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; width: auto;" title="Ricarica campioncino standard" onclick="window.retryStandardPhoto('${p.id}', this)">Foto</button>
           <button class="btn btn-red" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; width: auto;" onclick="window.releasePlayer('${p.id}')">Svincola</button>
         </td>
       </tr>
       `;
     }).join('');
+  },
+
+  // Elenco dei campioncini in errore, ognuno con il motivo e il pulsante per riprovare
+  renderPhotoFailures() {
+    const box = document.getElementById('campionciniErrors');
+    if (!box) return;
+    const failures = this._photoFailures || [];
+    if (failures.length === 0) {
+      box.style.display = 'none';
+      box.innerHTML = '';
+      return;
+    }
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    box.style.display = 'block';
+    box.innerHTML = `
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; margin-bottom:0.4rem;">
+        <div style="font-size:0.8rem; font-weight:600; color:var(--accent3);">Campioncini in errore: ${failures.length}</div>
+        <button class="btn btn-outline" style="width:auto; padding:0.3rem 0.8rem; font-size:0.75rem;" onclick="window.retryFailedStandardPhotos()">Riprova tutti</button>
+      </div>
+      <div style="max-height:200px; overflow-y:auto;">
+        ${failures.map(f => `
+        <div style="display:flex; align-items:center; gap:0.5rem; padding:0.3rem 0; border-top:1px solid var(--bg3); font-size:0.75rem;">
+          <div style="flex:1; min-width:0;">
+            <strong>${esc(f.name)}</strong> <span style="color:var(--text3);">(ID ${esc(f.id)})</span>
+            <div style="color:var(--text2); overflow-wrap:anywhere;">${esc(f.reason)}</div>
+          </div>
+          <button class="btn btn-outline" style="width:auto; padding:0.25rem 0.6rem; font-size:0.75rem;" onclick="window.retryStandardPhoto('${esc(f.id)}', this)">Foto</button>
+        </div>`).join('')}
+      </div>`;
   },
 
   setFilter(val) {
