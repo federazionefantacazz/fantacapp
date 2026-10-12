@@ -291,7 +291,7 @@ const shotCache = new Map();
 
 /**
  * Foto PNG della maglia (data URL, sfondo trasparente).
- * opts: { crestUrl, width (default 600), view ('front'|'back'), textureSize (default 2048), plain }
+ * opts: { crestUrl, width (default 600), view ('front'|'back' o angolo in gradi), textureSize (default 2048), plain }
  */
 export function renderKitImage(kit, opts = {}) {
   const width = Math.round(opts.width || 600), height = Math.round(width * 16 / 15);
@@ -309,7 +309,7 @@ export function renderKitImage(kit, opts = {}) {
     ]);
     shot.setModel(variant);
     shot.applyKit(k, tex);
-    shot.setView(opts.view === 'back' ? 180 : 0);
+    shot.setView(typeof opts.view === 'number' ? opts.view : opts.view === 'back' ? 180 : 0);
     shot.render();
     return shot.renderer.domElement.toDataURL('image/png');
   }).catch(e => { console.error('Divisa 3D:', e); shotCache.delete(key); return ''; });
