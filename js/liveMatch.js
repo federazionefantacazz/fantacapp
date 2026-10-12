@@ -56,7 +56,7 @@ const EV_LABEL = {
 };
 
 const LIVE_STYLES = `
-.lv-wrap{--lv-ok:#5ec82b;--lv-warn:#f5a623;--lv-bad:#ff4757;--lv-sim:#a78bfa}
+.lv-wrap{--lv-ok:#5ec82b;--lv-warn:#f5a623;--lv-bad:#ff4757}
 .lv-toolbar{display:flex;gap:.5rem;align-items:center;margin-bottom:.8rem;flex-wrap:wrap}
 .lv-toolbar .select-rose{flex:1;min-width:180px}
 .lv-seg{display:inline-flex;background:var(--bg3);border-radius:10px;padding:3px;gap:2px;flex-shrink:0}
@@ -64,8 +64,8 @@ const LIVE_STYLES = `
 .lv-seg button.on{background:var(--accent);color:#0a0f1e}
 .lv-wip{font-size:.55rem;font-weight:700;background:var(--lv-warn);color:#0a0f1e;padding:1px 4px;border-radius:4px}
 
-.lv-head{position:relative;overflow:hidden;border-radius:16px;padding:1rem .6rem .9rem;background:linear-gradient(135deg,color-mix(in srgb,var(--accent2) 55%,#0a0f1e),color-mix(in srgb,var(--accent2) 25%,#0a0f1e) 60%,#0a0f1e);color:#fff;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:.4rem;box-shadow:0 6px 20px rgba(0,0,0,.3)}
-.lv-head::after{content:'';position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--accent)}
+/* pannello trasparente come la card squadra della home (--subbox-bg) */
+.lv-head{position:relative;overflow:hidden;border-radius:16px;padding:1rem .6rem .9rem;background:var(--subbox-bg);border:1px solid var(--border);color:var(--text);display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:.4rem;box-shadow:0 6px 20px rgba(0,0,0,.3)}
 .lv-team{display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0;gap:2px}
 .lv-logo{width:54px;height:54px;object-fit:contain;filter:drop-shadow(0 3px 6px rgba(0,0,0,.4))}
 .lv-logo-ph{width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font:1.4rem 'Bebas Neue',sans-serif}
@@ -81,18 +81,18 @@ const LIVE_STYLES = `
 @keyframes lvPulse{0%,100%{opacity:1}50%{opacity:.3}}
 
 .lv-sim{margin:.7rem 0 .9rem;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:.6rem .7rem}
-.lv-sim.on{border-color:var(--lv-sim);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--lv-sim) 40%,transparent)}
+.lv-sim.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent)}
 .lv-sim-top{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
 .lv-sim-title{font-weight:700;font-size:.85rem;display:flex;align-items:center;gap:.4rem;color:var(--text)}
-.lv-sim-title i{color:var(--lv-sim);font-size:1.1rem}
+.lv-sim-title i{color:var(--accent);font-size:1.1rem}
 .lv-btn{border:1px solid var(--border);background:var(--bg3);color:var(--text);font:600 .75rem 'DM Sans',sans-serif;padding:.4rem .7rem;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:.3rem}
-.lv-btn.prim{background:var(--lv-sim);border-color:var(--lv-sim);color:#0a0f1e}
+.lv-btn.prim{background:var(--accent);border-color:var(--accent);color:var(--btn-primary-text)}
 .lv-sim-body{margin-top:.6rem;display:flex;flex-direction:column;gap:.5rem}
 .lv-sim-row{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;font-size:.78rem;color:var(--text2)}
 .lv-sim-row label{display:flex;align-items:center;gap:.4rem;cursor:pointer;color:var(--text)}
-.lv-sim-row input{width:17px;height:17px;accent-color:var(--lv-sim)}
+.lv-sim-row input{width:17px;height:17px;accent-color:var(--accent)}
 .lv-sim-res{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;background:var(--bg3);border-radius:10px;padding:.5rem .6rem;text-align:center}
-.lv-sim-res .g{font:1.9rem/1 'Bebas Neue',sans-serif;color:var(--lv-sim)}
+.lv-sim-res .g{font:1.9rem/1 'Bebas Neue',sans-serif;color:var(--accent)}
 .lv-sim-res .p{font-size:.72rem;color:var(--text2);font-family:'DM Mono',monospace}
 .lv-sim-res .mid{font-size:.6rem;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);padding:0 .4rem}
 
@@ -139,9 +139,9 @@ const LIVE_STYLES = `
 .lv-box.todo-time i{font-size:.8rem}
 .lv-box.playing{border-color:var(--lv-warn);color:var(--lv-warn);background:transparent;font-size:.9rem}
 .lv-box.wait{background:transparent;color:var(--text3);font-size:.9rem}
-.lv-box.sim{border:1px dashed var(--lv-sim);background:color-mix(in srgb,var(--lv-sim) 12%,transparent)}
-.lv-box.sim .v,.lv-box.sim .f{color:var(--lv-sim);background:transparent;font-style:italic}
-.lv-box.sim.sv{color:var(--lv-sim)}
+.lv-box.sim{border:1px dashed var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.lv-box.sim .v,.lv-box.sim .f{color:var(--accent);background:transparent;font-style:italic}
+.lv-box.sim.sv{color:var(--accent)}
 .lv-box.editable{cursor:pointer}
 .lv-box.editable:active{transform:scale(.95)}
 
@@ -198,7 +198,7 @@ const LIVE_STYLES = `
 .lv-ed-e button{width:24px;height:24px;border-radius:6px;border:none;background:var(--bg3);color:var(--text);cursor:pointer;font-weight:700}
 .lv-ed-e b{min-width:12px;text-align:center;font-family:'DM Mono',monospace}
 .lv-ed-fv{text-align:center;font-size:.8rem;color:var(--text2);margin-bottom:.8rem}
-.lv-ed-fv b{color:var(--lv-sim,#a78bfa);font-family:'DM Mono',monospace;font-size:1rem}
+.lv-ed-fv b{color:var(--accent);font-family:'DM Mono',monospace;font-size:1rem}
 .lv-ed-a{display:flex;gap:.4rem}
 .lv-ed-a .lv-btn{flex:1;justify-content:center;padding:.6rem}
 `;
@@ -879,7 +879,7 @@ export const LiveMatchModule = {
             <label><input type="checkbox" data-lv="sim-six" ${s.six ? 'checked' : ''}> 6 a chi deve ancora giocare</label>
           </div>
           <div class="lv-sim-row">
-            <i class="ri-hand-coin-line" style="color:var(--lv-sim);"></i> Tocca il voto di un giocatore per modificarlo (anche chi ha già giocato).
+            <i class="ri-hand-coin-line" style="color:var(--accent);"></i> Tocca il voto di un giocatore per modificarlo (anche chi ha già giocato).
             ${edits ? `<button class="lv-btn" data-lv="sim-reset" style="margin-left:auto;"><i class="ri-arrow-go-back-line"></i> Annulla modifiche (${edits})</button>` : ''}
           </div>
           <div class="lv-sim-row" style="font-size:.7rem; color:var(--text3);">Il risultato simulato applica le sostituzioni dalla panchina (stesso ruolo) per chi resta senza voto.</div>
