@@ -1,4 +1,5 @@
-import { paintKitTexture, KIT3D_FILES } from './KitRenderer.js';
+import { paintKitTexture, normalizeKit, KIT3D_FILES } from './KitRenderer.js';
+import { deformPoint, isDeformed } from './kitShapes.js';
 
 /**
  * Maglia 3D (three.js, in vendor/three): il modello in icons/kit3d/shirt.glb viene "vestito"
@@ -34,6 +35,89 @@ function loadModel() {
   return modelJob;
 }
 
+/** Pezzo della maglia a cui appartiene una mesh (nome del nodo glTF). */
+function partOf(o) {
+  const n = `${o.name}|${o.parent ? o.parent.name : ''}`;
+  if (/(^|\|)42(_|\||$)/.test(n)) return 'front';
+  if (/Pattern2D_3805002/.test(n)) return 'collar';
+  return '';
+}
+
+/** Copia della geometria con posizioni decimali (quelle compresse non si possono spostare liberamente). */
+function floatGeometry(THREE, geometry) {
+  const g = geometry.clone();
+  ['position', 'normal'].forEach(name => {
+    const a = g.getAttribute(name);
+    if (!a) return;
+    const f = new Float32Array(a.count * 3);
+    for (let i = 0; i < a.count; i++) { f[i * 3] = a.getX(i); f[i * 3 + 1] = a.getY(i); f[i * 3 + 2] = a.getZ(i); }
+    g.setAttribute(name, new THREE.BufferAttribute(f, 3));
+  });
+  return g;
+}
+
+/**
+ * Maglia con la forma di colletto richiesta (una volta per forma).
+ * 'polo': scollo chiuso in un collo tondo + colletto, abbottonatura e bottoni di icons/kit3d/collar-polo.glb.
+ */
+const variants = new Map();
+function loadVariant(shape) {
+  const key = isDeformed(shape) ? shape : 'v';
+  if (!variants.has(key)) {
+    variants.set(key, Promise.all([loadLib(), loadModel()]).then(async ([L, base]) => {
+      if (key === 'v') return base;
+      const { THREE } = L;
+      const model = base.clone(true);
+      model.updateMatrixWorld(true);
+      const v = new THREE.Vector3(), inv = new THREE.Matrix4();
+      model.traverse(o => {
+        if (!o.isMesh) return;
+        const part = partOf(o);
+        if (!part) return;
+        const g = floatGeometry(THREE, o.geometry);
+        const pos = g.getAttribute('position');
+        inv.copy(o.matrixWorld).invert();
+        for (let i = 0; i < pos.count; i++) {
+          v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
+          const p = deformPoint(key, part, [v.x, v.y, v.z]);
+          v.set(p[0], p[1], p[2]).applyMatrix4(inv);
+          pos.setXYZ(i, v.x, v.y, v.z);
+        }
+        g.computeBoundingBox(); g.computeBoundingSphere();
+        o.geometry = g;
+      });
+      if (key === 'polo') {
+        const loader = new L.GLTFLoader();
+        const collar = (await loader.loadAsync(KIT3D_FILES.collarPolo)).scene;
+        model.add(collar);
+      }
+      return model;
+    }));
+  }
+  return variants.get(key);
+}
+
+const validColor = (c, def = '#ffffff') => (/^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : def);
+
+/** Texture del colletto polo: colore del colletto e rifiniture verso il bordo esterno (in alto nell'immagine). */
+function paintPoloCollar(kit) {
+  const c = document.createElement('canvas');
+  c.width = 1024; c.height = 128;
+  const x = c.getContext('2d');
+  x.fillStyle = validColor(kit.colors.collar); x.fillRect(0, 0, c.width, c.height);
+  x.fillStyle = validColor(kit.colors.trim);
+  const band = (v0, v1) => x.fillRect(0, v0 * c.height, c.width, (v1 - v0) * c.height);
+  switch (kit.collar) {
+    case 'twotone': band(0.55, 1); break;   // fascia interna (piede del colletto) nel secondo colore
+    case 'striped': band(0.055, 0.11); band(0.15, 0.205); break;
+    case 'trim': band(0, 0.06); break;
+    case 'wide': band(0, 0.16); break;
+  }
+  x.fillStyle = 'rgba(0,0,0,.05)';
+  for (let i = 0; i < c.width; i += 3) x.fillRect(i, 0, 1, c.height); // costine
+  return c;
+}
+
 class Stage {
   constructor(L, model, canvas, { interactive = false, width = 600, height = 640 } = {}) {
     const { THREE } = L;
@@ -53,8 +137,6 @@ class Stage {
     key.position.set(2.5, 3, 2);
     this.scene.add(key);
 
-    // copia del modello con materiali propri (la texture cambia per ogni maglia)
-    this.model = model.clone(true);
     this.texture = new THREE.CanvasTexture(document.createElement('canvas'));
     this.texture.flipY = false;
     this.texture.colorSpace = THREE.SRGBColorSpace;
@@ -62,13 +144,11 @@ class Stage {
     // la maglia si vede quasi alla risoluzione della texture: senza mipmap loghi e scritte restano nitidi
     this.texture.generateMipmaps = false;
     this.texture.minFilter = THREE.LinearFilter;
-    this.model.traverse(o => {
-      if (!o.isMesh) return;
-      o.material = o.material.clone();
-      o.material.metalness = 0;
-      if (o.material.name === 'shirt_outer') { o.material.map = this.texture; o.material.needsUpdate = true; }
-    });
-    this.scene.add(this.model);
+    this.collarTexture = new THREE.CanvasTexture(document.createElement('canvas'));
+    this.collarTexture.flipY = false;
+    this.collarTexture.colorSpace = THREE.SRGBColorSpace;
+    this.collarTexture.anisotropy = this.texture.anisotropy;
+    this.setModel(model);
 
     const box = new THREE.Box3().setFromObject(this.model);
     this.center = box.getCenter(new THREE.Vector3());
@@ -87,6 +167,42 @@ class Stage {
       this.controls = c;
       this.setView(0); // i controlli appena creati puntano all'origine: riallineo sulla maglia
     }
+  }
+
+  /** Copia del modello (forma del colletto) con materiali propri: la texture cambia per ogni maglia. */
+  setModel(model) {
+    if (this.source === model) return;
+    if (this.model) this.scene.remove(this.model);
+    this.source = model;
+    this.model = model.clone(true);
+    this.collarMats = {};
+    this.model.traverse(o => {
+      if (!o.isMesh) return;
+      const name = o.material.name;
+      o.material = o.material.clone();
+      o.material.metalness = 0;
+      if (name === 'shirt_outer') { o.material.map = this.texture; o.material.needsUpdate = true; }
+      if (/^polo_/.test(name)) (this.collarMats[name] ||= []).push(o.material);
+    });
+    this.scene.add(this.model);
+  }
+
+  /** Veste la maglia: texture UV dipinta + colori del colletto polo (se c'è). */
+  applyKit(kit, full) {
+    this.setTexture(full);
+    const M = this.collarMats || {};
+    const each = (name, fn) => (M[name] || []).forEach(fn);
+    if (M.polo_collar) {
+      const c = paintPoloCollar(kit);
+      const old = this.collarTexture.image;
+      if (old && (old.width !== c.width || old.height !== c.height)) this.collarTexture.dispose();
+      this.collarTexture.image = c;
+      this.collarTexture.needsUpdate = true;
+      each('polo_collar', m => { m.map = this.collarTexture; m.color.set('#ffffff'); m.needsUpdate = true; });
+    }
+    each('polo_placket', m => m.color.set(validColor(kit.colors.base)));
+    each('polo_label', m => m.color.set(validColor(kit.colors.base)));
+    each('polo_buttons', m => m.color.set('#f2f2f2'));
   }
 
   setView(yawDeg) {
@@ -115,6 +231,7 @@ class Stage {
   dispose() {
     if (this.controls) this.controls.dispose();
     this.texture.dispose();
+    this.collarTexture.dispose();
     this.renderer.dispose();
   }
 }
@@ -146,9 +263,11 @@ export function createKitViewer(container) {
     ready,
     async update(kit, opts = {}) {
       const my = ++token;
-      const [st, tex] = await Promise.all([ready, paintKitTexture(kit, { ...opts, size: opts.size || 2048 })]);
+      const k = normalizeKit(kit);
+      const [st, tex, model] = await Promise.all([ready, paintKitTexture(k, { ...opts, size: opts.size || 2048 }), loadVariant(k.collarShape)]);
       if (!st || disposed || my !== token) return;
-      st.setTexture(tex);
+      st.setModel(model);
+      st.applyKit(k, tex);
       st.render();
       requestAnimationFrame(() => { if (!disposed) st.render(); });
     },
@@ -183,8 +302,13 @@ export function renderKitImage(kit, opts = {}) {
     const [L, model] = await Promise.all([loadLib(), loadModel()]);
     if (!shot) shot = new Stage(L, model, document.createElement('canvas'), { width, height });
     shot.resize(width, height);
-    const tex = await paintKitTexture(kit, { crestUrl: opts.crestUrl, size: opts.textureSize || 2048, plain: opts.plain });
-    shot.setTexture(tex);
+    const k = normalizeKit(kit);
+    const [tex, variant] = await Promise.all([
+      paintKitTexture(k, { crestUrl: opts.crestUrl, size: opts.textureSize || 2048, plain: opts.plain }),
+      loadVariant(k.collarShape)
+    ]);
+    shot.setModel(variant);
+    shot.applyKit(k, tex);
     shot.setView(opts.view === 'back' ? 180 : 0);
     shot.render();
     return shot.renderer.domElement.toDataURL('image/png');

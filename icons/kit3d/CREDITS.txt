@@ -1,0 +1,7 @@
+Modelli 3D della divisa
+
+shirt.glb        Maglia da calcio fornita dalla Federazione, ottimizzata per l'app.
+collar-polo.glb  Colletto, abbottonatura e bottoni presi da "t-shirt-polo" di wasimrahii98 su Sketchfab
+                 https://sketchfab.com/3d-models/t-shirt-polo-6ef12223963e40d9955d3889cd8e3a36
+                 Licenza: Sketchfab Standard (https://sketchfab.com/licenses)
+                 Modificato: solo colletto/abbottonatura/bottoni, rimpiccioliti e posizionati sul collo della maglia.
