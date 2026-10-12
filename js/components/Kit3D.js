@@ -105,10 +105,10 @@ function loadVariant(shape) {
 
 const validColor = (c, def = '#ffffff') => (/^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : def);
 
-/** Pixel per punto dell'editor 3D (Impostazioni → Risoluzione editor 3D): bassa 2, media 2,5, alta 3. */
+/** Pixel per punto dell'editor 3D (Impostazioni → Risoluzione editor 3D): bassa 2, media 2,5 (predefinita), alta 3. */
 function editorPixelRatio() {
   const q = ((window.STATE && window.STATE.settings) || {}).kit3dQuality;
-  return q === 'low' ? 2 : q === 'medium' ? 2.5 : 3;
+  return q === 'low' ? 2 : q === 'high' ? 3 : 2.5;
 }
 
 class Stage {

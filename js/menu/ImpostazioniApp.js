@@ -15,7 +15,8 @@ const SCHEMA = [
     key: 'kit3dQuality',
     type: 'choice',
     label: 'Risoluzione editor 3D',
-    desc: 'Nitidezza della maglia nell\'editor della divisa. Su telefoni meno potenti scegli Bassa o Media se la rotazione non è fluida.',
+    desc: 'Nitidezza della maglia nell\'editor della divisa. Alta è più nitida; su telefoni meno potenti scegli Bassa se la rotazione non è fluida.',
+    def: 'medium',
     options: [{ id: 'low', label: 'Bassa' }, { id: 'medium', label: 'Media' }, { id: 'high', label: 'Alta' }]
   }
 ];
@@ -53,7 +54,7 @@ export const ImpostazioniApp = {
       const input = this._root.querySelector(`input[data-setting="${def.key}"]`);
       const v = (STATE.settings || {})[def.key];
       if (def.type === 'choice') {
-        this._root.querySelectorAll(`button[data-choice="${def.key}"]`).forEach(b => b.classList.toggle('on', b.dataset.v === (v || def.options[def.options.length - 1].id)));
+        this._root.querySelectorAll(`button[data-choice="${def.key}"]`).forEach(b => b.classList.toggle('on', b.dataset.v === (v || def.def)));
         return;
       }
       if (input && def.type === 'toggle' && input.checked !== (v !== false)) input.checked = v !== false;
@@ -74,7 +75,7 @@ export const ImpostazioniApp = {
               <div class="mp-muted">${esc(def.desc)}</div>
             </div>
             <div style="display:flex; gap:.35rem; flex-wrap:wrap;">
-              ${def.options.map(o => `<button class="lv-chip ${(s[def.key] || def.options[def.options.length - 1].id) === o.id ? 'on' : ''}" data-choice="${def.key}" data-v="${o.id}">${esc(o.label)}</button>`).join('')}
+              ${def.options.map(o => `<button class="lv-chip ${(s[def.key] || def.def) === o.id ? 'on' : ''}" data-choice="${def.key}" data-v="${o.id}">${esc(o.label)}</button>`).join('')}
             </div>
           </div>` : `
           <div class="mp-row">
