@@ -110,7 +110,7 @@ class Stage {
     const { THREE } = L;
     this.L = L;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
-    this.renderer.setPixelRatio(interactive ? Math.min(window.devicePixelRatio || 1, 2) : 1);
+    this.renderer.setPixelRatio(interactive ? Math.min(window.devicePixelRatio || 1, 3) : 1);
     this.renderer.setSize(width, height, false);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1;
