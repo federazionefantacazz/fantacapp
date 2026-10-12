@@ -4,7 +4,7 @@ import { getPngPatterns, getPngBrands, onKitAssetsChange } from "../services/kit
 import { kitImageHTML } from "../components/Kit3D.js";
 
 /**
- * Area Patron → Divise: disegni e marchi in PNG per l'editor della maglia 3D
+ * Area Patron → Temi → Squadre (Divise): disegni e marchi in PNG per l'editor della maglia 3D
  * (salvati in kitAssets, immagini su ImgBB).
  */
 let database = null;
@@ -32,8 +32,8 @@ export const DiviseSection = {
 
   renderHTML() {
     return `
-    <div id="sec-divise" class="admin-sec" style="display:none">
-      <div class="sec-title"><i class="ri-shirt-line"></i> Divise</div>
+    <div id="sec-divise">
+      <div class="label" style="color: var(--accent); margin-bottom: 1rem; font-size: .85rem;"><i class="ri-shirt-line"></i> Divise delle squadre</div>
 
       <div class="card">
         <div class="label" style="color:var(--accent)">Come funziona</div>

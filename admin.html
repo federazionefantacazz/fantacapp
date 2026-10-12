@@ -242,9 +242,6 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
   <button class="snav" data-sec="themes">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 18a6 6 0 1 0 0-12v12z"/></svg>Temi
   </button>
-  <button class="snav" data-sec="divise">
-    <svg viewBox="0 0 24 24"><path d="M8 3 3 6l2 5 2-1v11h10V10l2 1 2-5-5-3a4 4 0 0 1-8 0z"/></svg>Divise
-  </button>
 </div>
 
 <div id="toast" class="toast"></div>
@@ -388,7 +385,6 @@ function initAdminApp() {
       ${typeof CalendarioSection.renderHTML === 'function' ? CalendarioSection.renderHTML() : ''}
       ${typeof CompetizioniSection.renderHTML === 'function' ? CompetizioniSection.renderHTML() : ''}
       ${typeof ThemesSection.renderHTML === 'function' ? ThemesSection.renderHTML() : ''}
-      ${typeof DiviseSection.renderHTML === 'function' ? DiviseSection.renderHTML() : ''}
     `;
   }
 

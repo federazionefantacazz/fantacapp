@@ -12,12 +12,12 @@
  *     nav:       { bg, text, btn },                               // barra in basso
  *     drawer:    { bg, title, text, sub },                        // menu laterale
  *     menuPanel | menuSettings | menuTeam | menuKit | menuListone | menuSvincolati:
- *                { bg, title, text, sub, label, btn, btnText }     // pannelli del menu
+ *                { bg, title, text, sub, text3, label, btn, btnText }     // pannelli del menu
  *     liveEditor | matchViewer | formPicker | playerCard:
- *                { bg, title, text, sub, label, btn, btnText }     // finestre sopra le pagine
+ *                { bg, title, text, sub, text3, label, btn, btnText }     // finestre sopra le pagine
  *     login | home | calendario | classifica | formazione |
  *     mercato | teams | live | patron:
- *                { title, text, sub, label, btn, btnText }
+ *                { title, text, sub, text3, label, btn, btnText }
  *   }
  *
  * Ogni pagina ha un proprio "scope" CSS (selector): le variabili impostate per una
@@ -33,11 +33,12 @@
 const TYPE_TITLE    = { key: 'title',   css: '--title',            kind: 'color', def: '#94a3b8', label: 'Titoli',             hint: 'Titoli di sezione (vuoto = come Sottotesti)' };
 const TYPE_TEXT     = { key: 'text',    css: '--text',             kind: 'color', def: '#e2e8f0', label: 'Testi',              hint: 'Testo principale' };
 const TYPE_SUB      = { key: 'sub',     css: '--text2',            kind: 'color', def: '#94a3b8', label: 'Sottotesti',         hint: 'Descrizioni, dettagli secondari' };
+const TYPE_TEXT3    = { key: 'text3',   css: '--text3',            kind: 'color', def: '#5b6b80', label: 'Testi disattivati',  hint: 'Testo disattivato, segnaposto, note secondarie' };
 const TYPE_LABEL    = { key: 'label',   css: '--label',            kind: 'color', def: '#94a3b8', label: 'Label',              hint: 'Etichette dei campi e dei riquadri (vuoto = come Sottotesti)' };
 const TYPE_BTN      = { key: 'btn',     css: '--btn-primary',      kind: 'color', def: '#50e3c2', label: 'Pulsanti',           hint: 'Sfondo del pulsante principale (vuoto = come Evidenza principale)' };
 const TYPE_BTN_TEXT = { key: 'btnText', css: '--btn-primary-text', kind: 'color', def: '#0a0f1e', label: 'Testi dei pulsanti', hint: 'Testo sul pulsante principale' };
 
-const CONTENT_TYPES = [TYPE_TITLE, TYPE_TEXT, TYPE_SUB, TYPE_LABEL, TYPE_BTN, TYPE_BTN_TEXT];
+const CONTENT_TYPES = [TYPE_TITLE, TYPE_TEXT, TYPE_SUB, TYPE_TEXT3, TYPE_LABEL, TYPE_BTN, TYPE_BTN_TEXT];
 
 /* Sfondo dei pannelli del menu: sotto il colore c'è lo sfondo della competizione,
    quindi un colore trasparente (rgba) lo lascia vedere come nelle altre pagine */
@@ -60,7 +61,6 @@ const GENERAL_ONLY_FIELDS = [
     { key: 'border',  css: '--border',     kind: 'text',  def: 'rgba(255,255,255,0.08)', hint: 'Bordi, righe e separatori' }
   ]),
   ...withGroup('Altri testi e pulsanti', [
-    { key: 'text3',            css: '--text3',              kind: 'color', def: '#5b6b80', hint: 'Testo disattivato, segnaposto' },
     { key: 'btnSecondary',     css: '--btn-secondary',      kind: 'color', def: '#3a4352', hint: 'Pulsante secondario' },
     { key: 'btnSecondaryText', css: '--btn-secondary-text', kind: 'color', def: '#e2e8f0', hint: 'Testo sul pulsante secondario' },
     { key: 'btnOutline',       css: '--btn-outline',        kind: 'color', def: '#94a3b8', hint: 'Pulsante con solo bordo (testo e bordo)' }
@@ -128,6 +128,7 @@ export const THEME_PAGES = [
       { ...TYPE_TITLE },
       { ...TYPE_TEXT },
       { ...TYPE_SUB },
+      { ...TYPE_TEXT3 },
       { ...TYPE_LABEL },
       { key: 'accent', css: '--accent',      kind: 'color', def: '#50e3c2',                hint: 'VS, punteggi, nomi dei proprietari, selezioni', label: 'Evidenze' },
       { key: 'gold',   css: '--gold',        kind: 'color', def: '#f5a623',                hint: 'Etichette girone/playoff, trofei', label: 'Oro' },
