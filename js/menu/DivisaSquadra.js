@@ -208,6 +208,9 @@ export const DivisaSquadra = {
           <div class="kit-acc-body" id="kit-sec-${key}"></div>
         </div>`).join('')}
       <div class="mp-muted" style="text-align:center; margin-top:.4rem;">La divisa è visibile a tutti nella scheda del tuo club.</div>
+      <div class="kit-actions" style="margin-top:1rem;">
+        <button class="mp-btn danger" data-act="reset"><i class="ri-delete-bin-line"></i> Elimina divisa e ricomincia da zero</button>
+      </div>
     `;
     this._renderPreview();
     this._renderSection();
@@ -488,6 +491,7 @@ export const DivisaSquadra = {
         this._scrollToOpen();
         return;
       case 'save': this._save(); return;
+      case 'reset': this._reset(); return;
       case 'undo':
         if (!this._dirty()) return;
         this._kit = normalizeKit(JSON.parse(this._saved));
@@ -631,6 +635,31 @@ export const DivisaSquadra = {
     } catch (err) {
       console.error(err);
       window.showToast('Caricamento non riuscito, riprova', 'err');
+    } finally {
+      this._busy = false;
+    }
+  },
+
+  /** Cancella la divisa salvata e riparte dalla maglia di base. */
+  async _reset() {
+    if (this._busy || !this._kit) return;
+    const team = window.STATE.user;
+    if (!team || String(team.id) !== String(this._teamId)) return;
+    if (!confirm('Eliminare la divisa? Verrà cancellata e ripartirai dalla maglia di base.')) return;
+    this._busy = true;
+    try {
+      if (team.kit) await update(ref(db, `teams/${team.id}`), { kit: null });
+      team.kit = null; // aggiornamento immediato; il listener del DB lo riconferma
+      this._kit = normalizeKit(defaultKit());
+      this._saved = JSON.stringify(this._kit);
+      this._layer = 0;
+      this._open = 'model';
+      this._root.querySelectorAll('.kit-acc').forEach(a => a.classList.toggle('open', a.dataset.sec === this._open));
+      this._renderPreview(); this._renderSection();
+      window.showToast('Divisa eliminata: puoi ricrearla da zero', 'ok');
+    } catch (err) {
+      console.error(err);
+      window.showToast('Eliminazione non riuscita, riprova', 'err');
     } finally {
       this._busy = false;
     }
