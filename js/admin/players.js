@@ -145,6 +145,9 @@ export const PlayersSection = {
     };
 
     // AGGIORNA CAMPIONCINI STANDARD USANDO LA NUOVA FUNZIONE uploadUrlToImgBB
+    // Stagioni Fantacalcio da cui prendere il campioncino, dalla più recente
+    const CAMPIONCINI_SEASONS = [21, 20, 19];
+
     window.updateStandardPhotosImgBB = async () => {
       if (!window.PLAYERS || window.PLAYERS.length === 0) {
         if (typeof window.toast === 'function') window.toast("Nessun giocatore nel database!", "err");
@@ -160,6 +163,7 @@ export const PlayersSection = {
 
       let successCount = 0;
       let failCount = 0;
+      const failures = [];
       const total = window.PLAYERS.length;
 
       for (let i = 0; i < total; i++) {
@@ -170,30 +174,44 @@ export const PlayersSection = {
           continue;
         }
 
-        const fantacalcioUrl = `https://content.fantacalcio.it/web/campioncini/21/medium/${player.id}.png`;
-
         if (statusBox) {
           statusBox.textContent = `Elaborazione ${i + 1}/${total}: ${player.name}... (Caricati: ${successCount}, Errore: ${failCount})`;
         }
 
-        try {
-          // Usiamo la nuova funzione specifica per gli URL trasmettendo anche il nome del file
-          const finalImgUrl = await uploadUrlToImgBB(fantacalcioUrl, `campioncino_${player.id}`);
-
-          if (finalImgUrl) {
-            // Salvataggio su Firebase sotto 'photoStandard'
-            await update(ref(this._db, `players/${player.id}`), {
-              photoStandard: finalImgUrl
-            });
-            successCount++;
-          } else {
-            throw new Error("Errore durante l'upload su ImgBB");
+        // Se la foto della stagione corrente non esiste (giocatore nuovo o non più in Serie A)
+        // ImgBB risponde 400: si riprova con le stagioni precedenti prima di arrendersi.
+        let finalImgUrl = null;
+        let lastErr = null;
+        for (const season of CAMPIONCINI_SEASONS) {
+          const fantacalcioUrl = `https://content.fantacalcio.it/web/campioncini/${season}/medium/${player.id}.png`;
+          try {
+            finalImgUrl = await uploadUrlToImgBB(fantacalcioUrl, `campioncino_${player.id}`);
+            if (finalImgUrl) break;
+          } catch (err) {
+            lastErr = err;
+            // Solo un 400 indica un'immagine sorgente non valida: per gli altri errori
+            // (chiave, limiti, rete) cambiare stagione non serve.
+            if (err.status !== 400) break;
           }
+        }
 
+        try {
+          if (!finalImgUrl) throw lastErr || new Error("Errore durante l'upload su ImgBB");
+
+          // Salvataggio su Firebase sotto 'photoStandard'
+          await update(ref(this._db, `players/${player.id}`), {
+            photoStandard: finalImgUrl
+          });
+          successCount++;
         } catch (err) {
-          console.warn(`Errore caricamento per ${player.name} (ID: ${player.id})`, err);
+          console.warn(`Errore caricamento per ${player.name} (ID: ${player.id}): ${err.message}`);
+          failures.push(`${player.name} (${player.id}): ${err.message}`);
           failCount++;
         }
+      }
+
+      if (failures.length) {
+        console.warn(`Campioncini non aggiornati (${failures.length}):\n` + failures.join('\n'));
       }
 
       if (statusBox) {
