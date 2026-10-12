@@ -31,6 +31,125 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, Number.isFinite(+v) ? +v : a)
 /* --------------------------------------------------------------- disegni */
 const range = (from, to, step) => { const out = []; for (let v = from; v <= to; v += step) out.push(v); return out; };
 
+/** Numeri pseudo-casuali ripetibili (stesso disegno ogni volta). */
+const rng = (seed) => () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+
+/** Percorso chiuso e morbido (curve di Bézier) che passa per i punti dati. */
+function smoothClosed(pts) {
+  const n = pts.length, f = (v) => v.toFixed(1);
+  let d = `M${f(pts[0][0])},${f(pts[0][1])}`;
+  for (let i = 0; i < n; i++) {
+    const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
+    d += ` C${f(p1[0] + (p2[0] - p0[0]) / 6)},${f(p1[1] + (p2[1] - p0[1]) / 6)} ${f(p2[0] - (p3[0] - p1[0]) / 6)},${f(p2[1] - (p3[1] - p1[1]) / 6)} ${f(p2[0])},${f(p2[1])}`;
+  }
+  return d + 'Z';
+}
+
+/** Mimetico woodland: macchie organiche in tre tonalità del colore del livello. */
+function camo(c, s) {
+  const rnd = rng(41);
+  let o = '';
+  [[.38, 1], [.68, .8], [1, .62]].forEach(([op, k]) => {
+    const n = Math.round(W * H / (2600 * s * s) * k);
+    let d = '';
+    for (let i = 0; i < n; i++) {
+      const cx = rnd() * W, cy = rnd() * H, R = (16 + rnd() * 22) * s, el = 1.2 + rnd() * .9, rot = rnd() * Math.PI;
+      const pts = [];
+      for (let j = 0; j < 9; j++) {
+        const a = j / 9 * Math.PI * 2 + (rnd() - .5) * .4, r = R * (.55 + rnd() * .55);
+        const x = Math.cos(a) * r * el, y = Math.sin(a) * r;
+        pts.push([cx + x * Math.cos(rot) - y * Math.sin(rot), cy + x * Math.sin(rot) + y * Math.cos(rot)]);
+      }
+      d += smoothClosed(pts);
+    }
+    o += `<path d="${d}" fill="${c}" fill-opacity="${op}"/>`;
+  });
+  return o;
+}
+
+/** Marmo: venature sottili e ramificate che attraversano la maglia in diagonale, con un velo sfumato sotto. */
+function marble(c, s, id) {
+  const rnd = rng(17), f = (v) => v.toFixed(1);
+  let fine = '', soft = '';
+  // una vena: cammino con piccoli scarti, la direzione cambia piano piano; ogni tanto un ramo
+  const vein = (x, y, ang, len, w, depth) => {
+    let d = `M${f(x)},${f(y)}`, a = ang, curve = 0;
+    const step = 6 * s;
+    for (let t = 0; t < len; t += step) {
+      curve += (rnd() - .5) * .25; curve *= .85; a += curve * .3;
+      x += Math.cos(a) * step + (rnd() - .5) * 2.4 * s; y += Math.sin(a) * step + (rnd() - .5) * 2.4 * s;
+      d += ` L${f(x)},${f(y)}`;
+      if (depth < 2 && rnd() < .025) vein(x, y, a + (rnd() < .5 ? -1 : 1) * (.5 + rnd() * .6), len * (.25 + rnd() * .3), w * .55, depth + 1);
+    }
+    fine += `<path d="${d}" stroke-width="${f(w)}" stroke-opacity="${(.55 + rnd() * .45).toFixed(2)}"/>`;
+    if (depth === 0) soft += `<path d="${d}" stroke-width="${f(w * 9 + 8 * s)}"/>`;
+  };
+  const n = Math.round(7 / s) + 3;
+  for (let i = 0; i < n; i++) {
+    const t = (i + rnd() * .6) / n;
+    vein(-40 + t * (W + H) * .75 - H * .3, -30 + rnd() * 40, .9 + (rnd() - .5) * .35, (H + W) * (.8 + rnd() * .5), (.8 + rnd() * rnd() * 2.6) * s, 0);
+  }
+  return `<defs><filter id="${id}b" filterUnits="userSpaceOnUse" x="${-W}" y="${-H}" width="${W * 3}" height="${H * 3}"><feGaussianBlur stdDeviation="${f(10 * s)}"/></filter></defs>`
+    + `<g filter="url(#${id}b)" stroke="${c}" stroke-opacity=".22" fill="none" stroke-linecap="round">${soft}</g>`
+    + `<g stroke="${c}" fill="none" stroke-linecap="round" stroke-linejoin="round">${fine}</g>`;
+}
+
+/** Fiamme: lingue di fuoco che salgono dal fondo, su due file (dietro più alte e trasparenti). */
+function flames(c, s) {
+  const rnd = rng(5);
+  const row = (count, hMin, hMax, op) => {
+    let d = '';
+    const step = W / count;
+    for (let i = -1; i <= count; i++) {
+      const x = (i + .5) * step + (rnd() - .5) * step * .4, w = step * (1.1 + rnd() * .5), h = (hMin + rnd() * (hMax - hMin)) * s;
+      const lean = (rnd() - .5) * w * .9, y0 = H + 10, tipX = x + lean, tipY = H - h;
+      d += `M${(x - w / 2).toFixed(1)},${y0}`
+        + ` C${(x - w / 2).toFixed(1)},${(y0 - h * .45).toFixed(1)} ${(x - w * .1 + lean * .3).toFixed(1)},${(y0 - h * .55).toFixed(1)} ${(tipX - w * .08).toFixed(1)},${(tipY + h * .25).toFixed(1)}`
+        + ` C${(tipX - w * .15).toFixed(1)},${(tipY + h * .1).toFixed(1)} ${(tipX + lean * .4).toFixed(1)},${(tipY + h * .04).toFixed(1)} ${tipX.toFixed(1)},${tipY.toFixed(1)}`
+        + ` C${(tipX + w * .12).toFixed(1)},${(tipY + h * .3).toFixed(1)} ${(x + w * .5).toFixed(1)},${(y0 - h * .4).toFixed(1)} ${(x + w / 2).toFixed(1)},${y0} Z`;
+    }
+    return `<path d="${d}" fill="${c}" fill-opacity="${op}"/>`;
+  };
+  return row(7, 170, 260, .45) + row(9, 110, 190, .75) + row(12, 50, 110, 1);
+}
+
+/** Low poly: triangoli sfaccettati con trasparenze diverse. */
+function lowPoly(c, s) {
+  const rnd = rng(29), g = 48 * s, cols = Math.ceil(W / g) + 2, rows = Math.ceil(H / g) + 2, P = [];
+  for (let i = 0; i < cols; i++) { P.push([]); for (let j = 0; j < rows; j++) P[i].push([(i - .5) * g + (rnd() - .5) * g * .7, (j - .5) * g + (rnd() - .5) * g * .7]); }
+  let o = '';
+  const tri = (a, b, d) => { o += `<polygon points="${[a, b, d].map(p => p.map(v => v.toFixed(1)).join(',')).join(' ')}" fill="${c}" fill-opacity="${(rnd() * .55).toFixed(2)}"/>`; };
+  for (let i = 0; i < cols - 1; i++) for (let j = 0; j < rows - 1; j++) {
+    const a = P[i][j], b = P[i + 1][j], d = P[i][j + 1], e = P[i + 1][j + 1];
+    if ((i + j) % 2) { tri(a, b, e); tri(a, e, d); } else { tri(a, b, d); tri(b, e, d); }
+  }
+  return o;
+}
+
+/** Pixel: quadratini che si diradano salendo verso il petto. */
+function pixelFade(c, s) {
+  const rnd = rng(13), q = 14 * s;
+  let d = '';
+  for (let y = 0; y < H; y += q) for (let x = 0; x < W; x += q) {
+    const t = clamp((y / H - .3) / .62, 0, 1);
+    if (rnd() < t * t * 1.15) { const k = q * (.55 + .4 * Math.min(1, t + rnd() * .3)); d += `M${(x + (q - k) / 2).toFixed(1)},${(y + (q - k) / 2).toFixed(1)}h${k.toFixed(1)}v${k.toFixed(1)}h${(-k).toFixed(1)}Z`; }
+  }
+  return `<path d="${d}" fill="${c}"/>`;
+}
+
+/** Linee di velocità: scie diagonali affusolate. */
+function speedLines(c, s) {
+  const rnd = rng(37), a = -0.45, cs = Math.cos(a), sn = Math.sin(a);
+  let o = '';
+  const n = Math.round(W * H / (5200 * s * s));
+  for (let i = 0; i < n; i++) {
+    const x = rnd() * (W + 200) - 100, y = rnd() * (H + 100) - 50, L = (60 + rnd() * 200) * s, t = (2 + rnd() * 8) * s;
+    const pt = (u, v) => `${(x + u * cs - v * sn).toFixed(1)},${(y + u * sn + v * cs).toFixed(1)}`;
+    o += `<polygon points="${pt(0, -t / 2)} ${pt(L, 0)} ${pt(0, t / 2)} ${pt(-t * .8, 0)}" fill="${c}" fill-opacity="${(.45 + rnd() * .55).toFixed(2)}"/>`;
+  }
+  return o;
+}
+
 /** Rete di crepe (tipo marmo screpolato): celle irregolari con bordi frastagliati, deterministica. */
 function crackle(c, s) {
   let seed = 23;
@@ -95,11 +214,14 @@ export const PATTERNS = [
   { id: 'shards', label: 'Geometrico', draw: (c, s) => `<polygon points="100,60 ${200 + 30 * s},140 100,${220 + 30 * s}" fill="${c}"/><polygon points="300,120 ${190 - 20 * s},${250} 300,${380}" fill="${c}"/><polygon points="120,420 ${200},${300 - 20 * s} 280,420" fill="${c}" opacity=".7"/>` },
   { id: 'hexagons', tile: true, label: 'Esagoni', draw: (c, s) => { const r = 18 * s, hw = r * Math.sqrt(3); let o = ''; range(0, H + r, r * 1.5).forEach((y, i) => range(i % 2 ? hw / 2 : 0, W + hw, hw).forEach(x => { const p = range(0, 5, 1).map(k => { const a = Math.PI / 6 + k * Math.PI / 3; return `${(x + (r - 2) * Math.cos(a)).toFixed(1)},${(y + (r - 2) * Math.sin(a)).toFixed(1)}`; }); o += `<polygon points="${p.join(' ')}" fill="none" stroke="${c}" stroke-width="${2 * s}"/>`; })); return o; } },
   { id: 'grid', tile: true, label: 'Quadri (tartan)', draw: (c, s) => range(0, W, 40 * s).map(x => `<rect x="${x}" y="0" width="${8 * s}" height="${H}" fill="${c}" opacity=".7"/>`).join('') + range(0, H, 40 * s).map(y => `<rect x="0" y="${y}" width="${W}" height="${8 * s}" fill="${c}" opacity=".7"/>`).join('') },
-  { id: 'camo', tile: true, label: 'Mimetico', draw: (c, s) => { let seed = 7, o = ''; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280; for (let i = 0; i < 46; i++) { const x = rnd() * W, y = rnd() * H, rx = (14 + rnd() * 26) * s, ry = (8 + rnd() * 16) * s; o += `<ellipse cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" rx="${rx.toFixed(0)}" ry="${ry.toFixed(0)}" transform="rotate(${(rnd() * 180).toFixed(0)} ${x.toFixed(0)} ${y.toFixed(0)})" fill="${c}"/>`; } return o; } },
+  { id: 'camo', tile: true, label: 'Mimetico', draw: (c, s) => camo(c, s) },
   { id: 'brush', label: 'Pennellate', draw: (c, s) => range(0, 5, 1).map(i => `<path d="M${40 + i * 10},${120 + i * 50} Q200,${80 + i * 55 - 30 * s} ${380 - i * 8},${140 + i * 48} L${380 - i * 8},${150 + i * 48 + 8 * s} Q200,${95 + i * 55 - 20 * s} ${40 + i * 10},${132 + i * 50 + 4 * s} Z" fill="${c}" opacity="${(1 - i * 0.12).toFixed(2)}"/>`).join('') },
-  { id: 'flames', label: 'Fiamme', draw: (c, s) => { let p = `M0,420 L0,${330}`; range(0, W, 40).forEach((x, i) => { const h = (i % 2 ? 90 : 140) * s; p += ` Q${x + 10},${330 - h * .4} ${x + 20},${330 - h} Q${x + 26},${330 - h * .4} ${x + 40},${330}`; }); return `<path d="${p} L400,420 Z" fill="${c}"/>`; } },
+  { id: 'flames', label: 'Fiamme', draw: (c, s) => flames(c, s) },
   { id: 'crackle', label: 'Crepe', draw: (c, s) => crackle(c, s) },
-  { id: 'marble', label: 'Marmo', draw: (c, s, id) => { let seed = 11; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280; let o = ''; for (let i = 0; i < 9; i++) { const y = -40 + i * 55 * s + rnd() * 20; o += `<path d="M-20,${y.toFixed(0)} C${(80 + rnd() * 60).toFixed(0)},${(y - 60 + rnd() * 120).toFixed(0)} ${(220 + rnd() * 60).toFixed(0)},${(y + 80 - rnd() * 120).toFixed(0)} 420,${(y + 40 + rnd() * 60).toFixed(0)}" fill="none" stroke="${c}" stroke-width="${((1 + rnd() * 5) * s).toFixed(1)}" stroke-opacity="${(.45 + rnd() * .5).toFixed(2)}"/>`; } return `<defs><filter id="${id}b" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="1.2"/></filter></defs><g filter="url(#${id}b)">${o}</g>`; } },
+  { id: 'marble', tile: true, label: 'Marmo', draw: (c, s, id) => marble(c, s, id) },
+  { id: 'lowPoly', tile: true, label: 'Low poly', draw: (c, s) => lowPoly(c, s) },
+  { id: 'pixelFade', label: 'Pixel', draw: (c, s) => pixelFade(c, s) },
+  { id: 'speedLines', tile: true, label: 'Linee di velocità', draw: (c, s) => speedLines(c, s) },
   { id: 'contour', tile: true, label: 'Curve di livello', draw: (c, s) => range(0, H + 40, 16 * s).map((y, i) => { let d = `M-10,${y}`; for (let x = -10; x <= W + 20; x += 20) d += ` L${x},${(y + Math.sin(x / 45 + i * .7) * 10 * s + Math.sin(x / 17 + i) * 3).toFixed(1)}`; return `<path d="${d}" fill="none" stroke="${c}" stroke-width="${(1.6 * s).toFixed(1)}"/>`; }).join('') },
 ];
 
