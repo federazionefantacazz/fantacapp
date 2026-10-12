@@ -1,13 +1,13 @@
 /**
  * Forme del colletto della maglia 3D.
  * - 'v':    scollo a V del modello originale.
- * - 'polo': colletto polo (icons/kit3d/collar-polo.glb, preso dal modello "t-shirt-polo" di Sketchfab),
+ * - 'polo': colletto alto (polo) (icons/kit3d/collar-polo.glb, preso dal modello "t-shirt-polo" di Sketchfab),
  *           con lo scollo a V chiuso in un collo tondo su cui il colletto si appoggia.
  * Misure in metri, coordinate del modello (y in alto, z verso chi guarda, collo centrato in x = 0).
  */
 export const COLLAR_SHAPES = [
   { id: 'v',    label: 'Scollo a V' },
-  { id: 'polo', label: 'Polo' }
+  { id: 'polo', label: 'Colletto alto' }
 ];
 
 const NECK_X = 0.09;        // mezza larghezza del collo
