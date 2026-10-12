@@ -1,5 +1,5 @@
 import { paintKitTexture, normalizeKit, KIT3D_FILES } from './KitRenderer.js';
-import { deformPoint, isDeformed } from './kitShapes.js';
+import { isDeformed } from './kitShapes.js';
 
 /**
  * Maglia 3D (three.js, in vendor/three): il modello in icons/kit3d/shirt.glb viene "vestito"
@@ -50,10 +50,11 @@ function floatGeometry(THREE, geometry) {
 
 /**
  * Maglia con la forma di colletto richiesta (una volta per forma).
- * 'polo': collo della maglia rimodellato (kitShapes.deformPoint) + colletto alto di icons/kit3d/collar-polo.glb,
- *         già posizionato sulla maglia.
+ * 'polo': bordo del collo portato sulla cucitura del colletto (icons/kit3d/neck-polo.bin), costina nascosta
+ *         e colletto alto di icons/kit3d/collar-polo.glb, già posizionato sulla maglia.
  */
 const variants = new Map();
+const COLLAR_TOP = 1.675; // punto più alto del colletto alto (collar-polo.glb), con un po' di margine
 function loadVariant(shape) {
   const key = isDeformed(shape) ? shape : 'v';
   if (!variants.has(key)) {
@@ -61,23 +62,36 @@ function loadVariant(shape) {
       if (key === 'v') return base;
       const { THREE } = L;
       const model = base.clone(true);
-      model.updateMatrixWorld(true);
-      const v = new THREE.Vector3(), inv = new THREE.Matrix4();
-      model.traverse(o => {
-        if (!o.isMesh) return;
-        const g = floatGeometry(THREE, o.geometry);
-        const pos = g.getAttribute('position');
-        inv.copy(o.matrixWorld).invert();
-        for (let i = 0; i < pos.count; i++) {
-          v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
-          const p = deformPoint(key, [v.x, v.y, v.z]);
-          v.set(p[0], p[1], p[2]).applyMatrix4(inv);
-          pos.setXYZ(i, v.x, v.y, v.z);
-        }
-        g.computeBoundingBox(); g.computeBoundingSphere(); // normali originali: lo spostamento è piccolo e senza cuciture visibili
-        o.geometry = g;
-      });
       if (key === 'polo') {
+        // bordo della stoffa sulla cucitura del colletto: spostamenti precalcolati per ogni vertice vicino al collo
+        // (neck-polo.bin: 'NKP1', n. mesh, poi per mesh n, indici uint32, spostamenti int16 x3 in unità di 0,05 mm)
+        const data = await fetch(KIT3D_FILES.neckPolo).then(r => r.arrayBuffer());
+        const dv = new DataView(data);
+        let o = 6;
+        const meshes = [];
+        model.traverse(m => { if (m.isMesh) meshes.push(m); });
+        model.updateMatrixWorld(true);
+        const v = new THREE.Vector3(), inv = new THREE.Matrix4();
+        for (let k = 0; k < dv.getUint16(4, true); k++) {
+          const n = dv.getUint32(o, true), idx = o + 4, d = idx + 4 * n;
+          o = d + 6 * n;
+          if (!n) continue;
+          const m = meshes[k], g = floatGeometry(THREE, m.geometry), pos = g.getAttribute('position');
+          inv.copy(m.matrixWorld).invert();
+          for (let j = 0; j < n; j++) {
+            const i = dv.getUint32(idx + 4 * j, true);
+            v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+            v.x += dv.getInt16(d + 6 * j, true) / 20000;
+            v.y += dv.getInt16(d + 6 * j + 2, true) / 20000;
+            v.z += dv.getInt16(d + 6 * j + 4, true) / 20000;
+            v.applyMatrix4(inv);
+            pos.setXYZ(i, v.x, v.y, v.z);
+          }
+          g.computeBoundingBox(); g.computeBoundingSphere(); // normali originali: lo spostamento è piccolo
+          m.geometry = g;
+        }
+        // la costina dello scollo a V non serve: il colletto è cucito direttamente alla stoffa
+        model.traverse(o => { if (o.isMesh && /Pattern2D_3805002/.test(`${o.name}|${o.parent ? o.parent.name : ''}`)) o.visible = false; });
         const loader = new L.GLTFLoader();
         const collar = (await loader.loadAsync(KIT3D_FILES.collarPolo)).scene;
         collar.traverse(o => { if (o.isMesh) o.geometry.computeVertexNormals(); });
@@ -120,6 +134,7 @@ class Stage {
     this.setModel(model);
 
     const box = new THREE.Box3().setFromObject(this.model);
+    box.max.y = Math.max(box.max.y, COLLAR_TOP); // inquadratura uguale per tutte le forme: c'è posto anche per il colletto alto
     this.center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
     this.camera = new THREE.PerspectiveCamera(22, width / height, 0.01, 50);
@@ -163,11 +178,18 @@ class Stage {
     this.setTexture(full);
     // interno della maglia in ombra: colore della maglia molto scurito
     const inner = new this.L.THREE.Color(validColor(kit.colors.base, '#888888')).multiplyScalar(0.22);
-    this.innerMats.forEach(m => { m.color.copy(inner); m.roughness = 1; m.envMapIntensity = 0.4; });
+    this.innerMats.forEach(m => {
+      m.color.copy(inner); m.roughness = 1; m.envMapIntensity = 0.4;
+      m.polygonOffset = true; m.polygonOffsetFactor = 1; m.polygonOffsetUnits = 2; // l'interno non buca mai la stoffa esterna
+    });
     const M = this.collarMats || {};
     const each = (name, fn) => (M[name] || []).forEach(fn);
     // colletto alto: tinta unita del colore del colletto
-    each('polo_collar', m => { m.color.set(validColor(kit.colors.collar)); m.roughness = 0.85; });
+    // il colletto vince sulla maglia dove le due superfici quasi coincidono (attaccatura): niente sfarfallii né punte che bucano
+    each('polo_collar', m => {
+      m.color.set(validColor(kit.colors.collar)); m.roughness = 0.85;
+      m.polygonOffset = true; m.polygonOffsetFactor = -2; m.polygonOffsetUnits = -6;
+    });
   }
 
   setView(yawDeg) {

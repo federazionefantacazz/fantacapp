@@ -6,3 +6,5 @@ collar-polo.glb  Colletto e strisce della V presi da "Adidas Retro Jersey Mold" 
                  Modello gratuito: licenza come indicato sulla pagina di CGTrader.
                  Modificato: solo colletto e strisce, ricostruiti dal progetto CLO e spostati sul collo della maglia
                  (senza loghi né texture).
+neck-polo.bin    Spostamenti del bordo del collo della maglia per il colletto alto: portano la stoffa sulla
+                 cucitura del colletto della stessa maglia retrò (calcolati una volta, non è un modello).
