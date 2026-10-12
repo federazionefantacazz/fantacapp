@@ -1,10 +1,14 @@
 import { getPngPatterns, getPngBrands } from '../services/kitAssets.js';
 import { getCutout } from '../services/imageCutout.js';
+import { COLLAR_SHAPES } from './kitShapes.js';
+
+export { COLLAR_SHAPES };
 
 /**
  * Divisa della squadra: dati e pittura della texture UV della maglia 3D (vedi components/Kit3D.js).
  * La divisa è salvata in teams/{id}/kit:
  * {
+ *   collarShape,                                            // forma del colletto: 'v' (scollo a V) o 'polo' (vedi kitShapes.js)
  *   collar, cuffs, sleeveDeco,                              // stile di colletto, polsini, decorazioni maniche
  *   colors: { base, sleeves, collar, cuffs, trim },
  *   layers: [{ type, color, opacity, scale, flipX, flipY, zone }],  // type: disegno integrato o 'png:<id>'; zone: body | all | sleeves
@@ -172,7 +176,7 @@ export const SLEEVE_DECO = [
 
 export function defaultKit() {
   return {
-    collar: 'plain', cuffs: 'band', sleeveDeco: 'none',
+    collarShape: 'v', collar: 'plain', cuffs: 'band', sleeveDeco: 'none',
     colors: { base: '#1e5bb8', sleeves: '#1e5bb8', collar: '#ffffff', cuffs: '#ffffff', trim: '#ffffff' },
     layers: [],
     brand: { id: 'nike', color: '#ffffff', url: '', mono: false },
@@ -188,6 +192,7 @@ export function normalizeKit(raw) {
   const k = raw && typeof raw === 'object' ? raw : {};
   const toArr = (v) => Array.isArray(v) ? v.filter(Boolean) : (v && typeof v === 'object' ? Object.values(v).filter(Boolean) : []);
   return {
+    collarShape: COLLAR_SHAPES.some(c => c.id === k.collarShape) ? k.collarShape : d.collarShape,
     collar: COLLARS.some(c => c.id === k.collar) ? k.collar : d.collar,
     cuffs: CUFFS.some(c => c.id === k.cuffs) ? k.cuffs : d.cuffs,
     sleeveDeco: SLEEVE_DECO.some(c => c.id === k.sleeveDeco) ? k.sleeveDeco : d.sleeveDeco,
@@ -235,7 +240,7 @@ export const ANCHORS = {
 };
 
 const ASSET_BASE = 'icons/kit3d/';
-export const KIT3D_FILES = { model: ASSET_BASE + 'shirt.glb', mask: ASSET_BASE + 'mask.png', seams: ASSET_BASE + 'seams.jpg' };
+export const KIT3D_FILES = { model: ASSET_BASE + 'shirt.glb', collarPolo: ASSET_BASE + 'collar-polo.glb', mask: ASSET_BASE + 'mask.png', seams: ASSET_BASE + 'seams.jpg' };
 
 /* ------------------------------------------------------------ utilità */
 const svgUrl = (svg) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);

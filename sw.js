@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.1.32'; // Incrementa ad ogni modifica dei file statici
+const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.1.33'; // Incrementa ad ogni modifica dei file statici
 const IMAGE_CACHE = 'fantacapp-images-v1'; // riempita da js/services/assetPreloader.js: non va cancellata agli aggiornamenti
 
 // 1. Array pulito e aggiornato
@@ -12,6 +12,7 @@ const ASSETS_TO_CACHE = [
   './icons/logo-federazione.jpg',
   // maglia 3D dell'editor della divisa (three.js + modello)
   './icons/kit3d/shirt.glb',
+  './icons/kit3d/collar-polo.glb',
   './icons/kit3d/mask.png',
   './icons/kit3d/seams.jpg',
   './icons/kit3d/uv-template.png',
@@ -47,6 +48,7 @@ const ASSETS_TO_CACHE = [
   './js/components/MenuPanel.js',
   './js/components/PlayerCard.js',
   './js/components/Kit3D.js',
+  './js/components/kitShapes.js',
   './js/components/KitRenderer.js',
 
   // Pagine del menu laterale
