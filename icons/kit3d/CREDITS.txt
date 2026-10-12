@@ -1,7 +1,8 @@
 Modelli 3D della divisa
 
 shirt.glb        Maglia da calcio fornita dalla Federazione, ottimizzata per l'app.
-collar-polo.glb  Colletto preso da "t-shirt-polo" di wasimrahii98 su Sketchfab
-                 https://sketchfab.com/3d-models/t-shirt-polo-6ef12223963e40d9955d3889cd8e3a36
-                 Licenza: Sketchfab Standard (https://sketchfab.com/licenses)
-                 Modificato: solo il colletto, rimpicciolito e posizionato sul collo della maglia.
+collar-polo.glb  Colletto e strisce della V presi da "Adidas Retro Jersey Mold" di akifdesign su CGTrader
+                 https://www.cgtrader.com/free-3d-models/sports/equipment/adidas-retro-jersey-mold
+                 Modello gratuito: licenza come indicato sulla pagina di CGTrader.
+                 Modificato: solo colletto e strisce, ricostruiti dal progetto CLO e spostati sul collo della maglia
+                 (senza loghi né texture).
