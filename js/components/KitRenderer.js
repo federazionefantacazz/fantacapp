@@ -94,24 +94,25 @@ function marble(c, s, id) {
     + `<g stroke="${c}" fill="none" stroke-linecap="round" stroke-linejoin="round">${fine}</g>`;
 }
 
-/** Fiamme: lingue di fuoco che salgono dal fondo, su due file (dietro più alte e trasparenti). */
+/** Fiamme: una fila di lingue di fuoco che salgono dal fondo del busto, punte piegate alternate. */
 function flames(c, s) {
-  const rnd = rng(5);
-  const row = (count, hMin, hMax, op) => {
-    let d = '';
-    const step = W / count;
-    for (let i = -1; i <= count; i++) {
-      const x = (i + .5) * step + (rnd() - .5) * step * .4, w = step * (1.1 + rnd() * .5), h = (hMin + rnd() * (hMax - hMin)) * s;
-      const lean = (rnd() - .5) * w * .9, y0 = H + 10, tipX = x + lean, tipY = H - h;
-      d += `M${(x - w / 2).toFixed(1)},${y0}`
-        + ` C${(x - w / 2).toFixed(1)},${(y0 - h * .45).toFixed(1)} ${(x - w * .1 + lean * .3).toFixed(1)},${(y0 - h * .55).toFixed(1)} ${(tipX - w * .08).toFixed(1)},${(tipY + h * .25).toFixed(1)}`
-        + ` C${(tipX - w * .15).toFixed(1)},${(tipY + h * .1).toFixed(1)} ${(tipX + lean * .4).toFixed(1)},${(tipY + h * .04).toFixed(1)} ${tipX.toFixed(1)},${tipY.toFixed(1)}`
-        + ` C${(tipX + w * .12).toFixed(1)},${(tipY + h * .3).toFixed(1)} ${(x + w * .5).toFixed(1)},${(y0 - h * .4).toFixed(1)} ${(x + w / 2).toFixed(1)},${y0} Z`;
-    }
-    return `<path d="${d}" fill="${c}" fill-opacity="${op}"/>`;
-  };
-  return row(7, 170, 260, .45) + row(9, 110, 190, .75) + row(12, 50, 110, 1);
+  const f = (v) => v.toFixed(1), x0 = 90, x1 = 310, n = 6, step = (x1 - x0) / n, base = H + 10;
+  const hs = [.55, .95, .7, 1, .6, .85];
+  let d = `M${x0 - 20},${base} L${x0 - 20},${H - 40 * s}`;
+  for (let i = 0; i < n; i++) {
+    const a = x0 + i * step, h = 200 * s * hs[i], lean = (i % 2 ? 1 : -1) * step * .35;
+    const tipX = a + step / 2 + lean, tipY = H - h, valley = H - 40 * s;
+    // dal fondo della valle sale gonfiandosi, la punta si piega di lato, poi scende stretta nella valle successiva
+    d += ` C${f(a)},${f(valley - h * .3)} ${f(tipX - lean * 1.2)},${f(tipY + h * .45)} ${f(tipX)},${f(tipY)}`
+      + ` C${f(tipX - lean * .2)},${f(tipY + h * .4)} ${f(a + step * .9)},${f(valley - h * .35)} ${f(a + step)},${f(valley)}`;
+  }
+  return `<path d="${d} L${x1 + 20},${base} Z" fill="${c}"/>`;
 }
+
+/** Forma regolare (centro, raggio, lati, rotazione in gradi) come punti di un poligono. */
+const regular = (cx, cy, r, n, rot = -90) => range(0, n - 1, 1).map(i => { const a = (rot + i * 360 / n) * Math.PI / 180; return `${(cx + r * Math.cos(a) * NARROW).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`; }).join(' ');
+/** Sul busto la grafica viene allargata di circa 1/0,75: le forme singole si disegnano più strette per restare proporzionate. */
+const NARROW = .75;
 
 /** Low poly: triangoli sfaccettati con trasparenze diverse. */
 function lowPoly(c, s) {
@@ -124,17 +125,6 @@ function lowPoly(c, s) {
     if ((i + j) % 2) { tri(a, b, e); tri(a, e, d); } else { tri(a, b, d); tri(b, e, d); }
   }
   return o;
-}
-
-/** Pixel: quadratini che si diradano salendo verso il petto. */
-function pixelFade(c, s) {
-  const rnd = rng(13), q = 14 * s;
-  let d = '';
-  for (let y = 0; y < H; y += q) for (let x = 0; x < W; x += q) {
-    const t = clamp((y / H - .3) / .62, 0, 1);
-    if (rnd() < t * t * 1.15) { const k = q * (.55 + .4 * Math.min(1, t + rnd() * .3)); d += `M${(x + (q - k) / 2).toFixed(1)},${(y + (q - k) / 2).toFixed(1)}h${k.toFixed(1)}v${k.toFixed(1)}h${(-k).toFixed(1)}Z`; }
-  }
-  return `<path d="${d}" fill="${c}"/>`;
 }
 
 /** Linee di velocità: scie diagonali affusolate. */
@@ -218,10 +208,18 @@ export const PATTERNS = [
   { id: 'brush', label: 'Pennellate', draw: (c, s) => range(0, 5, 1).map(i => `<path d="M${40 + i * 10},${120 + i * 50} Q200,${80 + i * 55 - 30 * s} ${380 - i * 8},${140 + i * 48} L${380 - i * 8},${150 + i * 48 + 8 * s} Q200,${95 + i * 55 - 20 * s} ${40 + i * 10},${132 + i * 50 + 4 * s} Z" fill="${c}" opacity="${(1 - i * 0.12).toFixed(2)}"/>`).join('') },
   { id: 'flames', label: 'Fiamme', draw: (c, s) => flames(c, s) },
   { id: 'crackle', label: 'Crepe', draw: (c, s) => crackle(c, s) },
-  { id: 'marble', tile: true, label: 'Marmo', draw: (c, s, id) => marble(c, s, id) },
+  { id: 'marble', tile: true, hidden: true, label: 'Marmo', draw: (c, s, id) => marble(c, s, id) },
   { id: 'lowPoly', tile: true, label: 'Low poly', draw: (c, s) => lowPoly(c, s) },
-  { id: 'pixelFade', label: 'Pixel', draw: (c, s) => pixelFade(c, s) },
   { id: 'speedLines', tile: true, label: 'Linee di velocità', draw: (c, s) => speedLines(c, s) },
+  { id: 'sunburst', label: 'Raggi', draw: (c, s) => range(0, 23, 1).filter(i => i % 2 === 0).map(i => { const a0 = i * 15 * Math.PI / 180, a1 = (i + 1) * 15 * Math.PI / 180, R = 700; return `<polygon points="200,190 ${(200 + R * Math.cos(a0)).toFixed(0)},${(190 + R * Math.sin(a0)).toFixed(0)} ${(200 + R * Math.cos(a1)).toFixed(0)},${(190 + R * Math.sin(a1)).toFixed(0)}" fill="${c}"/>`; }).join('') + `<circle cx="200" cy="190" r="${36 * s}" fill="${c}"/>` },
+  { id: 'diamond', label: 'Rombo', draw: (c, s) => `<polygon points="${regular(200, 210, 110 * s, 4)}" fill="${c}"/>` },
+  { id: 'diamondLine', label: 'Rombo vuoto', draw: (c, s) => `<polygon points="${regular(200, 210, 110 * s, 4)}" fill="none" stroke="${c}" stroke-width="${14 * s}"/>` },
+  { id: 'triangle', label: 'Triangolo', draw: (c, s) => `<polygon points="${regular(200, 180, 120 * s, 3, 90)}" fill="${c}"/>` },
+  { id: 'hexagon', label: 'Esagono', draw: (c, s) => `<polygon points="${regular(200, 210, 100 * s, 6, 0)}" fill="none" stroke="${c}" stroke-width="${14 * s}"/>` },
+  { id: 'ring', label: 'Anello', draw: (c, s) => `<ellipse cx="200" cy="210" rx="${95 * s * NARROW}" ry="${95 * s}" fill="none" stroke="${c}" stroke-width="${16 * s}"/>` },
+  { id: 'arrow', label: 'Freccia', draw: (c, s) => `<polygon transform="translate(200,0) scale(${NARROW},1) translate(-200,0)" points="200,${(120 - 40 * s).toFixed(0)} ${(200 + 110 * s).toFixed(0)},${(230 - 20 * s).toFixed(0)} ${(200 + 110 * s).toFixed(0)},${(280 - 10 * s).toFixed(0)} 200,${(170 - 20 * s).toFixed(0)} ${(200 - 110 * s).toFixed(0)},${(280 - 10 * s).toFixed(0)} ${(200 - 110 * s).toFixed(0)},${(230 - 20 * s).toFixed(0)}" fill="${c}"/>` },
+  { id: 'sawtooth', tile: true, label: 'Denti di sega', draw: (c, s) => { const q = 30 * s, y = 200; let p = `M-${q},${y + q}`; range(-q, W + q, q).forEach(x => { p += ` L${(x + q / 2).toFixed(1)},${y} L${(x + q).toFixed(1)},${y + q}`; }); return `<path d="${p} Z" fill="${c}"/>`; } },
+  { id: 'triangles', tile: true, label: 'Triangoli', draw: (c, s) => { const q = 34 * s, hq = q * .87; let o = ''; range(0, H + hq, hq).forEach((y, i) => range((i % 2) * q / 2 - q, W + q, q).forEach(x => { o += `M${x.toFixed(1)},${(y + hq).toFixed(1)} L${(x + q / 2).toFixed(1)},${y.toFixed(1)} L${(x + q).toFixed(1)},${(y + hq).toFixed(1)}Z`; })); return `<path d="${o}" fill="${c}" fill-opacity=".85"/>`; } },
   { id: 'contour', tile: true, label: 'Curve di livello', draw: (c, s) => range(0, H + 40, 16 * s).map((y, i) => { let d = `M-10,${y}`; for (let x = -10; x <= W + 20; x += 20) d += ` L${x},${(y + Math.sin(x / 45 + i * .7) * 10 * s + Math.sin(x / 17 + i) * 3).toFixed(1)}`; return `<path d="${d}" fill="none" stroke="${c}" stroke-width="${(1.6 * s).toFixed(1)}"/>`; }).join('') },
 ];
 

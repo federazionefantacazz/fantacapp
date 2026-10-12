@@ -340,7 +340,7 @@ export const DivisaSquadra = {
           <div class="kit-sub">Disegno del livello ${sel + 1}</div>
           <div class="kit-grid">
             ${png.map(pp => cell('png:' + pp.id, pp.url, pp.name)).join('')}
-            ${PATTERNS.map(pt => cell(pt.id, patternThumbUrl(pt), pt.label)).join('')}
+            ${PATTERNS.filter(pt => !pt.hidden || pt.id === l.type).map(pt => cell(pt.id, patternThumbUrl(pt), pt.label)).join('')}
           </div>
           <div class="kit-sub">Dove applicarlo</div>
           <div class="kit-chips">${ZONES.map(z => this._chip('layer-zone', z.id, z.label, l.zone === z.id)).join('')}</div>
