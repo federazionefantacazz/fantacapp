@@ -1,5 +1,5 @@
 import { paintKitTexture, normalizeKit, KIT3D_FILES } from './KitRenderer.js';
-import { deformPoint, isDeformed, fitCollarToV } from './kitShapes.js';
+import { deformPoint, isDeformed } from './kitShapes.js';
 
 /**
  * Maglia 3D (three.js, in vendor/three): il modello in icons/kit3d/shirt.glb viene "vestito"
@@ -35,14 +35,6 @@ function loadModel() {
   return modelJob;
 }
 
-/** Pezzo della maglia a cui appartiene una mesh (nome del nodo glTF). */
-function partOf(o) {
-  const n = `${o.name}|${o.parent ? o.parent.name : ''}`;
-  if (/(^|\|)42(_|\||$)/.test(n)) return 'front';
-  if (/Pattern2D_3805002/.test(n)) return 'collar';
-  return '';
-}
-
 /** Copia della geometria con posizioni decimali (quelle compresse non si possono spostare liberamente). */
 function floatGeometry(THREE, geometry) {
   const g = geometry.clone();
@@ -58,7 +50,8 @@ function floatGeometry(THREE, geometry) {
 
 /**
  * Maglia con la forma di colletto richiesta (una volta per forma).
- * 'polo': colletto alto di icons/kit3d/collar-polo.glb adattato allo scollo a V.
+ * 'polo': collo della maglia rimodellato (kitShapes.deformPoint) + colletto alto di icons/kit3d/collar-polo.glb,
+ *         già posizionato sulla maglia.
  */
 const variants = new Map();
 function loadVariant(shape) {
@@ -72,36 +65,22 @@ function loadVariant(shape) {
       const v = new THREE.Vector3(), inv = new THREE.Matrix4();
       model.traverse(o => {
         if (!o.isMesh) return;
-        const part = partOf(o);
-        if (!part) return;
         const g = floatGeometry(THREE, o.geometry);
         const pos = g.getAttribute('position');
         inv.copy(o.matrixWorld).invert();
         for (let i = 0; i < pos.count; i++) {
           v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
-          const p = deformPoint(key, part, [v.x, v.y, v.z]);
+          const p = deformPoint(key, [v.x, v.y, v.z]);
           v.set(p[0], p[1], p[2]).applyMatrix4(inv);
           pos.setXYZ(i, v.x, v.y, v.z);
         }
-        g.computeBoundingBox(); g.computeBoundingSphere();
+        g.computeBoundingBox(); g.computeBoundingSphere(); // normali originali: lo spostamento è piccolo e senza cuciture visibili
         o.geometry = g;
       });
       if (key === 'polo') {
         const loader = new L.GLTFLoader();
         const collar = (await loader.loadAsync(KIT3D_FILES.collarPolo)).scene;
-        // tutti i vertici insieme: l'adattamento guarda la forma del colletto intero
-        const parts = [];
-        collar.traverse(o => { if (o.isMesh) parts.push({ o, g: floatGeometry(THREE, o.geometry) }); });
-        const pts = [];
-        parts.forEach(({ g }) => { const pos = g.getAttribute('position'); for (let i = 0; i < pos.count; i++) pts.push([pos.getX(i), pos.getY(i), pos.getZ(i)]); });
-        fitCollarToV(pts);
-        let n = 0;
-        parts.forEach(({ o, g }) => {
-          const pos = g.getAttribute('position');
-          for (let i = 0; i < pos.count; i++, n++) pos.setXYZ(i, pts[n][0], pts[n][1], pts[n][2]);
-          g.computeVertexNormals(); g.computeBoundingBox(); g.computeBoundingSphere();
-          o.geometry = g;
-        });
+        collar.traverse(o => { if (o.isMesh) o.geometry.computeVertexNormals(); });
         model.add(collar);
       }
       return model;
@@ -111,17 +90,6 @@ function loadVariant(shape) {
 }
 
 const validColor = (c, def = '#ffffff') => (/^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : def);
-
-/** Texture del colletto alto: tinta unita del colore del colletto, con le costine. */
-function paintPoloCollar(kit) {
-  const c = document.createElement('canvas');
-  c.width = 1024; c.height = 128;
-  const x = c.getContext('2d');
-  x.fillStyle = validColor(kit.colors.collar); x.fillRect(0, 0, c.width, c.height);
-  x.fillStyle = 'rgba(0,0,0,.05)';
-  for (let i = 0; i < c.width; i += 3) x.fillRect(i, 0, 1, c.height); // costine
-  return c;
-}
 
 class Stage {
   constructor(L, model, canvas, { interactive = false, width = 600, height = 640 } = {}) {
@@ -149,10 +117,6 @@ class Stage {
     // la maglia si vede quasi alla risoluzione della texture: senza mipmap loghi e scritte restano nitidi
     this.texture.generateMipmaps = false;
     this.texture.minFilter = THREE.LinearFilter;
-    this.collarTexture = new THREE.CanvasTexture(document.createElement('canvas'));
-    this.collarTexture.flipY = false;
-    this.collarTexture.colorSpace = THREE.SRGBColorSpace;
-    this.collarTexture.anisotropy = this.texture.anisotropy;
     this.setModel(model);
 
     const box = new THREE.Box3().setFromObject(this.model);
@@ -202,14 +166,8 @@ class Stage {
     this.innerMats.forEach(m => { m.color.copy(inner); m.roughness = 1; m.envMapIntensity = 0.4; });
     const M = this.collarMats || {};
     const each = (name, fn) => (M[name] || []).forEach(fn);
-    if (M.polo_collar) {
-      const c = paintPoloCollar(kit);
-      const old = this.collarTexture.image;
-      if (old && (old.width !== c.width || old.height !== c.height)) this.collarTexture.dispose();
-      this.collarTexture.image = c;
-      this.collarTexture.needsUpdate = true;
-      each('polo_collar', m => { m.map = this.collarTexture; m.color.set('#ffffff'); m.needsUpdate = true; });
-    }
+    // colletto alto: tinta unita del colore del colletto
+    each('polo_collar', m => { m.color.set(validColor(kit.colors.collar)); m.roughness = 0.85; });
   }
 
   setView(yawDeg) {
@@ -238,7 +196,6 @@ class Stage {
   dispose() {
     if (this.controls) this.controls.dispose();
     this.texture.dispose();
-    this.collarTexture.dispose();
     this.renderer.dispose();
   }
 }
