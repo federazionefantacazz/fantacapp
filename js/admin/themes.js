@@ -1,5 +1,6 @@
 import { ref, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { uploadBackgroundToImgBB } from "../services/integrationImgBB.js";
+import { DiviseSection } from "./divise.js";
 import { THEME_PAGES, THEME_VERSION, normalizeTheme } from "../services/themeService.js";
 
 let database = null;
@@ -23,7 +24,7 @@ export const ThemesSection = {
           <i class="ri-trophy-line"></i> Competizioni
         </button>
         <button id="tab-btn-theme-squadre" class="btn" onclick="window.switchThemeSubTab('squadre')" style="padding: .4rem .8rem; font-size: .85rem; width: auto; background: var(--bg3); color: var(--text2);">
-          <i class="ri-shield-line"></i> Squadre <span style="font-size: .7rem; background: var(--gold); color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-left: 4px;">WIP</span>
+          <i class="ri-shirt-line"></i> Squadre
         </button>
       </div>
 
@@ -66,7 +67,7 @@ export const ThemesSection = {
           <div class="label" style="color: var(--accent); margin-bottom: 1rem; font-size: .85rem;">Personalizza Tema per Pagina</div>
 
           <div style="font-size: .75rem; color: var(--text3); margin-bottom: .8rem;">
-            Scegli la pagina, poi imposta i singoli tipi (titoli, testi, sottotesti, label, pulsanti, testi dei pulsanti).
+            Scegli la pagina, poi imposta i singoli tipi (titoli, testi, sottotesti, testi disattivati, label, pulsanti, testi dei pulsanti).
             Quello che lasci vuoto eredita da <strong>Generale</strong>. Il nome sotto ogni campo è la variabile CSS usata nell'app.
           </div>
 
@@ -90,15 +91,9 @@ export const ThemesSection = {
         </div>
       </div>
 
-      <!-- SOTTO-PAGINA 2: SQUADRE (WIP) -->
+      <!-- SOTTO-PAGINA 2: SQUADRE (divise, js/admin/divise.js) -->
       <div id="subtab-theme-squadre" style="display: none;">
-        <div class="card" style="text-align: center; padding: 3rem 1rem; border-left: 4px solid var(--gold); max-width: 600px;">
-          <div class="num" style="font-size: 2rem; color: var(--gold); margin-bottom: 0.5rem;"><i class="ri-error-warning-line"></i> WORK IN PROGRESS</div>
-          <p style="color: var(--text2); font-size: 0.95rem; max-width: 400px; margin: 0 auto; line-height: 1.5;">
-            La personalizzazione dei temi e degli sfondi specifici per le <strong>Squadre</strong> è in fase di sviluppo.<br>
-            Presto potrai personalizzare i colori sociali e gli sfondi dei singoli club!
-          </p>
-        </div>
+        ${DiviseSection.renderHTML()}
       </div>
 
     </div>`;
