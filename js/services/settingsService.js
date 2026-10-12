@@ -21,6 +21,7 @@ export const SettingsService = {
       soundEnabled: false,
       compactView: false,
       showBackground: true,
+      kit3dQuality: 'high',       // risoluzione dell'editor 3D della divisa: low | medium | high
       lastCompetition: ''   // ultima competizione scelta (con il suo tema): si riapre sempre quella
     };
   },

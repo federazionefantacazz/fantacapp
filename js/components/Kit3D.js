@@ -105,12 +105,18 @@ function loadVariant(shape) {
 
 const validColor = (c, def = '#ffffff') => (/^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : def);
 
+/** Pixel per punto dell'editor 3D (Impostazioni → Risoluzione editor 3D): bassa 2, media 2,5, alta 3. */
+function editorPixelRatio() {
+  const q = ((window.STATE && window.STATE.settings) || {}).kit3dQuality;
+  return q === 'low' ? 2 : q === 'medium' ? 2.5 : 3;
+}
+
 class Stage {
   constructor(L, model, canvas, { interactive = false, width = 600, height = 640 } = {}) {
     const { THREE } = L;
     this.L = L;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
-    this.renderer.setPixelRatio(interactive ? Math.min(window.devicePixelRatio || 1, 3) : 1);
+    this.renderer.setPixelRatio(interactive ? Math.min(window.devicePixelRatio || 1, editorPixelRatio()) : 1);
     this.renderer.setSize(width, height, false);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1;
