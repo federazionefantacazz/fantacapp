@@ -1,5 +1,5 @@
 import { paintKitTexture, normalizeKit, KIT3D_FILES } from './KitRenderer.js';
-import { deformPoint, isDeformed } from './kitShapes.js';
+import { deformPoint, isDeformed, fitCollarToV } from './kitShapes.js';
 
 /**
  * Maglia 3D (three.js, in vendor/three): il modello in icons/kit3d/shirt.glb viene "vestito"
@@ -58,7 +58,7 @@ function floatGeometry(THREE, geometry) {
 
 /**
  * Maglia con la forma di colletto richiesta (una volta per forma).
- * 'polo': scollo chiuso in un collo tondo + colletto alto di icons/kit3d/collar-polo.glb.
+ * 'polo': colletto alto di icons/kit3d/collar-polo.glb adattato allo scollo a V.
  */
 const variants = new Map();
 function loadVariant(shape) {
@@ -89,6 +89,17 @@ function loadVariant(shape) {
       if (key === 'polo') {
         const loader = new L.GLTFLoader();
         const collar = (await loader.loadAsync(KIT3D_FILES.collarPolo)).scene;
+        collar.traverse(o => {
+          if (!o.isMesh) return;
+          const g = floatGeometry(THREE, o.geometry);
+          const pos = g.getAttribute('position');
+          for (let i = 0; i < pos.count; i++) {
+            const p = fitCollarToV([pos.getX(i), pos.getY(i), pos.getZ(i)]);
+            pos.setXYZ(i, p[0], p[1], p[2]);
+          }
+          g.computeVertexNormals(); g.computeBoundingBox(); g.computeBoundingSphere();
+          o.geometry = g;
+        });
         model.add(collar);
       }
       return model;
