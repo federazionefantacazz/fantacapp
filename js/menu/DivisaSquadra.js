@@ -277,7 +277,7 @@ export const DivisaSquadra = {
   },
 
   _range(path, label, value, min, max, unit = '') {
-    return `<label class="kit-field"><span>${label}</span><input type="range" min="${min}" max="${max}" value="${value}" data-range="${path}"><span class="val">${value}${unit}</span></label>`;
+    return `<label class="kit-field"><span>${label}</span><input type="range" min="${min}" max="${max}" value="${value}" data-range="${path}" data-unit="${unit}"><span class="val">${value}${unit}</span></label>`;
   },
 
   _chip(act, value, label, on) {
@@ -298,6 +298,12 @@ export const DivisaSquadra = {
       <div class="kit-grid">${CUFFS.map(c => this._opt('cuffs', c.id, this._thumb({ ...base, cuffs: c.id }), c.label, k.cuffs === c.id)).join('')}</div>
       <div class="kit-sub">Decorazioni maniche</div>
       <div class="kit-grid">${SLEEVE_DECO.map(d => this._opt('sleeveDeco', d.id, this._thumb({ ...base, sleeveDeco: d.id }), d.label, k.sleeveDeco === d.id)).join('')}</div>
+      ${k.sleeveDeco !== 'none' ? `
+      ${this._range('sleeveTf.scale', 'Dimensione', k.sleeveTf.scale, 40, 200, '%')}
+      ${this._range('sleeveTf.x', 'Sposta ↔', k.sleeveTf.x, -50, 50)}
+      ${this._range('sleeveTf.y', 'Sposta ↕', k.sleeveTf.y, -50, 50)}
+      ${this._range('sleeveTf.rot', 'Rotazione', k.sleeveTf.rot, -180, 180, '°')}
+      <div class="kit-chips" style="margin-top:.4rem;">${this._chip('sleeve-reset', '1', 'Ripristina posizione', false)}</div>` : ''}
       <div class="mp-muted" style="margin-top:.6rem;">Colori di colletto, polsini e finiture nella FASE 4. Ruota la maglia per vedere maniche e retro.</div>`;
   },
 
@@ -342,15 +348,19 @@ export const DivisaSquadra = {
           <div class="kit-color-row">${this._colorPicker(`${p}.color`, l.color)}</div>
           ${this._range(`${p}.opacity`, 'Opacità', l.opacity, 5, 100, '%')}
           ${this._range(`${p}.scale`, 'Dimensione', l.scale, 30, 250, '%')}
+          ${this._range(`${p}.x`, 'Sposta ↔', l.x || 0, -50, 50)}
+          ${this._range(`${p}.y`, 'Sposta ↕', l.y || 0, -50, 50)}
+          ${this._range(`${p}.rot`, 'Rotazione', l.rot || 0, -180, 180, '°')}
           <div class="kit-chips" style="margin-top:.4rem;">
             ${this._chip('layer-flag', 'flipX', 'Specchia ↔', l.flipX)}
             ${this._chip('layer-flag', 'flipY', 'Capovolgi ↕', l.flipY)}
+            ${this._chip('layer-reset', '1', 'Ripristina posizione', false)}
           </div>
         </div>`;
     }
 
     return `
-      <div class="mp-muted" style="margin-bottom:.6rem;">Sovrapponi fino a ${MAX_LAYERS} livelli: ognuno ha il suo disegno, colore, opacità e dimensione. Il primo livello è quello più in basso.</div>
+      <div class="mp-muted" style="margin-bottom:.6rem;">Sovrapponi fino a ${MAX_LAYERS} livelli: ognuno ha il suo disegno, colore, opacità, dimensione, posizione e rotazione. Il primo livello è quello più in basso.</div>
       ${layers || '<div class="mp-muted" style="text-align:center; padding:.6rem 0;">Nessun livello: maglia in tinta unita.</div>'}
       ${editor}
       <button class="mp-btn" data-act="layer-add" ${k.layers.length >= MAX_LAYERS ? 'disabled' : ''} style="width:100%;"><i class="ri-add-line"></i> Aggiungi livello</button>`;
@@ -501,6 +511,12 @@ export const DivisaSquadra = {
       case 'view':
         if (this._viewer) this._viewer.setView(v);
         return;
+      case 'layer-reset':
+        this._update(kit => { const l = kit.layers[Math.min(this._layer, kit.layers.length - 1)]; if (l) Object.assign(l, { x: 0, y: 0, rot: 0, scale: 100 }); });
+        return;
+      case 'sleeve-reset':
+        this._update(kit => { kit.sleeveTf = { x: 0, y: 0, scale: 100, rot: 0 }; });
+        return;
       case 'collarShape': case 'collar': case 'cuffs': case 'sleeveDeco':
         this._update(kit => { kit[act] = v; });
         return;
@@ -593,7 +609,7 @@ export const DivisaSquadra = {
     if (t.dataset.range) {
       this._set(t.dataset.range, Number(t.value));
       const val = t.parentElement.querySelector('.val');
-      if (val) val.textContent = t.value + (val.textContent.endsWith('%') ? '%' : '');
+      if (val) val.textContent = t.value + (t.dataset.unit || '');
       this._schedulePreview();
     } else if (t.dataset.color) {
       this._set(t.dataset.color, t.value);
