@@ -4,6 +4,7 @@ import { renderAnteprimaClassifica } from './components/AnteprimaClassifica.js';
 import { CalcoloMatchService } from './services/calcoloMatch.js';
 import { createMatchCardResult } from './components/MatchCardResult.js';
 import { LiveMatchModule } from './liveMatch.js';
+import { kitImageHTML } from './components/Kit3D.js';
 
 const isByeId = (id) => /BYE|RIPOSO/i.test(String(id ?? ''));
 
@@ -49,6 +50,9 @@ export const HomePage = {
               <p id="homeTeamOwner" style="font-size: 0.75rem; color: var(--text2); margin: 2px 0 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">...</p>
             </div>
           </div>
+
+          <!-- DIVISA DELLA SQUADRA (al centro, visibile solo se la squadra ha una divisa) -->
+          <div id="homeTeamKit" style="display:none; padding:0.8rem 0; border-top: 1px dashed var(--border); width: 100%;"></div>
 
           <!-- MINI CLASSIFICA (a tutta larghezza) -->
           <div id="homeMiniClassifica" style="padding-top: 0.8rem; border-top: 1px dashed var(--border); width: 100%;">
@@ -97,6 +101,7 @@ export const HomePage = {
     const onFireTitle = document.getElementById('onFireTitle');
     const teamLogoContainer = document.getElementById('userTeamLogo');
     const miniClassificaBox = document.getElementById('homeMiniClassifica');
+    const kitBox = document.getElementById('homeTeamKit');
 
     let competitionsList = [];
     if (STATE.competitions) {
@@ -160,6 +165,15 @@ export const HomePage = {
           teamLogoContainer.innerHTML = `<img src="${myTeam.logo}" style="width:100px; height:100px; object-fit:contain; border-radius:8px; background:var(--bg3); padding:2px; border:1px solid rgba(255,255,255,0.08);" onerror="this.src=''; this.innerHTML='<i class=\\'ri-shield-fill\\' style=\\'font-size:1.5rem; color:var(--text2);\\'></i>';" alt="Logo">`;
         } else {
           teamLogoContainer.innerHTML = `<div style="width:100px; height:100px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-shield-fill" style="font-size:1.5rem; color:var(--text2)"></i></div>`;
+        }
+      }
+
+      if (kitBox) {
+        const key = myTeam.kit ? (myTeam.kit.image || JSON.stringify(myTeam.kit)) + '|' + (myTeam.logo || '') : '';
+        if (kitBox.dataset.key !== key) {
+          kitBox.dataset.key = key;
+          kitBox.style.display = key ? 'block' : 'none';
+          kitBox.innerHTML = key ? kitImageHTML(myTeam.kit, { crestUrl: myTeam.logo || '', width: 480 }, 'style="width:220px; max-width:70%; margin:0 auto;"') : '';
         }
       }
 
@@ -247,6 +261,7 @@ export const HomePage = {
       if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:52px; height:52px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-eye-line" style="font-size:1.5rem; color:var(--text2)"></i></div>`;
       if (trophiesContainer) trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3);">--</span>`;
       if (miniClassificaBox) miniClassificaBox.innerHTML = `<div style="font-size: 0.7rem; color: var(--text3);">Non associato a una squadra.</div>`;
+      if (kitBox) { kitBox.dataset.key = ''; kitBox.style.display = 'none'; kitBox.innerHTML = ''; }
     }
 
     if (comp) {

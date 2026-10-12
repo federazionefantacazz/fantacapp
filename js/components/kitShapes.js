@@ -17,6 +17,8 @@ const NECK_SIDE_Y = 1.578;  // altezza del bordo del colletto ai lati del collo
 const V_EDGE = [[0, 1.518], [0.015, 1.522], [0.03, 1.529], [0.045, 1.536], [0.06, 1.547], [0.075, 1.559], [0.09, 1.578]];
 const FALLOFF = 0.09;       // quanto in basso arriva la deformazione sul petto
 
+const smooth = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
+
 function interp(tbl, ax) {
   if (ax <= tbl[0][0]) return tbl[0][1];
   for (let i = 1; i < tbl.length; i++) {
@@ -37,6 +39,12 @@ export const isDeformed = (shape) => shape === 'polo' || !!NECK[shape];
 // collo tondo su cui è stato posizionato il file del colletto (collar-polo.glb)
 const COLLAR_FILE_NECK = (x) => NECK_SIDE_Y - 0.014 * Math.sqrt(Math.max(0, 1 - (x / NECK_X) ** 2));
 const ZC = -0.004;          // centro del collo (z)
+// raggio dell'apertura del collo della maglia e raggio interno del piede del colletto, per angolo (0 = davanti, 180 = dietro)
+const FOLD_DROP = 0.85;
+const SHIRT_R = [[0, .067], [30, .066], [50, .066], [60, .069], [70, .068], [80, .070], [90, .076], [100, .079], [110, .083],
+  [120, .085], [130, .083], [140, .082], [150, .077], [160, .073], [170, .070], [180, .070]];
+const COLLAR_R = [[0, .061], [30, .059], [50, .060], [60, .061], [70, .062], [80, .060], [90, .060], [100, .059], [110, .060],
+  [120, .062], [130, .064], [140, .067], [150, .069], [160, .069], [170, .068], [180, .067]];
 
 /**
  * Colletto alto sullo scollo a V: sposta in basso (e un po' in avanti, come il petto) la parte davanti del colletto,
@@ -46,6 +54,17 @@ const ZC = -0.004;          // centro del collo (z)
 export function fitCollarToV(p) {
   const [x, , z] = p;
   const th = Math.atan2(x, z - ZC);                  // 0 davanti, ±π dietro
+  // ai lati e dietro allarga il colletto fino all'apertura del collo della maglia (niente spazio vuoto tra i due)
+  const deg = Math.abs(th) * 180 / Math.PI;
+  const w = smooth((deg - 40) / 30);
+  if (w > 0) {
+    const k = 1 + w * Math.max(0, (interp(SHIRT_R, deg) + 0.002) / interp(COLLAR_R, deg) - 1);
+    p[0] = x * k;
+    p[2] = ZC + (z - ZC) * k;
+    // il risvolto scende sulle spalle (che qui sono più spioventi di quelle della polo): più è lontano dal collo, più si abbassa
+    const out = Math.hypot(x, z - ZC) - interp(COLLAR_R, deg) - 0.004;
+    if (out > 0) p[1] -= w * FOLD_DROP * out;
+  }
   if (Math.abs(th) >= Math.PI / 2) return p;
   const xn = NECK_X * Math.sin(Math.abs(th));        // punto del bordo del collo a quell'angolo
   const d = COLLAR_FILE_NECK(xn) - interp(V_EDGE, xn);
@@ -54,8 +73,6 @@ export function fitCollarToV(p) {
   p[2] += 0.45 * d;
   return p;
 }
-
-const smooth = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 
 /**
  * Deforma un punto (coordinate del modello) del pezzo indicato: 'front' (davanti) o 'collar' (fascia del colletto).
