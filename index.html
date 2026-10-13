@@ -36,7 +36,7 @@
   --nav-bg: color-mix(in srgb, var(--bg) 70%, #000);         /* Barra in basso */
   --drawer-bg: color-mix(in srgb, var(--bg) 82%, #000);      /* Menu laterale e pannelli del menu */
   --bar-text: #e2e8f0;                                       /* Testo e icone dentro le barre */
-  --nav-inactive: #808ea3;                                   /* Tab inattivo (contrasto ≥ 4.5:1) */
+  --nav-inactive: #6b7a90;                                   /* Tab inattivo */
   --nav-active: var(--accent);                               /* Tab attivo */
 
   /* ===== 3. PULSANTI ===== */
@@ -49,7 +49,7 @@
   /* ===== 4. TESTI ===== */
   --text: #e2e8f0;     /* Testo principale */
   --text2: #94a3b8;    /* Sottotesti, etichette, descrizioni */
-  --text3: #7d8ba0;    /* Testo disattivato, segnaposto (contrasto ≥ 4.5:1 sullo sfondo) */
+  --text3: #5b6b80;    /* Testo disattivato, segnaposto */
 
   /* ===== 5. EVIDENZE (dati, non pulsanti) ===== */
   --accent: #50e3c2;   /* Punti, titoli di sezione, selezioni, interruttori */
@@ -99,10 +99,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;  /* area di tocco minima consigliata (44×44) */
-  height: 44px;
+  width: 32px;
+  height: 32px;
   padding: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   color: var(--bar-text);
   transition: background 0.2s ease;
   -webkit-tap-highlight-color: transparent;
@@ -303,7 +303,7 @@ body {
 .select-rose, .input-login{width:100%;background:var(--bg3);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:.75rem .9rem;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:1rem;outline:none;min-height:46px}
 .input-login:focus,.select-rose:focus{border-color:var(--accent)}
 .input-login{background:var(--bg2);border-color:rgba(255,255,255,0.15);margin-bottom:1rem;user-select:text !important;-webkit-user-select:text !important;}
-.link-toggle{color:var(--accent2);font-size:.85rem;text-decoration:none;display:inline-block;margin-top:.6rem;cursor:pointer;background:none;border:none;font-family:inherit;padding:.6rem .4rem;min-height:44px}
+.link-toggle{color:var(--accent2);font-size:.85rem;text-decoration:none;display:inline-block;margin-top:.6rem;cursor:pointer;background:none;border:none;font-family:inherit;padding:.6rem .4rem}
 
 /* ==================== STATUS BAR (iPhone) ====================
    Fascia sotto l'ora/batteria (safe area in alto): stesso colore della barra in basso.
@@ -351,10 +351,7 @@ body {
   font-size: .65rem !important;
   font-weight: 500;
   cursor: pointer;
-  min-height: 48px;
-  min-width: 48px;
-  justify-content: center;
-  padding: .35rem .5rem;
+  padding: .4rem .55rem;
   border-radius: 14px;
   transition: color .25s ease, background .25s ease, transform .25s cubic-bezier(.4,0,.2,1), box-shadow .25s ease;
 }
@@ -419,19 +416,11 @@ html.resuming #page-login{visibility:hidden}
 .side-menu-count{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--accent3);color:#fff;font-size:.7rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
 
 /* ==================== ACCESSIBILITÀ ==================== */
-/* Focus visibile solo da tastiera / switch / lettore di schermo (non al tocco) */
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
-#userCompSelect:focus-visible{outline:2px solid var(--accent) !important;outline-offset:2px}
-.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 label.label{display:block;text-align:left}
 /* iOS ingrandisce la pagina quando si tocca un campo con testo < 16px: lì i campi vanno a 16px */
 @supports (-webkit-touch-callout: none){
   input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea{font-size:max(16px, 1em) !important}
   #userCompSelect{height:30px !important;max-width:170px}
-}
-@media (prefers-reduced-motion: reduce){
-  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
-  .nav-btn.active{transform:none}
 }
 
 /* Login: mostra/nascondi password */
@@ -511,7 +500,7 @@ html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75re
     </div>
 
     <button class="menu-header-btn" id="menuHeaderBtn" onclick="window.openSideMenu()" aria-label="Apri menu" aria-expanded="false">
-      <i class="ri-menu-line" style="font-size: 1.5rem;" aria-hidden="true"></i>
+      <i class="ri-menu-line" style="font-size: 1.5rem;"></i>
       <span class="badge-dot" id="menuReqBadge" style="display:none;" aria-label="Richieste in attesa"></span>
     </button>
   </div>
@@ -531,7 +520,7 @@ html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75re
       <label class="label" for="loginPassword">Password</label>
       <div class="pw-wrap">
         <input type="password" id="loginPassword" class="input-login" placeholder="••••••••" autocomplete="current-password" enterkeyhint="go" required>
-        <button type="button" class="pw-toggle" onclick="window.togglePassword('loginPassword', this)" aria-label="Mostra password" aria-pressed="false"><i class="ri-eye-line" aria-hidden="true"></i></button>
+        <button type="button" class="pw-toggle" onclick="window.togglePassword('loginPassword', this)" aria-label="Mostra password" aria-pressed="false"><i class="ri-eye-line"></i></button>
       </div>
       <button type="submit" class="btn btn-green">Accedi</button>
       <button type="button" class="link-toggle" onclick="window.toggleAuthBoxes('register')">Non hai un account? Registrati</button>
@@ -543,9 +532,9 @@ html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75re
       <label class="label" for="registerPassword">Scegli Password</label>
       <div class="pw-wrap">
         <input type="password" id="registerPassword" class="input-login" placeholder="Minimo 6 caratteri" autocomplete="new-password" minlength="6" enterkeyhint="go" required aria-describedby="registerPwHint">
-        <button type="button" class="pw-toggle" onclick="window.togglePassword('registerPassword', this)" aria-label="Mostra password" aria-pressed="false"><i class="ri-eye-line" aria-hidden="true"></i></button>
+        <button type="button" class="pw-toggle" onclick="window.togglePassword('registerPassword', this)" aria-label="Mostra password" aria-pressed="false"><i class="ri-eye-line"></i></button>
       </div>
-      <div class="login-note" id="registerPwHint" style="margin-bottom:1rem;"><i class="ri-information-line" aria-hidden="true"></i>Il nuovo account dovrà essere accettato da un Patron prima di poter entrare.</div>
+      <div class="login-note" id="registerPwHint" style="margin-bottom:1rem;"><i class="ri-information-line"></i>Il nuovo account dovrà essere accettato da un Patron prima di poter entrare.</div>
       <button type="submit" class="btn btn-green">Crea Account</button>
       <button type="button" class="link-toggle" onclick="window.toggleAuthBoxes('login')">Hai già un account? Accedi</button>
     </form>
@@ -572,23 +561,23 @@ html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75re
 </div>
 
 <nav id="nav" aria-label="Navigazione principale" style="display:none;padding-left: 5px;padding-right: 5px;">
-  <button class="nav-btn active" data-page="home" aria-current="page" onclick="goPage('home',this)">
-    <i class="ri-home-4-line" style="font-size: 20px;" aria-hidden="true"></i>Home
+  <button class="nav-btn active" data-page="home" onclick="goPage('home',this)">
+    <i class="ri-home-4-line" style="font-size: 20px;"></i>Home
   </button>
   <button class="nav-btn" data-page="calendario" onclick="goPage('calendario',this)">
-    <i class="ri-calendar-line" style="font-size: 20px;" aria-hidden="true"></i>Calendario
+    <i class="ri-calendar-line" style="font-size: 20px;"></i>Calendario
   </button>
   <button class="nav-btn" data-page="classifica" onclick="goPage('classifica',this)">
-    <i class="ri-bar-chart-2-line" style="font-size: 20px;" aria-hidden="true"></i>Classifica
+    <i class="ri-bar-chart-2-line" style="font-size: 20px;"></i>Classifica
   </button>
   <button id="btn-nav-formazione" class="nav-btn" data-page="formazione" onclick="goPage('formazione',this)">
-    <i class="ri-shield-user-line" style="font-size: 20px;" aria-hidden="true"></i><span>Formazione</span>
+    <i class="ri-shield-user-line" style="font-size: 20px;"></i><span>Formazione</span>
   </button>
   <button class="nav-btn" data-page="mercato" onclick="goPage('mercato',this)">
-    <i class="ri-shopping-cart-line" style="font-size: 20px;" aria-hidden="true"></i>Mercato
+    <i class="ri-shopping-cart-line" style="font-size: 20px;"></i>Mercato
   </button>
   <button class="nav-btn" data-page="teams" onclick="goPage('teams',this)">
-    <i class="ri-team-line" style="font-size: 20px;" aria-hidden="true"></i>Squadre
+    <i class="ri-team-line" style="font-size: 20px;"></i>Squadre
   </button>
 </nav>
 
@@ -598,23 +587,23 @@ html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75re
   <div class="side-menu-head">
     <span class="side-menu-title">Menu</span>
     <button class="menu-header-btn" onclick="window.closeSideMenu()" aria-label="Chiudi menu">
-      <i class="ri-close-line" style="font-size: 1.5rem;" aria-hidden="true"></i>
+      <i class="ri-close-line" style="font-size: 1.5rem;"></i>
     </button>
   </div>
-  <button class="side-menu-item" onclick="window.openMenuPage('settings')"><i class="ri-settings-3-line" aria-hidden="true"></i>Impostazioni applicazione</button>
-  <button class="side-menu-item" onclick="window.openMenuPage('team')"><i class="ri-shield-star-line" aria-hidden="true"></i>Configurazione squadra</button>
-  <button class="side-menu-item" onclick="window.openMenuPage('listone')"><i class="ri-list-check-2" aria-hidden="true"></i>Listone</button>
-  <button class="side-menu-item" onclick="window.openMenuPage('svincolati')"><i class="ri-user-unfollow-line" aria-hidden="true"></i>Svincolati</button>
-  <button class="side-menu-item" id="menuInstallItem" style="display:none;" onclick="window.installApp()"><i class="ri-download-2-line" aria-hidden="true"></i>Installa l'app</button>
+  <button class="side-menu-item" onclick="window.openMenuPage('settings')"><i class="ri-settings-3-line"></i>Impostazioni applicazione</button>
+  <button class="side-menu-item" onclick="window.openMenuPage('team')"><i class="ri-shield-star-line"></i>Configurazione squadra</button>
+  <button class="side-menu-item" onclick="window.openMenuPage('listone')"><i class="ri-list-check-2"></i>Listone</button>
+  <button class="side-menu-item" onclick="window.openMenuPage('svincolati')"><i class="ri-user-unfollow-line"></i>Svincolati</button>
+  <button class="side-menu-item" id="menuInstallItem" style="display:none;" onclick="window.installApp()"><i class="ri-download-2-line"></i>Installa l'app</button>
   <div class="side-menu-sep"></div>
-  <button class="side-menu-item patron" id="menuPatronItem" style="display:none;" onclick="window.goToPatron()"><i class="ri-vip-crown-2-line" aria-hidden="true"></i>Passa a Patron<span class="side-menu-count" id="menuReqCount" style="display:none;" title="Richieste di nuovi account"></span></button>
-  <button class="side-menu-item danger" onclick="window.closeSideMenu(); window.doFirebaseLogout()"><i class="ri-logout-box-r-line" aria-hidden="true"></i>Log out</button>
+  <button class="side-menu-item patron" id="menuPatronItem" style="display:none;" onclick="window.goToPatron()"><i class="ri-vip-crown-2-line"></i>Passa a Patron<span class="side-menu-count" id="menuReqCount" style="display:none;" title="Richieste di nuovi account"></span></button>
+  <button class="side-menu-item danger" onclick="window.closeSideMenu(); window.doFirebaseLogout()"><i class="ri-logout-box-r-line"></i>Log out</button>
 </aside>
 
-<div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+<div id="toast" class="toast"></div>
 
-<div id="update-banner" role="alert">
-  <i class="ri-refresh-line" style="color:var(--accent); font-size:1.1rem;" aria-hidden="true"></i>
+<div id="update-banner">
+  <i class="ri-refresh-line" style="color:var(--accent); font-size:1.1rem;"></i>
   <span>È disponibile una nuova versione dell'app.</span>
   <button type="button" class="upd-no" onclick="document.getElementById('update-banner').classList.remove('show')">Dopo</button>
   <button type="button" class="upd-go" onclick="location.reload()">Aggiorna</button>
@@ -997,7 +986,7 @@ window.togglePassword = function(inputId, btn) {
   input.type = show ? 'text' : 'password';
   btn.setAttribute('aria-pressed', String(show));
   btn.setAttribute('aria-label', show ? 'Nascondi password' : 'Mostra password');
-  btn.innerHTML = `<i class="${show ? 'ri-eye-off-line' : 'ri-eye-line'}" aria-hidden="true"></i>`;
+  btn.innerHTML = `<i class="${show ? 'ri-eye-off-line' : 'ri-eye-line'}"></i>`;
 };
 
 window.doFirebaseLogin = function() {
@@ -1421,13 +1410,13 @@ window.goPage = function(name, btn) {
   }
 
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => { b.classList.remove('active'); b.removeAttribute('aria-current'); });
+  document.querySelectorAll('.nav-btn').forEach(b => { b.classList.remove('active'); });
   
   const target = document.getElementById('page-' + name);
   if(target) {
     target.classList.add('active');
   }
-  if(btn) { btn.classList.add('active'); btn.setAttribute('aria-current', 'page'); }
+  if(btn) btn.classList.add('active');
 
   // "Indietro" del telefono da una pagina diversa dalla Home riporta alla Home (invece di chiudere l'app)
   if (name === 'home') BackNav.pop('tab');

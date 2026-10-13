@@ -63,8 +63,6 @@ export const Connectivity = {
     if (!el) {
       el = document.createElement('div');
       el.id = 'offline-banner';
-      el.setAttribute('role', 'status');
-      el.setAttribute('aria-live', 'polite');
       document.body.appendChild(el);
     }
     return el;
@@ -73,9 +71,9 @@ export const Connectivity = {
   _show() {
     const el = this._el();
     const ago = timeAgo(OfflineStore.lastSync());
-    // pillola compatta: il dettaglio resta per i lettori di schermo (title / testo nascosto)
+    // pillola compatta: il dettaglio resta nel title
     el.title = "Le modifiche partiranno al ritorno della rete: tieni l'app aperta.";
-    el.innerHTML = `<i class="ri-wifi-off-line" aria-hidden="true"></i><span>Offline${ago ? ` · dati ${ago}` : ''}</span><span class="sr-only">. ${el.title}</span>`;
+    el.innerHTML = `<i class="ri-wifi-off-line"></i><span>Offline${ago ? ` · dati ${ago}` : ''}</span>`;
     el.classList.add('show');
     document.documentElement.classList.add('is-offline');
     this._shown = true;
