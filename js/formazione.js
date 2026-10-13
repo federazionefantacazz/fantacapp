@@ -1,5 +1,6 @@
 import { GwService } from './services/gwService.js';
 import { ProbabiliService, STATUS_INFO } from './services/probabiliService.js';
+import { BackNav } from './services/backNav.js';
 
 export const FormazionePage = {
   renderHTML() {
@@ -490,6 +491,7 @@ export const FormazionePage = {
     this._renderPicker();
     ov.classList.add('open');
     document.body.style.overflow = 'hidden';
+    BackNav.push('formazione-picker', () => this._closePicker());
   },
 
   _closePicker() {
@@ -497,6 +499,7 @@ export const FormazionePage = {
     if (ov) ov.classList.remove('open');
     document.body.style.overflow = '';
     this._picker = null;
+    BackNav.pop('formazione-picker');
   },
 
   _choose(id) {

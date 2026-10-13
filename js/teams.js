@@ -1,3 +1,4 @@
+import { BackNav } from './services/backNav.js';
 import { kitImageHTML } from './components/Kit3D.js';
 
 export const TeamsPage = {
@@ -122,6 +123,8 @@ export const TeamsPage = {
 
     listView.style.display = 'none';
     detailView.style.display = 'block';
+    // "Indietro" del telefono = freccia indietro della scheda
+    BackNav.push('team-detail', () => (window.teamDetailBack ? window.teamDetailBack() : this.backToTeamsList()));
 
     const pageContainer = document.getElementById('dynamic-pages-container');
     if (pageContainer) pageContainer.scrollTop = 0;
@@ -296,10 +299,13 @@ export const TeamsPage = {
     `;
 
     modal.style.display = 'flex';
-    closeBtn.onclick = () => { modal.style.display = 'none'; };
+    const closeInfo = () => { modal.style.display = 'none'; BackNav.pop('club-info'); };
+    closeBtn.onclick = closeInfo;
+    BackNav.push('club-info', () => { modal.style.display = 'none'; });
   },
 
   backToTeamsList() {
+    BackNav.pop('team-detail');
     this.activeTeamId = null;
     this.returnTo = null;
     const listView = document.getElementById('teams-list-view');

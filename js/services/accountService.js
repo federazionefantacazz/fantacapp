@@ -70,23 +70,42 @@ async function createRequest(user, now = Date.now()) {
   });
 }
 
+// Ultimo stato di accesso visto su questo dispositivo: permette di aprire l'app anche offline
+const STATUS_CACHE_PREFIX = 'fantacapp-access-';
+function cachedStatus(uid) {
+  try { return localStorage.getItem(STATUS_CACHE_PREFIX + uid) || null; } catch (e) { return null; }
+}
+function rememberStatus(uid, status) {
+  try { localStorage.setItem(STATUS_CACHE_PREFIX + uid, status); } catch (e) {}
+  return status;
+}
+function withTimeout(promise, ms) {
+  return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
+}
+
 /**
  * Stato di accesso dell'utente: 'approved' | 'pending' | 'rejected'.
  * teams = elenco squadre (per riconoscere gli account creati prima delle approvazioni).
  */
 export async function getAccessStatus(user, teams = []) {
   let profile = null;
+  // offline certo: si entra subito con l'ultimo stato confermato su questo dispositivo
+  if (!navigator.onLine && cachedStatus(user.uid)) return cachedStatus(user.uid);
   try {
-    profile = (await get(ref(db, `users/${user.uid}`))).val();
+    // senza rete get() può restare appesa: si attende al massimo qualche secondo
+    profile = (await withTimeout(get(ref(db, `users/${user.uid}`)), 6000)).val();
   } catch (e) {
     console.warn('Profilo non leggibile:', e?.message);
+    // offline: vale l'ultimo stato confermato su questo dispositivo (non si creano richieste)
+    const cached = cachedStatus(user.uid);
+    if (cached) return cached;
   }
-  if (profile && profile.role === ROLE_PATRON) return STATUS_APPROVED;
-  if (profile && profile.status) return profile.status;
+  if (profile && profile.role === ROLE_PATRON) return rememberStatus(user.uid, STATUS_APPROVED);
+  if (profile && profile.status) return rememberStatus(user.uid, profile.status);
 
   // Account precedente al sistema di approvazione: è già proprietario di una squadra
   const isOwner = (teams || []).some(t => t && t.owners && t.owners[user.uid]);
-  if (isOwner) return STATUS_APPROVED;
+  if (isOwner) return rememberStatus(user.uid, STATUS_APPROVED);
 
   // Account senza profilo (es. creato da un altro dispositivo): si crea la richiesta
   try { await createRequest(user); } catch (e) { console.warn('Richiesta non salvata:', e?.message); }
@@ -95,7 +114,11 @@ export async function getAccessStatus(user, teams = []) {
 
 /** Segue lo stato dell'utente (es. per entrare appena il Patron approva). Ritorna l'unsubscribe. */
 export function watchAccessStatus(uid, cb) {
-  return onValue(ref(db, `users/${uid}/status`), snap => cb(snap.val()), () => {});
+  return onValue(ref(db, `users/${uid}/status`), snap => {
+    const st = snap.val();
+    if (st) rememberStatus(uid, st);
+    cb(st);
+  }, () => {});
 }
 
 /** Richieste in attesa, per il Patron. cb riceve [{ uid, email, createdAt }] dal più vecchio. */

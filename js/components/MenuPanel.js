@@ -2,6 +2,8 @@
  * Pannello a schermo intero aperto dal menu laterale (impostazioni, squadra, listone, svincolati).
  * Ogni "vista" è un oggetto { title, mount(root, STATE), refresh?(STATE), unmount?() }.
  */
+import { BackNav } from '../services/backNav.js';
+
 const STYLE_ID = 'menu-panel-style';
 
 function injectStyle() {
@@ -17,9 +19,9 @@ function injectStyle() {
       transform: translateX(100%); visibility: hidden;
       transition: transform .25s ease, visibility 0s linear .25s; }
     #menu-panel.open { transform: translateX(0); visibility: visible; transition: transform .25s ease; }
-    .mp-head { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; min-height: 52px;
+    .mp-head { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; min-height: calc(52px + env(safe-area-inset-top, 0px));
       padding: env(safe-area-inset-top, 0px) .8rem 0 .5rem; border-bottom: 1px solid var(--border); background: var(--header-bg); color: var(--bar-text); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
-    .mp-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: .5px; color: var(--title, var(--bar-text)); }
+    .mp-title { margin: 0; font-weight: 400; font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: .5px; color: var(--title, var(--bar-text)); }
     .mp-body { flex: 1 1 0; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
       padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px)); }
     .mp-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1rem; margin-bottom: 1rem; }
@@ -86,11 +88,15 @@ function ensurePanel() {
 
   panel = document.createElement('div');
   panel.id = 'menu-panel';
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-labelledby', 'mp-title');
   panel.setAttribute('aria-hidden', 'true');
+  panel.inert = true;
   panel.innerHTML = `
     <div class="mp-head">
       <button class="menu-header-btn" data-mp-close aria-label="Indietro"><i class="ri-arrow-left-line" style="font-size: 1.5rem;"></i></button>
-      <span class="mp-title"></span>
+      <h2 class="mp-title" id="mp-title"></h2>
     </div>
     <div class="mp-body"></div>
   `;
@@ -116,8 +122,15 @@ export const MenuPanel = {
     body.scrollTop = 0;
     view.mount(body, window.STATE);
 
+    const wasOpen = panel.classList.contains('open');
+    if (!wasOpen) this._opener = document.activeElement;
     panel.classList.add('open');
     panel.setAttribute('aria-hidden', 'false');
+    panel.inert = false;
+    if (!wasOpen) {
+      BackNav.push('menu-panel', () => this.close());
+      panel.querySelector('[data-mp-close]').focus({ preventScroll: true });
+    }
   },
 
   close() {
@@ -125,8 +138,15 @@ export const MenuPanel = {
     if (!panel || !panel.classList.contains('open')) return;
     panel.classList.remove('open');
     panel.setAttribute('aria-hidden', 'true');
+    panel.inert = true;
     if (this._view && this._view.unmount) this._view.unmount();
     this._view = null;
+    BackNav.pop('menu-panel');
+    const opener = this._opener;
+    this._opener = null;
+    // aperto dal menu laterale (ora chiuso): il focus torna al pulsante del menu
+    const target = opener && opener.closest && opener.closest('#side-menu') ? document.getElementById('menuHeaderBtn') : opener;
+    if (target && target.isConnected) target.focus({ preventScroll: true });
   },
 
   /** Chiamata da refreshUI: aggiorna la vista aperta quando cambiano i dati. */

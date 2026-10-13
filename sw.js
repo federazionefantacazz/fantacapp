@@ -1,5 +1,16 @@
-const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.2.8'; // Incrementa ad ogni modifica dei file statici
+const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.2.9'; // Incrementa ad ogni modifica dei file statici
 const IMAGE_CACHE = 'fantacapp-images-v1'; // riempita da js/services/assetPreloader.js: non va cancellata agli aggiornamenti
+// Librerie e font esterni (Firebase SDK, icone, Google Fonts): URL con versione fissa, restano tra un aggiornamento e l'altro
+const RUNTIME_CACHE = 'fantacapp-runtime-v1';
+
+// Senza queste l'app non parte offline: index.html importa Firebase da gstatic e le icone da jsDelivr
+const EXTERNAL_ASSETS = [
+  'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js',
+  'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js',
+  'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js',
+  'https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css',
+  'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap'
+];
 
 // 1. Array pulito e aggiornato
 const ASSETS_TO_CACHE = [
@@ -39,6 +50,9 @@ const ASSETS_TO_CACHE = [
   './js/services/probabiliService.js',
   './js/services/imageCutout.js',
   './js/services/kitAssets.js',
+  './js/services/offlineStore.js',
+  './js/services/backNav.js',
+  './js/services/connectivity.js',
 
   // Componenti
   './js/components/AnteprimaClassifica.js',
@@ -108,6 +122,12 @@ self.addEventListener('install', event => {
           })
         );
       })
+      .then(() => caches.open(RUNTIME_CACHE))
+      .then(cache => Promise.all(EXTERNAL_ASSETS.map(url =>
+        cache.match(url).then(hit => hit || cache.add(new Request(url, { mode: 'cors' })).catch(err => {
+          console.warn(`Libreria esterna non in cache: ${url}`, err);
+        }))
+      )))
   );
   self.skipWaiting();
 });
@@ -118,7 +138,7 @@ self.addEventListener('activate', event => {
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME && cacheName !== IMAGE_CACHE) {
+          if (![CACHE_NAME, IMAGE_CACHE, RUNTIME_CACHE].includes(cacheName)) {
             console.log('Vecchia cache rimossa:', cacheName);
             return caches.delete(cacheName);
           }
@@ -146,6 +166,21 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // LIBRERIE E FONT ESTERNI (URL con versione): prima la cache, poi la rete (e si salvano)
+  if (
+    url.startsWith('https://www.gstatic.com/firebasejs/') ||
+    url.startsWith('https://cdn.jsdelivr.net/npm/') ||
+    url.startsWith('https://fonts.gstatic.com/')
+  ) {
+    event.respondWith(cacheFirst(event.request, RUNTIME_CACHE));
+    return;
+  }
+  // CSS di Google Fonts: dalla cache subito, aggiornato in background
+  if (url.startsWith('https://fonts.googleapis.com/')) {
+    event.respondWith(staleWhileRevalidate(event.request, RUNTIME_CACHE));
+    return;
+  }
+
   // SICUREZZA: Ignora chiamate a Firebase, Auth e API esterne (sempre dalla rete).
   // admin.html e /js/admin/ NON sono più qui: l'area Patron usa la cache come il resto dell'app.
   if (
@@ -163,7 +198,34 @@ self.addEventListener('fetch', event => {
       if (cachedResponse) {
         return cachedResponse;
       }
-      return fetch(event.request);
+      return fetch(event.request).catch(err => {
+        // apertura di una pagina senza rete (es. URL con parametri non in cache): si apre l'app
+        if (event.request.mode === 'navigate') {
+          return caches.match('./index.html').then(r => r || Promise.reject(err));
+        }
+        throw err;
+      });
     })
   );
 });
+
+function cacheFirst(request, cacheName) {
+  return caches.open(cacheName).then(cache =>
+    cache.match(request).then(hit => hit || fetch(request).then(res => {
+      if (res.ok) cache.put(request, res.clone());
+      return res;
+    }))
+  );
+}
+
+function staleWhileRevalidate(request, cacheName) {
+  return caches.open(cacheName).then(cache =>
+    cache.match(request).then(hit => {
+      const fresh = fetch(request).then(res => {
+        if (res.ok) cache.put(request, res.clone());
+        return res;
+      }).catch(() => hit);
+      return hit || fresh;
+    })
+  );
+}

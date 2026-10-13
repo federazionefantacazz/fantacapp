@@ -14,6 +14,8 @@
 import { db, ref, get } from '../firebase-config.js';
 import { RULE_MATCH } from '../services/calcoloMatch.js';
 import { ProbabiliService, STATUS_INFO } from '../services/probabiliService.js';
+import { OfflineStore } from '../services/offlineStore.js';
+import { BackNav } from '../services/backNav.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt1 = (n) => (n === null || n === undefined || !Number.isFinite(n)) ? '–' : n.toFixed(2).replace(/0$/, '');
@@ -73,7 +75,7 @@ export const PlayerCard = {
     if (ov) return ov;
     ov = document.createElement('div');
     ov.id = 'pc-overlay';
-    ov.innerHTML = `<style>${this._css()}</style><div class="pc-sheet" role="dialog" aria-modal="true" aria-labelledby="pc-name"></div>`;
+    ov.innerHTML = `<style>${this._css()}</style><div class="pc-sheet" role="dialog" aria-modal="true" aria-labelledby="pc-name" tabindex="-1"></div>`;
     document.body.appendChild(ov);
     ov.addEventListener('click', (e) => {
       if (e.target === ov || e.target.closest('[data-pc-close]')) this.close();
@@ -88,6 +90,10 @@ export const PlayerCard = {
     if (ov) ov.classList.remove('open');
     document.body.style.overflow = '';
     this._current = null;
+    BackNav.pop('player-card');
+    // il focus torna dove si era toccato (lettori di schermo / tastiera)
+    if (this._opener && this._opener.isConnected) this._opener.focus({ preventScroll: true });
+    this._opener = null;
   },
 
   async open(playerId) {
@@ -101,15 +107,24 @@ export const PlayerCard = {
     this._render();
     ov.classList.add('open');
     document.body.style.overflow = 'hidden';
+    this._opener = this._opener || document.activeElement;
+    BackNav.push('player-card', () => this.close());
+    // il focus va sulla scheda (resta valido anche quando il contenuto si ridisegna)
+    ov.querySelector('.pc-sheet').focus({ preventScroll: true });
 
+    const path = `playerStats/${p.id}`;
     try {
-      const snap = await get(ref(db, `playerStats/${p.id}`));
+      const snap = await OfflineStore.withTimeout(get(ref(db, path)));
       if (!this._current || this._current.p !== p) return; // chiusa o cambiata nel frattempo
       this._current.rows = snap.val() || {};
+      OfflineStore.save(path, this._current.rows);
     } catch (err) {
       console.warn('Statistiche non leggibili:', err?.message);
-      if (this._current) this._current.rows = {};
-      if (this._current) this._current.error = true;
+      // offline: l'ultima copia vista su questo dispositivo
+      const cached = await OfflineStore.read(path);
+      if (!this._current || this._current.p !== p) return;
+      this._current.rows = cached || {};
+      if (cached === undefined) this._current.error = true;
     }
     this._render();
   },
@@ -285,7 +300,7 @@ export const PlayerCard = {
     return `
 #pc-overlay{position:fixed;inset:0;z-index:10050;background:rgba(5,8,15,.7);backdrop-filter:blur(3px);display:none;align-items:flex-end;justify-content:center}
 #pc-overlay.open{display:flex}
-#pc-overlay .pc-sheet{width:100%;max-width:560px;max-height:92vh;overflow-y:auto;background:var(--bg,#1a1e24);border:1px solid rgba(255,255,255,.08);border-radius:20px 20px 0 0;padding-bottom:calc(1rem + env(safe-area-inset-bottom,0px));animation:pcUp .2s ease-out}
+#pc-overlay .pc-sheet{width:100%;max-width:560px;max-height:92vh;overflow-y:auto;background:var(--bg,#1a1e24);border:1px solid rgba(255,255,255,.08);border-radius:20px 20px 0 0;padding-bottom:calc(1rem + env(safe-area-inset-bottom,0px));animation:pcUp .2s ease-out;outline:none}
 @media (min-width:700px){#pc-overlay{align-items:center}#pc-overlay .pc-sheet{border-radius:20px}}
 @media (prefers-reduced-motion:reduce){#pc-overlay .pc-sheet{animation:none}}
 @keyframes pcUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
