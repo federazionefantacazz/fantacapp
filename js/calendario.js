@@ -1,6 +1,7 @@
 import { GwService } from './services/gwService.js';
 import { LiveMatchModule } from './liveMatch.js';
 import { createMatchCardResult } from './components/MatchCardResult.js';
+import { esc, sameId } from './utils.js';
 
 export const CalendarioPage = {
   renderHTML() {
@@ -34,7 +35,7 @@ export const CalendarioPage = {
       LiveMatchModule.openViewer({ comp: ctx.comp, gwKey: ctx.gwKey, couple, mode: 'next' });
     } else if (ctx.phase === 'current') {
       LiveMatchModule._pendingKey = couple.key;
-      window.goPage('live', document.getElementById('btn-nav-formazione'));
+      window.goPage('live');
     } else {
       this._popup('Non è ancora possibile vedere questo match.');
     }
@@ -57,11 +58,6 @@ export const CalendarioPage = {
     el.addEventListener('click', (e) => { if (e.target === el) close(); });
   },
 
-  _selectedCompName(comp) {
-    if (!comp || !comp.name) return "CAMPIONATO";
-    return comp.name.toUpperCase();
-  },
-
   render(STATE) {
     const select = document.getElementById('calGwSelect');
     const container = document.getElementById('calendarMatchesContainer');
@@ -71,7 +67,7 @@ export const CalendarioPage = {
 
     const previousUserSelection = select.value;
     const currentCompId = STATE.currentCompetition;
-    const currentCompData = STATE.competitions ? STATE.competitions.find(c => c.id === currentCompId) : null;
+    const currentCompData = (STATE.competitions || []).find(c => sameId(c.id, currentCompId)) || null;
     
     // Recupera la mappa delle giornate
     const matchesNode = STATE.matches || (currentCompData ? currentCompData.matches : null);
@@ -101,14 +97,9 @@ export const CalendarioPage = {
     });
 
     // Popola la select se cambia la competizione
-    if (select.dataset.currentComp !== currentCompId || select.options.length !== giornateEstraibili.length) {
+    if (select.dataset.currentComp !== String(currentCompId) || select.options.length !== giornateEstraibili.length) {
       select.dataset.currentComp = currentCompId;
-      select.innerHTML = giornateEstraibili.map(gwKey => {
-        const label = gwKey.startsWith('gw_playoff_')
-          ? `Turno Playoff ${gwKey.replace('gw_playoff_', '')}`
-          : `Giornata ${gwKey.replace('gw', '')}`;
-        return `<option value="${gwKey}">${label}</option>`;
-      }).join('');
+      select.innerHTML = giornateEstraibili.map(gwKey => `<option value="${esc(gwKey)}">${esc(GwService.label(gwKey))}</option>`).join('');
 
       const gwDaReale = GwService.getGwKey(currentCompData, STATE.giornataRealeCorrente);
       select.value = gwDaReale && select.querySelector(`option[value="${gwDaReale}"]`) ? gwDaReale : giornateEstraibili[0];
@@ -121,7 +112,7 @@ export const CalendarioPage = {
       if (!selectedGW || !matchesNode[selectedGW]) return;
 
       if (titleEl) {
-        const compName = CalendarioPage._selectedCompName(currentCompData);
+        const compName = String(currentCompData?.name || 'Campionato').toUpperCase();
         const turnNum = selectedGW.replace('gw_playoff_', '').replace('gw', '');
         titleEl.textContent = `${compName} — TURNO ${turnNum}`;
       }

@@ -2,8 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<!-- zoom consentito (accessibilità): lo zoom automatico di iOS sui campi è evitato con font da 16px (vedi sotto) -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#121519">
 <meta name="mobile-web-app-capable" content="yes">
 <!-- black-translucent: la pagina va sotto la status bar di iOS, colorata da #status-bar come la barra in basso -->
@@ -215,9 +214,6 @@
 }
 
 html {
-  touch-action: manipulation; /* niente ritardo/zoom col doppio tocco, il pinch-zoom resta */
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
   height: -webkit-fill-available;
   width: 100%;
   margin: 0;
@@ -229,7 +225,6 @@ body {
   overflow: hidden;
   height: 100vh;
   height: -webkit-fill-available;
-  height: 100dvh;
   width: 100%;
   position: fixed;
   top: 0;
@@ -298,6 +293,7 @@ body {
 .pr{text-align:right;flex-shrink:0}.price{font-size:.9rem;font-weight:600;font-family:'DM Mono',monospace;color:var(--gold)}.pavg{font-size:.68rem;color:var(--text2)}
 .btn{background:var(--btn-secondary);color:var(--btn-secondary-text);border:none;padding:.7rem 1.2rem;border-radius:10px;font-size:.85rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;transition:all 0.2s;width:100%}
 .btn-green{background:var(--btn-primary);color:var(--btn-primary-text);font-weight:600}
+.btn-red{background:var(--accent3);color:#fff;font-weight:600}
 .btn-outline{background:transparent;border:1px solid color-mix(in srgb, var(--btn-outline) 45%, transparent);color:var(--btn-outline)}
 .btn:active{opacity:0.8;transform:scale(0.98)}
 .select-rose, .input-login{width:100%;background:var(--bg3);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:.75rem .9rem;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:1rem;outline:none;min-height:46px}
@@ -417,11 +413,6 @@ html.resuming #page-login{visibility:hidden}
 
 /* ==================== ACCESSIBILITÀ ==================== */
 label.label{display:block;text-align:left}
-/* iOS ingrandisce la pagina quando si tocca un campo con testo < 16px: lì i campi vanno a 16px */
-@supports (-webkit-touch-callout: none){
-  input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea{font-size:max(16px, 1em) !important}
-  #userCompSelect{height:30px !important;max-width:170px}
-}
 
 /* Login: mostra/nascondi password */
 .pw-wrap{position:relative;margin-bottom:1rem}
@@ -631,6 +622,7 @@ import { ClassificaPage } from './js/classifica.js';
 import { AssetPreloader } from './js/services/assetPreloader.js';
 import { PlayerCard } from './js/components/PlayerCard.js';
 import { OfflineStore } from './js/services/offlineStore.js';
+import { esc, sameId } from './js/utils.js';
 import { BackNav } from './js/services/backNav.js';
 import { Connectivity } from './js/services/connectivity.js';
 
@@ -651,7 +643,6 @@ window.STATE = {
   teams: [], 
   players: [], 
   votes: {}, 
-  status: {}, 
   giornataRealeCorrente: null, 
   matches: {}, 
   currentCompetition: '',
@@ -676,7 +667,6 @@ watch('trophies', snap => {
   }));
 
   window.STATE.trophies = trophiesList;
-  window.TROPHIES = trophiesList;
   refreshUI();
 });
 
@@ -795,7 +785,6 @@ watch('status/onFire', snap => {
 watch('status/currentRealGW', snap => { 
   const val = snap.val();
   window.STATE.giornataRealeCorrente = val ? Number(val) : null;
-  window.STATE.status = { currentGW: window.STATE.giornataRealeCorrente, giornataReale: window.STATE.giornataRealeCorrente };
   
   if (window.STATE.booted) {
     refreshUI(); 
@@ -817,12 +806,6 @@ function caricaDatiCompetizione(compId) {
   
   window.STATE.matches = {};
   
-  subCached(`competitions/${compId}/lineups`, snap => {
-    if (!window.STATE._currentCompData) window.STATE._currentCompData = {};
-    window.STATE._currentCompData.lineups = snap.val() || {};
-    refreshUI();
-  });
-
   sub(ref(db, 'status/live'), snap => {
     const liveAttivo = !!snap.val();
     gestisciSwitchLive(liveAttivo);
@@ -890,7 +873,6 @@ function preferredCompetitionId(list) {
 window._handleCompetitionChange = function(newCompetitionId, opts = {}) {
   if (!newCompetitionId) return;
   window.STATE.currentCompetition = newCompetitionId;
-  window.STATE.activeCompetitionId = newCompetitionId;
   const userSelect = document.getElementById('userCompSelect');
   if (userSelect && userSelect.value !== String(newCompetitionId)) userSelect.value = newCompetitionId;
   if (!opts.silent) {
@@ -944,15 +926,9 @@ watch('players', snap => {
 });
 
 window.toggleAuthBoxes = function(target) {
-  if (target === 'register') {
-    document.getElementById('box-firebase-login').style.display = 'none';
-    document.getElementById('box-firebase-register').style.display = 'block';
-    document.getElementById('registerEmail').focus();
-  } else {
-    document.getElementById('box-firebase-login').style.display = 'block';
-    document.getElementById('box-firebase-register').style.display = 'none';
-    document.getElementById('loginEmail').focus();
-  }
+  const register = target === 'register';
+  showLoginBox(register ? 'register' : 'login');
+  document.getElementById(register ? 'registerEmail' : 'loginEmail').focus();
 };
 
 // Messaggi comprensibili per gli errori di Firebase Auth
@@ -1137,8 +1113,7 @@ window.setUserSetting = async function(key, value) {
 // Apre la scheda di una squadra (usato dalla classifica); da lì si può tornare alla classifica
 window.openTeamPage = function(teamId, from) {
   if (!teamId) return;
-  const btn = document.querySelector('.nav-btn[onclick*="teams"]');
-  window.goPage('teams', btn);
+  window.goPage('teams');
   TeamsPage.openTeamDetail(String(teamId), window.STATE, { from });
 };
 
@@ -1231,7 +1206,7 @@ function populateLoginDropdown() {
 
   let optionsHTML = '<option value="">Scegli la tua squadra...</option>';
   window.STATE.teams.forEach(t => {
-    optionsHTML += `<option value="${t.id}">${t.name} (${t.owner || 'Nessun proprietario'})</option>`;
+    optionsHTML += `<option value="${esc(t.id)}">${esc(t.name)} (${esc(t.owner || 'Nessun proprietario')})</option>`;
   });
   select.innerHTML = optionsHTML;
   endResume(); // nessuna squadra associata: serve la scelta
@@ -1266,22 +1241,19 @@ watch('competitions', snap => {
   });
   
   window.STATE.competitions = list;
-  window.STATE.allCompetitions = list;
   
   const userSelect = document.getElementById('userCompSelect');
   if (userSelect) {
     if (list.length === 0) {
       userSelect.innerHTML = `<option value="">Nessun torneo nel DB</option>`;
       window.STATE.currentCompetition = '';
-      window.STATE.activeCompetitionId = '';
     } else {
       if (!window.STATE.currentCompetition || !comps[window.STATE.currentCompetition]) {
         const pick = preferredCompetitionId(list);
         window.STATE.currentCompetition = pick;
-        window.STATE.activeCompetitionId = pick;
         caricaDatiCompetizione(pick);
       }
-      userSelect.innerHTML = list.map(c => `<option value="${c.id}" ${String(window.STATE.currentCompetition) === String(c.id) ? 'selected' : ''}>${c.name || c.id}</option>`).join('');
+      userSelect.innerHTML = list.map(c => `<option value="${esc(c.id)}" ${sameId(window.STATE.currentCompetition, c.id) ? 'selected' : ''}>${esc(c.name || c.id)}</option>`).join('');
     }
   }
   refreshUI();
@@ -1290,8 +1262,6 @@ watch('competitions', snap => {
 function bootApp() {
   if (window.STATE.booted) return;
   window.STATE.booted = true;
-
-  ClassificaPage.init(db);
 
   const container = document.getElementById('dynamic-pages-container');
   if (container) {
@@ -1324,7 +1294,7 @@ function bootApp() {
   let start = PAGES.includes(wanted) ? wanted : 'home';
   if (start === 'formazione' && window.STATE.live) start = 'live';
   if (wanted) history.replaceState(history.state, '', location.pathname);
-  window.goPage(start, document.querySelector(`.nav-btn[data-page="${start === 'live' ? 'formazione' : start}"]`));
+  window.goPage(start);
   endResume();
 }
 
@@ -1345,24 +1315,23 @@ function refreshUI() {
   // AGGIORNAMENTO LOGO NAVBAR (COMPATTO 24px)
   const globalNavbarLogoContainer = document.getElementById('app-global-navbar-logo-container');
   if (globalNavbarLogoContainer) {
-    const currentCompId = window.STATE.currentCompetition || window.STATE.activeCompetitionId;
-    const compData = (window.STATE.competitions || []).find(c => String(c.id) === String(currentCompId));
+    const currentCompId = window.STATE.currentCompetition;
+    const compData = (window.STATE.competitions || []).find(c => sameId(c.id, currentCompId));
 
     // logo salvato con il tema dell'utente: al prossimo avvio è quello della schermata iniziale
-    const logoUrl = (compData && compData.logo) ? compData.logo.trim() : '';
+    const logoUrl = String(compData?.logo || '').trim();
     if (compData && logoUrl !== lastCachedLogo) {
       lastCachedLogo = logoUrl;
       cacheUserTheme(currentUid(), { logo: logoUrl });
     }
 
-    if (compData && compData.logo && compData.logo.trim() !== "") {
-      globalNavbarLogoContainer.innerHTML = `
-        <img src="${compData.logo}" style="height:24px; width:24px; object-fit:contain;" onerror="this.outerHTML='<div style=\'width:24px; height:24px; background:rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:.75rem;\'></div>';" alt="Logo Comp">
-      `;
-    } else {
-      globalNavbarLogoContainer.innerHTML = `
-        <div style="width:24px; height:24px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:.75rem; color:var(--gold)"><i class="ri-trophy-line"></i></div>
-      `;
+    // si ridisegna solo quando il logo cambia (prima a ogni aggiornamento dei dati: l'immagine sfarfallava)
+    if (globalNavbarLogoContainer.dataset.logo !== logoUrl || !globalNavbarLogoContainer.firstChild) {
+      globalNavbarLogoContainer.dataset.logo = logoUrl;
+      const placeholder = `<div style="width:24px; height:24px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:.75rem; color:var(--gold)"><i class="ri-trophy-line"></i></div>`;
+      globalNavbarLogoContainer.innerHTML = logoUrl
+        ? `<img src="${esc(logoUrl)}" style="height:24px; width:24px; object-fit:contain;" onerror="this.outerHTML=this.dataset.fb" data-fb="${esc(placeholder)}" alt="Logo Comp">`
+        : placeholder;
     }
   }
 
@@ -1400,7 +1369,9 @@ function refreshUI() {
   }
 }
 
+// btn = pulsante della barra in basso da evidenziare; se manca si trova da solo (il Live usa quello della Formazione)
 window.goPage = function(name, btn) {
+  btn = btn || document.querySelector(`.nav-btn[data-page="${name === 'live' ? 'formazione' : name}"]`);
   if (window.STATE.currentPage === 'live' && name !== 'live') {
     LiveMatchModule.stopLiveTracking();
   }
@@ -1420,7 +1391,7 @@ window.goPage = function(name, btn) {
 
   // "Indietro" del telefono da una pagina diversa dalla Home riporta alla Home (invece di chiudere l'app)
   if (name === 'home') BackNav.pop('tab');
-  else BackNav.push('tab', () => window.goPage('home', document.querySelector('.nav-btn[data-page="home"]')));
+  else BackNav.push('tab', () => window.goPage('home'));
   
   const container = document.getElementById('dynamic-pages-container');
   if(container) container.scrollTop = 0;

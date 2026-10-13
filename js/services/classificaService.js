@@ -1,4 +1,10 @@
 export const ClassificaService = {
+  /** La fase è la finale (gara secca anche nei tabelloni andata/ritorno)? Le semifinali no. */
+  isFinale(nomeFase) {
+    const n = String(nomeFase || '').toLowerCase();
+    return n.includes('final') && !n.includes('semi');
+  },
+
   
   /**
    * Calcola le statistiche dettagliate di tutte le squadre basandosi sui dati del database.
@@ -97,7 +103,7 @@ export const ClassificaService = {
    * Elabora i risultati dei match e restituisce la mappa dei vincitori per il tabellone a eliminazione.
    */
   risolviVincitoriTabellone(tabelloneStructure, matchesMap) {
-    if (!tabelloneStructure || !tabelloneStructure.fasi) return {};
+    if (!tabelloneStructure || !tabelloneStructure.fasi) return { matchResultsMap: {}, resolvedWinners: {} };
 
     const fasi = tabelloneStructure.fasi;
     const chiaviFasi = Object.keys(fasi).sort();
@@ -108,7 +114,7 @@ export const ClassificaService = {
     const matchResultsMap = {};
 
     Object.keys(matchesMap).forEach(gwKey => {
-      const couples = matchesMap[gwKey].couples || {};
+      const couples = matchesMap[gwKey]?.couples || {};
       Object.keys(couples).forEach(cKey => {
         const matchData = couples[cKey];
         if (!matchData) return;
@@ -133,7 +139,7 @@ export const ClassificaService = {
       matchList.forEach((m) => {
         const matchId = m.id;
         const res = matchResultsMap[matchId] || {};
-        const isFinale = faseObj.nomeFase && faseObj.nomeFase.toLowerCase().includes('final') && !faseObj.nomeFase.toLowerCase().includes('semi');
+        const isFinale = this.isFinale(faseObj.nomeFase);
 
         let vincenteId = null;
 
@@ -167,7 +173,7 @@ export const ClassificaService = {
 
             const rHomeId = res.ritorno.homeId || res.ritorno.home;
 
-            if (rHomeId === teamAndataFuori) {
+            if (String(rHomeId) === String(teamAndataFuori)) {
               totGolFuori += Number(res.ritorno.goalHome ?? res.ritorno.homeScore ?? 0);
               totGolCasa += Number(res.ritorno.goalAway ?? res.ritorno.awayScore ?? 0);
               totPtFuori += Number(res.ritorno.punteggioFinaleHome || 0);

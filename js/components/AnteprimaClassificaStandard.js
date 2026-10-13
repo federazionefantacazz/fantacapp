@@ -1,9 +1,7 @@
+import { esc } from '../utils.js';
 import { ClassificaService } from "../services/classificaService.js";
 
-const GO_CLASSIFICA = `
-  const btnClassifica = document.querySelector('button[onclick*=\\'classifica\\']');
-  window.goPage('classifica', btnClassifica);
-`;
+const GO_CLASSIFICA = "window.goPage('classifica')";
 
 /**
  * Mini classifica della home. Si adatta al tipo di competizione:
@@ -56,7 +54,7 @@ export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId, opt
     return `
     <div onclick="${GO_CLASSIFICA}" style="display: flex; flex-direction: column; gap: 0.3rem; width: 100%; cursor: pointer;" title="Clicca per visualizzare la classifica completa">
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.3rem; margin-bottom: 0.1rem;">
-        <div style="font-size: 0.7rem; font-weight: 700; color: var(--text2); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Classifica${gironeLabel ? ` · ${gironeLabel}` : ''}</div>
+        <div style="font-size: 0.7rem; font-weight: 700; color: var(--text2); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Classifica${gironeLabel ? ` · ${esc(gironeLabel)}` : ''}</div>
         <div style="font-size: 0.65rem; color: var(--accent); display: flex; align-items: center; flex-shrink: 0;">Vedi intera <i class="ri-arrow-right-s-line"></i></div>
       </div>
       <div style="display: flex; align-items: center; gap: 0.35rem; padding: 0 0.4rem;">
@@ -74,7 +72,7 @@ export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId, opt
         return `
           <div style="display: flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.4rem; border-radius: 6px; ${rowBg} font-size: 0.74rem;">
             <span style="width: 24px; color: ${isMe ? 'var(--accent)' : 'var(--text2)'}; font-weight: bold;">${pos}°</span>
-            <span style="flex: 1; min-width: 0; color: ${col}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: ${isMe ? 'bold' : 'normal'};">${team.name}</span>
+            <span style="flex: 1; min-width: 0; color: ${col}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: ${isMe ? 'bold' : 'normal'};">${esc(team.name)}</span>
             <span style="font-family: 'DM Mono', monospace; width: 22px; text-align: center; font-weight: bold; color: ${col};">${s.pts}</span>
           </div>`;
       }).join('')}
@@ -88,7 +86,7 @@ export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId, opt
 
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.15rem;">
         <div style="font-size: 0.7rem; font-weight: 600; color: var(--text2); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-          <i class="ri-bar-chart-2-line"></i> Mini Classifica${gironeLabel ? ` · ${gironeLabel}` : ''}
+          <i class="ri-bar-chart-2-line"></i> Mini Classifica${gironeLabel ? ` · ${esc(gironeLabel)}` : ''}
         </div>
         <div style="font-size: 0.65rem; color: var(--accent); display: flex; align-items: center; gap: 2px; flex-shrink: 0;">Vedi intera <i class="ri-arrow-right-s-line"></i></div>
       </div>
@@ -112,7 +110,7 @@ export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId, opt
         return `
           <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 6px; ${rowBg} font-size: 0.75rem;">
             <span style="font-weight: bold; color: ${isMe ? 'var(--accent)' : 'var(--text3)'}; width: 18px; text-align: center;">${pos}°</span>
-            <span style="flex: 1; min-width: 0; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: ${isMe ? 'bold' : 'normal'};">${team.name}</span>
+            <span style="flex: 1; min-width: 0; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: ${isMe ? 'bold' : 'normal'};">${esc(team.name)}</span>
             <span style="font-family: 'DM Mono', monospace; width: 24px; text-align: center; color: var(--text2);">${s.giocate}</span>
             <span style="font-family: 'DM Mono', monospace; width: 28px; text-align: center; font-weight: bold; color: ${numColor};">${s.pts}</span>
             <span style="font-family: 'DM Mono', monospace; width: 52px; text-align: right; color: var(--text2);">${Number(s.totFanta).toFixed(1)}</span>

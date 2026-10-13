@@ -1,6 +1,6 @@
 import { CalcoloMatchService } from './calcoloMatch.js';
+import { sid } from '../utils.js';
 
-const sid = (v) => (v === undefined || v === null ? '' : String(v));
 
 /**
  * Statistiche aggregate per giocatore, usate da Listone e Svincolati.

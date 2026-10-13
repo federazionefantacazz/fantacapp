@@ -1,6 +1,7 @@
 import { ref, update, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 // IMPORTA SIA uploadImageToImgBB SIA LA NUOVA FUNZIONE PER GLI URL
 import { uploadImageToImgBB, uploadUrlToImgBB } from "../services/integrationImgBB.js"; 
+import { esc } from '../utils.js';
 
 export const PlayersSection = {
   _filter: '',
@@ -349,7 +350,6 @@ export const PlayersSection = {
       box.innerHTML = '';
       return;
     }
-    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     box.style.display = 'block';
     box.innerHTML = `
       <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; margin-bottom:0.4rem;">

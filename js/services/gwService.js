@@ -25,7 +25,7 @@ function coupleOrder(a, b) {
 export const GwService = {
   /** Giornata Serie A corrente impostata dall'admin (status/currentRealGW). */
   getGwReale(STATE) {
-    const v = STATE?.giornataRealeCorrente ?? STATE?.status?.giornataReale ?? null;
+    const v = STATE?.giornataRealeCorrente ?? null;
     return v === null || v === undefined || v === '' ? null : Number(v);
   },
 

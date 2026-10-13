@@ -18,12 +18,12 @@
  * così rosa, formazione e live funzionano senza modifiche. Alla scadenza torna al proprietario.
  */
 import { db, ref, update } from '../firebase-config.js';
+import { sid } from '../utils.js';
 
 export const ROLES = ['P', 'D', 'C', 'A'];
 export const LOAN_MIN = 5;
 export const LOAN_MAX = 8;
 
-const sid = (v) => String(v ?? '');
 
 export const MercatoService = {
   _sweeping: false,

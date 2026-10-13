@@ -2,6 +2,7 @@ import { ref, get, update, set, onValue } from "https://www.gstatic.com/firebase
 // Importazione del servizio live condiviso
 import { CalcoloMatchService } from "../services/calcoloMatch.js";
 import { GwService } from "../services/gwService.js";
+import { esc } from '../utils.js';
 
 export const DashboardSection = {
   db: null,
@@ -35,7 +36,6 @@ export const DashboardSection = {
     const el = document.getElementById('dashboard-stats-status');
     if (!el) return;
     const fmt = (ts) => ts ? new Date(ts).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
-    const esc = (t) => String(t ?? '').replace(/</g, '&lt;');
     const gws = Object.keys(this._statsGiornate || {}).map(Number).filter(Boolean).sort((a, b) => a - b);
     const st = this._statsStatus;
     let html = gws.length

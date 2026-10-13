@@ -1,3 +1,5 @@
+import { esc, sameId } from '../utils.js';
+
 export const createMatchCardVS = (match, teamsList = []) => {
   if (!match) {
     return `
@@ -7,15 +9,15 @@ export const createMatchCardVS = (match, teamsList = []) => {
     `;
   }
 
-  const tHome = teamsList.find(t => t && t.id === match.homeId) || { name: match.homeId || 'Casa' };
-  const tAway = teamsList.find(t => t && t.id === match.awayId) || { name: match.awayId || 'Ospite' };
+  const tHome = teamsList.find(t => t && sameId(t.id, match.homeId)) || { name: match.homeId || 'Casa' };
+  const tAway = teamsList.find(t => t && sameId(t.id, match.awayId)) || { name: match.awayId || 'Ospite' };
 
   // Loghi più grandi (36px)
   const getLogoHtml = (team, size = 36) => {
     if (!team || !team.logo) {
       return `<i class="ri-shield-fill" style="font-size:${size}px; color:var(--text2); display:flex; align-items:center; justify-content:center; flex-shrink:0;"></i>`;
     }
-    return `<img src="${team.logo}" style="width:${size}px; height:${size}px; object-fit:contain; border-radius:6px; flex-shrink:0;" onerror="this.outerHTML='<i class=\\'ri-shield-fill\\' style=\\'font-size:${size}px; color:var(--text2); display:flex; align-items:center; justify-content:center; flex-shrink:0;\\'></i>';" alt="Logo">`;
+    return `<img src="${esc(team.logo)}" style="width:${size}px; height:${size}px; object-fit:contain; border-radius:6px; flex-shrink:0;" onerror="this.outerHTML='<i class=\\'ri-shield-fill\\' style=\\'font-size:${size}px; color:var(--text2); display:flex; align-items:center; justify-content:center; flex-shrink:0;\\'></i>';" alt="Logo">`;
   };
 
   /* 
@@ -41,7 +43,7 @@ export const createMatchCardVS = (match, teamsList = []) => {
       
       <!-- Squadra Casa -->
       <div style="display:flex; align-items:center; gap:0.6rem; min-width:0; flex:1; justify-content:flex-end;">
-        <span style="${textStyle} text-align:right;">${tHome.name}</span>
+        <span style="${textStyle} text-align:right;">${esc(tHome.name)}</span>
         ${getLogoHtml(tHome, 36)}
       </div>
 
@@ -51,7 +53,7 @@ export const createMatchCardVS = (match, teamsList = []) => {
       <!-- Squadra Ospite -->
       <div style="display:flex; align-items:center; gap:0.6rem; min-width:0; flex:1; justify-content:flex-start;">
         ${getLogoHtml(tAway, 36)}
-        <span style="${textStyle} text-align:left;">${tAway.name}</span>
+        <span style="${textStyle} text-align:left;">${esc(tAway.name)}</span>
       </div>
 
     </div>
