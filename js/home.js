@@ -7,6 +7,8 @@ import { LiveMatchModule } from './liveMatch.js';
 import { kitImageHTML } from './components/Kit3D.js';
 import { MenuPanel } from './components/MenuPanel.js';
 import { DivisaSquadra } from './menu/DivisaSquadra.js';
+import { getWonTrophies } from './services/palmaresService.js';
+import { esc, sameId, toArray } from './utils.js';
 
 const isByeId = (id) => /BYE|RIPOSO/i.test(String(id ?? ''));
 
@@ -34,6 +36,8 @@ function findLastPlayedMatch(comp, teamId) {
   });
   return best;
 }
+
+const LOGO_PLACEHOLDER = `<div style="width:100px; height:100px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-shield-fill" style="font-size:1.5rem; color:var(--text2)"></i></div>`;
 
 // riquadri dentro la card della squadra (maglia, classifica, palmarès)
 const BOX = 'background: rgba(0,0,0,0.18); border: 1px solid var(--border); border-radius: 14px; padding: 0.6rem 0.7rem;';
@@ -118,19 +122,10 @@ export const HomePage = {
     const kitAction = document.getElementById('homeKitAction');
     const boxes = document.getElementById('homeBoxes');
 
-    let competitionsList = [];
-    if (STATE.competitions) {
-      competitionsList = Array.isArray(STATE.competitions) ? STATE.competitions : Object.values(STATE.competitions);
-    }
-    
-    const activeId = STATE.currentCompetition || STATE.activeCompetitionId;
-    if (!activeId && competitionsList.length > 0) {
-      STATE.activeCompetitionId = competitionsList[0].id;
-    }
+    const competitionsList = toArray(STATE.competitions);
+    const comp = competitionsList.find(c => sameId(c.id, STATE.currentCompetition));
 
-    const comp = competitionsList.find(c => c && String(c.id) === String(activeId || STATE.activeCompetitionId));
-
-    const realGw = STATE.giornataRealeCorrente || STATE.currentRealGW || STATE.status?.currentGW || 0;
+    const realGw = Number(STATE.giornataRealeCorrente) || 0;
     if (banner) {
       if (realGw === 0) {
         banner.innerHTML = `
@@ -161,11 +156,8 @@ export const HomePage = {
 
     if (!STATE.user) return;
     
-    let teamsList = [];
-    if (STATE.teams) {
-      teamsList = Array.isArray(STATE.teams) ? STATE.teams : Object.values(STATE.teams);
-    }
-    const myTeam = teamsList.find(t => t && t.id === STATE.user.id);
+    const teamsList = toArray(STATE.teams);
+    const myTeam = teamsList.find(t => sameId(t.id, STATE.user.id));
 
     if (myTeam) {
       if (tn) tn.textContent = myTeam.name || "Senza Nome";
@@ -177,9 +169,10 @@ export const HomePage = {
 
       if (teamLogoContainer) {
         if (myTeam.logo) {
-          teamLogoContainer.innerHTML = `<img src="${myTeam.logo}" style="width:100px; height:100px; object-fit:contain; border-radius:8px; background:var(--bg3); padding:2px; border:1px solid rgba(255,255,255,0.08);" onerror="this.src=''; this.innerHTML='<i class=\\'ri-shield-fill\\' style=\\'font-size:1.5rem; color:var(--text2);\\'></i>';" alt="Logo">`;
+          // logo non caricabile: al suo posto lo scudo segnaposto
+          teamLogoContainer.innerHTML = `<img src="${esc(myTeam.logo)}" style="width:100px; height:100px; object-fit:contain; border-radius:8px; background:var(--bg3); padding:2px; border:1px solid rgba(255,255,255,0.08);" onerror="this.outerHTML=this.dataset.fb" data-fb="${esc(LOGO_PLACEHOLDER)}" alt="Logo">`;
         } else {
-          teamLogoContainer.innerHTML = `<div style="width:100px; height:100px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-shield-fill" style="font-size:1.5rem; color:var(--text2)"></i></div>`;
+          teamLogoContainer.innerHTML = LOGO_PLACEHOLDER;
         }
       }
 
@@ -204,45 +197,7 @@ export const HomePage = {
       if (trophiesContainer) {
         trophiesContainer.style.alignItems = 'flex-end'; // Forza l'allineamento in basso
 
-        const rawTrophies = STATE.trophies || window.TROPHIES || {};
-        const allTrophies = Array.isArray(rawTrophies)
-          ? rawTrophies
-          : Object.entries(rawTrophies).map(([k, v]) => (typeof v === 'object' ? { id: k, ...v } : { id: k, name: v }));
-
-        const trophiesMap = Object.fromEntries(allTrophies.map(t => [t.id, t]));
-        const compMap = Object.fromEntries(competitionsList.map(c => [c.id, c]));
-
-        const wonTrophies = [];
-
-        if (myTeam.palmares) {
-          Object.entries(myTeam.palmares).forEach(([season, seasonComps]) => {
-            if (seasonComps && typeof seasonComps === 'object') {
-              Object.entries(seasonComps).forEach(([compId, item]) => {
-                if (item && item.trofeo_vinto) {
-                  let trophyId = typeof item.trofeo_vinto === 'string'
-                    ? item.trofeo_vinto
-                    : (compMap[compId]?.trophyId || compId);
-
-                  const trophyObj = trophiesMap[trophyId];
-                  const trophyImage = trophyObj?.image || trophyObj?.img || trophyObj?.url || '';
-
-                  // Lettura ordine_home e scale dal Trofeo stesso (con fallback)
-                  const ordineHome = trophyObj?.ordine_home !== undefined ? parseInt(trophyObj.ordine_home, 10) : 1;
-                  const scale = trophyObj?.scale !== undefined ? parseInt(trophyObj.scale, 10) : 100;
-
-                  wonTrophies.push({
-                    trophyId,
-                    season,
-                    name: trophyObj?.name || compMap[compId]?.name || trophyId,
-                    image: trophyImage,
-                    ordineHome,
-                    scale
-                  });
-                }
-              });
-            }
-          });
-        }
+        const wonTrophies = getWonTrophies(myTeam, STATE.trophies, competitionsList);
 
         // ORDINAMENTO PER LA HOME: prima ordine_home, poi tipo di trofeo (così i trofei
         // dello stesso tipo risultano adiacenti), infine stagione.
@@ -259,10 +214,12 @@ export const HomePage = {
           const renderTrophy = (tr, idx) => {
             const sizePx = Math.round(38 * (tr.scale / 100));
             const overlap = idx > 0 ? `margin-left: -${Math.round(sizePx * 0.28)}px;` : '';
+            const title = esc(`${tr.name} (${tr.season})`);
+            const icon = `<i class="ri-trophy-fill" style="font-size: 1.4rem; color: var(--gold); ${overlap}" title="${title}"></i>`;
             if (tr.image) {
-              return `<img src="${tr.image}" alt="${tr.name}" title="${tr.name} (${tr.season})" style="width: ${sizePx}px; height: ${sizePx}px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); ${overlap}" onerror="this.outerHTML='<i class=\\'ri-trophy-fill\\' style=\\'font-size:1.4rem;color:var(--gold)\\' title=\\'${tr.name} (${tr.season})\\'></i>'">`;
+              return `<img src="${esc(tr.image)}" alt="${esc(tr.name)}" title="${title}" style="width: ${sizePx}px; height: ${sizePx}px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); ${overlap}" onerror="this.outerHTML=this.dataset.fb" data-fb="${esc(icon)}">`;
             }
-            return `<i class="ri-trophy-fill" style="font-size: 1.4rem; color: var(--gold); ${overlap}" title="${tr.name} (${tr.season})"></i>`;
+            return icon;
           };
 
           trophiesContainer.style.gap = '0';
@@ -286,16 +243,10 @@ export const HomePage = {
     }
 
     if (comp) {
-      const currentRealGw = STATE.giornataRealeCorrente || STATE.currentRealGW || STATE.status?.currentGW || 1;
-      const targetGwKey = GwService.getGwKey(comp, currentRealGw);
-
-      const gwData = (targetGwKey && comp.matches && comp.matches[targetGwKey]) ? comp.matches[targetGwKey] : null;
-      let couplesList = [];
-      if (gwData && gwData.couples) {
-        couplesList = Array.isArray(gwData.couples) ? gwData.couples : Object.values(gwData.couples);
-      }
-
-      const myMatch = couplesList.find(m => m && (m.homeId === STATE.user.id || m.awayId === STATE.user.id));
+      const targetGwKey = GwService.getGwKey(comp, realGw || 1);
+      // incontri con i segnaposto del tabellone ("VINCENTE_...") già risolti
+      const myMatch = GwService.getCouples(comp, targetGwKey)
+        .find(m => sameId(m.homeId, STATE.user.id) || sameId(m.awayId, STATE.user.id));
 
       if (nm) {
         nm.innerHTML = createMatchCardVS(myMatch, teamsList);
@@ -340,15 +291,10 @@ export const HomePage = {
       const weeks = Math.max(1, parseInt(cfg.weeks, 10) || 4);
       const topN = Math.max(1, parseInt(cfg.players, 10) || 5);
 
-      let playersList = [];
-      if (STATE.players) {
-        playersList = Array.isArray(STATE.players) ? STATE.players : Object.values(STATE.players);
-      }
-
       // Solo i giocatori della mia rosa (come nella pagina Squadre: player.teamId)
-      let targetPlayers = playersList.filter(Boolean);
+      let targetPlayers = toArray(STATE.players);
       if (myTeam) {
-        targetPlayers = targetPlayers.filter(p => String(p.teamId) === String(myTeam.id));
+        targetPlayers = targetPlayers.filter(p => sameId(p.teamId, myTeam.id));
       }
 
       // Ultime N giornate che hanno dei voti (fino alla giornata reale corrente, se avviata)
@@ -397,18 +343,20 @@ export const HomePage = {
           else if (avg < 6) customStyle += 'background: rgba(255, 107, 107, 0.15); color: var(--accent3);';
           else customStyle += 'background: rgba(255, 255, 255, 0.08); color: var(--text);';
 
+          const role = esc(p.role);
           const photoUrl = p.photoPersonal || p.photoStandard || '';
+          const badge = `<div class="rbadge r${role}" style="width:44px; height:44px; font-size:.95rem; flex-shrink:0;">${role}</div>`;
           const photoHtml = photoUrl
-            ? `<img src="${photoUrl}" alt="${p.name}" loading="lazy" decoding="async" style="width:44px; height:44px; object-fit:contain; flex-shrink:0; border-radius:8px;" onerror="this.outerHTML='<div class=\\'rbadge r${p.role}\\' style=\\'width:44px;height:44px;\\'>${p.role}</div>'">`
-            : `<div class="rbadge r${p.role}" style="width:44px; height:44px; font-size:.95rem; flex-shrink:0;">${p.role}</div>`;
+            ? `<img src="${esc(photoUrl)}" alt="${esc(p.name)}" loading="lazy" decoding="async" style="width:44px; height:44px; object-fit:contain; flex-shrink:0; border-radius:8px;" onerror="this.outerHTML=this.dataset.fb" data-fb="${esc(badge)}">`
+            : badge;
 
           return `
             <div class="pcard" style="background:var(--card2); border: 1px solid rgba(255,255,255,0.05); margin-bottom: 0.4rem;">
               <div style="font-family:'DM Mono',monospace; font-size:.7rem; color:var(--text3); width:14px; text-align:center;">${i + 1}</div>
               ${photoHtml}
               <div class="pi" style="flex:1; min-width:0;">
-                <div class="pn" style="color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.name} <span class="rbadge r${p.role}" style="display:inline-flex; width:16px; height:16px; font-size:.6rem; border-radius:4px; vertical-align:middle;">${p.role}</span></div>
-                <div class="pm" style="color:var(--text2); font-size:0.7rem;">${p.club || ''} • ${count} pres. nelle ${periodo}</div>
+                <div class="pn" style="color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(p.name)} <span class="rbadge r${role}" style="display:inline-flex; width:16px; height:16px; font-size:.6rem; border-radius:4px; vertical-align:middle;">${role}</span></div>
+                <div class="pm" style="color:var(--text2); font-size:0.7rem;">${esc(p.club || '')} • ${count} pres. nelle ${periodo}</div>
               </div>
               <div style="text-align:right;">
                 <div style="${customStyle}">${avg.toFixed(2)}</div>

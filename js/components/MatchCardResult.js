@@ -1,3 +1,5 @@
+import { esc, sameId } from '../utils.js';
+
 /**
  * Card risultato di un incontro.
  * opts.chip = { text, icon, color, live } -> etichetta di stato nell'intestazione della card
@@ -14,14 +16,14 @@ export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
     `;
   }
 
-  const tHome = teamsList.find(t => t && t.id === match.homeId) || { name: match.homeId || 'Casa' };
-  const tAway = teamsList.find(t => t && t.id === match.awayId) || { name: match.awayId || 'Ospite' };
+  const tHome = teamsList.find(t => t && sameId(t.id, match.homeId)) || { name: match.homeId || 'Casa' };
+  const tAway = teamsList.find(t => t && sameId(t.id, match.awayId)) || { name: match.awayId || 'Ospite' };
 
   const getLogoHtml = (team, size = 36) => {
     if (!team || !team.logo) {
       return `<div style="width:${size}px; height:${size}px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3); flex-shrink:0;"><i class="ri-shield-fill"></i></div>`;
     }
-    return `<img src="${team.logo}" style="width:${size}px; height:${size}px; object-fit:contain; border-radius:6px; flex-shrink:0; background:var(--bg3);" onerror="this.outerHTML='<div style=\\'width:${size}px; height:${size}px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3); flex-shrink:0;\\'><i class=\\'ri-shield-fill\\'></i></div>';" alt="Logo">`;
+    return `<img src="${esc(team.logo)}" style="width:${size}px; height:${size}px; object-fit:contain; border-radius:6px; flex-shrink:0; background:var(--bg3);" onerror="this.outerHTML='<div style=\\'width:${size}px; height:${size}px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3); flex-shrink:0;\\'><i class=\\'ri-shield-fill\\'></i></div>';" alt="Logo">`;
   };
 
   const textStyle = `
@@ -49,7 +51,7 @@ export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
     ? `<span style="font-size:.7rem; font-weight:700; color:var(--text2); letter-spacing:.4px; text-transform:uppercase; white-space:nowrap; flex-shrink:0;">Match ${opts.matchNumber}</span>`
     : '';
   const labelHTML = labelText
-    ? `<span style="min-width:0; font-size:.65rem; color:var(--gold); font-weight:700; text-transform:uppercase; display:inline-flex; align-items:center; gap:0.2rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><i class="ri-map-pin-line"></i><span style="overflow:hidden; text-overflow:ellipsis;">${labelText}</span></span>`
+    ? `<span style="min-width:0; font-size:.65rem; color:var(--gold); font-weight:700; text-transform:uppercase; display:inline-flex; align-items:center; gap:0.2rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><i class="ri-map-pin-line"></i><span style="overflow:hidden; text-overflow:ellipsis;">${esc(labelText)}</span></span>`
     : '';
   const leftHTML = `<div style="min-width:0; flex:1; display:flex; align-items:center; gap:.6rem; overflow:hidden;">${matchNumHTML}${labelHTML}</div>`;
 
@@ -81,7 +83,7 @@ export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
         <!-- Squadra Casa -->
         <div style="display:flex; align-items:center; gap:0.6rem; min-width:0; flex:1; justify-content:flex-start;">
           ${getLogoHtml(tHome, 36)}
-          <span style="${textStyle} text-align:left;">${tHome.name}</span>
+          <span style="${textStyle} text-align:left;">${esc(tHome.name)}</span>
         </div>
 
         <!-- Centro: Risultato e Punti -->
@@ -94,7 +96,7 @@ export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
 
         <!-- Squadra Ospite -->
         <div style="display:flex; align-items:center; gap:0.6rem; min-width:0; flex:1; justify-content:flex-end;">
-          <span style="${textStyle} text-align:right;">${tAway.name}</span>
+          <span style="${textStyle} text-align:right;">${esc(tAway.name)}</span>
           ${getLogoHtml(tAway, 36)}
         </div>
 

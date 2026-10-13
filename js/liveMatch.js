@@ -23,8 +23,8 @@ import { ref, onValue, get } from "https://www.gstatic.com/firebasejs/10.7.1/fir
 import { CalcoloMatchService, RULE_MATCH } from "./services/calcoloMatch.js";
 import { GwService } from "./services/gwService.js";
 import { ProbabiliService } from "./services/probabiliService.js";
+import { esc } from './utils.js';
 
-const esc = (v) => String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
 const fmt = (n) => {
   if (n === null || n === undefined || !Number.isFinite(Number(n))) return '-';
@@ -208,7 +208,6 @@ export const LiveMatchModule = {
   myTeamId: null,
   currentCompId: null,
   unsubscribers: [],
-  activeListener: null,
 
   selectedMatchKey: null,
   _pendingKey: null,   // partita da aprire quando si arriva dal calendario
@@ -287,6 +286,7 @@ export const LiveMatchModule = {
       if (this._data) {
         this._data.status = status;
         this._data.compData = compForStatus;
+        if (window.STATE?.players?.length) this._data.players = window.STATE.players;
         this.render();
       }
       return;
@@ -324,20 +324,26 @@ export const LiveMatchModule = {
     }, () => {});
 
     this.unsubscribers = [unsubMatch, unsubVotes, unsubLiveMatches];
-    this.activeListener = () => this.unsubscribers.forEach(u => u());
 
-    get(ref(this.db, 'players'))
-      .then(snap => { this._data.players = snap.val() || {}; markReady('players'); })
-      .catch(err => {
-        console.error("Errore nel recupero giocatori:", err);
-        container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Errore di sincronizzazione dati.</p>`;
-      });
+    // I giocatori sono già seguiti da index.html (anche offline, dalla copia locale):
+    // si usano quelli invece di riscaricare tutto il nodo
+    const known = window.STATE?.players;
+    if (known && known.length) {
+      this._data.players = known;
+      markReady('players');
+    } else {
+      get(ref(this.db, 'players'))
+        .then(snap => { this._data.players = snap.val() || {}; markReady('players'); })
+        .catch(err => {
+          console.error("Errore nel recupero giocatori:", err);
+          container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Errore di sincronizzazione dati.</p>`;
+        });
+    }
   },
 
   stopLiveTracking() {
     this.unsubscribers.forEach(u => { try { u(); } catch (e) {} });
     this.unsubscribers = [];
-    this.activeListener = null;
     this._ctxKey = null;
     this._closeEditor();
   },
@@ -415,8 +421,9 @@ export const LiveMatchModule = {
       couple: sel
     });
 
-    // Mantengo la posizione di scorrimento ai refresh dei voti
-    const scrollY = window.scrollY;
+    // Mantengo la posizione di scorrimento ai refresh dei voti (scorre il contenitore delle pagine, non la finestra)
+    const scroller = document.getElementById('dynamic-pages-container');
+    const scrollTop = scroller ? scroller.scrollTop : 0;
     container.innerHTML = `
       <div class="lv-wrap" style="margin-top:.5rem;">
         <div class="sec" style="justify-content:space-between; align-items:center; margin-bottom:.7rem;">
@@ -431,7 +438,7 @@ export const LiveMatchModule = {
         ${body}
       </div>
     `;
-    if (Math.abs(window.scrollY - scrollY) > 2) window.scrollTo(0, scrollY);
+    if (scroller && Math.abs(scroller.scrollTop - scrollTop) > 2) scroller.scrollTop = scrollTop;
 
     const selectEl = document.getElementById('live-match-select');
     if (selectEl) {
@@ -445,15 +452,6 @@ export const LiveMatchModule = {
   // ------------------------------------------------------------------
   // Overlay replay / formazioni (calendario, home)
   // ------------------------------------------------------------------
-  /** Compatibilità: HTML di una partita (senza simulazione). */
-  buildMatchHTML(homeId, awayId, lineups, players, votes, opts = {}) {
-    this._injectStyles();
-    return `<div class="lv-wrap">${this._matchMarkup({
-      mode: opts.applySubs ? 'past' : (opts.mode || 'next'),
-      homeId, awayId, lineups, players: this._playersList(players), votes, gwReale: opts.gwReale ?? null
-    })}</div>`;
-  },
-
   closeViewer() {
     document.getElementById('match-viewer')?.remove();
     this._viewer = null;

@@ -1,11 +1,11 @@
 import { watchAccountRequests, approveAccount, rejectAccount, notifyNewRequest, approveLegacyOwners } from "../services/accountService.js";
+import { esc } from '../utils.js';
 
 /**
  * Box "Richieste nuovi account" nella dashboard del Patron.
  * Si disegna in #account-requests-box (creato da DashboardSection.renderHTML)
  * e mostra il numero di richieste sulla voce Dashboard del menu.
  */
-const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export const AccountRequestsSection = {
   _auth: null,

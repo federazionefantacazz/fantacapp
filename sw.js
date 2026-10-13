@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.2.9'; // Incrementa ad ogni modifica dei file statici
+const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.3.0'; // Incrementa ad ogni modifica dei file statici
 const IMAGE_CACHE = 'fantacapp-images-v1'; // riempita da js/services/assetPreloader.js: non va cancellata agli aggiornamenti
 // Librerie e font esterni (Firebase SDK, icone, Google Fonts): URL con versione fissa, restano tra un aggiornamento e l'altro
 const RUNTIME_CACHE = 'fantacapp-runtime-v1';
@@ -18,6 +18,7 @@ const ASSETS_TO_CACHE = [
   './index.html',
   './admin.html',
   './manifest.json',
+  './js/utils.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/logo-federazione.jpg',
@@ -53,6 +54,7 @@ const ASSETS_TO_CACHE = [
   './js/services/offlineStore.js',
   './js/services/backNav.js',
   './js/services/connectivity.js',
+  './js/services/palmaresService.js',
 
   // Componenti
   './js/components/AnteprimaClassifica.js',

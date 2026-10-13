@@ -1,6 +1,8 @@
 import { GwService } from './services/gwService.js';
 import { ProbabiliService, STATUS_INFO } from './services/probabiliService.js';
 import { BackNav } from './services/backNav.js';
+import { Connectivity } from './services/connectivity.js';
+import { esc, sameId } from './utils.js';
 
 export const FormazionePage = {
   renderHTML() {
@@ -247,7 +249,7 @@ export const FormazionePage = {
     const modSelect = document.getElementById('f-modulo');
     if (!modSelect) return;
     
-    if (!window._formazioneInitialized) {
+    if (!this._initialized) {
       modSelect.addEventListener('change', () => this.buildSlots(STATE, true));
       
       const saveBtn = document.getElementById('btn-save-lineup');
@@ -255,14 +257,7 @@ export const FormazionePage = {
         saveBtn.addEventListener('click', () => this.save(STATE));
       }
 
-      const navButtons = document.querySelectorAll('#nav window, .nav-btn, [onclick*="formazione"]');
-      navButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-          setTimeout(() => this.buildSlots(window.STATE), 50);
-        });
-      });
-
-      window._formazioneInitialized = true;
+      this._initialized = true;
     }
 
     this.buildSlots(STATE);
@@ -336,7 +331,7 @@ export const FormazionePage = {
     const userId = STATE.user.id;
     const compId = STATE.currentCompetition;
     
-    const compData = STATE.competitions?.find ? STATE.competitions.find(c => c.id === compId) : null;
+    const compData = this._comp(STATE, compId);
     
     // Calcolo corretto della GW della competizione
     const gwCompetizione = this.getGwCompetizione(compData, STATE);
@@ -346,6 +341,20 @@ export const FormazionePage = {
     if (gwCompetizione) {
       savedLineup = compData?.matches?.[gwCompetizione]?.lineups?.[userId] || null;
     }
+
+    // refreshUI arriva a ogni dato nuovo da Firebase (voti, scambi...): se competizione, giornata,
+    // rosa e formazione salvata sono le stesse, il campo NON si ridisegna, così le scelte
+    // non ancora salvate restano. Si aggiorna solo il blocco.
+    const rosaSig = STATE.players
+      .filter(p => p && sameId(p.teamId || p.team, userId))
+      .map(p => `${p.id}:${p.role}`).sort().join(',');
+    const sig = [compId, gwCompetizione, userId, savedLineup?.timestamp || '', rosaSig].join('|');
+    const hasSlots = !!document.querySelector('#titolari-field-slots select');
+    if (!userChangedModulo && hasSlots && sig === this._slotsSig) {
+      this.applyLock(compData, STATE);
+      return;
+    }
+    this._slotsSig = sig;
 
     if (savedLineup && savedLineup.modulo && !userChangedModulo) {
         modSelect.value = savedLineup.modulo;
@@ -406,10 +415,6 @@ export const FormazionePage = {
   // ------------------------------------------------------------------
   // Helper grafici
   // ------------------------------------------------------------------
-  _esc(s) {
-    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  },
-
   _photo(p) {
     return p ? (p.photoPersonal || p.photoStandard || '') : '';
   },
@@ -558,7 +563,6 @@ export const FormazionePage = {
       `<span class="rbadge r${role}" style="width:22px;height:22px;font-size:.65rem;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;margin-right:.4rem;">${role}</span>Scegli tra i tuoi ${roleNames[role] || role}`;
     document.getElementById('fp-sub').innerHTML = sub;
 
-    const esc = (s) => this._esc(s);
     const list = document.getElementById('fp-list');
 
     if (!rows.length) {
@@ -697,12 +701,12 @@ export const FormazionePage = {
             <div class="slot-badge-wrap" id="badge-${slotId}">${this._badgeHtml(preObj)}</div>
           </div>
           <div class="player-name-label" id="label-${slotId}" style="${isSelected ? 'color: var(--accent); border-color: var(--accent);' : ''}">
-            ${this._esc(preselectedText)}
+            ${esc(preselectedText)}
           </div>
           
           <select id="${slotId}" data-role="${reparto.role}" data-label-target="label-${slotId}" data-shirt-target="shirt-${slotId}" data-badge-target="badge-${slotId}" class="field-select" tabindex="-1" aria-hidden="true">
             <option value="">-- ${reparto.role} --</option>
-            ${ops.map(p => `<option value="${p.id}" ${p.id === preselectedId ? 'selected' : ''}>${this._esc(p.name)} (${this._esc(p.club)})</option>`).join('')}
+            ${ops.map(p => `<option value="${p.id}" ${p.id === preselectedId ? 'selected' : ''}>${esc(p.name)} (${esc(p.club)})</option>`).join('')}
           </select>
         `;
 
@@ -793,12 +797,12 @@ export const FormazionePage = {
         div.innerHTML = `
           <div class="rbadge r${item.role}" style="width:24px;height:24px;font-size:.65rem;border-radius:5px;flex-shrink:0;">${item.role}</div>
           ${imgHtml}
-          <div class="pan-pick" id="name-${slotId}" style="${preObj ? 'color:var(--text);' : ''}">${preObj ? `${this._esc(preObj.name)} <span style="color:var(--text3); font-size:.72rem;">(${this._esc(preObj.club)})</span>` : emptyTxt}</div>
+          <div class="pan-pick" id="name-${slotId}" style="${preObj ? 'color:var(--text);' : ''}">${preObj ? `${esc(preObj.name)} <span style="color:var(--text3); font-size:.72rem;">(${esc(preObj.club)})</span>` : emptyTxt}</div>
           <div id="badge-${slotId}" class="pan-badge">${this._badgeHtml(preObj)}</div>
           <i class="ri-arrow-down-s-line" style="color:var(--text3);"></i>
           <select id="${slotId}" data-role="${item.role}" data-img-target="img-${slotId}" data-badge-target="badge-${slotId}" style="display:none;" tabindex="-1" aria-hidden="true">
             <option value="">${emptyTxt}</option>
-            ${ops.map(p => `<option value="${p.id}" ${p.id === preselectedId ? 'selected' : ''}>${this._esc(p.name)} (${this._esc(p.club)})</option>`).join('')}
+            ${ops.map(p => `<option value="${p.id}" ${p.id === preselectedId ? 'selected' : ''}>${esc(p.name)} (${esc(p.club)})</option>`).join('')}
           </select>
         `;
         container.appendChild(div);
@@ -817,7 +821,7 @@ export const FormazionePage = {
 
           const nameEl = document.getElementById(`name-${slotId}`);
           if (nameEl) {
-            nameEl.innerHTML = pObj ? `${this._esc(pObj.name)} <span style="color:var(--text3); font-size:.72rem;">(${this._esc(pObj.club)})</span>` : emptyTxt;
+            nameEl.innerHTML = pObj ? `${esc(pObj.name)} <span style="color:var(--text3); font-size:.72rem;">(${esc(pObj.club)})</span>` : emptyTxt;
             nameEl.style.color = pObj ? 'var(--text)' : '';
           }
 
@@ -828,7 +832,13 @@ export const FormazionePage = {
     });
   },
 
+  /** Competizione per id (gli id possono essere numeri o stringhe). */
+  _comp(STATE, compId) {
+    return (Array.isArray(STATE.competitions) ? STATE.competitions : []).find(c => sameId(c.id, compId)) || null;
+  },
+
   async save(STATE) {
+    if (this._saving) return; // doppio tocco su "Salva"
     const modulo = document.getElementById('f-modulo').value;
     
     const titS = document.querySelectorAll('#titolari-field-slots select');
@@ -851,19 +861,22 @@ export const FormazionePage = {
     if (saveAllChecked && Array.isArray(STATE.competitions)) {
       STATE.competitions.forEach(c => competitionsToSave.push(c));
     } else {
-      const currentCompId = STATE.currentCompetition;
-      const currentCompData = STATE.competitions?.find ? STATE.competitions.find(c => c.id === currentCompId) : null;
+      const currentCompData = this._comp(STATE, STATE.currentCompetition);
       if (currentCompData) competitionsToSave.push(currentCompData);
     }
 
     // Competizione corrente bloccata: non si salva nulla
-    const curComp = Array.isArray(STATE.competitions) ? STATE.competitions.find(c => c.id === STATE.currentCompetition) : null;
+    const curComp = this._comp(STATE, STATE.currentCompetition);
     const curStatus = curComp ? this.getStatus(curComp, STATE) : null;
     if (!curStatus || !curStatus.canPlay) {
       window.showToast(curStatus?.reason || 'Formazione non modificabile.', 'err');
       return;
     }
 
+    // Offline il database mette in coda la scrittura ma la promessa si risolve solo al ritorno
+    // della rete: non la si aspetta, altrimenti il salvataggio sembrerebbe bloccato.
+    const offline = Connectivity.isOffline();
+    this._saving = true;
     try {
       const saltate = [];
       let salvate = 0;
@@ -889,7 +902,9 @@ export const FormazionePage = {
           timestamp: Date.now()
         };
         
-        await window._saveNode(path, dataToSave);
+        const write = window._saveNode(path, dataToSave);
+        if (offline) write.catch(err => console.error('Formazione non inviata:', err));
+        else await write;
 
         if (!comp.matches) comp.matches = {};
         if (!comp.matches[gwCompetizione]) comp.matches[gwCompetizione] = {};
@@ -901,6 +916,8 @@ export const FormazionePage = {
 
       if (salvate === 0) {
         window.showToast('Formazione non salvata: nessuna competizione disponibile per questa giornata.', 'err');
+      } else if (offline) {
+        window.showToast("Sei offline: la formazione partirà al ritorno della rete (tieni l'app aperta)", 'ok');
       } else if (saltate.length) {
         window.showToast(`Salvata. Esclusa: ${saltate.join('; ')}`, 'ok');
       } else {
@@ -909,6 +926,8 @@ export const FormazionePage = {
     } catch(e) { 
       console.error(e);
       window.showToast('Errore durante il salvataggio', 'err'); 
+    } finally {
+      this._saving = false;
     }
   }
 };

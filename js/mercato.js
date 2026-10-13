@@ -1,8 +1,7 @@
 import { db, ref, set, update } from './firebase-config.js';
 import { MercatoService, ROLES, LOAN_MIN, LOAN_MAX } from './services/mercatoService.js';
+import { esc, sid } from './utils.js';
 
-const esc = (v) => String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-const sid = (v) => String(v ?? '');
 const ROLE_NAME = { P: 'Portieri', D: 'Difensori', C: 'Centrocampisti', A: 'Attaccanti' };
 
 const STATUS = {

@@ -17,20 +17,6 @@ export const RULE_MATCH = {
   porta_inviolata: 1
 };
 
-// Icone (Remix Icon) da mostrare in base al tipo di bonus/malus registrato.
-export const ICON_BONUS = {
-  gol: "ri-football-fill",
-  assist: "ri-share-forward-fill",
-  ammonizione: "ri-file-fill",
-  espulsione: "ri-file-fill",
-  autogol: "ri-football-line",
-  rigore_parato: "ri-shield-check-fill",
-  rigore_sbagliato: "ri-close-circle-fill",
-  rigore_segnato: "ri-focus-3-fill",
-  gol_subito: "ri-arrow-down-circle-line",
-  porta_inviolata: "ri-shield-fill"
-};
-
 export const CalcoloMatchService = {
   /**
    * Normalizza un voto: un voto valido è tra 0 e 10. fantacalcio.it usa il
@@ -41,22 +27,6 @@ export const CalcoloMatchService = {
     const n = parseFloat(String(v ?? '').replace(',', '.'));
     if (!Number.isFinite(n) || n <= 0 || n > 10) return 0;
     return Math.round(n * 100) / 100;
-  },
-
-  /**
-   * Costruisce l'HTML delle icone da mostrare a partire
-   * dall'oggetto bonus (es: {gol: 2, ammonizione: 1} -> 2 icone gol + 1 ammonizione).
-   * @param {Object} bonus - conteggio bonus/malus, es. {gol: 1, assist: 1}
-   * @returns {String} HTML delle icone, stringa vuota se nessun bonus
-   */
-  iconsFromBonus(bonus) {
-    if (!bonus) return "";
-    let out = "";
-    Object.keys(ICON_BONUS).forEach(evento => {
-      const quantita = parseInt(bonus[evento]) || 0;
-      out += `<i class="${ICON_BONUS[evento]}" title="${evento.replace('_', ' ')}"></i>`.repeat(quantita);
-    });
-    return out;
   },
 
   /**

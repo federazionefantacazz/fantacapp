@@ -16,8 +16,8 @@ import { RULE_MATCH } from '../services/calcoloMatch.js';
 import { ProbabiliService, STATUS_INFO } from '../services/probabiliService.js';
 import { OfflineStore } from '../services/offlineStore.js';
 import { BackNav } from '../services/backNav.js';
+import { esc } from '../utils.js';
 
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt1 = (n) => (n === null || n === undefined || !Number.isFinite(n)) ? '–' : n.toFixed(2).replace(/0$/, '');
 const ROLE_NAMES = { P: 'Portiere', D: 'Difensore', C: 'Centrocampista', A: 'Attaccante' };
 

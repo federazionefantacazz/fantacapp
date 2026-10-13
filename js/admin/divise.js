@@ -2,6 +2,7 @@ import { ref, remove, push } from "https://www.gstatic.com/firebasejs/10.7.1/fir
 import { uploadPngToImgBB } from "../services/integrationImgBB.js";
 import { getPngPatterns, getPngBrands, onKitAssetsChange } from "../services/kitAssets.js";
 import { kitImageHTML } from "../components/Kit3D.js";
+import { esc } from '../utils.js';
 
 /**
  * Area Patron → Temi → Squadre (Divise): disegni e marchi in PNG per l'editor della maglia 3D
@@ -11,7 +12,6 @@ let database = null;
 const MAX_SIDE = 2048;
 const SAMPLE_LOGO = 'icons/logo-federazione.jpg';
 
-const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const toast = (m, t) => (window.toast ? window.toast(m, t) : alert(m));
 
 /** Maglia d'esempio per l'anteprima di un disegno o di un marchio. */
