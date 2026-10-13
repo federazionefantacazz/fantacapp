@@ -2,8 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<!-- zoom consentito (accessibilità): lo zoom automatico di iOS sui campi è evitato con font da 16px (vedi sotto) -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#121519">
 <meta name="mobile-web-app-capable" content="yes">
 <!-- black-translucent: la pagina va sotto la status bar di iOS, colorata da #status-bar come la barra in basso -->
@@ -215,9 +214,6 @@
 }
 
 html {
-  touch-action: manipulation; /* niente ritardo/zoom col doppio tocco, il pinch-zoom resta */
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
   height: -webkit-fill-available;
   width: 100%;
   margin: 0;
@@ -229,7 +225,6 @@ body {
   overflow: hidden;
   height: 100vh;
   height: -webkit-fill-available;
-  height: 100dvh;
   width: 100%;
   position: fixed;
   top: 0;
@@ -418,11 +413,6 @@ html.resuming #page-login{visibility:hidden}
 
 /* ==================== ACCESSIBILITÀ ==================== */
 label.label{display:block;text-align:left}
-/* iOS ingrandisce la pagina quando si tocca un campo con testo < 16px: lì i campi vanno a 16px */
-@supports (-webkit-touch-callout: none){
-  input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea{font-size:max(16px, 1em) !important}
-  #userCompSelect{height:30px !important;max-width:170px}
-}
 
 /* Login: mostra/nascondi password */
 .pw-wrap{position:relative;margin-bottom:1rem}
