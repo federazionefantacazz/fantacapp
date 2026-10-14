@@ -11,7 +11,7 @@
  *     header:    { bg, text },                                    // barra in alto
  *     nav:       { bg, text, btn },                               // barra in basso
  *     drawer:    { bg, title, text, sub },                        // menu laterale
- *     menuPanel | menuSettings | menuTeam | menuKit | menuListone | menuSvincolati:
+ *     menuPanel | menuSettings | menuTeam | menuKit | menuListone | menuSvincolati | menuNotifiche:
  *                { bg, title, text, sub, text3, label, btn, btnText }     // pannelli del menu
  *     liveEditor | matchViewer | formPicker | playerCard:
  *                { bg, title, text, sub, text3, label, btn, btnText }     // finestre sopra le pagine
@@ -172,6 +172,8 @@ export const THEME_PAGES = [
     desc: 'Pannello Listone (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
   { key: 'menuSvincolati', label: 'Svincolati',              selector: '#menu-panel[data-view="svincolati"]',
     desc: 'Pannello Svincolati (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
+  { key: 'menuNotifiche',  label: 'Notifiche',               selector: '#menu-panel[data-view="notifiche"], #notif-invite',
+    desc: 'Elenco delle notifiche (campanella) e invito ad attivarle (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
   { key: 'login',       label: 'Login',        selector: '#page-login',       desc: 'Accesso e scelta squadra.',
     fields: [
       ...CONTENT_TYPES,

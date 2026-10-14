@@ -39,10 +39,10 @@ function injectStyle() {
     #menu-panel .ls-bar { background: var(--card); border: 1px solid var(--border); border-radius: 26px; padding: .5rem; margin-bottom: 1rem; }
     #menu-panel .ls-top { display: flex; gap: .5rem; align-items: center; }
     #menu-panel .ls-search { flex: 1; min-width: 0; display: flex; align-items: center; gap: .5rem; background: var(--bg3); border-radius: 999px; padding: 0 .9rem; height: 46px; }
-    #menu-panel .ls-search i { font-size: 1.2rem; color: var(--text2); }
+    #menu-panel .ls-search i { font-size: 1.2rem; color: var(--text2); font-family: var(--font-sub, inherit); }
     #menu-panel .ls-search input { flex: 1; min-width: 0; background: none; border: none; outline: none; color: var(--text); font-family: inherit; font-size: 1rem;
       user-select: text; -webkit-user-select: text; }
-    #menu-panel .ls-search input::placeholder { color: var(--text3); }
+    #menu-panel .ls-search input::placeholder { color: var(--text3); font-family: var(--font-text3, inherit); }
     #menu-panel .ls-icon { position: relative; width: 46px; height: 46px; flex-shrink: 0; border-radius: 50%; border: none; background: var(--bg3); color: var(--text);
       font-size: 1.3rem; display: flex; align-items: center; justify-content: center; cursor: pointer; }
     #menu-panel .ls-icon.on { background: var(--accent); color: var(--btn-primary-text); }
