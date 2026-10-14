@@ -187,7 +187,7 @@ export const THEME_PAGES = [
         font: { key: 'teamNameFont', css: '--font-team-name', def: "'Bebas Neue', sans-serif", defLabel: 'Bebas Neue' } },
       { key: 'teamOwner', css: '--team-owner', kind: 'color', def: '#94a3b8', label: 'Allenatore',   hint: 'Nome dell\'allenatore sotto il nome della squadra (vuoto = come Sottotesti)',
         font: { key: 'teamOwnerFont', css: '--font-team-owner', def: "'DM Sans', sans-serif", defLabel: 'DM Sans' } },
-      ...withGroup('Riquadri della squadra (scrivi transparent per renderli trasparenti)', [
+      ...withGroup('Riquadri della squadra', [
         { key: 'logoBg',          css: '--home-logo-bg',       kind: 'text',  def: '#2b323c',                label: 'Card logo · sfondo',       hint: 'Riquadro del logo della squadra (vuoto = come Campi input)' },
         { key: 'logoBorder',      css: '--home-logo-border',   kind: 'text',  def: 'rgba(255,255,255,0.08)', label: 'Card logo · bordo',        hint: 'Bordo del riquadro del logo' },
         { key: 'boxBg',           css: '--home-box-bg',        kind: 'text',  def: 'rgba(0,0,0,0.18)',       label: 'Card interne · sfondo',    hint: 'Maglia, classifica e palmarès dentro il pannello della squadra' },
@@ -196,7 +196,7 @@ export const THEME_PAGES = [
         { key: 'rowActiveBorder', css: '--mc-active-border',   kind: 'text',  def: '#50e3c2',                label: 'Riga attiva · bordo',      hint: 'Bordo della riga della tua squadra (vuoto = Evidenza principale)' },
         { key: 'rowActiveText',   css: '--mc-active-text',     kind: 'color', def: '#50e3c2',                label: 'Riga attiva · testo',      hint: 'Posizione, nome e punti della tua squadra (vuoto = Evidenza principale)' },
         { key: 'rowBg',           css: '--mc-row-bg',          kind: 'text',  def: 'rgba(0,0,0,0.2)',        label: 'Righe · sfondo',           hint: 'Mini classifica, righe delle altre squadre' },
-        { key: 'rowBorder',       css: '--mc-row-border',      kind: 'text',  def: 'transparent',            label: 'Righe · bordo',            hint: 'Bordo delle righe delle altre squadre (vuoto = nessuno)' },
+        { key: 'rowBorder',       css: '--mc-row-border',      kind: 'text',  def: 'rgba(0,0,0,0)',          label: 'Righe · bordo',            hint: 'Bordo delle righe delle altre squadre (vuoto = nessuno)' },
         { key: 'rowText',         css: '--mc-row-text',        kind: 'color', def: '#e2e8f0',                label: 'Righe · testo',            hint: 'Posizione, nome e punti delle altre squadre (vuoto = come Testi)' }
       ])
     ] },
