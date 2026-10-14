@@ -46,16 +46,19 @@ const LOGO_PLACEHOLDER = `<div style="width:100px; height:100px; ${LOGO_CARD} di
 const BOX = 'background: var(--home-box-bg, rgba(0,0,0,0.18)); border: 1px solid var(--home-box-border, var(--border)); border-radius: 14px; padding: 0.6rem 0.7rem;';
 
 /* Nome della squadra su una sola riga: il testo si rimpicciolisce finché il nome ci sta
-   (da 2rem fino a 1rem, poi i puntini). Si ricalcola quando cambia la larghezza o arriva il font. */
+   (da 32px fino a 16px); se non basta, alla misura minima va a capo.
+   Si ricalcola quando cambia la larghezza o arriva il font. */
 const TEAM_NAME_MAX = 32, TEAM_NAME_MIN = 16; // px
 function fitTeamName(el) {
   if (!el || !el.clientWidth) return;
   let size = TEAM_NAME_MAX;
+  el.style.whiteSpace = 'nowrap';
   el.style.fontSize = size + 'px';
   while (el.scrollWidth > el.clientWidth && size > TEAM_NAME_MIN) {
     size -= 1;
     el.style.fontSize = size + 'px';
   }
+  if (el.scrollWidth > el.clientWidth) el.style.whiteSpace = 'normal';
 }
 let teamNameObserver = null;
 function watchTeamName(el) {
@@ -84,7 +87,7 @@ export const HomePage = {
             <div id="userTeamLogo" style="flex-shrink: 0;"></div>
             <div style="flex: 1; min-width: 0; overflow: hidden;">
               <div class="label" style="margin: 0; font-size: 0.68rem;">La mia squadra</div>
-              <h3 id="homeTeamName" style="font-family: var(--font-team-name, 'Bebas Neue', sans-serif); font-size: 2rem; letter-spacing: 0.5px; text-transform: uppercase; color: var(--team-name, var(--text)); margin: 0; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Caricamento...</h3>
+              <h3 id="homeTeamName" style="font-family: var(--font-team-name, 'Bebas Neue', sans-serif); font-size: 2rem; letter-spacing: 0.5px; text-transform: uppercase; color: var(--team-name, var(--text)); margin: 0; line-height: 1.1; white-space: nowrap; overflow: hidden; overflow-wrap: anywhere;">Caricamento...</h3>
               <p id="homeTeamOwner" style="font-size: 0.75rem; color: var(--team-owner, var(--text2)); font-family: var(--font-team-owner, var(--font-sub, inherit)); margin: 2px 0 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">...</p>
             </div>
           </div>
