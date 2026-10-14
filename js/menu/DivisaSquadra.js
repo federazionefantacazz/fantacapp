@@ -66,6 +66,16 @@ function injectStyle() {
 
     .kit-sub { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--label, var(--text2)); font-family: var(--font-label, inherit); margin: .9rem 0 .5rem; }
     .kit-sub:first-child { margin-top: 0; }
+    .kit-pick-btn { width: 100%; display: flex; align-items: center; gap: .6rem; background: var(--bg3); border: 1px solid var(--border); border-radius: 12px;
+      padding: .45rem .6rem; color: var(--text); cursor: pointer; text-align: left; font-size: .85rem; font-weight: 600; }
+    .kit-pick-btn .pv { width: 46px; height: 48px; border-radius: 8px; overflow: hidden; background: #2b323c; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .kit-pick-btn .pv img { width: 100%; height: 100%; object-fit: cover; }
+    .kit-pick-btn .go { margin-left: auto; color: var(--accent); font-size: .8rem; display: flex; align-items: center; gap: .2rem; flex-shrink: 0; }
+    .kit-modal { position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,.6); display: flex; align-items: flex-end; justify-content: center; }
+    .kit-modal-box { width: 100%; max-width: 560px; max-height: 78vh; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--border);
+      border-radius: 18px 18px 0 0; padding: .8rem .9rem calc(.9rem + env(safe-area-inset-bottom, 0px)); }
+    .kit-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .6rem; font-weight: 700; color: var(--text); }
+    .kit-modal-body { overflow-y: auto; -webkit-overflow-scrolling: touch; }
     .kit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: .45rem; }
     .kit-grid.wide { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
     .kit-opt { position: relative; background: var(--bg3); border: 2px solid transparent; border-radius: 10px; padding: .25rem .2rem .3rem;
@@ -288,6 +298,18 @@ export const DivisaSquadra = {
     return `<label class="kit-field"><span>${label}</span><input type="range" min="${min}" max="${max}" value="${value}" data-range="${path}" data-unit="${unit}"><span class="val">${value}${unit}</span></label>`;
   },
 
+  /** Pulsante che apre la finestra di scelta (anteprima, nome, "Cambia"). */
+  _pickBtn(kind, src, label, action) {
+    return `<button class="kit-pick-btn" data-act="open-picker" data-v="${kind}"><span class="pv"><img src="${esc(src)}" alt=""></span><span>${esc(label)}</span><span class="go">${esc(action)} <i class="ri-arrow-right-s-line"></i></span></button>`;
+  },
+
+  /** Finestra (dal basso) con le scelte: si chiude toccando fuori, la X o scegliendo un elemento. */
+  _modal(title, body) {
+    return `<div class="kit-modal" data-act="close-picker" data-self="1"><div class="kit-modal-box">
+      <div class="kit-modal-head"><span>${esc(title)}</span><button class="kit-icon-btn" data-act="close-picker" title="Chiudi"><i class="ri-close-line"></i></button></div>
+      <div class="kit-modal-body">${body}</div></div></div>`;
+  },
+
   _chip(act, value, label, on) {
     return `<button class="lv-chip ${on ? 'on' : ''}" data-act="${act}" data-v="${esc(value)}">${esc(label)}</button>`;
   },
@@ -346,10 +368,11 @@ export const DivisaSquadra = {
       editor = `
         <div class="kit-layer-edit">
           <div class="kit-sub">Disegno del livello ${sel + 1}</div>
-          <div class="kit-grid">
+          ${this._pickBtn('layer', (png.find(pp => 'png:' + pp.id === l.type) || {}).url || patternThumbUrl(PATTERNS.find(pt => pt.id === l.type) || PATTERNS[0]), patternLabel(l.type), 'Cambia')}
+          ${this._picker === 'layer' ? this._modal(`Disegno del livello ${sel + 1}`, `<div class="kit-grid">
             ${png.map(pp => cell('png:' + pp.id, pp.url, pp.name)).join('')}
             ${PATTERNS.map(pt => cell(pt.id, patternThumbUrl(pt), pt.label)).join('')}
-          </div>
+          </div>`) : ''}
           <div class="kit-sub">Dove applicarlo</div>
           <div class="kit-chips">${ZONES.map(z => this._chip('layer-zone', z.id, z.label, l.zone === z.id)).join('')}</div>
           <div class="kit-sub">Avanzate</div>
@@ -479,12 +502,12 @@ export const DivisaSquadra = {
     return `
       <div class="kit-sub">Patch sulla maglia (${k.patches.length}/${MAX_PATCHES})</div>
       ${current || '<div class="mp-muted">Nessuna patch: scegline una qui sotto.</div>'}
-      <div class="kit-sub">Aggiungi una patch</div>
-      ${full ? `<div class="mp-muted">Hai raggiunto il massimo di ${MAX_PATCHES} patch.</div>` : `
-      <div class="kit-grid wide">
+      ${full ? `<div class="mp-muted" style="margin-top:.6rem;">Hai raggiunto il massimo di ${MAX_PATCHES} patch.</div>` : `
+      <button class="mp-btn" data-act="open-picker" data-v="patch" style="width:100%; margin-top:.6rem;"><i class="ri-add-line"></i> Aggiungi una patch</button>`}
+      ${this._picker === 'patch' && !full ? this._modal('Aggiungi una patch', `<div class="kit-grid wide">
         ${avail.map(a => `<button class="kit-opt kit-comp" data-act="patch-add" data-v="${esc(a.id)}" title="${esc(a.name)}">
           <img data-cut="${esc(a.src)}" alt=""><span class="lb">${esc(a.name)}</span></button>`).join('')}
-      </div>`}
+      </div>`) : ''}
       <div class="mp-muted" style="margin-top:.6rem;">Le patch vengono scontornate automaticamente; il Patron può aggiungerne di nuove. Per ogni patch scegli la posizione: centro petto, sotto lo sponsor, sulle maniche o in fondo alla maglia.</div>`;
   },
 
@@ -506,6 +529,7 @@ export const DivisaSquadra = {
 
     switch (act) {
       case 'toggle':
+        this._picker = null;
         this._open = this._open === btn.dataset.sec ? null : btn.dataset.sec;
         this._root.querySelectorAll('.kit-acc').forEach(a => a.classList.toggle('open', a.dataset.sec === this._open));
         this._renderSection();
@@ -564,6 +588,7 @@ export const DivisaSquadra = {
         });
         return;
       case 'pick-layer':
+        this._picker = null;
         if (this._layer === i) return;
         this._layer = i; this._renderSection();
         return;
@@ -578,7 +603,16 @@ export const DivisaSquadra = {
         this._update(kit => { [kit.layers[i], kit.layers[j]] = [kit.layers[j], kit.layers[i]]; this._layer = j; });
         return;
       }
+      case 'open-picker':
+        this._picker = v; this._renderSection();
+        return;
+      case 'close-picker':
+        // sul fondo scuro: chiudo solo se il tocco è proprio sul fondo (non dentro la finestra)
+        if (btn.dataset.self && e.target !== btn) return;
+        this._picker = null; this._renderSection();
+        return;
       case 'layer-type':
+        this._picker = null;
         this._update(kit => { kit.layers[this._layer].type = v; });
         return;
       case 'layer-zone':
@@ -603,6 +637,7 @@ export const DivisaSquadra = {
 
       // patch
       case 'patch-add': {
+        this._picker = null;
         if (k.patches.length >= MAX_PATCHES) return;
         const a = availablePatches(window.STATE).find(x => x.id === v);
         if (!a) return;
