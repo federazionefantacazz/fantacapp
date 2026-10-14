@@ -172,6 +172,17 @@ export const THEME_PAGES = [
     desc: 'Pannello Listone (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
   { key: 'menuSvincolati', label: 'Svincolati',              selector: '#menu-panel[data-view="svincolati"]',
     desc: 'Pannello Svincolati (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
+  { key: 'updateBanner', label: 'Avviso aggiornamento', selector: '#update-banner',
+    desc: 'Riquadro "È disponibile una nuova versione dell\'app" con i pulsanti Dopo e Aggiorna.',
+    fields: [
+      { key: 'bg',     css: '--upd-bg',     kind: 'text',  def: '#282e37', label: 'Sfondo',        hint: 'Sfondo del riquadro (vuoto = come Schede)' },
+      { key: 'border', css: '--upd-border', kind: 'text',  def: 'rgba(80,227,194,0.5)', label: 'Bordo', hint: 'Bordo del riquadro (vuoto = Evidenza principale al 50%)' },
+      { key: 'icon',   css: '--upd-icon',   kind: 'color', def: '#50e3c2', label: 'Icona',         hint: 'Icona a sinistra (vuoto = Evidenza principale)' },
+      { ...TYPE_TEXT, hint: 'Testo "È disponibile una nuova versione dell\'app."' },
+      { key: 'later',  css: '--upd-later',  kind: 'color', def: '#94a3b8', label: 'Pulsante Dopo', hint: 'Testo del pulsante Dopo (vuoto = come Sottotesti)', font: FONT_SUB },
+      { ...TYPE_BTN,      hint: 'Sfondo del pulsante Aggiorna (vuoto = come Generale)' },
+      { ...TYPE_BTN_TEXT, hint: 'Testo del pulsante Aggiorna' }
+    ] },
   { key: 'login',       label: 'Login',        selector: '#page-login',       desc: 'Accesso e scelta squadra.',
     fields: [
       ...CONTENT_TYPES,
