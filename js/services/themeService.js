@@ -58,7 +58,8 @@ const GENERAL_ONLY_FIELDS = [
     { key: 'card',    css: '--card',       kind: 'color', def: '#282e37',                hint: 'Schede' },
     { key: 'card2',   css: '--card2',      kind: 'color', def: '#333a46',                hint: 'Righe e sub-box dentro le schede' },
     { key: 'subbox',  css: '--subbox-bg',  kind: 'text',  def: 'rgba(0,0,0,0.25)',       hint: 'Pannelli trasparenti (home e classifica)' },
-    { key: 'border',  css: '--border',     kind: 'text',  def: 'rgba(255,255,255,0.08)', hint: 'Bordi, righe e separatori' }
+    { key: 'border',  css: '--border',     kind: 'text',  def: 'rgba(255,255,255,0.08)', hint: 'Bordi, righe e separatori' },
+    { key: 'systemBar', css: '--system-bar-bg', kind: 'color', def: '#000000',            hint: 'Barra di sistema di Android (fascia dei gesti sotto la barra in basso)' }
   ]),
   ...withGroup('Altri testi e pulsanti', [
     { key: 'btnSecondary',     css: '--btn-secondary',      kind: 'color', def: '#3a4352', hint: 'Pulsante secondario' },
@@ -149,7 +150,14 @@ export const THEME_PAGES = [
     desc: 'Pannello Listone (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
   { key: 'menuSvincolati', label: 'Svincolati',              selector: '#menu-panel[data-view="svincolati"]',
     desc: 'Pannello Svincolati (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
-  { key: 'login',       label: 'Login',        selector: '#page-login',       desc: 'Accesso e scelta squadra.',   fields: CONTENT_TYPES },
+  { key: 'login',       label: 'Login',        selector: '#page-login',       desc: 'Accesso e scelta squadra.',
+    fields: [
+      ...CONTENT_TYPES,
+      { key: 'inputBg',          css: '--input-bg',          kind: 'text',  def: '#22272f',               label: 'Sfondo campi',       hint: 'Sfondo dei campi email, password e scelta squadra (vuoto = come Superficie secondaria)' },
+      { key: 'inputText',        css: '--input-text',        kind: 'color', def: '#94a3b8',               label: 'Testo campi',        hint: 'Testo scritto nei campi e icona "mostra password" (vuoto = come Sottotesti)' },
+      { key: 'inputPlaceholder', css: '--input-placeholder', kind: 'color', def: '#5b6b80',               label: 'Segnaposto campi',   hint: 'Testo di esempio nei campi vuoti (vuoto = come Testi disattivati)' },
+      { key: 'inputBorder',      css: '--input-border',      kind: 'text',  def: 'rgba(255,255,255,0.15)', label: 'Bordo campi',       hint: 'Bordo dei campi (quando selezionati usano Evidenza principale)' }
+    ] },
   { key: 'home',        label: 'Home',         selector: '#page-home',        desc: 'Schermata principale.',       fields: CONTENT_TYPES },
   { key: 'calendario',  label: 'Calendario',   selector: '#page-calendario, #cal-popup',  desc: 'Calendario incontri.',        fields: CONTENT_TYPES },
   { key: 'classifica',  label: 'Classifica',   selector: '#page-classifica',  desc: 'Classifica e tabellone.',     fields: CONTENT_TYPES },

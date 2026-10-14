@@ -214,6 +214,8 @@
 }
 
 html {
+  /* Colore che Android usa per la barra di sistema (gesti) sotto l'app: modificabile dal tema (Generale) */
+  background: var(--system-bar-bg, #000);
   height: -webkit-fill-available;
   width: 100%;
   margin: 0;
@@ -299,6 +301,11 @@ body {
 .select-rose, .input-login{width:100%;background:var(--bg3);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:.75rem .9rem;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:1rem;outline:none;min-height:46px}
 .input-login:focus,.select-rose:focus{border-color:var(--accent)}
 .input-login{background:var(--bg2);border-color:rgba(255,255,255,0.15);margin-bottom:1rem;user-select:text !important;-webkit-user-select:text !important;}
+/* Campi del login: colori propri, modificabili dal tema (pagina Login) */
+#page-login .input-login, #page-login .select-rose{background:var(--input-bg, var(--bg2)) !important;color:var(--input-text, var(--text2));border-color:var(--input-border, rgba(255,255,255,0.15))}
+#page-login .input-login::placeholder{color:var(--input-placeholder, var(--text3));opacity:1}
+#page-login .input-login:focus, #page-login .select-rose:focus{border-color:var(--accent)}
+#page-login .pw-toggle{color:var(--input-text, var(--text2))}
 .link-toggle{color:var(--accent2);font-size:.85rem;text-decoration:none;display:inline-block;margin-top:.6rem;cursor:pointer;background:none;border:none;font-family:inherit;padding:.6rem .4rem}
 
 /* ==================== STATUS BAR (iPhone) ====================
