@@ -173,7 +173,8 @@ export const THEME_PAGES = [
   { key: 'menuSvincolati', label: 'Svincolati',              selector: '#menu-panel[data-view="svincolati"]',
     desc: 'Pannello Svincolati (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
   { key: 'menuNotifiche',  label: 'Notifiche',               selector: '#menu-panel[data-view="notifiche"], #notif-invite',
-    desc: 'Elenco delle notifiche (campanella) e invito ad attivarle (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
+    desc: 'Elenco delle notifiche (campanella) e invito ad attivarle (vuoto = come Pannelli del menu). Solo colori: i font restano quelli di Generale.',
+    fields: [MENU_BG, ...CONTENT_TYPES.map(({ font, ...f }) => f)] },
   { key: 'login',       label: 'Login',        selector: '#page-login',       desc: 'Accesso e scelta squadra.',
     fields: [
       ...CONTENT_TYPES,
