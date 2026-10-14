@@ -16,6 +16,34 @@ import {
  * Al salvataggio si genera anche una foto PNG (kit.image) usata nel resto dell'app.
  */
 const MAX_LAYERS = 6;
+
+/** Colore scritto o incollato: #rgb, #rrggbb (anche senza #) oppure rgb(r, g, b) / "r, g, b". Restituisce #rrggbb o null. */
+function parseColor(str) {
+  const t = String(str || '').trim().toLowerCase();
+  const m = t.match(/^(?:rgba?\s*\(\s*)?(\d{1,3})\s*[,\s]\s*(\d{1,3})\s*[,\s]\s*(\d{1,3})/);
+  if (m) {
+    const v = m.slice(1, 4).map(Number);
+    if (v.some(n => n > 255)) return null;
+    return '#' + v.map(n => n.toString(16).padStart(2, '0')).join('');
+  }
+  const h = t.replace(/^#/, '');
+  if (/^[0-9a-f]{6}$/.test(h)) return '#' + h;
+  if (/^[0-9a-f]{3}$/.test(h)) return '#' + h.split('').map(c => c + c).join('');
+  return null;
+}
+const hexToRgb = (hex) => { const h = String(hex).replace('#', ''); return `rgb(${parseInt(h.slice(0, 2), 16)}, ${parseInt(h.slice(2, 4), 16)}, ${parseInt(h.slice(4, 6), 16)})`; };
+
+/** Copia negli appunti (anche dove navigator.clipboard non c'è). */
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch (e) { /* ripiego sotto */ }
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  ta.remove();
+  return ok;
+}
 // come si stende un disegno sui pezzi della maglia
 const LAYER_WRAPS = [
   { id: 'whole',  label: 'Default', desc: 'Davanti e dietro come un unico pezzo: il disegno continua dal davanti al dietro.' },
@@ -90,9 +118,13 @@ function injectStyle() {
 
     .kit-color-row { display: flex; align-items: center; gap: .6rem; padding: .45rem 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
     .kit-color-row:last-child { border-bottom: none; }
-    .kit-color-row .nm { flex: 1; min-width: 110px; font-size: .82rem; font-weight: 600; color: var(--text); }
+    .kit-color-row .nm { flex: 1; min-width: 72px; font-size: .82rem; font-weight: 600; color: var(--text); }
     .kit-color { width: 40px; height: 32px; border: 1px solid var(--border); border-radius: 8px; padding: 0; background: none; cursor: pointer; flex-shrink: 0; }
     .kit-color::-webkit-color-swatch-wrapper { padding: 2px; } .kit-color::-webkit-color-swatch { border: none; border-radius: 6px; }
+    .kit-hex { width: 84px; flex-shrink: 0; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: .38rem .4rem;
+      color: var(--text); font-family: 'DM Mono', monospace; font-size: .74rem; text-transform: uppercase; }
+    .kit-hex.bad { border-color: var(--accent3); }
+    .kit-copy { background: transparent; border: 1px solid var(--border); color: var(--text2); border-radius: 8px; padding: .32rem .3rem; font-size: .6rem; font-weight: 700; cursor: pointer; flex-shrink: 0; }
     .kit-swatches { display: flex; flex-wrap: wrap; gap: .3rem; width: 100%; }
     .kit-sw { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; padding: 0; }
     .kit-sw.on { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -171,6 +203,8 @@ export const DivisaSquadra = {
     root.addEventListener('click', (e) => this._onClick(e));
     root.addEventListener('input', (e) => this._onInput(e));
     root.addEventListener('change', (e) => this._onChange(e));
+    // Invio nel campo del codice colore = conferma
+    root.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.dataset && e.target.dataset.hex) e.target.blur(); });
     // il Patron può aggiungere modelli, disegni e marchi mentre l'editor è aperto
     this._unwatch = onKitAssetsChange(() => { if (this._root) { this._renderPreview(); this._renderSection(); } });
   },
@@ -291,6 +325,9 @@ export const DivisaSquadra = {
   _colorPicker(path, value) {
     return `
       <input type="color" class="kit-color" data-color="${path}" value="${esc(value)}">
+      <input type="text" class="kit-hex" data-hex="${path}" value="${esc(value)}" maxlength="24" spellcheck="false" autocomplete="off" autocapitalize="off" title="Codice HEX (#1e5bb8) o RGB (30, 91, 184)">
+      <button class="kit-copy" data-act="copy-color" data-path="${path}" data-fmt="hex" title="Copia il codice HEX"><i class="ri-file-copy-line"></i> HEX</button>
+      <button class="kit-copy" data-act="copy-color" data-path="${path}" data-fmt="rgb" title="Copia il codice RGB"><i class="ri-file-copy-line"></i> RGB</button>
       <div class="kit-swatches">${SWATCHES.map(c => `<button class="kit-sw ${String(value).toLowerCase() === c ? 'on' : ''}" style="background:${c}" data-act="swatch" data-path="${path}" data-v="${c}" aria-label="${c}"></button>`).join('')}</div>`;
   },
 
@@ -603,6 +640,12 @@ export const DivisaSquadra = {
         this._update(kit => { [kit.layers[i], kit.layers[j]] = [kit.layers[j], kit.layers[i]]; this._layer = j; });
         return;
       }
+      case 'copy-color': {
+        const hex = String(btn.dataset.path.split('.').reduce((o, k2) => (o ? o[k2] : undefined), this._kit) || '').toLowerCase();
+        const text = btn.dataset.fmt === 'rgb' ? hexToRgb(hex) : hex;
+        copyText(text).then(ok => window.showToast(ok ? `Copiato: ${text}` : 'Copia non riuscita', ok ? 'ok' : 'err'));
+        return;
+      }
       case 'open-picker':
         this._picker = v; this._renderSection();
         return;
@@ -662,7 +705,14 @@ export const DivisaSquadra = {
       this._schedulePreview();
     } else if (t.dataset.color) {
       this._set(t.dataset.color, t.value);
+      const hx = t.parentElement.querySelector(`.kit-hex[data-hex="${t.dataset.color}"]`);
+      if (hx) { hx.value = t.value; hx.classList.remove('bad'); }
       this._schedulePreview();
+    } else if (t.dataset.hex) {
+      // mentre scrivo: applico solo un HEX completo (#rrggbb); il resto (#rgb, RGB) quando confermo
+      const c = /^#?[0-9a-f]{6}$/i.test(t.value.trim()) ? parseColor(t.value) : null;
+      t.classList.toggle('bad', !parseColor(t.value) && t.value.trim().length >= 7);
+      if (c) { this._set(t.dataset.hex, c); const ci = t.parentElement.querySelector(`.kit-color[data-color="${t.dataset.hex}"]`); if (ci) ci.value = c; this._schedulePreview(); }
     } else if (t.dataset.text) {
       this._set(t.dataset.text, t.value);
       this._schedulePreview();
@@ -671,7 +721,12 @@ export const DivisaSquadra = {
 
   _onChange(e) {
     const t = e.target;
-    if (t.dataset.color || t.dataset.range) {
+    if (t.dataset.hex) {
+      const c = parseColor(t.value);
+      if (!c) { window.showToast('Codice non valido: usa #1e5bb8 oppure 30, 91, 184', 'err'); return; }
+      this._set(t.dataset.hex, c);
+      this._renderPreview(); this._renderSection();
+    } else if (t.dataset.color || t.dataset.range) {
       // a fine scelta ridisegno la sezione (miniature e pallini dei colori)
       this._renderSection();
     } else if (t.dataset.patchPos !== undefined) {
