@@ -2,7 +2,7 @@ import { db, ref, update } from '../firebase-config.js';
 import { uploadPngToImgBB } from '../services/integrationImgBB.js';
 import { createKitViewer, renderKitImage, kitImageHTML, dataUrlToBlob } from '../components/Kit3D.js';
 import { getCutout } from '../services/imageCutout.js';
-import { getPngPatterns, getPngBrands, onKitAssetsChange } from '../services/kitAssets.js';
+import { getPngPatterns, getPngBrands, getPngPatches, onKitAssetsChange } from '../services/kitAssets.js';
 import { esc } from './menuUtils.js';
 import {
   normalizeKit, defaultKit, patternLabel,
@@ -16,6 +16,40 @@ import {
  * Al salvataggio si genera anche una foto PNG (kit.image) usata nel resto dell'app.
  */
 const MAX_LAYERS = 6;
+
+/** Colore scritto o incollato: #rgb, #rrggbb (anche senza #) oppure rgb(r, g, b) / "r, g, b". Restituisce #rrggbb o null. */
+function parseColor(str) {
+  const t = String(str || '').trim().toLowerCase();
+  const m = t.match(/^(?:rgba?\s*\(\s*)?(\d{1,3})\s*[,\s]\s*(\d{1,3})\s*[,\s]\s*(\d{1,3})/);
+  if (m) {
+    const v = m.slice(1, 4).map(Number);
+    if (v.some(n => n > 255)) return null;
+    return '#' + v.map(n => n.toString(16).padStart(2, '0')).join('');
+  }
+  const h = t.replace(/^#/, '');
+  if (/^[0-9a-f]{6}$/.test(h)) return '#' + h;
+  if (/^[0-9a-f]{3}$/.test(h)) return '#' + h.split('').map(c => c + c).join('');
+  return null;
+}
+const hexToRgb = (hex) => { const h = String(hex).replace('#', ''); return `rgb(${parseInt(h.slice(0, 2), 16)}, ${parseInt(h.slice(2, 4), 16)}, ${parseInt(h.slice(4, 6), 16)})`; };
+
+/** Copia negli appunti (anche dove navigator.clipboard non c'è). */
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch (e) { /* ripiego sotto */ }
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  ta.remove();
+  return ok;
+}
+// come si stende un disegno sui pezzi della maglia
+const LAYER_WRAPS = [
+  { id: 'whole',  label: 'Default', desc: 'Davanti e dietro come un unico pezzo: il disegno continua dal davanti al dietro.' },
+  { id: 'repeat', label: 'Ripetuto', desc: 'Lo stesso disegno uguale su davanti, dietro e maniche.' },
+  { id: 'mirror', label: 'Specchiato', desc: 'Dietro e manica destra sono lo specchio di davanti e manica sinistra.' }
+];
 const MAX_PATCHES = 4;
 const MAX_FILE_MB = 8;
 const FEDERAZIONE_LOGO = 'icons/logo-federazione.jpg';
@@ -60,6 +94,16 @@ function injectStyle() {
 
     .kit-sub { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--label, var(--text2)); font-family: var(--font-label, inherit); margin: .9rem 0 .5rem; }
     .kit-sub:first-child { margin-top: 0; }
+    .kit-pick-btn { width: 100%; display: flex; align-items: center; gap: .6rem; background: var(--bg3); border: 1px solid var(--border); border-radius: 12px;
+      padding: .45rem .6rem; color: var(--text); cursor: pointer; text-align: left; font-size: .85rem; font-weight: 600; }
+    .kit-pick-btn .pv { width: 46px; height: 48px; border-radius: 8px; overflow: hidden; background: #2b323c; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .kit-pick-btn .pv img { width: 100%; height: 100%; object-fit: cover; }
+    .kit-pick-btn .go { margin-left: auto; color: var(--accent); font-size: .8rem; display: flex; align-items: center; gap: .2rem; flex-shrink: 0; }
+    .kit-modal { position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,.6); display: flex; align-items: flex-end; justify-content: center; }
+    .kit-modal-box { width: 100%; max-width: 560px; max-height: 78vh; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--border);
+      border-radius: 18px 18px 0 0; padding: .8rem .9rem calc(.9rem + env(safe-area-inset-bottom, 0px)); }
+    .kit-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .6rem; font-weight: 700; color: var(--text); }
+    .kit-modal-body { overflow-y: auto; -webkit-overflow-scrolling: touch; }
     .kit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: .45rem; }
     .kit-grid.wide { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
     .kit-opt { position: relative; background: var(--bg3); border: 2px solid transparent; border-radius: 10px; padding: .25rem .2rem .3rem;
@@ -74,9 +118,13 @@ function injectStyle() {
 
     .kit-color-row { display: flex; align-items: center; gap: .6rem; padding: .45rem 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
     .kit-color-row:last-child { border-bottom: none; }
-    .kit-color-row .nm { flex: 1; min-width: 110px; font-size: .82rem; font-weight: 600; color: var(--text); }
+    .kit-color-row .nm { flex: 1; min-width: 72px; font-size: .82rem; font-weight: 600; color: var(--text); }
     .kit-color { width: 40px; height: 32px; border: 1px solid var(--border); border-radius: 8px; padding: 0; background: none; cursor: pointer; flex-shrink: 0; }
     .kit-color::-webkit-color-swatch-wrapper { padding: 2px; } .kit-color::-webkit-color-swatch { border: none; border-radius: 6px; }
+    .kit-hex { width: 84px; flex-shrink: 0; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: .38rem .4rem;
+      color: var(--text); font-family: 'DM Mono', monospace; font-size: .74rem; text-transform: uppercase; }
+    .kit-hex.bad { border-color: var(--accent3); }
+    .kit-copy { background: transparent; border: 1px solid var(--border); color: var(--text2); border-radius: 8px; padding: .32rem .3rem; font-size: .6rem; font-weight: 700; cursor: pointer; flex-shrink: 0; }
     .kit-swatches { display: flex; flex-wrap: wrap; gap: .3rem; width: 100%; }
     .kit-sw { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; padding: 0; }
     .kit-sw.on { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -120,10 +168,12 @@ const brandThumbUrl = (b, color, base) => svgUrl(`<svg xmlns="http://www.w3.org/
 const patternThumbUrl = (p) => svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${400} ${420}" preserveAspectRatio="xMidYMid slice"><rect width="400" height="420" fill="#2b323c"/>${p.draw('#ffffff', 1, 'th' + p.id)}</svg>`);
 
 /** Patch disponibili: loghi delle competizioni + logo della Federazione. */
+/** Patch disponibili: quella del Fantacazz e quelle caricate dal Patron (Patron → Divise → Patch). */
 function availablePatches(STATE) {
   const comps = Array.isArray(STATE.competitions) ? STATE.competitions : Object.values(STATE.competitions || {});
-  const list = comps.filter(c => c && c.logo).map(c => ({ id: String(c.id), name: c.name || 'Competizione', src: c.logo }));
-  list.push({ id: 'federazione', name: 'Federazione', src: FEDERAZIONE_LOGO });
+  const list = comps.filter(c => c && c.logo && /fantacazz/i.test(c.name || '')).map(c => ({ id: String(c.id), name: c.name, src: c.logo }));
+  if (!list.length) list.push({ id: 'federazione', name: 'Fantacazz', src: FEDERAZIONE_LOGO });
+  getPngPatches().forEach(p => list.push({ id: 'png:' + p.id, name: p.name || 'Patch', src: p.url }));
   return list;
 }
 
@@ -153,6 +203,8 @@ export const DivisaSquadra = {
     root.addEventListener('click', (e) => this._onClick(e));
     root.addEventListener('input', (e) => this._onInput(e));
     root.addEventListener('change', (e) => this._onChange(e));
+    // Invio nel campo del codice colore = conferma
+    root.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.dataset && e.target.dataset.hex) e.target.blur(); });
     // il Patron può aggiungere modelli, disegni e marchi mentre l'editor è aperto
     this._unwatch = onKitAssetsChange(() => { if (this._root) { this._renderPreview(); this._renderSection(); } });
   },
@@ -273,11 +325,26 @@ export const DivisaSquadra = {
   _colorPicker(path, value) {
     return `
       <input type="color" class="kit-color" data-color="${path}" value="${esc(value)}">
+      <input type="text" class="kit-hex" data-hex="${path}" value="${esc(value)}" maxlength="24" spellcheck="false" autocomplete="off" autocapitalize="off" title="Codice HEX (#1e5bb8) o RGB (30, 91, 184)">
+      <button class="kit-copy" data-act="copy-color" data-path="${path}" data-fmt="hex" title="Copia il codice HEX"><i class="ri-file-copy-line"></i> HEX</button>
+      <button class="kit-copy" data-act="copy-color" data-path="${path}" data-fmt="rgb" title="Copia il codice RGB"><i class="ri-file-copy-line"></i> RGB</button>
       <div class="kit-swatches">${SWATCHES.map(c => `<button class="kit-sw ${String(value).toLowerCase() === c ? 'on' : ''}" style="background:${c}" data-act="swatch" data-path="${path}" data-v="${c}" aria-label="${c}"></button>`).join('')}</div>`;
   },
 
   _range(path, label, value, min, max, unit = '') {
     return `<label class="kit-field"><span>${label}</span><input type="range" min="${min}" max="${max}" value="${value}" data-range="${path}" data-unit="${unit}"><span class="val">${value}${unit}</span></label>`;
+  },
+
+  /** Pulsante che apre la finestra di scelta (anteprima, nome, "Cambia"). */
+  _pickBtn(kind, src, label, action) {
+    return `<button class="kit-pick-btn" data-act="open-picker" data-v="${kind}"><span class="pv"><img src="${esc(src)}" alt=""></span><span>${esc(label)}</span><span class="go">${esc(action)} <i class="ri-arrow-right-s-line"></i></span></button>`;
+  },
+
+  /** Finestra (dal basso) con le scelte: si chiude toccando fuori, la X o scegliendo un elemento. */
+  _modal(title, body) {
+    return `<div class="kit-modal" data-act="close-picker" data-self="1"><div class="kit-modal-box">
+      <div class="kit-modal-head"><span>${esc(title)}</span><button class="kit-icon-btn" data-act="close-picker" title="Chiudi"><i class="ri-close-line"></i></button></div>
+      <div class="kit-modal-body">${body}</div></div></div>`;
   },
 
   _chip(act, value, label, on) {
@@ -338,12 +405,16 @@ export const DivisaSquadra = {
       editor = `
         <div class="kit-layer-edit">
           <div class="kit-sub">Disegno del livello ${sel + 1}</div>
-          <div class="kit-grid">
+          ${this._pickBtn('layer', (png.find(pp => 'png:' + pp.id === l.type) || {}).url || patternThumbUrl(PATTERNS.find(pt => pt.id === l.type) || PATTERNS[0]), patternLabel(l.type), 'Cambia')}
+          ${this._picker === 'layer' ? this._modal(`Disegno del livello ${sel + 1}`, `<div class="kit-grid">
             ${png.map(pp => cell('png:' + pp.id, pp.url, pp.name)).join('')}
             ${PATTERNS.map(pt => cell(pt.id, patternThumbUrl(pt), pt.label)).join('')}
-          </div>
+          </div>`) : ''}
           <div class="kit-sub">Dove applicarlo</div>
           <div class="kit-chips">${ZONES.map(z => this._chip('layer-zone', z.id, z.label, l.zone === z.id)).join('')}</div>
+          <div class="kit-sub">Avanzate</div>
+          <div class="kit-chips">${LAYER_WRAPS.map(w => this._chip('layer-wrap', w.id, w.label, (l.wrap || 'repeat') === w.id)).join('')}</div>
+          <div class="mp-muted" style="margin-top:.3rem;">${esc((LAYER_WRAPS.find(w => w.id === (l.wrap || 'repeat')) || {}).desc || '')}</div>
           <div class="kit-sub">Colore del livello</div>
           <div class="kit-color-row">${this._colorPicker(`${p}.color`, l.color)}</div>
           ${this._range(`${p}.opacity`, 'Opacità', l.opacity, 5, 100, '%')}
@@ -468,13 +539,13 @@ export const DivisaSquadra = {
     return `
       <div class="kit-sub">Patch sulla maglia (${k.patches.length}/${MAX_PATCHES})</div>
       ${current || '<div class="mp-muted">Nessuna patch: scegline una qui sotto.</div>'}
-      <div class="kit-sub">Aggiungi una patch</div>
-      ${full ? `<div class="mp-muted">Hai raggiunto il massimo di ${MAX_PATCHES} patch.</div>` : `
-      <div class="kit-grid wide">
+      ${full ? `<div class="mp-muted" style="margin-top:.6rem;">Hai raggiunto il massimo di ${MAX_PATCHES} patch.</div>` : `
+      <button class="mp-btn" data-act="open-picker" data-v="patch" style="width:100%; margin-top:.6rem;"><i class="ri-add-line"></i> Aggiungi una patch</button>`}
+      ${this._picker === 'patch' && !full ? this._modal('Aggiungi una patch', `<div class="kit-grid wide">
         ${avail.map(a => `<button class="kit-opt kit-comp" data-act="patch-add" data-v="${esc(a.id)}" title="${esc(a.name)}">
           <img data-cut="${esc(a.src)}" alt=""><span class="lb">${esc(a.name)}</span></button>`).join('')}
-      </div>`}
-      <div class="mp-muted" style="margin-top:.6rem;">I loghi vengono scontornati automaticamente. Per ogni patch scegli la posizione: centro petto, sotto lo sponsor, sulle maniche o in fondo alla maglia.</div>`;
+      </div>`) : ''}
+      <div class="mp-muted" style="margin-top:.6rem;">Le patch vengono scontornate automaticamente; il Patron può aggiungerne di nuove. Per ogni patch scegli la posizione: centro petto, sotto lo sponsor, sulle maniche o in fondo alla maglia.</div>`;
   },
 
   /* ------------------------------------------------------------- eventi */
@@ -495,6 +566,7 @@ export const DivisaSquadra = {
 
     switch (act) {
       case 'toggle':
+        this._picker = null;
         this._open = this._open === btn.dataset.sec ? null : btn.dataset.sec;
         this._root.querySelectorAll('.kit-acc').forEach(a => a.classList.toggle('open', a.dataset.sec === this._open));
         this._renderSection();
@@ -548,11 +620,12 @@ export const DivisaSquadra = {
       case 'layer-add':
         if (k.layers.length >= MAX_LAYERS) return;
         this._update(kit => {
-          kit.layers.push({ type: 'stripes', color: kit.colors.collar || '#ffffff', opacity: 100, scale: 100, flipX: false, flipY: false, zone: 'body' });
+          kit.layers.push({ type: 'stripes', color: kit.colors.collar || '#ffffff', opacity: 100, scale: 100, flipX: false, flipY: false, x: 0, y: 0, rot: 0, zone: 'body', wrap: 'whole' });
           this._layer = kit.layers.length - 1;
         });
         return;
       case 'pick-layer':
+        this._picker = null;
         if (this._layer === i) return;
         this._layer = i; this._renderSection();
         return;
@@ -567,11 +640,29 @@ export const DivisaSquadra = {
         this._update(kit => { [kit.layers[i], kit.layers[j]] = [kit.layers[j], kit.layers[i]]; this._layer = j; });
         return;
       }
+      case 'copy-color': {
+        const hex = String(btn.dataset.path.split('.').reduce((o, k2) => (o ? o[k2] : undefined), this._kit) || '').toLowerCase();
+        const text = btn.dataset.fmt === 'rgb' ? hexToRgb(hex) : hex;
+        copyText(text).then(ok => window.showToast(ok ? `Copiato: ${text}` : 'Copia non riuscita', ok ? 'ok' : 'err'));
+        return;
+      }
+      case 'open-picker':
+        this._picker = v; this._renderSection();
+        return;
+      case 'close-picker':
+        // sul fondo scuro: chiudo solo se il tocco è proprio sul fondo (non dentro la finestra)
+        if (btn.dataset.self && e.target !== btn) return;
+        this._picker = null; this._renderSection();
+        return;
       case 'layer-type':
+        this._picker = null;
         this._update(kit => { kit.layers[this._layer].type = v; });
         return;
       case 'layer-zone':
         this._update(kit => { kit.layers[this._layer].zone = v; });
+        return;
+      case 'layer-wrap':
+        this._update(kit => { kit.layers[this._layer].wrap = v; });
         return;
       case 'layer-flag':
         this._update(kit => { const l = kit.layers[this._layer]; l[v] = !l[v]; });
@@ -589,6 +680,7 @@ export const DivisaSquadra = {
 
       // patch
       case 'patch-add': {
+        this._picker = null;
         if (k.patches.length >= MAX_PATCHES) return;
         const a = availablePatches(window.STATE).find(x => x.id === v);
         if (!a) return;
@@ -613,7 +705,14 @@ export const DivisaSquadra = {
       this._schedulePreview();
     } else if (t.dataset.color) {
       this._set(t.dataset.color, t.value);
+      const hx = t.parentElement.querySelector(`.kit-hex[data-hex="${t.dataset.color}"]`);
+      if (hx) { hx.value = t.value; hx.classList.remove('bad'); }
       this._schedulePreview();
+    } else if (t.dataset.hex) {
+      // mentre scrivo: applico solo un HEX completo (#rrggbb); il resto (#rgb, RGB) quando confermo
+      const c = /^#?[0-9a-f]{6}$/i.test(t.value.trim()) ? parseColor(t.value) : null;
+      t.classList.toggle('bad', !parseColor(t.value) && t.value.trim().length >= 7);
+      if (c) { this._set(t.dataset.hex, c); const ci = t.parentElement.querySelector(`.kit-color[data-color="${t.dataset.hex}"]`); if (ci) ci.value = c; this._schedulePreview(); }
     } else if (t.dataset.text) {
       this._set(t.dataset.text, t.value);
       this._schedulePreview();
@@ -622,7 +721,12 @@ export const DivisaSquadra = {
 
   _onChange(e) {
     const t = e.target;
-    if (t.dataset.color || t.dataset.range) {
+    if (t.dataset.hex) {
+      const c = parseColor(t.value);
+      if (!c) { window.showToast('Codice non valido: usa #1e5bb8 oppure 30, 91, 184', 'err'); return; }
+      this._set(t.dataset.hex, c);
+      this._renderPreview(); this._renderSection();
+    } else if (t.dataset.color || t.dataset.range) {
       // a fine scelta ridisegno la sezione (miniature e pallini dei colori)
       this._renderSection();
     } else if (t.dataset.patchPos !== undefined) {
