@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.3.7'; // Incrementa ad ogni modifica dei file statici
+const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.3.8'; // Incrementa ad ogni modifica dei file statici
 const IMAGE_CACHE = 'fantacapp-images-v1'; // riempita da js/services/assetPreloader.js: non va cancellata agli aggiornamenti
 // Librerie e font esterni (Firebase SDK, icone, Google Fonts): URL con versione fissa, restano tra un aggiornamento e l'altro
 const RUNTIME_CACHE = 'fantacapp-runtime-v1';
@@ -56,6 +56,8 @@ const ASSETS_TO_CACHE = [
   './js/services/backNav.js',
   './js/services/connectivity.js',
   './js/services/palmaresService.js',
+  './js/services/notificationService.js',
+  './js/services/notificationCenter.js',
 
   // Componenti
   './js/components/AnteprimaClassifica.js',
@@ -75,6 +77,7 @@ const ASSETS_TO_CACHE = [
   './js/menu/ConfigurazioneSquadra.js',
   './js/menu/DivisaSquadra.js',
   './js/menu/ListoneView.js',
+  './js/menu/NotificheView.js',
   
   // Pagine Utente
   './js/calendario.js',
@@ -100,6 +103,7 @@ const ASSETS_TO_CACHE = [
   './js/admin/themes.js',
   './js/admin/accounts.js',
   './js/admin/divise.js',
+  './js/admin/notifiche.js',
   './js/admin/calendario/calendario.js',
   './js/admin/calendario/calendario-state.js',
   './js/admin/calendario/calendario-ui.js',
@@ -232,3 +236,24 @@ function staleWhileRevalidate(request, cacheName) {
     })
   );
 }
+
+// Tocco su una notifica: si porta in primo piano l'app (o la si apre) sulla pagina indicata.
+// Le notifiche del Patron senza pagina aprono l'elenco delle notifiche.
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const data = event.notification.data || {};
+  const page = data.page || '';
+  const isPatron = event.notification.tag === 'account-request';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      const target = isPatron ? 'admin.html' : 'index.html';
+      const open = list.find(c => new URL(c.url).pathname.endsWith(target)) ||
+        (!isPatron && list.find(c => !new URL(c.url).pathname.endsWith('admin.html')));
+      if (open) {
+        if (!isPatron) open.postMessage({ type: 'notification-click', page });
+        return open.focus();
+      }
+      return self.clients.openWindow(isPatron ? './admin.html' : `./index.html?page=${encodeURIComponent(page || 'notifiche')}`);
+    })
+  );
+});

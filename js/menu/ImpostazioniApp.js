@@ -1,4 +1,6 @@
 import { esc } from './menuUtils.js';
+import { NotificationCenter } from '../services/notificationCenter.js';
+import { notificationsSupported, permissionState } from '../services/notificationService.js';
 
 /**
  * Impostazioni dell'applicazione (per utente).
@@ -38,6 +40,7 @@ export const ImpostazioniApp = {
     });
 
     root.addEventListener('change', async (e) => {
+      if (e.target.id === 'set-notifiche') return this._toggleNotifiche(e.target);
       const input = e.target.closest('input[data-setting]');
       if (!input) return;
       const def = SCHEMA.find(s => s.key === input.dataset.setting);
@@ -62,6 +65,39 @@ export const ImpostazioniApp = {
   },
 
   unmount() { this._root = null; },
+
+  /** Notifiche sul dispositivo: accendere l'interruttore chiede il permesso (serve il tocco dell'utente). */
+  async _toggleNotifiche(input) {
+    if (input.checked && permissionState() !== 'granted') {
+      const res = await NotificationCenter.enable();
+      if (res !== 'granted') { input.checked = false; this._render(window.STATE); return; }
+    }
+    await window.setUserSetting('notificationsEnabled', input.checked);
+    this._render(window.STATE);
+  },
+
+  _notificheCard(s) {
+    const st = permissionState();
+    const on = st === 'granted' && s.notificationsEnabled !== false;
+    let note = 'Offerte di mercato ricevute, risposte alle tue proposte, fine dei prestiti e comunicazioni della lega.';
+    if (!notificationsSupported()) note = 'Non disponibili su questo dispositivo. Su iPhone installa l\'app nella schermata Home (Condividi → Aggiungi alla schermata Home) e riaprila da lì.';
+    else if (st === 'denied') note = 'Bloccate dal telefono/browser: per riattivarle apri le impostazioni del sito o dell\'app e consenti le notifiche.';
+    const disabled = !notificationsSupported() || st === 'denied';
+    return `
+      <div class="mp-card">
+        <div class="mp-card-title">Notifiche</div>
+        <div class="mp-row">
+          <div class="mp-row-main">
+            <div class="mp-row-label">Notifiche su questo dispositivo</div>
+            <div class="mp-muted">${esc(note)}</div>
+          </div>
+          <label class="mp-switch" ${disabled ? 'style="opacity:.4;"' : ''}>
+            <input type="checkbox" id="set-notifiche" ${on ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+            <span></span>
+          </label>
+        </div>
+      </div>`;
+  },
 
   _render(STATE) {
     const s = STATE.settings || {};
@@ -89,6 +125,7 @@ export const ImpostazioniApp = {
             </label>
           </div>`).join('')}
       </div>
+      ${this._notificheCard(s)}
       <div class="mp-muted" style="text-align:center;">Le impostazioni sono legate al tuo account e salvate anche su questo dispositivo.</div>
     `;
   }

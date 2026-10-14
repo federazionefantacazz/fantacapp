@@ -97,6 +97,12 @@
   gap: 0.5rem;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
 .menu-header-btn {
   background: transparent;
   border: none;
@@ -501,10 +507,16 @@ html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75re
       </select>
     </div>
 
-    <button class="menu-header-btn" id="menuHeaderBtn" onclick="window.openSideMenu()" aria-label="Apri menu" aria-expanded="false">
-      <i class="ri-menu-line" style="font-size: 1.5rem;"></i>
-      <span class="badge-dot" id="menuReqBadge" style="display:none;" aria-label="Richieste in attesa"></span>
-    </button>
+    <div class="header-right">
+      <button class="menu-header-btn" id="notifHeaderBtn" onclick="window.openMenuPage('notifiche')" aria-label="Notifiche">
+        <i class="ri-notification-3-line" style="font-size: 1.35rem;"></i>
+        <span class="badge-dot" id="notifBadge" style="display:none;" aria-label="Notifiche non lette"></span>
+      </button>
+      <button class="menu-header-btn" id="menuHeaderBtn" onclick="window.openSideMenu()" aria-label="Apri menu" aria-expanded="false">
+        <i class="ri-menu-line" style="font-size: 1.5rem;"></i>
+        <span class="badge-dot" id="menuReqBadge" style="display:none;" aria-label="Richieste in attesa"></span>
+      </button>
+    </div>
   </div>
 
   <div id="page-login">
@@ -621,6 +633,9 @@ import { MenuPanel } from './js/components/MenuPanel.js';
 import { ImpostazioniApp } from './js/menu/ImpostazioniApp.js';
 import { ConfigurazioneSquadra } from './js/menu/ConfigurazioneSquadra.js';
 import { ListoneView, SvincolatiView } from './js/menu/ListoneView.js';
+import { NotificheView } from './js/menu/NotificheView.js';
+import { NotificationCenter } from './js/services/notificationCenter.js';
+import { tradeNotificationUpdates } from './js/services/notificationService.js';
 
 import { HomePage } from './js/home.js';
 import { CalendarioPage } from './js/calendario.js';
@@ -1054,7 +1069,8 @@ const MENU_VIEWS = {
   settings: ImpostazioniApp,
   team: ConfigurazioneSquadra,
   listone: ListoneView,
-  svincolati: SvincolatiView
+  svincolati: SvincolatiView,
+  notifiche: NotificheView
 };
 
 window.openMenuPage = function(name) {
@@ -1062,6 +1078,7 @@ window.openMenuPage = function(name) {
   window.closeSideMenu();
   if (view) MenuPanel.open(view, name);
 };
+window.closeMenuPanel = () => MenuPanel.close();
 
 /* ─── Impostazioni utente (settings/{uid} + cache locale) ───────────────── */
 // Lo sfondo della competizione si vede solo se l'utente non l'ha disattivato
@@ -1300,13 +1317,18 @@ function bootApp() {
   document.documentElement.classList.add('booted');
 
   // pagina iniziale: scorciatoie dell'icona (manifest "shortcuts", es. index.html?page=formazione)
+  // e tocco su una notifica ad app chiusa (sw.js: ?page=mercato oppure ?page=notifiche)
   const PAGES = ['home', 'calendario', 'classifica', 'formazione', 'mercato', 'teams'];
   const wanted = new URLSearchParams(location.search).get('page');
   let start = PAGES.includes(wanted) ? wanted : 'home';
   if (start === 'formazione' && window.STATE.live) start = 'live';
   if (wanted) history.replaceState(history.state, '', location.pathname);
+  // Notifiche: elenco/campanella, avvisi delle nuove e invito ad attivarle
+  NotificationCenter.start(window.STATE, currentUid);
   window.goPage(start);
   endResume();
+  NotificationCenter.maybeInvite();
+  if (wanted === 'notifiche') window.openMenuPage('notifiche');
 }
 
 let lastCachedLogo = null;
@@ -1320,8 +1342,13 @@ function refreshUI() {
   if (liveData && !Connectivity.isOffline()) MercatoService.processaScadenze({
     trades: Object.values(window.STATE.trades || {}),
     players: window.STATE.players,
-    giornataReale: window.STATE.giornataRealeCorrente
+    giornataReale: window.STATE.giornataRealeCorrente,
+    notify: t => {
+      const opts = { templates: window.STATE.notifTemplates, teams: window.STATE.teams, createdBy: currentUid() || null, rientro: window.STATE.giornataRealeCorrente };
+      return { ...tradeNotificationUpdates('prestitoConcluso', t, t.fromTeamId, opts), ...tradeNotificationUpdates('prestitoConcluso', t, t.toTeamId, opts) };
+    }
   });
+  NotificationCenter.updateBadge();
 
   // AGGIORNAMENTO LOGO NAVBAR (COMPATTO 24px)
   const globalNavbarLogoContainer = document.getElementById('app-global-navbar-logo-container');
