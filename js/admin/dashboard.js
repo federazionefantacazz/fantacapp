@@ -26,9 +26,13 @@ export const DashboardSection = {
     this.registerGlobalActions();
   },
 
-  async _richiediStatistiche(gw) {
+  /**
+   * Chiede alla Cloud Function di importare statistiche e voti ufficiali fino alla giornata gw.
+   * forza = true: importa anche se la giornata non risulta completa (es. partita rinviata).
+   */
+  async _richiediStatistiche(gw, forza = false) {
     this._statsPending = Date.now();
-    await set(ref(this.db, 'settings/statsRequest'), { gw: Number(gw), at: this._statsPending });
+    await set(ref(this.db, 'settings/statsRequest'), { gw: Number(gw), at: this._statsPending, forza: !!forza });
     this._renderStatsStatus();
   },
 
@@ -154,16 +158,18 @@ export const DashboardSection = {
 
         <div class="card" style="max-width: 500px;">
           <div class="label" style="color: var(--accent); margin-bottom: .6rem; font-size: .85rem;">
-            <i class="ri-bar-chart-line"></i> Statistiche Calciatori (fantacalcio.it)
+            <i class="ri-bar-chart-line"></i> Voti Ufficiali e Statistiche (fantacalcio.it)
           </div>
           <p style="font-size: .8rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-bottom: 1rem;">
-            Gol, assist, cartellini, rigori, gol subiti, titolare/subentrato di ogni giornata. Si aggiornano da sole
-            quando premi "Salva Risultati Ufficiali" qui sotto; le giornate precedenti mancanti vengono recuperate in automatico, a blocchi.
+            Voto, gol, assist, cartellini, rigori, gol subiti, titolare/subentrato di ogni giornata. I voti ufficiali
+            <strong>sostituiscono i voti live</strong> della giornata (votes) e sono quelli usati dal calcolo qui sotto.
+            L'import parte da solo quando il live vede finite tutte le partite e riprova finché fantacalcio.it non pubblica la giornata completa.
+            Con il pulsante lo forzi (es. ricalcoli o partite rinviate): poi rilancia il calcolo della giornata.
           </p>
           <div id="dashboard-stats-status" style="font-size: .8rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-bottom: .8rem;">Caricamento...</div>
           <div style="display:flex; gap:.5rem; align-items:center;">
             <input type="number" id="statsGwInput" class="input-login" min="1" max="38" placeholder="Giornata" style="margin:0; padding:.6rem; max-width:110px;">
-            <button class="btn btn-blue" style="flex:1;" onclick="window.importaStatisticheOra()"><i class="ri-download-line"></i> Importa fino a questa giornata</button>
+            <button class="btn btn-blue" style="flex:1;" onclick="window.importaStatisticheOra()"><i class="ri-download-line"></i> Importa voti ufficiali fino a questa giornata</button>
           </div>
         </div>
 
@@ -173,6 +179,7 @@ export const DashboardSection = {
           </div>
           <p style="font-size: .8rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-bottom: 1rem;">
             Elabora i fantavoti, calcola i punteggi delle squadre, congela i match di questa giornata e aggiorna la classifica o il tabellone.
+            Usa i voti della giornata di Serie A associata: importa prima i voti ufficiali.
           </p>
           
           <div style="display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1rem;">
@@ -261,8 +268,8 @@ export const DashboardSection = {
       const gw = parseInt(document.getElementById('statsGwInput')?.value, 10);
       if (!(gw >= 1 && gw <= 38)) return window.toast("Indica una giornata di Serie A tra 1 e 38", "err");
       try {
-        await this._richiediStatistiche(gw);
-        window.toast(`Richiesta inviata: statistiche fino alla ${gw}ª giornata`, "ok");
+        await this._richiediStatistiche(gw, true);
+        window.toast(`Richiesta inviata: voti ufficiali e statistiche fino alla ${gw}ª giornata`, "ok");
       } catch (err) {
         console.error(err);
         window.toast("Errore nell'invio della richiesta", "err");
@@ -328,10 +335,21 @@ export const DashboardSection = {
         if (!compSnap.exists()) return window.toast("Competizione non trovata!", "err");
         const compData = compSnap.val();
 
-        // 2. Recupero Voti Globale
-        const votesSnap = await get(ref(this.db, `votes/${gwId}`));
+        // 2. Recupero Voti Globale: i voti sono salvati per giornata di SERIE A (votes/gw{n}),
+        //    che può essere diversa dalla giornata della competizione (gwId)
+        const gwSerieA = GwService.getRealOf(compData, gwId) || Number(gwNum);
+        const votesPath = `votes/gw${gwSerieA}`;
+        const votesSnap = await get(ref(this.db, votesPath));
         if (!votesSnap.exists()) {
-          return window.toast(`Nessun voto inserito per la giornata ${gwId.toUpperCase()}!`, "err");
+          return window.toast(`Nessun voto per la ${gwSerieA}ª giornata di Serie A!`, "err");
+        }
+
+        // Voti ufficiali non ancora importati: si calcolerebbe con i voti live
+        const ufficialiSnap = await get(ref(this.db, `statsMeta/giornate/${gwSerieA}`));
+        if (!ufficialiSnap.exists() && !confirm(
+          `I voti ufficiali della ${gwSerieA}ª giornata di Serie A non sono ancora stati importati.\n` +
+          `Vuoi calcolare lo stesso con i voti attuali (live o inseriti a mano)?`)) {
+          return window.toast("Calcolo annullato: importa prima i voti ufficiali.", "info");
         }
         const votiGiocatori = votesSnap.val();
 
@@ -361,7 +379,7 @@ export const DashboardSection = {
           const datiVoto = votiGiocatori[playerId];
           if (CalcoloMatchService.hasVoto(datiVoto)) {
             const fantavotoFinale = CalcoloMatchService.calcolaFantavoto(datiVoto);
-            updates[`votes/${gwId}/${playerId}/fantavoto`] = fantavotoFinale;
+            updates[`${votesPath}/${playerId}/fantavoto`] = fantavotoFinale;
             mappaFantavotiLocali[playerId] = fantavotoFinale;
           }
         });
@@ -589,13 +607,6 @@ export const DashboardSection = {
         await update(ref(this.db), updates);
         window.toast(`Giornata ${gwId.toUpperCase()} salvata e dati aggiornati correttamente!`, "ok");
 
-        // Aggiornamento statistiche calciatori (lo fa la Cloud Function da fantacalcio.it)
-        try {
-          const gwSerieA = GwService.getRealOf(compData, gwId) || Number(gwNum);
-          if (gwSerieA > 0) await this._richiediStatistiche(gwSerieA);
-        } catch (e) {
-          console.warn("Richiesta statistiche non inviata:", e);
-        }
 
       } catch (err) {
         console.error(err);

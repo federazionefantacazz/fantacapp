@@ -629,8 +629,10 @@ export const LiveMatchModule = {
     // partite finite, quindi "in corso" si ricava solo dall'orario della partita.
     const clubs = new Map();
     let updatedAt = 0;
+    let ufficiali = false; // voti ufficiali importati dalla Cloud Function (uff: 1)
     Object.entries(votes || {}).forEach(([pid, e]) => {
       if (e && typeof e === 'object' && Number(e.updatedAt) > updatedAt) updatedAt = Number(e.updatedAt);
+      if (e && typeof e === 'object' && e.uff) ufficiali = true;
       const p = playersById.get(String(pid));
       if (!p) return;
       clubs.set(norm(p.club), { any: true });
@@ -638,7 +640,7 @@ export const LiveMatchModule = {
     // Partite di Serie A dal feed live (liveMatches/gw{n}, scritto dalla Cloud Function)
     const matches = new Map();
     Object.entries(liveMatches || {}).forEach(([k, m]) => { if (m && typeof m === 'object') matches.set(norm(m.name || k), m); });
-    return { mode, votes: votes || {}, probOk, clubs, matches, updatedAt, now: Date.now(), STATE };
+    return { mode, votes: votes || {}, probOk, clubs, matches, updatedAt, ufficiali, now: Date.now(), STATE };
   },
 
   _player(id, playersById, ctx) {
@@ -800,7 +802,7 @@ export const LiveMatchModule = {
     const subsMark = (subs) => ({ out: new Set(subs.map(s => String(s.out))), in: new Set(subs.map(s => String(s.in))) });
     const mH = subsMark(subsH), mA = subsMark(subsA);
 
-    const header = this._headerMarkup({ mode, home, away, tH, tA, couple, updatedAt: ctx.updatedAt });
+    const header = this._headerMarkup({ mode, home, away, tH, tA, couple, updatedAt: ctx.updatedAt, ufficiali: ctx.ufficiali });
     const simBox = isLive ? this._simMarkup(home, away, simH, simA) : '';
 
     const content = this.view === 'stadio'
@@ -815,7 +817,7 @@ export const LiveMatchModule = {
     `;
   },
 
-  _headerMarkup({ mode, home, away, tH, tA, couple, updatedAt }) {
+  _headerMarkup({ mode, home, away, tH, tA, couple, updatedAt, ufficiali }) {
     const team = (t) => `
       <div class="lv-team">
         ${t.info.logo
@@ -829,10 +831,12 @@ export const LiveMatchModule = {
     let center = '';
     if (mode === 'live') {
       center = `
-        <span class="lv-livechip"><i></i>LIVE</span>
+        ${ufficiali
+          ? `<span class="lv-livechip" style="background:var(--accent);color:#0a0f1e;">VOTI UFFICIALI</span>`
+          : `<span class="lv-livechip"><i></i>LIVE</span>`}
         <div class="lv-pts">${tH ? fmt(tH.fv) : '-'} - ${tA ? fmt(tA.fv) : '-'}</div>
         <div class="lv-pts-sub">Parziale titolari</div>
-        ${updatedAt ? `<div class="lv-pts-goals">voti delle ${new Date(updatedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</div>` : ''}`;
+        ${updatedAt && !ufficiali ? `<div class="lv-pts-goals">voti delle ${new Date(updatedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</div>` : ''}`;
     } else if (mode === 'past') {
       const gH = couple?.goalHome ?? couple?.homeScore ?? (tH ? CalcoloMatchService.calcolaGol(tH.fv) : null);
       const gA = couple?.goalAway ?? couple?.awayScore ?? (tA ? CalcoloMatchService.calcolaGol(tA.fv) : null);
