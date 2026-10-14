@@ -19,6 +19,7 @@ const fapp = initializeApp(firebaseConfig);
 // Esportiamo le istanze pronte all'uso e le funzioni core di Firebase
 export const db = getDatabase(fapp);
 export const auth = getAuth(fapp);
+export const app = fapp; // serve a Cloud Messaging (js/services/pushService.js)
 
 // Esportiamo anche le funzioni di Firebase che usi più spesso per accorciare gli import nelle altre pagine
 export { ref, onValue, set, update, get, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut };

@@ -33,7 +33,7 @@ window.sorteggiaGironiCompetizione = async function () {
   try {
     const database = CalendarioState.db || getDatabase();
     await update(ref(database, `competitions/${targetCompId}`), { strutturaGironi });
-    window.toast?.("🎲 Sorteggio gironi effettuato!", "ok");
+    window.toast?.("Sorteggio gironi effettuato!", "ok");
     comp.strutturaGironi = strutturaGironi;
     CalendarioState.isEditingManually = false;
     CalendarioUI.updateBadgeDinamici(targetCompId);
@@ -79,7 +79,7 @@ window.salvaModificheGironiManuali = async function () {
   try {
     const database = CalendarioState.db || getDatabase();
     await update(ref(database, `competitions/${targetCompId}`), { strutturaGironi: nuovaStruttura });
-    window.toast?.("💾 Gironi personalizzati salvati con successo!", "ok");
+    window.toast?.("Gironi personalizzati salvati con successo!", "ok");
     comp.strutturaGironi = nuovaStruttura;
     CalendarioState.isEditingManually = false;
     CalendarioUI.updateBadgeDinamici(targetCompId);

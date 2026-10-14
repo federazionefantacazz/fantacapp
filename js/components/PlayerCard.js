@@ -14,8 +14,10 @@
 import { db, ref, get } from '../firebase-config.js';
 import { RULE_MATCH } from '../services/calcoloMatch.js';
 import { ProbabiliService, STATUS_INFO } from '../services/probabiliService.js';
+import { OfflineStore } from '../services/offlineStore.js';
+import { BackNav } from '../services/backNav.js';
+import { esc } from '../utils.js';
 
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt1 = (n) => (n === null || n === undefined || !Number.isFinite(n)) ? '–' : n.toFixed(2).replace(/0$/, '');
 const ROLE_NAMES = { P: 'Portiere', D: 'Difensore', C: 'Centrocampista', A: 'Attaccante' };
 
@@ -73,7 +75,7 @@ export const PlayerCard = {
     if (ov) return ov;
     ov = document.createElement('div');
     ov.id = 'pc-overlay';
-    ov.innerHTML = `<style>${this._css()}</style><div class="pc-sheet" role="dialog" aria-modal="true" aria-labelledby="pc-name"></div>`;
+    ov.innerHTML = `<style>${this._css()}</style><div class="pc-sheet" role="dialog" aria-modal="true" aria-labelledby="pc-name" tabindex="-1"></div>`;
     document.body.appendChild(ov);
     ov.addEventListener('click', (e) => {
       if (e.target === ov || e.target.closest('[data-pc-close]')) this.close();
@@ -88,6 +90,10 @@ export const PlayerCard = {
     if (ov) ov.classList.remove('open');
     document.body.style.overflow = '';
     this._current = null;
+    BackNav.pop('player-card');
+    // il focus torna dove si era toccato (lettori di schermo / tastiera)
+    if (this._opener && this._opener.isConnected) this._opener.focus({ preventScroll: true });
+    this._opener = null;
   },
 
   async open(playerId) {
@@ -101,15 +107,24 @@ export const PlayerCard = {
     this._render();
     ov.classList.add('open');
     document.body.style.overflow = 'hidden';
+    this._opener = this._opener || document.activeElement;
+    BackNav.push('player-card', () => this.close());
+    // il focus va sulla scheda (resta valido anche quando il contenuto si ridisegna)
+    ov.querySelector('.pc-sheet').focus({ preventScroll: true });
 
+    const path = `playerStats/${p.id}`;
     try {
-      const snap = await get(ref(db, `playerStats/${p.id}`));
+      const snap = await OfflineStore.withTimeout(get(ref(db, path)));
       if (!this._current || this._current.p !== p) return; // chiusa o cambiata nel frattempo
       this._current.rows = snap.val() || {};
+      OfflineStore.save(path, this._current.rows);
     } catch (err) {
       console.warn('Statistiche non leggibili:', err?.message);
-      if (this._current) this._current.rows = {};
-      if (this._current) this._current.error = true;
+      // offline: l'ultima copia vista su questo dispositivo
+      const cached = await OfflineStore.read(path);
+      if (!this._current || this._current.p !== p) return;
+      this._current.rows = cached || {};
+      if (cached === undefined) this._current.error = true;
     }
     this._render();
   },
@@ -285,7 +300,7 @@ export const PlayerCard = {
     return `
 #pc-overlay{position:fixed;inset:0;z-index:10050;background:rgba(5,8,15,.7);backdrop-filter:blur(3px);display:none;align-items:flex-end;justify-content:center}
 #pc-overlay.open{display:flex}
-#pc-overlay .pc-sheet{width:100%;max-width:560px;max-height:92vh;overflow-y:auto;background:var(--bg,#1a1e24);border:1px solid rgba(255,255,255,.08);border-radius:20px 20px 0 0;padding-bottom:calc(1rem + env(safe-area-inset-bottom,0px));animation:pcUp .2s ease-out}
+#pc-overlay .pc-sheet{width:100%;max-width:560px;max-height:92vh;overflow-y:auto;background:var(--bg,#1a1e24);border:1px solid rgba(255,255,255,.08);border-radius:20px 20px 0 0;padding-bottom:calc(1rem + env(safe-area-inset-bottom,0px));animation:pcUp .2s ease-out;outline:none}
 @media (min-width:700px){#pc-overlay{align-items:center}#pc-overlay .pc-sheet{border-radius:20px}}
 @media (prefers-reduced-motion:reduce){#pc-overlay .pc-sheet{animation:none}}
 @keyframes pcUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
@@ -296,22 +311,22 @@ export const PlayerCard = {
 .pc-photo img{max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5))}
 .pc-photo span{width:72px;height:72px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--text3)}
 .pc-id{min-width:0;padding-bottom:.2rem}
-.pc-role{display:flex;align-items:center;gap:.4rem;font-size:.75rem;color:var(--text2)}
+.pc-role{display:flex;align-items:center;gap:.4rem;font-size:.75rem;color:var(--text2);font-family:var(--font-sub,inherit)}
 .pc-role .rbadge{width:20px;height:20px;font-size:.6rem;border-radius:5px}
 .pc-name{font-family:'Bebas Neue',sans-serif;font-size:2.3rem;line-height:1;letter-spacing:.5px;margin:.25rem 0;color:var(--text);word-break:break-word}
-.pc-club{font-size:.82rem;color:var(--text2)}
+.pc-club{font-size:.82rem;color:var(--text2);font-family:var(--font-sub,inherit)}
 .pc-owner{display:inline-block;margin-left:.35rem;padding:1px 8px;border-radius:10px;background:var(--bg2);color:var(--gold);font-size:.72rem}
-.pc-next{padding:.6rem 1.2rem;font-size:.78rem;color:var(--text2);border-bottom:1px solid rgba(255,255,255,.05)}
+.pc-next{padding:.6rem 1.2rem;font-size:.78rem;color:var(--text2);font-family:var(--font-sub,inherit);border-bottom:1px solid rgba(255,255,255,.05)}
 .pc-next b{color:var(--text)}
 .pc-chip{display:inline-block;margin-left:.3rem;padding:0 7px;border-radius:9px;font-size:.66rem;font-weight:700;color:var(--c);border:1px solid var(--c);background:color-mix(in srgb,var(--c) 14%,transparent)}
-.pc-loading,.pc-empty{padding:2rem 1.2rem;text-align:center;color:var(--text2);font-size:.85rem}
+.pc-loading,.pc-empty{padding:2rem 1.2rem;text-align:center;color:var(--text2);font-family:var(--font-sub,inherit);font-size:.85rem}
 .pc-body{padding:1rem 1.2rem 0}
 .pc-big{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
 .pc-big>div{padding:.2rem 0}
 .pc-num{font-family:'Bebas Neue',sans-serif;font-size:2.6rem;line-height:1;color:var(--text)}
 .pc-num.sm{font-size:1.7rem;color:var(--accent)}
-.pc-lab{font-size:.75rem;color:var(--text2)}
-.pc-sub{font-size:.68rem;color:var(--text3);margin-top:1px}
+.pc-lab{font-size:.75rem;color:var(--text2);font-family:var(--font-sub,inherit)}
+.pc-sub{font-size:.68rem;color:var(--text3);font-family:var(--font-text3,inherit);margin-top:1px}
 .pc-avg{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:.9rem 0 .6rem}
 .pc-avg>div{display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;padding:.55rem .8rem;border-radius:12px;background:var(--bg2)}
 .pc-extra{display:grid;grid-template-columns:1fr 1fr;column-gap:1.2rem}
@@ -333,15 +348,15 @@ export const PlayerCard = {
 .pc-dot.g{background:#fff}.pc-dot.a{background:#7fd3ff}.pc-dot.y{background:#f5c518}.pc-dot.r{background:#ff4757}
 .pc-t{background:#2f8f3a}
 .pc-s{background:#2563c9}
-.pc-n{background:transparent;border-color:rgba(255,255,255,.18);color:var(--text3)}
+.pc-n{background:transparent;border-color:rgba(255,255,255,.18);color:var(--text3);font-family:var(--font-text3,inherit)}
 .pc-i{background:#c2410c}
 .pc-q{background:#7e3fbf}
-.pc-f{background:transparent;border:1px dashed rgba(255,255,255,.1);color:var(--text3)}
-.pc-legend{display:flex;flex-wrap:wrap;gap:.35rem .9rem;margin-top:.6rem;font-size:.68rem;color:var(--text2)}
+.pc-f{background:transparent;border:1px dashed rgba(255,255,255,.1);color:var(--text3);font-family:var(--font-text3,inherit)}
+.pc-legend{display:flex;flex-wrap:wrap;gap:.35rem .9rem;margin-top:.6rem;font-size:.68rem;color:var(--text2);font-family:var(--font-sub,inherit)}
 .pc-legend span{display:flex;align-items:center;gap:.3rem}
 .pc-sw{width:10px;height:10px;border-radius:3px;display:inline-block}
 .pc-sw.pc-n{border:1px solid rgba(255,255,255,.35)}
-.pc-day{margin-top:.8rem;padding:.7rem .8rem;border-radius:12px;background:var(--bg2);font-size:.8rem;color:var(--text2);line-height:1.5}
+.pc-day{margin-top:.8rem;padding:.7rem .8rem;border-radius:12px;background:var(--bg2);font-size:.8rem;color:var(--text2);font-family:var(--font-sub,inherit);line-height:1.5}
 .pc-day b{color:var(--text)}
 `;
   },

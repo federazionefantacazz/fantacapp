@@ -10,7 +10,7 @@ export const CalendarioUI = {
   renderHTML() {
     return `
     <div id="sec-calendar-gen" class="admin-sec" style="display:none;">
-      <div class="sec-title">🗓️ Configurazione & Generazione Calendario</div>
+      <div class="sec-title"><i class="ri-calendar-2-line"></i> Configurazione & Generazione Calendario</div>
       
       <div class="card" style="max-width: 650px;">
         <div style="margin-bottom: 1rem; padding: .8rem; background: rgba(80, 227, 194, 0.1); border-left: 4px solid var(--accent); border-radius: 4px;">
@@ -39,7 +39,7 @@ export const CalendarioUI = {
           
           <div id="drawGironiContainer" style="display:none; background: rgba(245, 166, 35, 0.05); padding: 1rem; border: 1px dashed var(--gold); border-radius: 6px;">
             <div class="label" style="color: var(--gold); margin-bottom: .5rem;">Fase 1: Regular Season (Gironi)</div>
-            <button class="btn btn-gold" style="width: 100%;" onclick="window.sorteggiaGironiCompetizione()">🎲 Effettua Sorteggio Gruppi</button>
+            <button class="btn btn-gold" style="width: 100%;" onclick="window.sorteggiaGironiCompetizione()"><i class="ri-shuffle-line"></i> Effettua Sorteggio Gruppi</button>
           </div>
 
           <div id="regSeasonGenBlock" style="background: var(--bg2); padding: 1rem; border-radius: 6px; border: 1px solid var(--border);">
@@ -49,7 +49,7 @@ export const CalendarioUI = {
               <option value="andata-ritorno">Andata e Ritorno</option>
               <option value="tre-giri">Tre Giri</option>
             </select>
-            <button class="btn btn-green" style="width: 100%;" onclick="window.generateRandomCalendar()">⚡ Genera Regular Season Match</button>
+            <button class="btn btn-green" style="width: 100%;" onclick="window.generateRandomCalendar()"><i class="ri-flashlight-line"></i> Genera Regular Season Match</button>
           </div>
 
           <div id="tabelloneGenBlock" style="background: rgba(74, 144, 226, 0.08); padding: 1rem; border-radius: 6px; border: 1px solid var(--accent2);">
@@ -63,7 +63,7 @@ export const CalendarioUI = {
               </select>
             </div>
 
-            <button class="btn btn-blue" style="width: 100%;" onclick="window.creaTabelloneFaseFinale()">🏆 Crea Tabellone ad Albero</button>
+            <button class="btn btn-blue" style="width: 100%;" onclick="window.creaTabelloneFaseFinale()"><i class="ri-trophy-line"></i> Crea Tabellone ad Albero</button>
           </div>
 
         </div>
@@ -71,33 +71,33 @@ export const CalendarioUI = {
 
       <div class="card" id="previewGironiCard" style="display: none;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: .5rem; margin-bottom: 1rem;">
-          <div class="label" style="color: var(--gold); font-weight: 600; margin-bottom: 0;">🏆 Composizione Attuale dei Gironi</div>
+          <div class="label" style="color: var(--gold); font-weight: 600; margin-bottom: 0;"><i class="ri-trophy-line"></i> Composizione Attuale dei Gironi</div>
           <div id="gironiActionButtons"></div>
         </div>
         <div id="gironiVisualContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;"></div>
       </div>
 
       <div class="card" id="treeTabelloneCard" style="display: none; overflow-x: auto;">
-        <div class="label" style="color: var(--accent2); font-weight: 600; border-bottom: 1px solid var(--border); padding-bottom: .5rem; margin-bottom: 1rem;">🌳 Albero e Sviluppo del Tabellone della Competizione</div>
+        <div class="label" style="color: var(--accent2); font-weight: 600; border-bottom: 1px solid var(--border); padding-bottom: .5rem; margin-bottom: 1rem;"><i class="ri-node-tree"></i> Albero e Sviluppo del Tabellone della Competizione</div>
         <div id="treeVisualContainer" style="display: flex; gap: 2rem; padding: 1rem 0; min-width: max-content; align-items: center;"></div>
       </div>
 
       <div class="card" id="gwMappingCard">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: .5rem; margin-bottom: 1rem;">
           <div>
-            <div class="label" style="color: var(--accent); font-weight: 600; margin-bottom: .15rem;">📅 Associazione Giornate Reali Serie A</div>
-            <div style="font-size: .75rem; color: var(--text3);">Abbina ogni giornata del calendario generato a una giornata reale (1–38).</div>
+            <div class="label" style="color: var(--accent); font-weight: 600; margin-bottom: .15rem;"><i class="ri-calendar-line"></i> Associazione Giornate Reali Serie A</div>
+            <div style="font-size: .75rem; color: var(--text3); font-family: var(--font-text3, inherit);">Abbina ogni giornata del calendario generato a una giornata reale (1–38).</div>
           </div>
-          <button class="btn btn-green" style="padding: .35rem .9rem; font-size: .8rem; white-space: nowrap;" onclick="window.salvaAssociazioniGwReali()">💾 Salva Associazioni</button>
+          <button class="btn btn-green" style="padding: .35rem .9rem; font-size: .8rem; white-space: nowrap;" onclick="window.salvaAssociazioniGwReali()"><i class="ri-save-line"></i> Salva Associazioni</button>
         </div>
         <div id="gwMappingBody" style="display: flex; flex-direction: column; gap: .5rem; max-height: 420px; overflow-y: auto; padding-right: .25rem;">
-          <div style="color: var(--text3); font-size: .85rem;">Seleziona prima una competizione con un calendario generato.</div>
+          <div style="color: var(--text3); font-family: var(--font-text3, inherit); font-size: .85rem;">Seleziona prima una competizione con un calendario generato.</div>
         </div>
       </div>
 
       <div class="card">
         <div class="label" id="genTeamsPreviewTitle">Squadre iscritte a questa competizione:</div>
-        <div id="genTeamsPreview" style="display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; font-size: .85rem; color: var(--text2);"></div>
+        <div id="genTeamsPreview" style="display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; font-size: .85rem; color: var(--text2); font-family: var(--font-sub, inherit);"></div>
       </div>
     </div>`;
   },
@@ -164,11 +164,11 @@ export const CalendarioUI = {
 
     if (container) {
       if (compTeamsIds.length === 0) {
-        container.innerHTML = '<span style="color:var(--accent3);">❌ Nessuna squadra associata a questa competizione.</span>';
+        container.innerHTML = '<span style="color:var(--accent3);"><i class="ri-close-circle-line"></i> Nessuna squadra associata a questa competizione.</span>';
       } else {
         container.innerHTML = compTeamsIds.map(tId => {
           const teamObj = CalendarioState.getTeam(tId);
-          return `<span style="background:var(--bg2); padding:.4rem .6rem; border-radius:4px; border:1px solid var(--border); display:inline-flex; align-items:center;">🛡️ ${teamObj ? teamObj.name : tId}</span>`;
+          return `<span style="background:var(--bg2); padding:.4rem .6rem; border-radius:4px; border:1px solid var(--border); display:inline-flex; align-items:center;gap:.3rem;"><i class="ri-shield-line"></i> ${teamObj ? teamObj.name : tId}</span>`;
         }).join('');
       }
     }
@@ -191,12 +191,12 @@ export const CalendarioUI = {
   _renderGironiButtons(btnContainer) {
     if (CalendarioState.isEditingManually) {
       btnContainer.innerHTML = `
-        <button class="btn btn-green" style="padding: .3rem .75rem; font-size: .8rem;" onclick="window.salvaModificheGironiManuali()">💾 Salva Gruppi</button>
+        <button class="btn btn-green" style="padding: .3rem .75rem; font-size: .8rem;" onclick="window.salvaModificheGironiManuali()"><i class="ri-save-line"></i> Salva Gruppi</button>
         <button class="btn btn-red" style="padding: .3rem .75rem; font-size: .8rem; margin-left: .25rem;" onclick="window.annullaModificaManualeGironi()">Annulla</button>
       `;
     } else {
       btnContainer.innerHTML = `
-        <button class="btn" style="background: var(--bg3); border:1px solid var(--border); padding: .3rem .75rem; font-size: .8rem; color:#fff;" onclick="window.attivaModificaManualeGironi()">✏️ Personalizza Manualmente</button>
+        <button class="btn" style="background: var(--bg3); border:1px solid var(--border); padding: .3rem .75rem; font-size: .8rem; color:#fff;" onclick="window.attivaModificaManualeGironi()"><i class="ri-edit-line"></i> Personalizza Manualmente</button>
       `;
     }
   },
@@ -211,7 +211,7 @@ export const CalendarioUI = {
         htmlSquadre = elencoSquadreIds.map((currentSelectedId, slotIdx) => {
           const optionsHtml = compTeamsIds.map(tId => {
             const teamObj = CalendarioState.getTeam(tId);
-            return `<option value="${tId}" ${tId === currentSelectedId ? 'selected' : ''}>🛡️ ${teamObj ? teamObj.name : tId}</option>`;
+            return `<option value="${tId}" ${tId === currentSelectedId ? 'selected' : ''}>${teamObj ? teamObj.name : tId}</option>`;
           }).join('');
 
           return `
@@ -225,14 +225,14 @@ export const CalendarioUI = {
       } else {
         htmlSquadre = elencoSquadreIds.map(tId => {
           const teamObj = CalendarioState.getTeam(tId);
-          return `<div style="padding: .3rem .5rem; background: var(--bg3); margin-bottom: 4px; border-radius: 4px; font-size: .85rem; border: 1px solid var(--border);">🛡️ ${teamObj ? teamObj.name : tId}</div>`;
+          return `<div style="padding: .3rem .5rem; background: var(--bg3); margin-bottom: 4px; border-radius: 4px; font-size: .85rem; border: 1px solid var(--border);"><i class="ri-shield-line"></i> ${teamObj ? teamObj.name : tId}</div>`;
         }).join('');
       }
 
       return `
         <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: .75rem; border-radius: 6px;">
           <div style="color: var(--accent); font-weight: bold; margin-bottom: .5rem; border-bottom: 1px solid var(--border); padding-bottom: .25rem; font-size: .9rem;">${gId.toUpperCase()}</div>
-          ${htmlSquadre || '<div style="color:var(--text3); font-size:.8rem;">Vuoto</div>'}
+          ${htmlSquadre || '<div style="color:var(--text3);font-family:var(--font-text3,inherit); font-size:.8rem;">Vuoto</div>'}
         </div>
       `;
     }).join('');
@@ -261,20 +261,20 @@ export const CalendarioUI = {
         const teamAway = CalendarioState.getTeam(m.awayId);
         
         const nameHome = m.homeId.startsWith("VINCENTE_")
-          ? `✨ ${m.homeId.replace("VINCENTE_", "")}`
+          ? `<i class="ri-sparkling-line"></i> ${m.homeId.replace("VINCENTE_", "")}`
           : (teamHome ? teamHome.name : m.homeId);
         const nameAway = m.awayId.startsWith("VINCENTE_")
-          ? `✨ ${m.awayId.replace("VINCENTE_", "")}`
+          ? `<i class="ri-sparkling-line"></i> ${m.awayId.replace("VINCENTE_", "")}`
           : (teamAway ? teamAway.name : m.awayId);
 
         return `
           <div style="background: var(--bg2); border: 1px solid var(--border); padding: .6rem; border-radius: 6px; font-size: .8rem; width: 210px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-            <div style="color:var(--text3); font-size:0.65rem; font-weight:bold; margin-bottom:4px; display:flex; justify-content:space-between;">
-              <span>🆔 ${m.id.toUpperCase()}</span>
+            <div style="color:var(--text3);font-family:var(--font-text3,inherit); font-size:0.65rem; font-weight:bold; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span><i class="ri-hashtag"></i> ${m.id.toUpperCase()}</span>
               ${m.gironeProvenienza ? `<span style="color:var(--gold);">${m.gironeProvenienza}</span>` : ''}
             </div>
-            <div style="padding: 2px 0; color:#fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">🏠 ${nameHome}</div>
-            <div style="padding: 2px 0; color:var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">🚀 ${nameAway}</div>
+            <div style="padding: 2px 0; color:#fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><i class="ri-home-4-line"></i> ${nameHome}</div>
+            <div style="padding: 2px 0; color:var(--text2);font-family:var(--font-sub,inherit); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><i class="ri-flight-takeoff-line"></i> ${nameAway}</div>
           </div>
         `;
       }).join('<div style="height: 1.2rem;"></div>');
@@ -290,7 +290,7 @@ export const CalendarioUI = {
         </div>
       `;
     }).join(`
-      <div style="display:flex; align-items:center; color:var(--text3);">
+      <div style="display:flex; align-items:center; color:var(--text3);font-family:var(--font-text3,inherit);">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       </div>
     `);
@@ -307,7 +307,7 @@ export const CalendarioUI = {
     if (!body) return;
 
     if (!gwKeys || gwKeys.length === 0) {
-      body.innerHTML = '<div style="color: var(--text3); font-size: .85rem;">Nessuna giornata trovata — genera prima il calendario.</div>';
+      body.innerHTML = '<div style="color: var(--text3); font-family: var(--font-text3, inherit); font-size: .85rem;">Nessuna giornata trovata — genera prima il calendario.</div>';
       return;
     }
 
@@ -331,8 +331,8 @@ export const CalendarioUI = {
 
       return `
         <div style="display: flex; align-items: center; gap: .75rem; background: var(--bg2); padding: .5rem .75rem; border-radius: 6px; border: 1px solid var(--border);">
-          <div style="min-width: 180px; font-size: .85rem; color: var(--text2);">🗓️ ${label}</div>
-          <div style="color: var(--text3); font-size: .8rem;">→</div>
+          <div style="min-width: 180px; font-size: .85rem; color: var(--text2); font-family: var(--font-sub, inherit);"><i class="ri-calendar-2-line"></i> ${label}</div>
+          <div style="color: var(--text3); font-family: var(--font-text3, inherit); font-size: .8rem;"><i class="ri-arrow-right-line"></i></div>
           <select
             class="input-login gw-mapping-select"
             data-gw="${gwKey}"
@@ -372,7 +372,7 @@ export const CalendarioUI = {
     }
 
     compSelect.innerHTML = competitions.map(c =>
-      `<option value="${c.id}" ${currentSelection === c.id ? 'selected' : ''}>🏆 ${c.name} (${c.id})</option>`
+      `<option value="${c.id}" ${currentSelection === c.id ? 'selected' : ''}>${c.name} (${c.id})</option>`
     ).join('');
 
     this.updateBadgeDinamici(window.CURRENT_COMPETITION);

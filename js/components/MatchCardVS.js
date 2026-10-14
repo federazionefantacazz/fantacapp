@@ -1,47 +1,35 @@
+import { esc, sameId, fitName } from '../utils.js';
+
 export const createMatchCardVS = (match, teamsList = []) => {
   if (!match) {
     return `
-      <div class="card card-sm card-mini" style="background:var(--mini-bg,var(--bg2)); border:1px solid var(--border); text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">
+      <div class="card card-sm card-mini" style="background:var(--mini-bg,var(--bg2)); border:1px solid var(--border); text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1rem; font-size:.85rem;">
         Nessun match programmato.
       </div>
     `;
   }
 
-  const tHome = teamsList.find(t => t && t.id === match.homeId) || { name: match.homeId || 'Casa' };
-  const tAway = teamsList.find(t => t && t.id === match.awayId) || { name: match.awayId || 'Ospite' };
+  const tHome = teamsList.find(t => t && sameId(t.id, match.homeId)) || { name: match.homeId || 'Casa' };
+  const tAway = teamsList.find(t => t && sameId(t.id, match.awayId)) || { name: match.awayId || 'Ospite' };
 
   // Loghi più grandi (36px)
   const getLogoHtml = (team, size = 36) => {
     if (!team || !team.logo) {
-      return `<i class="ri-shield-fill" style="font-size:${size}px; color:var(--text2); display:flex; align-items:center; justify-content:center; flex-shrink:0;"></i>`;
+      return `<i class="ri-shield-fill" style="font-size:${size}px; color:var(--text2);font-family:var(--font-sub,inherit); display:flex; align-items:center; justify-content:center; flex-shrink:0;"></i>`;
     }
-    return `<img src="${team.logo}" style="width:${size}px; height:${size}px; object-fit:contain; border-radius:6px; flex-shrink:0;" onerror="this.outerHTML='<i class=\\'ri-shield-fill\\' style=\\'font-size:${size}px; color:var(--text2); display:flex; align-items:center; justify-content:center; flex-shrink:0;\\'></i>';" alt="Logo">`;
+    return `<img src="${esc(team.logo)}" style="width:${size}px; height:${size}px; object-fit:contain; border-radius:6px; flex-shrink:0;" onerror="this.outerHTML='<i class=\\'ri-shield-fill\\' style=\\'font-size:${size}px; color:var(--text2);font-family:var(--font-sub,inherit); display:flex; align-items:center; justify-content:center; flex-shrink:0;\\'></i>';" alt="Logo">`;
   };
 
-  /* 
-   * CSS NATIVO PER SMARTPHONE:
-   * - clamp(0.7rem, 3.5vw, 0.95rem): Il font scala fluidamente in base alla larghezza dello schermo.
-   * - -webkit-line-clamp: 2: Permette al testo di andare su un massimo di 2 righe prima di bloccarsi.
-   * - word-break: break-word: Spezza parole impossibili se non c'è spazio.
-   */
-  const textStyle = `
-    font-size: clamp(0.7rem, 3.5vw, 0.95rem); 
-    font-weight: 700; 
-    color: var(--text); 
-    line-height: 1.1; 
-    display: -webkit-box; 
-    -webkit-line-clamp: 2; 
-    -webkit-box-orient: vertical; 
-    overflow: hidden; 
-    word-break: break-word;
-  `;
+  // nome su 2 righe al massimo: si rimpicciolisce invece di spezzare le parole (fitName)
+  const nameStyle = 'font-weight:700; color:var(--text);';
+
 
   return `
     <div class="card card-sm card-mini match-card-vs" style="background:var(--mini-bg,var(--bg2)); border:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:1rem 1.15rem;">
       
       <!-- Squadra Casa -->
       <div style="display:flex; align-items:center; gap:0.6rem; min-width:0; flex:1; justify-content:flex-end;">
-        <span style="${textStyle} text-align:right;">${tHome.name}</span>
+        ${fitName(tHome.name, { maxSize: '.95rem', style: `${nameStyle} text-align:right;` })}
         ${getLogoHtml(tHome, 36)}
       </div>
 
@@ -51,7 +39,7 @@ export const createMatchCardVS = (match, teamsList = []) => {
       <!-- Squadra Ospite -->
       <div style="display:flex; align-items:center; gap:0.6rem; min-width:0; flex:1; justify-content:flex-start;">
         ${getLogoHtml(tAway, 36)}
-        <span style="${textStyle} text-align:left;">${tAway.name}</span>
+        ${fitName(tAway.name, { maxSize: '.95rem', style: `${nameStyle} text-align:left;` })}
       </div>
 
     </div>

@@ -1,3 +1,8 @@
+import { BackNav } from './services/backNav.js';
+import { kitImageHTML } from './components/Kit3D.js';
+import { getWonTrophies } from './services/palmaresService.js';
+import { esc, sameId } from './utils.js';
+
 export const TeamsPage = {
   // Struttura HTML unificata: Lista -> Dettaglio Rosa -> Modal Info Club
   renderHTML() {
@@ -16,7 +21,7 @@ export const TeamsPage = {
           </div>
           
           <div id="teams-grid-container" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(100%, 1fr)); gap:1rem; margin-top:.5rem;">
-            <div style="text-align:center; color:var(--text2); padding:2rem;">Caricamento squadre...</div>
+            <div style="text-align:center; color:var(--text2);font-family:var(--font-sub,inherit); padding:2rem;">Caricamento squadre...</div>
           </div>
         </div>
 
@@ -56,7 +61,7 @@ export const TeamsPage = {
       const from = this.returnTo;
       this.backToTeamsList();
       if (from === 'classifica') {
-        window.goPage('classifica', document.querySelector('.nav-btn[onclick*="classifica"]'));
+        window.goPage('classifica');
       }
     };
 
@@ -64,23 +69,23 @@ export const TeamsPage = {
     if (!container) return;
 
     if (!STATE.teams || STATE.teams.length === 0) {
-      container.innerHTML = `<div style="text-align:center; color:var(--text2); padding:2rem;">Nessuna squadra nel database.</div>`;
+      container.innerHTML = `<div style="text-align:center; color:var(--text2);font-family:var(--font-sub,inherit); padding:2rem;">Nessuna squadra nel database.</div>`;
       return;
     }
 
-    const sortedTeams = [...STATE.teams].sort((a, b) => a.name.localeCompare(b.name));
+    const sortedTeams = [...STATE.teams].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
 
     container.innerHTML = sortedTeams.map(t => {
-      const logoUrl = t.logo || 'icons/icon-192.png';
+      const logoUrl = esc(t.logo || 'icons/icon-192.png');
 
       return `
-        <div class="card card-mini" onclick="window.openTeamDetail('${t.id}')" style="display:flex; align-items:center; gap:1.25rem; padding:1rem; background:var(--mini-bg,var(--card)); border-color:var(--border); cursor:pointer; transition:transform 0.15s, background-color 0.15s;">
-          <img src="${logoUrl}" alt="Logo ${t.name}" loading="lazy" decoding="async" style="width:52px; height:52px; flex-shrink:0; object-fit:contain;" onerror="this.src='icons/icon-192.png'">
+        <div class="card card-mini" data-team-id="${esc(t.id)}" onclick="window.openTeamDetail(this.dataset.teamId)" style="display:flex; align-items:center; gap:1.25rem; padding:1rem; background:var(--mini-bg,var(--card)); border-color:var(--border); cursor:pointer; transition:transform 0.15s, background-color 0.15s;">
+          <img src="${logoUrl}" alt="Logo ${esc(t.name)}" loading="lazy" decoding="async" style="width:52px; height:52px; flex-shrink:0; object-fit:contain;" onerror="this.src='icons/icon-192.png'">
           <div style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; gap:0.4rem;">
-              <h3 style="font-size:1.1rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin:0;">${t.name}</h3>
+              <h3 style="font-size:1.1rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin:0;">${esc(t.name)}</h3>
             </div>
-            <p style="font-size:.72rem; color:var(--text2); margin-top:2px;">Proprietario: <span style="color:var(--accent); font-weight:500;">${t.owner || 'Nessuno'}</span></p>
+            <p style="font-size:.72rem; color:var(--text2);font-family:var(--font-sub,inherit); margin-top:2px;">Proprietario: <span style="color:var(--accent); font-weight:500;">${esc(t.owner || 'Nessuno')}</span></p>
           </div>
           <svg viewBox="0 0 24 24" style="width:18px; height:18px; stroke:var(--text3); stroke-width:2; fill:none;"><polyline points="9 18 15 12 9 6"></polyline></svg>
         </div>
@@ -107,10 +112,10 @@ export const TeamsPage = {
 
     if (!listView || !detailView) return;
 
-    const team = STATE.teams.find(t => t.id === teamId);
+    const team = STATE.teams.find(t => sameId(t.id, teamId));
     if (!team) return;
 
-    if (titleView) titleView.innerHTML = `${team.name}`;
+    if (titleView) titleView.textContent = team.name || '';
 
     if (btnInfo) {
       btnInfo.onclick = () => this.openInfoModal(team, STATE);
@@ -120,6 +125,8 @@ export const TeamsPage = {
 
     listView.style.display = 'none';
     detailView.style.display = 'block';
+    // "Indietro" del telefono = freccia indietro della scheda
+    BackNav.push('team-detail', () => (window.teamDetailBack ? window.teamDetailBack() : this.backToTeamsList()));
 
     const pageContainer = document.getElementById('dynamic-pages-container');
     if (pageContainer) pageContainer.scrollTop = 0;
@@ -129,9 +136,9 @@ export const TeamsPage = {
     const container = document.getElementById('team-roster-container');
     if (!container) return;
 
-    const roster = STATE.players.filter(p => p.teamId === teamId);
+    const roster = (STATE.players || []).filter(p => p && sameId(p.teamId, teamId));
     if (roster.length === 0) {
-      container.innerHTML = `<div style="color:var(--text3);text-align:center;padding:2rem;font-size:.85rem">Rosa vuota.</div>`;
+      container.innerHTML = `<div style="color:var(--text3);font-family:var(--font-text3,inherit);text-align:center;padding:2rem;font-size:.85rem">Rosa vuota.</div>`;
       return;
     }
 
@@ -145,25 +152,22 @@ export const TeamsPage = {
       if(roles[rk].length === 0) return;
       html += `<div class="label" style="margin: 1rem 0 .4rem;">${names[rk]} (${roles[rk].length})</div>`;
       html += roles[rk].sort((a,b)=>(b.price||0)-(a.price||0)).map(p => {
-        const v = STATE.votes[p.id];
-        const mvHtml = v ? `<span class="mv-badge ${v>=7?'mv-up':'mv-dn'}">${v.toFixed(1)}</span>` : '';
-
         const photoUrl = p.photoPersonal || p.photoStandard || '';
         const imgHtml = photoUrl
-          ? `<img src="${photoUrl}" alt="${p.name}" loading="lazy" decoding="async" style="width:28px; height:28px; object-fit:contain; border-radius:4px; flex-shrink:0;">`
-          : `<div style="width:28px; height:28px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.7rem; color:var(--text3); flex-shrink:0;"><i class="ri-user-3-line"></i></div>`;
+          ? `<img src="${esc(photoUrl)}" alt="${esc(p.name)}" loading="lazy" decoding="async" style="width:28px; height:28px; object-fit:contain; border-radius:4px; flex-shrink:0;">`
+          : `<div style="width:28px; height:28px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.7rem; color:var(--text3);font-family:var(--font-text3,inherit); flex-shrink:0;"><i class="ri-user-3-line"></i></div>`;
 
         return `
-          <div class="pcard" data-player-id="${p.id}" style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
+          <div class="pcard" data-player-id="${esc(p.id)}" style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
             <div class="rbadge r${p.role}" style="width:24px;height:24px;font-size:.6rem;border-radius:5px;flex-shrink:0;">${p.role}</div>
             ${imgHtml}
             <div class="pi" style="flex:1; min-width:0;">
-              <div class="pn" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.name}${mvHtml}</div>
-              <div class="pm">${p.club}</div>
+              <div class="pn" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(p.name)}</div>
+              <div class="pm">${esc(p.club || '')}</div>
             </div>
             <div class="pr" style="text-align:right; flex-shrink:0;">
-              <div class="price">${p.price||0}M</div>
-              <div class="pavg">Mv ${(p.avg||6).toFixed(1)}</div>
+              <div class="price">${Number(p.price) || 0}M</div>
+              <div class="pavg">Mv ${(Number(p.avg) || 6).toFixed(1)}</div>
             </div>
           </div>
         `;
@@ -179,54 +183,13 @@ export const TeamsPage = {
     const closeBtn = document.getElementById('close-info-modal');
     if (!modal || !content) return;
 
-    const logoUrl = team.logo || 'icons/icon-192.png';
-    const mottoText = team.motto ? `"${team.motto}"` : 'Nessun motto impostato';
-    const descriptionText = team.desc || team.description || 'Nessuna descrizione o storia inserita per questa fanta-squadra.';
+    const logoUrl = esc(team.logo || 'icons/icon-192.png');
+    const mottoText = team.motto ? `"${esc(team.motto)}"` : 'Nessun motto impostato';
+    const descriptionText = esc(team.desc || team.description || 'Nessuna descrizione o storia inserita per questa fanta-squadra.');
 
-    const rawTrophies = STATE.trophies || window.TROPHIES || [];
-    const allTrophies = Array.isArray(rawTrophies)
-      ? rawTrophies
-      : Object.entries(rawTrophies).map(([k, v]) => (typeof v === 'object' ? { id: k, ...v } : { id: k, name: v }));
+    const wonTrophies = getWonTrophies(team, STATE.trophies, STATE.competitions);
 
-    const trophiesMap = Object.fromEntries(allTrophies.map(t => [t.id, t]));
-
-    const competitionsList = Array.isArray(STATE.competitions)
-      ? STATE.competitions
-      : Object.values(STATE.competitions || {});
-    const compMap = Object.fromEntries(competitionsList.map(c => [c.id, c]));
-
-    let wonTrophies = [];
-
-    if (team.palmares) {
-      Object.entries(team.palmares).forEach(([season, seasonComps]) => {
-        if (seasonComps && typeof seasonComps === 'object') {
-          Object.entries(seasonComps).forEach(([compId, item]) => {
-            if (item && item.trofeo_vinto) {
-              const trophyId = typeof item.trofeo_vinto === 'string'
-                ? item.trofeo_vinto
-                : (compMap[compId]?.trophyId || compId);
-
-              const trophyObj = trophiesMap[trophyId];
-              const trophyName = trophyObj?.name || compMap[compId]?.name || trophyId;
-              const trophyImage = trophyObj?.image || trophyObj?.img || trophyObj?.url || '';
-              
-              // Lettura scala percentuale dall'oggetto trofeo
-              const scale = trophyObj?.scale !== undefined ? parseInt(trophyObj.scale, 10) : 100;
-
-              wonTrophies.push({
-                trophyId,
-                season,
-                name: trophyName,
-                image: trophyImage,
-                scale
-              });
-            }
-          });
-        }
-      });
-    }
-
-    let trophiesHTML = `<div style="color:var(--text2); font-size:.85rem; font-style:italic;">Bacheca vuota. Nessun trofeo vinto finora.</div>`;
+    let trophiesHTML = `<div style="color:var(--text2);font-family:var(--font-sub,inherit); font-size:.85rem; font-style:italic;">Bacheca vuota. Nessun trofeo vinto finora.</div>`;
 
     if (wonTrophies.length > 0) {
       trophiesHTML = `
@@ -236,8 +199,8 @@ export const TeamsPage = {
             const sizePx = Math.round(42 * (tr.scale / 100));
 
             const imgHtml = tr.image
-              ? `<img src="${tr.image}" alt="${tr.name}" style="width:${sizePx}px; height:${sizePx}px; object-fit:contain; vertical-align:middle; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));" onerror="this.outerHTML='<span style=\\'font-size:1.5rem\\'>🏆</span>'">`
-              : `<span style="font-size:1.5rem">🏆</span>`;
+              ? `<img src="${esc(tr.image)}" alt="${esc(tr.name)}" style="width:${sizePx}px; height:${sizePx}px; object-fit:contain; vertical-align:middle; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));" onerror="this.outerHTML='<i class=\\'ri-trophy-fill\\' style=\\'font-size:1.5rem;color:var(--gold)\\'></i>'">`
+              : `<i class="ri-trophy-fill" style="font-size:1.5rem;color:var(--gold)"></i>`;
 
             return `
               <div style="background:var(--bg3); border:1px solid rgba(255,255,255,0.06); padding:.6rem .8rem; border-radius:10px; display:flex; align-items:center; gap:.8rem;">
@@ -245,11 +208,11 @@ export const TeamsPage = {
                   ${imgHtml}
                 </div>
                 <div style="text-align:left; flex:1; min-width:0;">
-                  <div style="font-size:.9rem; font-weight:600; color:var(--gold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tr.name}</div>
-                  <div style="font-size:.75rem; color:var(--text2);">Stagione: <strong style="color:var(--text);">${tr.season}</strong></div>
+                  <div style="font-size:.9rem; font-weight:600; color:var(--gold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(tr.name)}</div>
+                  <div style="font-size:.75rem; color:var(--text2);font-family:var(--font-sub,inherit);">Stagione: <strong style="color:var(--text);">${esc(tr.season)}</strong></div>
                 </div>
                 <div style="background:rgba(245,166,35,0.15); color:var(--gold); font-size:.7rem; font-weight:600; padding:.2rem .5rem; border-radius:6px; flex-shrink:0;">
-                  🏆 Vinto
+                  <i class="ri-trophy-fill"></i> Vinto
                 </div>
               </div>
             `;
@@ -262,15 +225,21 @@ export const TeamsPage = {
       <div style="text-align:center; margin-bottom:1.5rem;">
         <img src="${logoUrl}" alt="Logo XL" loading="lazy" decoding="async" style="width:90px; height:90px; object-fit:contain; display:block; margin:0 auto 1rem auto;" onerror="this.src='icons/icon-192.png'">
         <h2 style="font-family:'Bebas Neue',sans-serif; font-size:2rem; color:var(--text); margin-bottom:0.2rem;">
-          ${team.name}
+          ${esc(team.name)}
         </h2>
-        <div style="font-size:.75rem; text-transform:uppercase; color:var(--text2);">
-          Allenatore: <span style="color:var(--text); font-weight:500;">${team.owner || 'Senza Proprietario'}</span>
+        <div style="font-size:.75rem; text-transform:uppercase; color:var(--text2);font-family:var(--font-sub,inherit);">
+          Allenatore: <span style="color:var(--text); font-weight:500;">${esc(team.owner || 'Senza Proprietario')}</span>
         </div>
         <p style="font-size:.85rem; color:var(--accent); font-style:italic; margin-top:0.5rem;">
           ${mottoText}
         </p>
       </div>
+
+      ${team.kit ? `
+      <div class="card" style="margin-bottom:1rem; background:var(--card); text-align:left;">
+        <div class="label">Divisa</div>
+        ${kitImageHTML(team.kit, { crestUrl: team.logo || '', width: 480 }, 'style="width:230px; max-width:80%; margin:.4rem auto 0;"')}
+      </div>` : ''}
 
       <div class="card" style="margin-bottom:1rem; background:var(--card); text-align:left;">
         <div class="label">Storia del club</div>
@@ -288,10 +257,13 @@ export const TeamsPage = {
     `;
 
     modal.style.display = 'flex';
-    closeBtn.onclick = () => { modal.style.display = 'none'; };
+    const closeInfo = () => { modal.style.display = 'none'; BackNav.pop('club-info'); };
+    closeBtn.onclick = closeInfo;
+    BackNav.push('club-info', () => { modal.style.display = 'none'; });
   },
 
   backToTeamsList() {
+    BackNav.pop('team-detail');
     this.activeTeamId = null;
     this.returnTo = null;
     const listView = document.getElementById('teams-list-view');

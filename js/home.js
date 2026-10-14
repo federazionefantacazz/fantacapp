@@ -4,6 +4,11 @@ import { renderAnteprimaClassifica } from './components/AnteprimaClassifica.js';
 import { CalcoloMatchService } from './services/calcoloMatch.js';
 import { createMatchCardResult } from './components/MatchCardResult.js';
 import { LiveMatchModule } from './liveMatch.js';
+import { kitImageHTML } from './components/Kit3D.js';
+import { MenuPanel } from './components/MenuPanel.js';
+import { DivisaSquadra } from './menu/DivisaSquadra.js';
+import { getWonTrophies } from './services/palmaresService.js';
+import { esc, sameId, toArray } from './utils.js';
 
 const isByeId = (id) => /BYE|RIPOSO/i.test(String(id ?? ''));
 
@@ -32,6 +37,43 @@ function findLastPlayedMatch(comp, teamId) {
   return best;
 }
 
+// card del logo: sfondo e bordo dal tema (pagina Home)
+const LOGO_CARD = 'background:var(--home-logo-bg, var(--bg3)); border:1px solid var(--home-logo-border, rgba(255,255,255,0.08));';
+
+const LOGO_PLACEHOLDER = `<div style="width:100px; height:100px; ${LOGO_CARD} display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-shield-fill" style="font-size:1.5rem; color:var(--text2);font-family:var(--font-sub,inherit)"></i></div>`;
+
+// riquadri dentro la card della squadra (maglia, classifica, palmarès)
+const BOX = 'background: var(--home-box-bg, rgba(0,0,0,0.18)); border: 1px solid var(--home-box-border, var(--border)); border-radius: 14px; padding: 0.6rem 0.7rem;';
+
+/* Nome della squadra su una sola riga: il testo si rimpicciolisce finché il nome ci sta
+   (da 32px fino a 16px); se non basta, alla misura minima va a capo.
+   Si ricalcola quando cambia la larghezza o arriva il font. */
+const TEAM_NAME_MAX = 32, TEAM_NAME_MIN = 16; // px
+function fitTeamName(el) {
+  if (!el || !el.clientWidth) return;
+  let size = TEAM_NAME_MAX;
+  el.style.whiteSpace = 'nowrap';
+  el.style.fontSize = size + 'px';
+  while (el.scrollWidth > el.clientWidth && size > TEAM_NAME_MIN) {
+    size -= 1;
+    el.style.fontSize = size + 'px';
+  }
+  if (el.scrollWidth > el.clientWidth) el.style.whiteSpace = 'normal';
+}
+let teamNameObserver = null;
+function watchTeamName(el) {
+  if (!el) return;
+  fitTeamName(el);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitTeamName(el));
+  if (!teamNameObserver && 'ResizeObserver' in window) {
+    teamNameObserver = new ResizeObserver(() => fitTeamName(el));
+    teamNameObserver.observe(el);
+  }
+}
+
+// "Modifica" sulla maglia apre direttamente l'editor della divisa
+window.openKitEditor = () => MenuPanel.open(DivisaSquadra, 'kit');
+
 export const HomePage = {
   renderHTML(STATE = {}) {
     return `
@@ -45,21 +87,28 @@ export const HomePage = {
             <div id="userTeamLogo" style="flex-shrink: 0;"></div>
             <div style="flex: 1; min-width: 0; overflow: hidden;">
               <div class="label" style="margin: 0; font-size: 0.68rem;">La mia squadra</div>
-              <h3 id="homeTeamName" style="font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 0.5px; color: var(--text); margin: 0; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Caricamento...</h3>
-              <p id="homeTeamOwner" style="font-size: 0.75rem; color: var(--text2); margin: 2px 0 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">...</p>
+              <h3 id="homeTeamName" style="font-family: var(--font-team-name, 'Bebas Neue', sans-serif); font-size: 2rem; letter-spacing: 0.5px; text-transform: uppercase; color: var(--team-name, var(--text)); margin: 0; line-height: 1.1; white-space: nowrap; overflow: hidden; overflow-wrap: anywhere;">Caricamento...</h3>
+              <p id="homeTeamOwner" style="font-size: 0.75rem; color: var(--team-owner, var(--text2)); font-family: var(--font-team-owner, var(--font-sub, inherit)); margin: 2px 0 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">...</p>
             </div>
           </div>
 
-          <!-- MINI CLASSIFICA (a tutta larghezza) -->
-          <div id="homeMiniClassifica" style="padding-top: 0.8rem; border-top: 1px dashed var(--border); width: 100%;">
-            <div style="font-size: 0.7rem; font-weight: 600; color: var(--text2);">Caricamento...</div>
-          </div>
-
-          <!-- RIGA TROFEI / PALMARÈS -->
-          <div style="margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed var(--border); width: 100%;">
-            <div class="label" style="margin-bottom: 0.4rem; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase;"><i class="ri-trophy-line"></i> Palmarès / Trofei</div>
-            <div id="homeTeamTrophies" style="display: flex; align-items: flex-end; gap: 0.6rem; flex-wrap: wrap;">
-              <span style="font-size: 0.75rem; color: var(--text3); font-style: italic;">Nessun trofeo</span>
+          <!-- RIQUADRI: MAGLIA + CLASSIFICA affiancati, PALMARÈS sotto -->
+          <div id="homeBoxes" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; width: 100%;">
+            <div id="homeKitBox" style="${BOX} display: flex; flex-direction: column; min-width: 0;">
+              <div onclick="window.openKitEditor && window.openKitEditor()" style="display: flex; align-items: center; justify-content: space-between; gap: 0.3rem; margin-bottom: 0.3rem; cursor: pointer;">
+                <div style="font-size: 0.7rem; font-weight: 700; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase;">Maglia</div>
+                <div id="homeKitAction" style="font-size: 0.65rem; color: var(--accent); display: flex; align-items: center; flex-shrink: 0;">Modifica <i class="ri-arrow-right-s-line"></i></div>
+              </div>
+              <div id="homeTeamKit" onclick="window.openKitEditor && window.openKitEditor()" style="flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer;"></div>
+            </div>
+            <div id="homeMiniClassifica" style="${BOX} min-width: 0;">
+              <div style="font-size: 0.7rem; font-weight: 600; color: var(--text2); font-family: var(--font-sub, inherit);">Caricamento...</div>
+            </div>
+            <div style="${BOX} grid-column: 1 / -1;">
+              <div class="label" style="margin-bottom: 0.4rem; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase;"><i class="ri-trophy-line"></i> Palmarès</div>
+              <div id="homeTeamTrophies" style="display: flex; align-items: flex-end; justify-content: flex-start; gap: 0.6rem; flex-wrap: wrap;">
+                <span style="font-size: 0.75rem; color: var(--text3); font-family: var(--font-text3, inherit); font-style: italic;">Nessun trofeo</span>
+              </div>
             </div>
           </div>
 
@@ -76,12 +125,12 @@ export const HomePage = {
         <!-- PROSSIMO AVVERSARIO -->
         <div class="sec" style="margin-bottom:.6rem;">Prossimo Avversario</div>
         <div id="homeNextMatch" style="margin-bottom:1.5rem;">
-          <div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Nessun match programmato.</div>
+          <div style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1rem; font-size:.85rem;">Nessun match programmato.</div>
         </div>
 
         <div class="sec" id="onFireTitle" style="margin-bottom:.6rem;">Giocatori On Fire <i class="ri-fire-fill" style="color: #ff4757;"></i></div>
         <div class="scroll-voti" id="homeOnFirePlayers">
-          <div style="text-align:center; color:var(--text3); padding:1.5rem; font-size:.85rem; width:100%;">Nessun dato sulle prestazioni disponibile.</div>
+          <div style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1.5rem; font-size:.85rem; width:100%;">Nessun dato sulle prestazioni disponibile.</div>
         </div>
       </div>
     `;
@@ -97,20 +146,15 @@ export const HomePage = {
     const onFireTitle = document.getElementById('onFireTitle');
     const teamLogoContainer = document.getElementById('userTeamLogo');
     const miniClassificaBox = document.getElementById('homeMiniClassifica');
+    const kitBox = document.getElementById('homeTeamKit');
+    const kitWrap = document.getElementById('homeKitBox');
+    const kitAction = document.getElementById('homeKitAction');
+    const boxes = document.getElementById('homeBoxes');
 
-    let competitionsList = [];
-    if (STATE.competitions) {
-      competitionsList = Array.isArray(STATE.competitions) ? STATE.competitions : Object.values(STATE.competitions);
-    }
-    
-    const activeId = STATE.currentCompetition || STATE.activeCompetitionId;
-    if (!activeId && competitionsList.length > 0) {
-      STATE.activeCompetitionId = competitionsList[0].id;
-    }
+    const competitionsList = toArray(STATE.competitions);
+    const comp = competitionsList.find(c => sameId(c.id, STATE.currentCompetition));
 
-    const comp = competitionsList.find(c => c && String(c.id) === String(activeId || STATE.activeCompetitionId));
-
-    const realGw = STATE.giornataRealeCorrente || STATE.currentRealGW || STATE.status?.currentGW || 0;
+    const realGw = Number(STATE.giornataRealeCorrente) || 0;
     if (banner) {
       if (realGw === 0) {
         banner.innerHTML = `
@@ -119,7 +163,7 @@ export const HomePage = {
               <i class="ri-time-line" style="font-size: 1.2rem; color: var(--accent2);"></i>
               <div>
                 <div style="font-size: .85rem; font-weight: 600; color: var(--text);">Pre-Campionato Attivo</div>
-                <div style="font-size: .75rem; color: var(--text2); margin-top: 1px;">Le liste sono aperte. Prepara la rosa prima della 1ª Giornata!</div>
+                <div style="font-size: .75rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-top: 1px;">Le liste sono aperte. Prepara la rosa prima della 1ª Giornata!</div>
               </div>
             </div>
           </div>
@@ -131,7 +175,7 @@ export const HomePage = {
               <i class="ri-football-line" style="font-size: 1.2rem; color: var(--accent);"></i>
               <div>
                 <div style="font-size: .85rem; font-weight: 600; color: var(--text);">Campionato Live — Serie A</div>
-                <div style="font-size: .75rem; color: var(--text2); margin-top: 1px;">Siamo attualmente alla <strong style="color: var(--accent);">${realGw}ª Giornata</strong> reale.</div>
+                <div style="font-size: .75rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-top: 1px;">Siamo attualmente alla <strong style="color: var(--accent);">${realGw}ª Giornata</strong> reale.</div>
               </div>
             </div>
           </div>
@@ -141,14 +185,11 @@ export const HomePage = {
 
     if (!STATE.user) return;
     
-    let teamsList = [];
-    if (STATE.teams) {
-      teamsList = Array.isArray(STATE.teams) ? STATE.teams : Object.values(STATE.teams);
-    }
-    const myTeam = teamsList.find(t => t && t.id === STATE.user.id);
+    const teamsList = toArray(STATE.teams);
+    const myTeam = teamsList.find(t => sameId(t.id, STATE.user.id));
 
     if (myTeam) {
-      if (tn) tn.textContent = myTeam.name || "Senza Nome";
+      if (tn) { tn.textContent = myTeam.name || "Senza Nome"; watchTeamName(tn); }
       if (to) to.textContent = `Patron: ${myTeam.owner || "Sconosciuto"}`;
       
       if (onFireTitle) {
@@ -157,59 +198,35 @@ export const HomePage = {
 
       if (teamLogoContainer) {
         if (myTeam.logo) {
-          teamLogoContainer.innerHTML = `<img src="${myTeam.logo}" style="width:100px; height:100px; object-fit:contain; border-radius:8px; background:var(--bg3); padding:2px; border:1px solid rgba(255,255,255,0.08);" onerror="this.src=''; this.innerHTML='<i class=\\'ri-shield-fill\\' style=\\'font-size:1.5rem; color:var(--text2);\\'></i>';" alt="Logo">`;
+          // logo non caricabile: al suo posto lo scudo segnaposto
+          teamLogoContainer.innerHTML = `<img src="${esc(myTeam.logo)}" style="width:100px; height:100px; object-fit:contain; border-radius:8px; ${LOGO_CARD} padding:2px;" onerror="this.outerHTML=this.dataset.fb" data-fb="${esc(LOGO_PLACEHOLDER)}" alt="Logo">`;
         } else {
-          teamLogoContainer.innerHTML = `<div style="width:100px; height:100px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-shield-fill" style="font-size:1.5rem; color:var(--text2)"></i></div>`;
+          teamLogoContainer.innerHTML = LOGO_PLACEHOLDER;
         }
       }
 
+      if (kitBox) {
+        const key = myTeam.kit ? (myTeam.kit.image || JSON.stringify(myTeam.kit)) + '|' + (myTeam.logo || '') : 'none';
+        if (kitBox.dataset.key !== key) {
+          kitBox.dataset.key = key;
+          kitBox.innerHTML = myTeam.kit
+            ? kitImageHTML(myTeam.kit, { crestUrl: myTeam.logo || '', width: 360 }, 'style="width:100%; max-width:150px; margin:0 auto;"')
+            : `<i class="ri-shirt-line" style="font-size: 3rem; color: var(--text3); font-family: var(--font-text3, inherit);"></i>`;
+          if (kitAction) kitAction.innerHTML = `${myTeam.kit ? 'Modifica' : 'Crea'} <i class="ri-arrow-right-s-line"></i>`;
+        }
+      }
+      if (kitWrap) kitWrap.style.display = '';
+      if (boxes) boxes.style.gridTemplateColumns = '1fr 1fr';
+
       if (miniClassificaBox && comp) {
-        miniClassificaBox.innerHTML = renderAnteprimaClassifica(comp, teamsList, myTeam.id);
+        miniClassificaBox.innerHTML = renderAnteprimaClassifica(comp, teamsList, myTeam.id, { compact: true });
       }
 
       // --- RECUPERO ED ORDINAMENTO TROFEI IN HOME ---
       if (trophiesContainer) {
         trophiesContainer.style.alignItems = 'flex-end'; // Forza l'allineamento in basso
 
-        const rawTrophies = STATE.trophies || window.TROPHIES || {};
-        const allTrophies = Array.isArray(rawTrophies)
-          ? rawTrophies
-          : Object.entries(rawTrophies).map(([k, v]) => (typeof v === 'object' ? { id: k, ...v } : { id: k, name: v }));
-
-        const trophiesMap = Object.fromEntries(allTrophies.map(t => [t.id, t]));
-        const compMap = Object.fromEntries(competitionsList.map(c => [c.id, c]));
-
-        const wonTrophies = [];
-
-        if (myTeam.palmares) {
-          Object.entries(myTeam.palmares).forEach(([season, seasonComps]) => {
-            if (seasonComps && typeof seasonComps === 'object') {
-              Object.entries(seasonComps).forEach(([compId, item]) => {
-                if (item && item.trofeo_vinto) {
-                  let trophyId = typeof item.trofeo_vinto === 'string'
-                    ? item.trofeo_vinto
-                    : (compMap[compId]?.trophyId || compId);
-
-                  const trophyObj = trophiesMap[trophyId];
-                  const trophyImage = trophyObj?.image || trophyObj?.img || trophyObj?.url || '';
-
-                  // Lettura ordine_home e scale dal Trofeo stesso (con fallback)
-                  const ordineHome = trophyObj?.ordine_home !== undefined ? parseInt(trophyObj.ordine_home, 10) : 1;
-                  const scale = trophyObj?.scale !== undefined ? parseInt(trophyObj.scale, 10) : 100;
-
-                  wonTrophies.push({
-                    trophyId,
-                    season,
-                    name: trophyObj?.name || compMap[compId]?.name || trophyId,
-                    image: trophyImage,
-                    ordineHome,
-                    scale
-                  });
-                }
-              });
-            }
-          });
-        }
+        const wonTrophies = getWonTrophies(myTeam, STATE.trophies, competitionsList);
 
         // ORDINAMENTO PER LA HOME: prima ordine_home, poi tipo di trofeo (così i trofei
         // dello stesso tipo risultano adiacenti), infine stagione.
@@ -226,46 +243,45 @@ export const HomePage = {
           const renderTrophy = (tr, idx) => {
             const sizePx = Math.round(38 * (tr.scale / 100));
             const overlap = idx > 0 ? `margin-left: -${Math.round(sizePx * 0.28)}px;` : '';
+            const title = esc(`${tr.name} (${tr.season})`);
+            const icon = `<i class="ri-trophy-fill" style="font-size: 1.4rem; color: var(--gold); ${overlap}" title="${title}"></i>`;
             if (tr.image) {
-              return `<img src="${tr.image}" alt="${tr.name}" title="${tr.name} (${tr.season})" style="width: ${sizePx}px; height: ${sizePx}px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); ${overlap}" onerror="this.outerHTML='<span style=\\'font-size:1.4rem\\' title=\\'${tr.name} (${tr.season})\\'>🏆</span>'">`;
+              return `<img src="${esc(tr.image)}" alt="${esc(tr.name)}" title="${title}" style="width: ${sizePx}px; height: ${sizePx}px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); ${overlap}" onerror="this.outerHTML=this.dataset.fb" data-fb="${esc(icon)}">`;
             }
-            return `<span style="font-size: 1.4rem; ${overlap}" title="${tr.name} (${tr.season})">🏆</span>`;
+            return icon;
           };
 
           trophiesContainer.style.gap = '0';
           trophiesContainer.style.flexWrap = 'wrap';
           trophiesContainer.innerHTML = wonTrophies.map(renderTrophy).join('');
         } else {
-          trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3); font-style: italic;">Nessun trofeo in bacheca</span>`;
+          trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3); font-family: var(--font-text3, inherit); font-style: italic;">Nessun trofeo in bacheca</span>`;
         }
       }
 
     } else {
-      if (tn) tn.textContent = "Spettatore";
+      if (tn) { tn.textContent = "Spettatore"; watchTeamName(tn); }
       if (to) to.textContent = STATE.user.email;
       if (onFireTitle) onFireTitle.textContent = `Giocatori On Fire`;
-      if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:52px; height:52px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-eye-line" style="font-size:1.5rem; color:var(--text2)"></i></div>`;
-      if (trophiesContainer) trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3);">--</span>`;
-      if (miniClassificaBox) miniClassificaBox.innerHTML = `<div style="font-size: 0.7rem; color: var(--text3);">Non associato a una squadra.</div>`;
+      if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:52px; height:52px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-eye-line" style="font-size:1.5rem; color:var(--text2);font-family:var(--font-sub,inherit)"></i></div>`;
+      if (trophiesContainer) trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3); font-family: var(--font-text3, inherit);">--</span>`;
+      if (miniClassificaBox) miniClassificaBox.innerHTML = `<div style="font-size: 0.7rem; color: var(--text3); font-family: var(--font-text3, inherit);">Non associato a una squadra.</div>`;
+      if (kitBox) { kitBox.dataset.key = ''; kitBox.innerHTML = ''; }
+      if (kitWrap) kitWrap.style.display = 'none';
+      if (boxes) boxes.style.gridTemplateColumns = '1fr';
     }
 
     if (comp) {
-      const currentRealGw = STATE.giornataRealeCorrente || STATE.currentRealGW || STATE.status?.currentGW || 1;
-      const targetGwKey = GwService.getGwKey(comp, currentRealGw);
-
-      const gwData = (targetGwKey && comp.matches && comp.matches[targetGwKey]) ? comp.matches[targetGwKey] : null;
-      let couplesList = [];
-      if (gwData && gwData.couples) {
-        couplesList = Array.isArray(gwData.couples) ? gwData.couples : Object.values(gwData.couples);
-      }
-
-      const myMatch = couplesList.find(m => m && (m.homeId === STATE.user.id || m.awayId === STATE.user.id));
+      const targetGwKey = GwService.getGwKey(comp, realGw || 1);
+      // incontri con i segnaposto del tabellone ("VINCENTE_...") già risolti
+      const myMatch = GwService.getCouples(comp, targetGwKey)
+        .find(m => sameId(m.homeId, STATE.user.id) || sameId(m.awayId, STATE.user.id));
 
       if (nm) {
         nm.innerHTML = createMatchCardVS(myMatch, teamsList);
       }
     } else {
-      if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Seleziona una competizione dal menu in alto.</div>`;
+      if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1rem; font-size:.85rem;">Seleziona una competizione dal menu in alto.</div>`;
     }
 
     // --- ULTIMA PARTITA GIOCATA nella competizione selezionata ---
@@ -304,15 +320,10 @@ export const HomePage = {
       const weeks = Math.max(1, parseInt(cfg.weeks, 10) || 4);
       const topN = Math.max(1, parseInt(cfg.players, 10) || 5);
 
-      let playersList = [];
-      if (STATE.players) {
-        playersList = Array.isArray(STATE.players) ? STATE.players : Object.values(STATE.players);
-      }
-
       // Solo i giocatori della mia rosa (come nella pagina Squadre: player.teamId)
-      let targetPlayers = playersList.filter(Boolean);
+      let targetPlayers = toArray(STATE.players);
       if (myTeam) {
-        targetPlayers = targetPlayers.filter(p => String(p.teamId) === String(myTeam.id));
+        targetPlayers = targetPlayers.filter(p => sameId(p.teamId, myTeam.id));
       }
 
       // Ultime N giornate che hanno dei voti (fino alla giornata reale corrente, se avviata)
@@ -361,18 +372,20 @@ export const HomePage = {
           else if (avg < 6) customStyle += 'background: rgba(255, 107, 107, 0.15); color: var(--accent3);';
           else customStyle += 'background: rgba(255, 255, 255, 0.08); color: var(--text);';
 
+          const role = esc(p.role);
           const photoUrl = p.photoPersonal || p.photoStandard || '';
+          const badge = `<div class="rbadge r${role}" style="width:44px; height:44px; font-size:.95rem; flex-shrink:0;">${role}</div>`;
           const photoHtml = photoUrl
-            ? `<img src="${photoUrl}" alt="${p.name}" loading="lazy" decoding="async" style="width:44px; height:44px; object-fit:contain; flex-shrink:0; border-radius:8px;" onerror="this.outerHTML='<div class=\\'rbadge r${p.role}\\' style=\\'width:44px;height:44px;\\'>${p.role}</div>'">`
-            : `<div class="rbadge r${p.role}" style="width:44px; height:44px; font-size:.95rem; flex-shrink:0;">${p.role}</div>`;
+            ? `<img src="${esc(photoUrl)}" alt="${esc(p.name)}" loading="lazy" decoding="async" style="width:44px; height:44px; object-fit:contain; flex-shrink:0; border-radius:8px;" onerror="this.outerHTML=this.dataset.fb" data-fb="${esc(badge)}">`
+            : badge;
 
           return `
             <div class="pcard" style="background:var(--card2); border: 1px solid rgba(255,255,255,0.05); margin-bottom: 0.4rem;">
               <div style="font-family:'DM Mono',monospace; font-size:.7rem; color:var(--text3); width:14px; text-align:center;">${i + 1}</div>
               ${photoHtml}
               <div class="pi" style="flex:1; min-width:0;">
-                <div class="pn" style="color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.name} <span class="rbadge r${p.role}" style="display:inline-flex; width:16px; height:16px; font-size:.6rem; border-radius:4px; vertical-align:middle;">${p.role}</span></div>
-                <div class="pm" style="color:var(--text2); font-size:0.7rem;">${p.club || ''} • ${count} pres. nelle ${periodo}</div>
+                <div class="pn" style="color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(p.name)} <span class="rbadge r${role}" style="display:inline-flex; width:16px; height:16px; font-size:.6rem; border-radius:4px; vertical-align:middle;">${role}</span></div>
+                <div class="pm" style="color:var(--text2);font-family:var(--font-sub,inherit); font-size:0.7rem;">${esc(p.club || '')} • ${count} pres. nelle ${periodo}</div>
               </div>
               <div style="text-align:right;">
                 <div style="${customStyle}">${avg.toFixed(2)}</div>
@@ -381,7 +394,7 @@ export const HomePage = {
           `;
         }).join('');
       } else {
-        onFireContainer.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1.5rem; font-size:.85rem; width:100%;">Nessun fantavoto registrato nelle ${periodo}.</div>`;
+        onFireContainer.innerHTML = `<div style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1.5rem; font-size:.85rem; width:100%;">Nessun fantavoto registrato nelle ${periodo}.</div>`;
       }
     }
   }

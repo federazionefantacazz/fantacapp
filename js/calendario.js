@@ -1,6 +1,7 @@
 import { GwService } from './services/gwService.js';
 import { LiveMatchModule } from './liveMatch.js';
 import { createMatchCardResult } from './components/MatchCardResult.js';
+import { esc, sameId } from './utils.js';
 
 export const CalendarioPage = {
   renderHTML() {
@@ -13,7 +14,7 @@ export const CalendarioPage = {
           <select id="calGwSelect" class="select-rose"></select>
         </div>
 
-        <div class="label" id="calGwTitle" style="margin-bottom:.5rem; color:var(--title,var(--accent));">GIORNATA DI CAMPIONATO</div>
+        <div class="label" id="calGwTitle" style="margin-bottom:.5rem; color:var(--title,var(--accent)); font-family:var(--font-title,inherit);">GIORNATA DI CAMPIONATO</div>
         <div id="calendarMatchesContainer" style="display:flex; flex-direction:column; gap:.5rem; padding-bottom:2rem;"></div>
       </div>
     `;
@@ -34,7 +35,7 @@ export const CalendarioPage = {
       LiveMatchModule.openViewer({ comp: ctx.comp, gwKey: ctx.gwKey, couple, mode: 'next' });
     } else if (ctx.phase === 'current') {
       LiveMatchModule._pendingKey = couple.key;
-      window.goPage('live', document.getElementById('btn-nav-formazione'));
+      window.goPage('live');
     } else {
       this._popup('Non è ancora possibile vedere questo match.');
     }
@@ -47,7 +48,7 @@ export const CalendarioPage = {
     el.style.cssText = 'position:fixed;inset:0;z-index:6000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:1.5rem;';
     el.innerHTML = `
       <div class="card" style="max-width:340px;width:100%;text-align:center;padding:1.5rem;">
-        <div style="font-size:2rem;color:var(--text2);margin-bottom:.5rem;"><i class="ri-lock-line"></i></div>
+        <div style="font-size:2rem;color:var(--text2);font-family:var(--font-sub,inherit);margin-bottom:.5rem;"><i class="ri-lock-line"></i></div>
         <div style="font-size:.95rem;margin-bottom:1.2rem;">${message}</div>
         <button class="btn btn-green" id="cal-popup-ok">OK</button>
       </div>`;
@@ -55,11 +56,6 @@ export const CalendarioPage = {
     const close = () => el.remove();
     el.querySelector('#cal-popup-ok').addEventListener('click', close);
     el.addEventListener('click', (e) => { if (e.target === el) close(); });
-  },
-
-  _selectedCompName(comp) {
-    if (!comp || !comp.name) return "CAMPIONATO";
-    return comp.name.toUpperCase();
   },
 
   render(STATE) {
@@ -71,7 +67,7 @@ export const CalendarioPage = {
 
     const previousUserSelection = select.value;
     const currentCompId = STATE.currentCompetition;
-    const currentCompData = STATE.competitions ? STATE.competitions.find(c => c.id === currentCompId) : null;
+    const currentCompData = (STATE.competitions || []).find(c => sameId(c.id, currentCompId)) || null;
     
     // Recupera la mappa delle giornate
     const matchesNode = STATE.matches || (currentCompData ? currentCompData.matches : null);
@@ -81,8 +77,8 @@ export const CalendarioPage = {
       
       // Sostituita l'emoji con Remix Icon
       container.innerHTML = `
-        <div style="text-align:center; padding:2.5rem 1rem; color:var(--text3); font-size:.9rem; background:var(--bg2); border-radius:12px; border:1px solid rgba(255,255,255,0.05); display:flex; flex-direction:column; align-items:center; gap:0.5rem;">
-          <i class="ri-calendar-close-line" style="font-size:2rem; color:var(--text2);"></i>
+        <div style="text-align:center; padding:2.5rem 1rem; color:var(--text3);font-family:var(--font-text3,inherit); font-size:.9rem; background:var(--bg2); border-radius:12px; border:1px solid rgba(255,255,255,0.05); display:flex; flex-direction:column; align-items:center; gap:0.5rem;">
+          <i class="ri-calendar-close-line" style="font-size:2rem; color:var(--text2);font-family:var(--font-sub,inherit);"></i>
           <span>Nessun calendario generato.</span>
         </div>
       `;
@@ -101,14 +97,9 @@ export const CalendarioPage = {
     });
 
     // Popola la select se cambia la competizione
-    if (select.dataset.currentComp !== currentCompId || select.options.length !== giornateEstraibili.length) {
+    if (select.dataset.currentComp !== String(currentCompId) || select.options.length !== giornateEstraibili.length) {
       select.dataset.currentComp = currentCompId;
-      select.innerHTML = giornateEstraibili.map(gwKey => {
-        const label = gwKey.startsWith('gw_playoff_')
-          ? `Turno Playoff ${gwKey.replace('gw_playoff_', '')}`
-          : `Giornata ${gwKey.replace('gw', '')}`;
-        return `<option value="${gwKey}">${label}</option>`;
-      }).join('');
+      select.innerHTML = giornateEstraibili.map(gwKey => `<option value="${esc(gwKey)}">${esc(GwService.label(gwKey))}</option>`).join('');
 
       const gwDaReale = GwService.getGwKey(currentCompData, STATE.giornataRealeCorrente);
       select.value = gwDaReale && select.querySelector(`option[value="${gwDaReale}"]`) ? gwDaReale : giornateEstraibili[0];
@@ -121,7 +112,7 @@ export const CalendarioPage = {
       if (!selectedGW || !matchesNode[selectedGW]) return;
 
       if (titleEl) {
-        const compName = CalendarioPage._selectedCompName(currentCompData);
+        const compName = String(currentCompData?.name || 'Campionato').toUpperCase();
         const turnNum = selectedGW.replace('gw_playoff_', '').replace('gw', '');
         titleEl.textContent = `${compName} — TURNO ${turnNum}`;
       }

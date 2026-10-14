@@ -1,12 +1,12 @@
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { ClassificaService } from "./services/classificaService.js";
+import { esc, sid, sameId } from "./utils.js";
+
+const isVincente = (id) => sid(id).startsWith('VINCENTE_');
 
 export const ClassificaPage = {
-  db: null,
-
-  init(database) {
-    this.db = database;
-  },
+  // Vista scelta nei tornei con tabellone (classifica / tabellone): resta tra un aggiornamento e l'altro dei dati
+  _showTabellone: false,
+  _compId: null,
 
   renderHTML() {
     return `
@@ -29,41 +29,24 @@ export const ClassificaPage = {
     const titleSpan = document.getElementById('classifica-title');
     if (!contentDiv) return;
 
-    const compId = state.currentCompetition || window.CURRENT_COMPETITION;
-    const compData = state.competitions ? state.competitions.find(c => c.id === compId) : null;
+    const compId = state.currentCompetition;
+    const compData = (state.competitions || []).find(c => sameId(c.id, compId)) || null;
+    // cambiando competizione si riparte dalla classifica
+    if (!sameId(this._compId, compId)) { this._compId = compId; this._showTabellone = false; }
 
     if (!compData) {
-      contentDiv.innerHTML = `<div class="card" style="text-align:center; color:var(--text2);">Seleziona una competizione valida nel menu in alto.</div>`;
+      contentDiv.innerHTML = `<div class="card" style="text-align:center; color:var(--text2);font-family:var(--font-sub,inherit);">Seleziona una competizione valida nel menu in alto.</div>`;
       if (actionsDiv) actionsDiv.style.display = 'none';
       return;
     }
 
     const compType = compData.type || 'campionato';
-    titleSpan.textContent = `Classifica — ${compData.name ? compData.name.toUpperCase() : compId.toUpperCase()}`;
+    titleSpan.textContent = `Classifica — ${sid(compData.name || compId).toUpperCase()}`;
     
     if (actionsDiv) {
       actionsDiv.innerHTML = '';
       actionsDiv.style.display = 'none';
     }
-
-    window._toggleVistaTabellone = (mostra) => {
-      const btnTab = document.getElementById('btn-mostra-tabellone');
-      const btnClas = document.getElementById('btn-mostra-classifica');
-      const viewClassifica = document.getElementById('view-dati-classifica');
-      const viewTabellone = document.getElementById('view-dati-tabellone');
-
-      if (mostra) {
-        if(viewClassifica) viewClassifica.style.display = 'none';
-        if(viewTabellone) viewTabellone.style.display = 'block';
-        if(btnTab) { btnTab.classList.add('btn-green'); btnTab.classList.remove('btn-outline'); }
-        if(btnClas) { btnClas.classList.remove('btn-green'); btnClas.classList.add('btn-outline'); }
-      } else {
-        if(viewClassifica) viewClassifica.style.display = 'block';
-        if(viewTabellone) viewTabellone.style.display = 'none';
-        if(btnTab) { btnTab.classList.remove('btn-green'); btnTab.classList.add('btn-outline'); }
-        if(btnClas) { btnClas.classList.add('btn-green'); btnClas.classList.remove('btn-outline'); }
-      }
-    };
 
     let compTeams = state.teams ? [...state.teams] : [];
     const classificaDbNode = compData.classifica || {};
@@ -103,21 +86,21 @@ export const ClassificaPage = {
               const sortedGirone = ClassificaService.ordinaSquadre(listaSquadreGirone, teamCalculatedStats);
               const numQualificati = parseInt(compData.qualificatiFaseFinale) || 2;
 
-              html += `<div class="label" style="font-size:0.95rem; margin-top:1.5rem; color:var(--title,var(--accent)); font-weight:600; padding-left:0.5rem;"><i class="ri-trophy-line"></i> ${gironeName.toUpperCase()}</div>`;
+              html += `<div class="label" style="font-size:0.95rem; margin-top:1.5rem; color:var(--title,var(--accent)); font-family:var(--font-title,inherit); font-weight:600; padding-left:0.5rem;"><i class="ri-trophy-line"></i> ${esc(gironeName.toUpperCase())}</div>`;
               
               if (sortedGirone.length > 0) {
                 html += this.renderTabellaClassica(sortedGirone, compId, (index) => {
                   return index < numQualificati ? 'border-left: 4px solid var(--accent);' : '';
                 }, teamCalculatedStats);
               } else {
-                html += `<div class="card" style="text-align:center; color:var(--text2); padding:1rem;">Nessuna squadra trovata per questo girone.</div>`;
+                html += `<div class="card" style="text-align:center; color:var(--text2);font-family:var(--font-sub,inherit); padding:1rem;">Nessuna squadra trovata per questo girone.</div>`;
               }
             });
           } else {
-            html += `<div class="card" style="text-align:center; color:var(--text2); padding:2rem;"><i class="ri-alert-line"></i> Il nodo strutturaGironi è vuoto.</div>`;
+            html += `<div class="card" style="text-align:center; color:var(--text2);font-family:var(--font-sub,inherit); padding:2rem;"><i class="ri-alert-line"></i> Il nodo strutturaGironi è vuoto.</div>`;
           }
         } else {
-          html += `<div class="card" style="text-align:center; color:var(--text2); padding:2rem;"><i class="ri-alert-line"></i> Voce "strutturaGironi" non configurata per questa competizione.</div>`;
+          html += `<div class="card" style="text-align:center; color:var(--text2);font-family:var(--font-sub,inherit); padding:2rem;"><i class="ri-alert-line"></i> Voce "strutturaGironi" non configurata per questa competizione.</div>`;
         }
 
         html += '</div>';
@@ -161,19 +144,18 @@ export const ClassificaPage = {
       if (compData.tabelloneStructure) {
         contentDiv.innerHTML = this.renderStrutturaTabelloneGrafico(compData.tabelloneStructure, state, compData);
       } else {
-        contentDiv.innerHTML = `<div class="card" style="text-align:center; color:var(--text2); padding:2rem;"><i class="ri-shield-line"></i> Nessun tabellone ad eliminazione diretta generato dal pannello Admin.</div>`;
+        contentDiv.innerHTML = `<div class="card" style="text-align:center; color:var(--text2);font-family:var(--font-sub,inherit); padding:2rem;"><i class="ri-shield-line"></i> Nessun tabellone ad eliminazione diretta generato dal pannello Admin.</div>`;
       }
     }
   },
 
   renderTabellaClassica(teamsList, compId, rowStyleCallback = null, teamCalculatedStats = {}) {
     const myTeamId = window.STATE && window.STATE.user ? String(window.STATE.user.id) : null;
-    const htmlAttr = (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
     // Pannello trasparente, come le card della home (--subbox-bg)
     let html = `
       <div class="card" style="padding:0; overflow:hidden; border:1px solid var(--border); border-radius:14px; margin-bottom: 1rem; background: var(--subbox-bg);">
-        <div style="background: transparent; color: var(--text2); border-bottom: 1px solid var(--border); padding: 0.6rem 0.8rem; display: flex; align-items: center; justify-content: flex-end; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px;">
+        <div style="background: transparent; color: var(--text2); font-family: var(--font-sub, inherit); border-bottom: 1px solid var(--border); padding: 0.6rem 0.8rem; display: flex; align-items: center; justify-content: flex-end; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px;">
           <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 250px; text-align: center;">
             <span style="width:24px;">G</span>
             <span style="width:24px;">V</span>
@@ -196,8 +178,8 @@ export const ClassificaPage = {
       const isLastRow = idx === teamsList.length - 1;
 
       const logoHTML = t.logo
-        ? `<img src="${t.logo}" alt="Logo ${t.name}" style="width:26px; height:26px; object-fit:contain; border-radius:4px; flex-shrink:0;">`
-        : `<div style="width:26px; height:26px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.85rem; color:var(--text3); flex-shrink:0;"><i class="ri-shield-line"></i></div>`;
+        ? `<img src="${esc(t.logo)}" alt="Logo ${esc(t.name)}" style="width:26px; height:26px; object-fit:contain; border-radius:4px; flex-shrink:0;">`
+        : `<div style="width:26px; height:26px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.85rem; color:var(--text3);font-family:var(--font-text3,inherit); flex-shrink:0;"><i class="ri-shield-line"></i></div>`;
 
       const isLast = isLastRow && teamsList.length > 5;
       const fantaPtsColor = isLast ? 'var(--accent3)' : (idx === 0 ? 'var(--accent)' : 'var(--text2)');
@@ -205,19 +187,19 @@ export const ClassificaPage = {
 
       // Tutta la riga è cliccabile: apre la scheda della squadra
       html += `
-        <div class="row-link" role="button" tabindex="0" data-team-id="${htmlAttr(t.id)}" onclick="window.openTeamPage(this.dataset.teamId, 'classifica')"
+        <div class="row-link" role="button" tabindex="0" data-team-id="${esc(t.id)}" onclick="window.openTeamPage(this.dataset.teamId, 'classifica')"
              style="padding: 0.65rem 0.8rem; ${isLastRow ? '' : 'border-bottom: 1px solid var(--border);'} ${meBg} ${customStyle}">
           <!-- RIGA 1: POSIZIONE + LOGO + NOME SQUADRA -->
           <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.35rem;">
-            <span style="font-weight: 700; color: var(--text2); font-size: 0.95rem; min-width: 18px; text-align: center;">${idx + 1}</span>
+            <span style="font-weight: 700; color: var(--text2); font-family: var(--font-sub, inherit); font-size: 0.95rem; min-width: 18px; text-align: center;">${idx + 1}</span>
             ${logoHTML}
-            <span style="font-weight: 600; color: var(--text); font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">${t.name}</span>
-            <i class="ri-arrow-right-s-line" style="color: var(--text3); font-size: 1.1rem; flex-shrink: 0;"></i>
+            <span style="font-weight: 600; color: var(--text); font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">${esc(t.name)}</span>
+            <i class="ri-arrow-right-s-line" style="color: var(--text3); font-family: var(--font-text3, inherit); font-size: 1.1rem; flex-shrink: 0;"></i>
           </div>
 
           <!-- RIGA 2: GRIGLIA DATI / NUMERI -->
           <div style="display: flex; align-items: center; justify-content: flex-end; font-size: 0.8rem; font-family: 'DM Mono', monospace;">
-            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 250px; text-align: center; color: var(--text2);">
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 250px; text-align: center; color: var(--text2); font-family: var(--font-sub, inherit);">
               <span style="width:24px;">${stats.giocate}</span>
               <span style="width:24px;">${stats.w}</span>
               <span style="width:24px;">${stats.d}</span>
@@ -225,7 +207,7 @@ export const ClassificaPage = {
               <span style="width:26px;">${stats.gf}</span>
               <span style="width:26px;">${stats.gs}</span>
               <span style="width:30px; font-weight: 700; color: var(--accent); font-size: 0.95rem;">${stats.pts}</span>
-              <span style="width:50px; text-align:right; font-weight: 600; color: ${fantaPtsColor};">${stats.totFanta.toFixed(1)}</span>
+              <span style="width:50px; text-align:right; font-weight: 600; color: ${fantaPtsColor};">${(Number(stats.totFanta) || 0).toFixed(1)}</span>
             </div>
           </div>
         </div>
@@ -240,9 +222,11 @@ export const ClassificaPage = {
     if (actionsDiv) {
       actionsDiv.style.display = 'flex';
       actionsDiv.innerHTML = `
-        <button id="btn-mostra-classifica" class="btn btn-green" style="padding:0.4rem .8rem; font-size:0.75rem;" onclick="window._toggleVistaTabellone(false)"><i class="ri-bar-chart-2-line"></i> Classifica</button>
-        <button id="btn-mostra-tabellone" class="btn btn-outline" style="padding:0.4rem .8rem; font-size:0.75rem;" onclick="window._toggleVistaTabellone(true)"><i class="ri-trophy-line"></i> Visualizza Tabellone</button>
+        <button id="btn-mostra-classifica" class="btn btn-green" style="padding:0.4rem .8rem; font-size:0.75rem;"><i class="ri-bar-chart-2-line"></i> Classifica</button>
+        <button id="btn-mostra-tabellone" class="btn btn-outline" style="padding:0.4rem .8rem; font-size:0.75rem;"><i class="ri-trophy-line"></i> Visualizza Tabellone</button>
       `;
+      actionsDiv.querySelector('#btn-mostra-classifica').onclick = () => this._setVista(false);
+      actionsDiv.querySelector('#btn-mostra-tabellone').onclick = () => this._setVista(true);
     }
 
     let htmlContenuto = classificaHtmlCallback();
@@ -251,16 +235,31 @@ export const ClassificaPage = {
     if (compData.tabelloneStructure) {
       htmlContenuto += this.renderStrutturaTabelloneGrafico(compData.tabelloneStructure, state, compData);
     } else {
-      htmlContenuto += `<div class="card" style="text-align:center; color:var(--text2); padding:1.5rem;"><i class="ri-alert-line"></i> Il tabellone ad eliminazione non è ancora stato generato dall'Amministratore per questa fase.</div>`;
+      htmlContenuto += `<div class="card" style="text-align:center; color:var(--text2);font-family:var(--font-sub,inherit); padding:1.5rem;"><i class="ri-alert-line"></i> Il tabellone ad eliminazione non è ancora stato generato dall'Amministratore per questa fase.</div>`;
     }
     htmlContenuto += `</div>`;
 
     contentDiv.innerHTML = htmlContenuto;
+    this._setVista(this._showTabellone);
+  },
+
+  /** Mostra la classifica (false) o il tabellone (true) e ricorda la scelta. */
+  _setVista(mostraTabellone) {
+    this._showTabellone = !!mostraTabellone;
+    const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? 'block' : 'none'; };
+    const active = (id, on) => {
+      const btn = document.getElementById(id);
+      if (btn) { btn.classList.toggle('btn-green', on); btn.classList.toggle('btn-outline', !on); }
+    };
+    show('view-dati-classifica', !this._showTabellone);
+    show('view-dati-tabellone', this._showTabellone);
+    active('btn-mostra-classifica', !this._showTabellone);
+    active('btn-mostra-tabellone', this._showTabellone);
   },
 
   renderStrutturaTabelloneGrafico(tabelloneStructure, state, compData = {}) {
     if (!tabelloneStructure || !tabelloneStructure.fasi) {
-      return `<div class="card" style="text-align:center; color:var(--text2);">Struttura tabellone non disponibile.</div>`;
+      return `<div class="card" style="text-align:center; color:var(--text2);font-family:var(--font-sub,inherit);">Struttura tabellone non disponibile.</div>`;
     }
 
     const fasi = tabelloneStructure.fasi;
@@ -281,32 +280,26 @@ export const ClassificaPage = {
       const matchList = faseObj.matchList || [];
 
       const htmlIncontri = matchList.map(m => {
-        let homeIdActual = m.homeId;
-        let awayIdActual = m.awayId;
+        // segnaposto "VINCENTE_<match>" sostituiti dalla squadra vincente, quando è già nota
+        const resolve = (id) => (isVincente(id) && resolvedWinners[id]) ? resolvedWinners[id] : id;
+        const homeIdActual = resolve(m.homeId);
+        const awayIdActual = resolve(m.awayId);
 
-        if (homeIdActual && homeIdActual.startsWith("VINCENTE_") && resolvedWinners[homeIdActual]) {
-          homeIdActual = resolvedWinners[homeIdActual];
-        }
-        if (awayIdActual && awayIdActual.startsWith("VINCENTE_") && resolvedWinners[awayIdActual]) {
-          awayIdActual = resolvedWinners[awayIdActual];
-        }
-
-        const teamHome = teamsGlobal.find(t => String(t.id) === String(homeIdActual));
-        const teamAway = teamsGlobal.find(t => String(t.id) === String(awayIdActual));
+        const teamHome = teamsGlobal.find(t => sameId(t.id, homeIdActual));
+        const teamAway = teamsGlobal.find(t => sameId(t.id, awayIdActual));
         
-        const isHomePending = !teamHome && String(homeIdActual).startsWith("VINCENTE_");
-        const isAwayPending = !teamAway && String(awayIdActual).startsWith("VINCENTE_");
+        const isHomePending = !teamHome && isVincente(homeIdActual);
+        const isAwayPending = !teamAway && isVincente(awayIdActual);
 
-        const nameHome = isHomePending ? `${homeIdActual.replace("VINCENTE_", "")}` : (teamHome ? teamHome.name : homeIdActual);
-        const nameAway = isAwayPending ? `${awayIdActual.replace("VINCENTE_", "")}` : (teamAway ? teamAway.name : awayIdActual);
+        const teamName = (team, id, pending) => pending ? sid(id).replace('VINCENTE_', '') : (team ? team.name : sid(id));
+        const nameHome = esc(teamName(teamHome, homeIdActual, isHomePending));
+        const nameAway = esc(teamName(teamAway, awayIdActual, isAwayPending));
 
-        let logoHomeHTML = !isHomePending && teamHome?.logo
-          ? `<img src="${teamHome.logo}" alt="" style="width:20px; height:20px; object-fit:contain; border-radius:2px; flex-shrink:0;">`
+        const logoHTML = (team, pending) => !pending && team?.logo
+          ? `<img src="${esc(team.logo)}" alt="" style="width:20px; height:20px; object-fit:contain; border-radius:2px; flex-shrink:0;">`
           : `<span style="font-size:1rem; flex-shrink:0; width:20px; text-align:center;"><i class="ri-shield-line"></i></span>`;
-
-        let logoAwayHTML = !isAwayPending && teamAway?.logo
-          ? `<img src="${teamAway.logo}" alt="" style="width:20px; height:20px; object-fit:contain; border-radius:2px; flex-shrink:0;">`
-          : `<span style="font-size:1rem; flex-shrink:0; width:20px; text-align:center;"><i class="ri-shield-line"></i></span>`;
+        const logoHomeHTML = logoHTML(teamHome, isHomePending);
+        const logoAwayHTML = logoHTML(teamAway, isAwayPending);
 
         const res = matchResultsMap[m.id] || {};
         
@@ -318,14 +311,15 @@ export const ClassificaPage = {
         }
 
         let strRitorno = '';
-        if (isAndataRitorno && !faseObj.nomeFase.toLowerCase().includes('final')) {
+        // stessa regola del calcolo dei vincitori: solo la finale è in gara secca
+        if (isAndataRitorno && !ClassificaService.isFinale(faseObj.nomeFase)) {
           if (res.ritorno && res.ritorno.finished) {
             const gH = res.ritorno.goalHome ?? res.ritorno.homeScore ?? 0;
             const gA = res.ritorno.goalAway ?? res.ritorno.awayScore ?? 0;
             const rHomeId = res.ritorno.homeId || res.ritorno.home;
             const teamAndataCasa = res.andata?.homeId || res.andata?.home;
 
-            strRitorno = (res.andata && rHomeId !== teamAndataCasa) ? ` | R: ${gA}-${gH}` : ` | R: ${gH}-${gA}`;
+            strRitorno = (res.andata && !sameId(rHomeId, teamAndataCasa)) ? ` | R: ${gA}-${gH}` : ` | R: ${gH}-${gA}`;
           } else {
             strRitorno = ` | R: -`;
           }
@@ -333,17 +327,17 @@ export const ClassificaPage = {
 
         return `
           <div class="card-mini" style="background: var(--subbox-bg); border: 1px solid var(--border); padding: .6rem; border-radius: 6px; font-size: .8rem; width: 220px;">
-            <div style="color:var(--text3); font-size:0.65rem; font-weight:bold; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
-              <span><i class="ri-hashtag"></i> ${m.id.toUpperCase()}</span>
+            <div style="color:var(--text3);font-family:var(--font-text3,inherit); font-size:0.65rem; font-weight:bold; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
+              <span><i class="ri-hashtag"></i> ${esc(sid(m.id).toUpperCase())}</span>
               <span style="color:var(--accent); font-family:'DM Mono',monospace;">${strAndata}${strRitorno}</span>
             </div>
             <div style="padding: 2px 0; color:var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display:flex; align-items:center; gap:0.4rem;">
               ${logoHomeHTML}
-              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; ${isHomePending ? 'color:var(--text2); font-style:italic;' : ''}">${nameHome}</span>
+              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; ${isHomePending ? 'color:var(--text2);font-family:var(--font-sub,inherit); font-style:italic;' : ''}">${nameHome}</span>
             </div>
-            <div style="padding: 2px 0; color:var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display:flex; align-items:center; gap:0.4rem;">
+            <div style="padding: 2px 0; color:var(--text2);font-family:var(--font-sub,inherit); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display:flex; align-items:center; gap:0.4rem;">
               ${logoAwayHTML}
-              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; ${isAwayPending ? 'color:var(--text2); font-style:italic;' : ''}">${nameAway}</span>
+              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; ${isAwayPending ? 'color:var(--text2);font-family:var(--font-sub,inherit); font-style:italic;' : ''}">${nameAway}</span>
             </div>
           </div>
         `;
@@ -352,7 +346,7 @@ export const ClassificaPage = {
       return `
         <div style="display: flex; flex-direction: column; align-items: center;">
           <div class="card-mini" style="background: var(--subbox-bg); color: var(--accent); padding: .3rem .6rem; font-family:'Bebas Neue',sans-serif; font-size:1rem; border-radius:4px; margin-bottom:0.75rem; border:1px solid var(--border);">
-            ${faseObj.nomeFase.toUpperCase()}
+            ${esc(sid(faseObj.nomeFase || chiave).toUpperCase())}
           </div>
           <div style="display: flex; flex-direction: column; justify-content: center;">
             ${htmlIncontri}
@@ -360,7 +354,7 @@ export const ClassificaPage = {
         </div>
       `;
     }).join(`
-      <div style="display:flex; align-items:center; color:var(--text3); padding-top:1.5rem;">
+      <div style="display:flex; align-items:center; color:var(--text3);font-family:var(--font-text3,inherit); padding-top:1.5rem;">
         <i class="ri-arrow-right-s-line" style="font-size: 18px;"></i>
       </div>
     `);

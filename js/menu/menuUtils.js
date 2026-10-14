@@ -1,6 +1,6 @@
-export const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+import { esc } from '../utils.js';
 
-export const sid = (v) => (v === undefined || v === null ? '' : String(v));
+export { esc, sid } from '../utils.js';
 
 /** Foto del giocatore (personale > standard) con fallback al badge del ruolo. */
 export function playerThumb(p, cls = '') {

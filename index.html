@@ -3,19 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#0a0f1e">
+<meta name="theme-color" content="#121519">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<!-- black-translucent: la pagina va sotto la status bar di iOS, colorata da #status-bar come la barra in basso -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Fantacapp">
 <link rel="manifest" href="manifest.json">
-<link class="apple-touch-icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="description" content="FantaCapp, l'app del Fantacazz: formazioni, live, classifiche e mercato.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <title>Fantacapp</title>
+<link href="fonts/fonts.css" rel="stylesheet">
 <style>
 :root {
+  --font-text: 'DM Sans', sans-serif; /* Font dei testi: il tema può sceglierne un altro per pagina */
   /* I temi (js/services/themeService.js) ridefiniscono queste variabili per pagina:
      --title e --label non hanno un valore qui, i fogli di stile usano var(--title, var(--text2)) e var(--label, var(--text2)) */
 
@@ -59,6 +63,10 @@
   --role-d: #0077ff;
   --role-c: #00e5a0;
   --role-a: #ff4757;
+  --role-p-text: #fff;     /* Testo dentro i badge ruolo */
+  --role-d-text: #fff;
+  --role-c-text: #0a0f1e;
+  --role-a-text: #fff;
 }
 
 /* ==================== HEADER COMPATTO GLASS ==================== */
@@ -83,6 +91,12 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
 }
 
 .menu-header-btn {
@@ -148,7 +162,7 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   margin-bottom: .5rem;
 }
-.side-menu-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 1px; color: var(--title, var(--bar-text)); }
+.side-menu-title { font-family: var(--font-title, 'Bebas Neue', sans-serif); font-size: 1.5rem; letter-spacing: 1px; color: var(--title, var(--bar-text)); }
 .side-menu-item {
   display: flex;
   align-items: center;
@@ -158,13 +172,13 @@
   background: none;
   border: none;
   color: var(--bar-text);
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-text);
   font-size: .92rem;
   font-weight: 500;
   text-align: left;
   cursor: pointer;
 }
-.side-menu-item i { font-size: 1.25rem; color: var(--text2); }
+.side-menu-item i { font-size: 1.25rem; color: var(--text2); font-family: var(--font-sub, inherit); }
 .side-menu-item:active { background: rgba(255, 255, 255, 0.06); }
 .side-menu-sep { height: 1px; background: rgba(255, 255, 255, 0.08); margin: .5rem 0; }
 .side-menu-item.patron i { color: var(--gold); }
@@ -181,7 +195,7 @@
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 14px !important;
   color: var(--bar-text) !important;
-  font-family: 'DM Sans', sans-serif !important;
+  font-family: var(--font-text) !important;
   font-size: 0.72rem !important;
   font-weight: 600 !important;
   padding: 0.25rem 1.5rem 0.25rem 0.65rem !important;
@@ -223,7 +237,7 @@ body {
   position: fixed;
   top: 0;
   left: 0;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-text);
   background: var(--bg);
   color: var(--text);
   -webkit-user-select: none;
@@ -274,24 +288,45 @@ body {
 }
 
 .logo{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:1px;background:linear-gradient(45deg, #fff, var(--text2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.sec{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:0.5px;color:var(--title,var(--text2));margin-bottom:.8rem;display:flex;align-items:center;gap:.4rem}
+.sec{font-family:var(--font-title,'Bebas Neue',sans-serif);font-size:1.4rem;letter-spacing:0.5px;color:var(--title,var(--text2));margin-bottom:.8rem;display:flex;align-items:center;gap:.4rem}
 .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1rem;margin-bottom:1rem;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
-.label{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--label,var(--text2));font-weight:600;margin-bottom:.4rem}
+.label{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--label,var(--text2));font-family:var(--font-label,inherit);font-weight:600;margin-bottom:.4rem}
 .pcard{background:var(--card2);border-radius:12px;padding:.5rem .75rem;display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem;transition:background .15s ease}
 .pcard:active{background:rgba(255,255,255,0.04)}
 .rbadge{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15)}
-.rP{background:var(--role-p)}.rD{background:var(--role-d)}.rC{background:var(--role-c);color:#0a0f1e}.rA{background:var(--role-a)}
+.rP{background:var(--role-p);color:var(--role-p-text)}.rD{background:var(--role-d);color:var(--role-d-text)}.rC{background:var(--role-c);color:var(--role-c-text)}.rA{background:var(--role-a);color:var(--role-a-text)}
 .pi{flex:1;min-width:0}
 .pn{font-size:.9rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
-.pm{font-size:.72rem;color:var(--text2)}
-.pr{text-align:right;flex-shrink:0}.price{font-size:.9rem;font-weight:600;font-family:'DM Mono',monospace;color:var(--gold)}.pavg{font-size:.68rem;color:var(--text2)}
-.btn{background:var(--btn-secondary);color:var(--btn-secondary-text);border:none;padding:.7rem 1.2rem;border-radius:10px;font-size:.85rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;transition:all 0.2s;width:100%}
+.pm{font-size:.72rem;color:var(--text2);font-family:var(--font-sub,inherit)}
+.pr{text-align:right;flex-shrink:0}.price{font-size:.9rem;font-weight:600;font-family:'DM Mono',monospace;color:var(--gold)}.pavg{font-size:.68rem;color:var(--text2);font-family:var(--font-sub,inherit)}
+.btn{background:var(--btn-secondary);color:var(--btn-secondary-text);font-family:var(--font-btn,revert);border:none;padding:.7rem 1.2rem;border-radius:10px;font-size:.85rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;transition:all 0.2s;width:100%}
 .btn-green{background:var(--btn-primary);color:var(--btn-primary-text);font-weight:600}
+.btn-red{background:var(--accent3);color:#fff;font-weight:600}
 .btn-outline{background:transparent;border:1px solid color-mix(in srgb, var(--btn-outline) 45%, transparent);color:var(--btn-outline)}
 .btn:active{opacity:0.8;transform:scale(0.98)}
-.select-rose, .input-login{width:100%;background:var(--bg3);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:.7rem .9rem;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none}
+.select-rose, .input-login{width:100%;background:var(--bg3);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:.75rem .9rem;color:var(--text2);font-family:var(--font-text);font-size:1rem;outline:none;min-height:46px}
+.input-login:focus,.select-rose:focus{border-color:var(--accent)}
 .input-login{background:var(--bg2);border-color:rgba(255,255,255,0.15);margin-bottom:1rem;user-select:text !important;-webkit-user-select:text !important;}
-.link-toggle{color:var(--accent2);font-size:.8rem;text-decoration:none;display:inline-block;margin-top:1rem;cursor:pointer}
+/* Campi del login: colori propri, modificabili dal tema (pagina Login) */
+#page-login .input-login, #page-login .select-rose{background:var(--input-bg, var(--bg2)) !important;color:var(--input-text, var(--text2));border-color:var(--input-border, rgba(255,255,255,0.15))}
+#page-login .input-login::placeholder{color:var(--input-placeholder, var(--text3));opacity:1}
+#page-login .input-login:focus, #page-login .select-rose:focus{border-color:var(--accent)}
+#page-login .pw-toggle{color:var(--input-text, var(--text2))}
+.link-toggle{color:var(--accent2);font-size:.85rem;text-decoration:none;display:inline-block;margin-top:.6rem;cursor:pointer;background:none;border:none;font-family:inherit;padding:.6rem .4rem}
+
+/* ==================== STATUS BAR (iPhone) ====================
+   Fascia sotto l'ora/batteria (safe area in alto): stesso colore della barra in basso.
+   Il tema imposta --nav-bg sia su #nav sia su #status-bar. */
+#status-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top, 0px);
+  background: var(--nav-bg);
+  z-index: 2500;
+  pointer-events: none;
+}
 
 /* ==================== BOTTOM NAV RIDISEGNATA ==================== */
 #nav {
@@ -321,8 +356,8 @@ body {
   flex-direction: column;
   align-items: center;
   gap: .2rem;
-  font-family: 'DM Sans', sans-serif;
-  font-size: .6rem !important;
+  font-family: var(--font-text);
+  font-size: .65rem !important;
   font-weight: 500;
   cursor: pointer;
   padding: .4rem .55rem;
@@ -364,10 +399,61 @@ body {
 .status-chip.live .dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:livePulse 1.2s ease-in-out infinite}
 @keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-.toast{position:fixed;top:1.5rem;left:50%;transform:translateX(-50%) translateY(-40px);background:var(--card);border:1px solid rgba(255,255,255,0.1);padding:.75rem 1.5rem;border-radius:12px;font-size:.85rem;font-weight:500;z-index:9999;box-shadow:0 10px 30px rgba(0,0,0,0.5);opacity:0;transition:all 0.3s ease;pointer-events:none}
+/* Nomi su 2 righe che si rimpiccioliscono invece di spezzare le parole (fitName in js/utils.js) */
+.fit-box{flex:1 1 0;min-width:0;width:100%;container-type:inline-size}
+.fit-name{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.15;word-break:normal;overflow-wrap:anywhere;
+  font-size:max(.55rem, min(var(--fit-max,.9rem), calc(100cqi / (var(--fit-ch,8) * .56))))}
+.toast{position:fixed;top:calc(env(safe-area-inset-top, 0px) + .75rem);width:max-content;max-width:calc(100vw - 2rem);text-align:center;left:50%;transform:translateX(-50%) translateY(-40px);background:var(--card);border:1px solid rgba(255,255,255,0.1);padding:.75rem 1.5rem;border-radius:12px;font-size:.85rem;font-weight:500;z-index:9999;box-shadow:0 10px 30px rgba(0,0,0,0.5);opacity:0;transition:all 0.3s ease;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.ok{border-color:var(--accent);color:var(--accent)}
 .toast.err{border-color:var(--accent3);color:var(--accent3)}
+
+/* ==================== AVVIO CON SESSIONE ATTIVA ====================
+   Se sul dispositivo c'è già un utente (html.resuming, impostata nell'<head>) non si mostra il login:
+   solo il logo della competizione sul tema dell'utente, finché l'app non è pronta. */
+#splash{display:none;position:fixed;inset:0;z-index:1100;align-items:center;justify-content:center;pointer-events:none}
+html.resuming #splash{display:flex}
+html.resuming #page-login{visibility:hidden}
+#splash-logo{width:120px;height:120px;display:flex;align-items:center;justify-content:center;animation:splashPulse 1.6s ease-in-out infinite}
+#splash-logo img{max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 6px 18px rgba(0,0,0,.45))}
+#splash-logo i{font-size:4.5rem;color:var(--gold)}
+@keyframes splashPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.75;transform:scale(.96)}}
+@media (prefers-reduced-motion:reduce){#splash-logo{animation:none}}
+
+/* Avviso primo Patron / account in attesa */
+.login-note{font-size:.8rem;color:var(--text2);font-family:var(--font-sub,inherit);line-height:1.45;text-align:left}
+.login-note i{color:var(--gold);margin-right:.3rem}
+#box-account-pending .pending-ico{font-size:2.4rem;color:var(--gold);margin-bottom:.4rem}
+.badge-dot{position:absolute;top:4px;right:4px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--accent3);color:#fff;font-size:.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1}
+.menu-header-btn{position:relative}
+.side-menu-count{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--accent3);color:#fff;font-size:.7rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+
+/* ==================== ACCESSIBILITÀ ==================== */
+label.label{display:block;text-align:left}
+
+/* Login: mostra/nascondi password */
+.pw-wrap{position:relative;margin-bottom:1rem}
+.pw-wrap .input-login{margin-bottom:0;padding-right:3rem}
+.pw-toggle{position:absolute;top:0;right:0;width:46px;height:100%;background:none;border:none;color:var(--text2);font-family:var(--font-sub,inherit);font-size:1.15rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.btn[disabled]{opacity:.6;pointer-events:none}
+
+/* ==================== OFFLINE / AGGIORNAMENTI ==================== */
+#offline-banner{position:fixed;left:50%;top:calc(env(safe-area-inset-top, 0px) + 54px);z-index:1200;display:flex;align-items:center;gap:.45rem;max-width:calc(100vw - 1.5rem);white-space:nowrap;
+  padding:.35rem .8rem;border-radius:999px;font-size:.75rem;line-height:1.35;color:var(--text);background:color-mix(in srgb, var(--card) 92%, transparent);
+  border:1px solid color-mix(in srgb, var(--gold) 55%, transparent);box-shadow:0 8px 24px rgba(0,0,0,.35);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  transform:translate(-50%,-12px);opacity:0;pointer-events:none;transition:opacity .25s ease, transform .25s ease}
+#offline-banner.show{opacity:1;transform:translate(-50%,0)}
+#offline-banner i{color:var(--gold);font-size:1.05rem;flex-shrink:0}
+html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75rem)}
+
+#update-banner{position:fixed;left:.75rem;right:.75rem;bottom:calc(76px + env(safe-area-inset-bottom, 0px));z-index:1300;display:none;align-items:center;gap:.6rem;
+  padding:.6rem .6rem .6rem .9rem;border-radius:14px;background:var(--upd-bg, var(--card));border:1px solid var(--upd-border, color-mix(in srgb, var(--accent) 50%, transparent));
+  box-shadow:0 10px 30px rgba(0,0,0,.45);font-size:.8rem;color:var(--text);animation:fadeIn .25s ease-out}
+#update-banner.show{display:flex}
+#update-banner span{flex:1}
+#update-banner button{border:none;border-radius:10px;padding:.55rem .9rem;font-family:inherit;font-weight:600;font-size:.8rem;cursor:pointer;min-height:40px}
+#update-banner .upd-go{background:var(--btn-primary);color:var(--btn-primary-text);font-family:var(--font-btn,inherit)}
+#update-banner .upd-no{background:transparent;color:var(--upd-later, var(--text2));font-family:var(--font-sub,inherit);padding:.55rem .6rem}
 </style>
 <style id="dynamic-theme"></style>
 <script>
@@ -379,51 +465,104 @@ body {
     var raw = uid && localStorage.getItem('fantacapp-theme-' + uid);
     var t = raw && JSON.parse(raw);
     if (t && t.css) document.getElementById('dynamic-theme').textContent = t.css;
+    // utente già loggato su questo dispositivo: niente schermata di login, solo il logo
+    if (uid) {
+      document.documentElement.classList.add('resuming');
+      window.__splashLogo = (t && t.logo) || '';
+    }
   } catch (e) {}
 })();
 </script>
 </head>
 <body>
 
+<div id="status-bar" aria-hidden="true"></div>
+
+<div id="splash" aria-hidden="true"><div id="splash-logo"></div></div>
+<script>
+(function () {
+  var box = document.getElementById('splash-logo');
+  var url = window.__splashLogo;
+  if (url) {
+    var img = new Image();
+    img.alt = '';
+    img.onerror = function () { box.innerHTML = '<i class="ri-trophy-line"></i>'; };
+    img.src = url;
+    box.appendChild(img);
+  } else {
+    box.innerHTML = '<i class="ri-trophy-line"></i>';
+  }
+  // Rete lenta o assente (anche se l'app non riesce a caricarsi): dopo un po' si mostra comunque il login
+  setTimeout(function () { document.documentElement.classList.remove('resuming'); }, 12000);
+})();
+</script>
+
 <div id="app">
   <!-- HEADER: SELETTORE A SINISTRA, MENU A DESTRA -->
   <div id="app-header" style="display:none;">
     <div class="header-left">
       <div id="app-global-navbar-logo-container" style="flex-shrink:0; display:flex; align-items:center; justify-content:center;"></div>
-      <select id="userCompSelect" onchange="window._handleCompetitionChange(this.value)">
+      <select id="userCompSelect" aria-label="Competizione" onchange="window._handleCompetitionChange(this.value)">
         <option value="fantacazz">Caricamento...</option>
       </select>
     </div>
 
-    <button class="menu-header-btn" id="menuHeaderBtn" onclick="window.openSideMenu()" aria-label="Apri menu" aria-expanded="false">
-      <i class="ri-menu-line" style="font-size: 1.5rem;"></i>
-    </button>
+    <div class="header-right">
+      <button class="menu-header-btn" id="notifHeaderBtn" onclick="window.openMenuPage('notifiche')" aria-label="Notifiche">
+        <i class="ri-notification-3-line" style="font-size: 1.35rem;"></i>
+        <span class="badge-dot" id="notifBadge" style="display:none;" aria-label="Notifiche non lette"></span>
+      </button>
+      <button class="menu-header-btn" id="menuHeaderBtn" onclick="window.openSideMenu()" aria-label="Apri menu" aria-expanded="false">
+        <i class="ri-menu-line" style="font-size: 1.5rem;"></i>
+        <span class="badge-dot" id="menuReqBadge" style="display:none;" aria-label="Richieste in attesa"></span>
+      </button>
+    </div>
   </div>
 
   <div id="page-login">
-    <div class="logo" style="font-size:3rem; margin-bottom:2rem;">FANTACAPP</div>
-    
-    <div class="card" id="box-firebase-login">
-      <div class="label" style="text-align:left;">Email</div>
-      <input type="email" id="loginEmail" class="input-login" placeholder="Inserisci la tua email">
-      <div class="label" style="text-align:left;">Password</div>
-      <input type="password" id="loginPassword" class="input-login" placeholder="••••••••">
-      <button class="btn btn-green" onclick="window.doFirebaseLogin()">Accedi</button>
-      <span class="link-toggle" onclick="window.toggleAuthBoxes('register')">Non hai un account? Registrati</span>
-    </div>
+    <h1 class="logo" style="font-size:3rem; margin-bottom:2rem; font-weight:400;">FANTACAPP</h1>
 
-    <div class="card" id="box-firebase-register" style="display:none;">
-      <div class="label" style="text-align:left;">Nuova Email</div>
-      <input type="email" id="registerEmail" class="input-login" placeholder="Scegli una email">
-      <div class="label" style="text-align:left;">Scegli Password</div>
-      <input type="password" id="registerPassword" class="input-login" placeholder="Minimo 6 caratteri">
-      <button class="btn btn-green" onclick="window.doFirebaseRegister()">Crea Account</button>
-      <span class="link-toggle" onclick="window.toggleAuthBoxes('login')">Hai già un account? Accedi</span>
+    <div class="card login-note" id="first-patron-notice" style="display:none;">
+      <i class="ri-vip-crown-2-line"></i>Non c'è ancora nessun Patron: il primo account che registri diventerà il <strong>Patron</strong> dell'app.
+      I successivi dovranno essere accettati da lui.
+    </div>
+    
+    <!-- form veri: invio dalla tastiera, gestori di password e compilazione automatica -->
+    <form class="card" id="box-firebase-login" onsubmit="event.preventDefault(); window.doFirebaseLogin();" novalidate>
+      <label class="label" for="loginEmail">Email</label>
+      <input type="email" id="loginEmail" class="input-login" placeholder="Inserisci la tua email" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" enterkeyhint="next" required>
+      <label class="label" for="loginPassword">Password</label>
+      <div class="pw-wrap">
+        <input type="password" id="loginPassword" class="input-login" placeholder="••••••••" autocomplete="current-password" enterkeyhint="go" required>
+        <button type="button" class="pw-toggle" onclick="window.togglePassword('loginPassword', this)" aria-label="Mostra password" aria-pressed="false"><i class="ri-eye-line"></i></button>
+      </div>
+      <button type="submit" class="btn btn-green">Accedi</button>
+      <button type="button" class="link-toggle" onclick="window.toggleAuthBoxes('register')">Non hai un account? Registrati</button>
+    </form>
+
+    <form class="card" id="box-firebase-register" style="display:none;" onsubmit="event.preventDefault(); window.doFirebaseRegister();" novalidate>
+      <label class="label" for="registerEmail">Nuova Email</label>
+      <input type="email" id="registerEmail" class="input-login" placeholder="Scegli una email" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" enterkeyhint="next" required>
+      <label class="label" for="registerPassword">Scegli Password</label>
+      <div class="pw-wrap">
+        <input type="password" id="registerPassword" class="input-login" placeholder="Minimo 6 caratteri" autocomplete="new-password" minlength="6" enterkeyhint="go" required aria-describedby="registerPwHint">
+        <button type="button" class="pw-toggle" onclick="window.togglePassword('registerPassword', this)" aria-label="Mostra password" aria-pressed="false"><i class="ri-eye-line"></i></button>
+      </div>
+      <div class="login-note" id="registerPwHint" style="margin-bottom:1rem;"><i class="ri-information-line"></i>Il nuovo account dovrà essere accettato da un Patron prima di poter entrare.</div>
+      <button type="submit" class="btn btn-green">Crea Account</button>
+      <button type="button" class="link-toggle" onclick="window.toggleAuthBoxes('login')">Hai già un account? Accedi</button>
+    </form>
+
+    <div class="card" id="box-account-pending" style="display:none;">
+      <div class="pending-ico"><i class="ri-time-line" id="pendingIcon"></i></div>
+      <div class="label" id="pendingTitle" style="font-size:.85rem; color:var(--text); margin-bottom:.6rem;">Account in attesa di approvazione</div>
+      <div class="login-note" id="pendingMsg" style="text-align:center; margin-bottom:1.2rem;"></div>
+      <button class="btn btn-outline" style="padding: .5rem;" onclick="window.doFirebaseLogout()">Disconnetti Account</button>
     </div>
 
     <div class="card" id="box-select-team" style="display:none;">
       <div class="label" style="color:var(--accent); margin-bottom:.8rem; font-size:.8rem;">Autenticato con successo!</div>
-      <div class="label">Associa la tua squadra di questa competizione</div>
+      <label class="label" for="loginSelect">Associa la tua squadra di questa competizione</label>
       <select id="loginSelect" class="select-rose" style="margin-bottom:1.5rem; background:var(--bg2);">
         <option value="">Caricamento squadre...</option>
       </select>
@@ -432,33 +571,33 @@ body {
     </div>
   </div>
 
-  <div id="dynamic-pages-container" style="display: none;"></div>
+  <main id="dynamic-pages-container" style="display: none;"></main>
 </div>
 
-<nav id="nav" style="display:none;padding-left: 5px;padding-right: 5px;">
-  <button class="nav-btn active" onclick="goPage('home',this)">
+<nav id="nav" aria-label="Navigazione principale" style="display:none;padding-left: 5px;padding-right: 5px;">
+  <button class="nav-btn active" data-page="home" onclick="goPage('home',this)">
     <i class="ri-home-4-line" style="font-size: 20px;"></i>Home
   </button>
-  <button class="nav-btn" onclick="goPage('calendario',this)">
+  <button class="nav-btn" data-page="calendario" onclick="goPage('calendario',this)">
     <i class="ri-calendar-line" style="font-size: 20px;"></i>Calendario
   </button>
-  <button class="nav-btn" onclick="goPage('classifica',this)">
+  <button class="nav-btn" data-page="classifica" onclick="goPage('classifica',this)">
     <i class="ri-bar-chart-2-line" style="font-size: 20px;"></i>Classifica
   </button>
-  <button id="btn-nav-formazione" class="nav-btn" onclick="goPage('formazione',this)">
+  <button id="btn-nav-formazione" class="nav-btn" data-page="formazione" onclick="goPage('formazione',this)">
     <i class="ri-shield-user-line" style="font-size: 20px;"></i><span>Formazione</span>
   </button>
-  <button class="nav-btn" onclick="goPage('mercato',this)">
+  <button class="nav-btn" data-page="mercato" onclick="goPage('mercato',this)">
     <i class="ri-shopping-cart-line" style="font-size: 20px;"></i>Mercato
   </button>
-  <button class="nav-btn" onclick="goPage('teams',this)">
+  <button class="nav-btn" data-page="teams" onclick="goPage('teams',this)">
     <i class="ri-team-line" style="font-size: 20px;"></i>Squadre
   </button>
 </nav>
 
 <!-- MENU LATERALE -->
 <div id="side-menu-backdrop" onclick="window.closeSideMenu()"></div>
-<aside id="side-menu" aria-label="Menu" aria-hidden="true">
+<aside id="side-menu" aria-label="Menu" aria-hidden="true" inert>
   <div class="side-menu-head">
     <span class="side-menu-title">Menu</span>
     <button class="menu-header-btn" onclick="window.closeSideMenu()" aria-label="Chiudi menu">
@@ -469,22 +608,35 @@ body {
   <button class="side-menu-item" onclick="window.openMenuPage('team')"><i class="ri-shield-star-line"></i>Configurazione squadra</button>
   <button class="side-menu-item" onclick="window.openMenuPage('listone')"><i class="ri-list-check-2"></i>Listone</button>
   <button class="side-menu-item" onclick="window.openMenuPage('svincolati')"><i class="ri-user-unfollow-line"></i>Svincolati</button>
+  <button class="side-menu-item" id="menuInstallItem" style="display:none;" onclick="window.installApp()"><i class="ri-download-2-line"></i>Installa l'app</button>
   <div class="side-menu-sep"></div>
-  <button class="side-menu-item patron" id="menuPatronItem" style="display:none;" onclick="window.goToPatron()"><i class="ri-vip-crown-2-line"></i>Passa a Patron</button>
+  <button class="side-menu-item patron" id="menuPatronItem" style="display:none;" onclick="window.goToPatron()"><i class="ri-vip-crown-2-line"></i>Passa a Patron<span class="side-menu-count" id="menuReqCount" style="display:none;" title="Richieste di nuovi account"></span></button>
   <button class="side-menu-item danger" onclick="window.closeSideMenu(); window.doFirebaseLogout()"><i class="ri-logout-box-r-line"></i>Log out</button>
 </aside>
 
 <div id="toast" class="toast"></div>
 
+<div id="update-banner">
+  <i class="ri-refresh-line" style="color:var(--upd-icon, var(--accent)); font-size:1.1rem;"></i>
+  <span>È disponibile una nuova versione dell'app.</span>
+  <button type="button" class="upd-no" onclick="document.getElementById('update-banner').classList.remove('show')">Dopo</button>
+  <button type="button" class="upd-go" onclick="location.reload()">Aggiorna</button>
+</div>
+
 <script type="module">
 import { db, auth, ref, onValue, set, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from './js/firebase-config.js';
 import { isPatron } from './js/services/roleService.js';
-import { applyThemeVars, applyThemeCss, applyBackground, cacheUserTheme, getCachedUserTheme, LAST_UID_KEY } from './js/services/themeService.js';
+import { patronExists, registerAccount, getAccessStatus, watchAccessStatus, watchAccountRequests, ensurePatronFlag, notifyNewRequest, STATUS_APPROVED, STATUS_REJECTED } from './js/services/accountService.js';
+import { applyThemeVars, applyThemeCss, applyBackground, cacheUserTheme, getCachedUserTheme, syncStatusBarColor, LAST_UID_KEY } from './js/services/themeService.js';
 import { SettingsService } from './js/services/settingsService.js';
 import { MenuPanel } from './js/components/MenuPanel.js';
 import { ImpostazioniApp } from './js/menu/ImpostazioniApp.js';
 import { ConfigurazioneSquadra } from './js/menu/ConfigurazioneSquadra.js';
 import { ListoneView, SvincolatiView } from './js/menu/ListoneView.js';
+import { NotificheView } from './js/menu/NotificheView.js';
+import { NotificationCenter } from './js/services/notificationCenter.js';
+import { PushService } from './js/services/pushService.js';
+import { tradeNotificationUpdates } from './js/services/notificationService.js';
 
 import { HomePage } from './js/home.js';
 import { CalendarioPage } from './js/calendario.js';
@@ -496,13 +648,28 @@ import { LiveMatchModule } from "./js/liveMatch.js";
 import { ClassificaPage } from './js/classifica.js';
 import { AssetPreloader } from './js/services/assetPreloader.js';
 import { PlayerCard } from './js/components/PlayerCard.js';
+import { OfflineStore } from './js/services/offlineStore.js';
+import { esc, sameId } from './js/utils.js';
+import { BackNav } from './js/services/backNav.js';
+import { Connectivity } from './js/services/connectivity.js';
+
+// Dati di Firebase con copia locale: all'avvio (anche offline) si vede subito l'ultimo stato noto
+// cachedPaths = nodi che mostrano ancora la copia locale (non ancora riallineati col server)
+const cachedPaths = new Set();
+const watch = (path, cb, onErr) => OfflineStore.watch(path, snap => {
+  if (snap.fromCache) cachedPaths.add(path); else cachedPaths.delete(path);
+  cb(snap);
+}, onErr);
+Connectivity.init();
+
+// il tema in cache è già applicato dallo script nell'<head>: allineo subito la status bar
+syncStatusBarColor();
 
 window.STATE = { 
   user: null, 
   teams: [], 
   players: [], 
   votes: {}, 
-  status: {}, 
   giornataRealeCorrente: null, 
   matches: {}, 
   currentCompetition: '',
@@ -519,7 +686,7 @@ window.STATE = {
 };
 
 // SOTTOSCRIZIONE AI TROFEI DA FIREBASE
-onValue(ref(db, 'trophies'), snap => {
+watch('trophies', snap => {
   const raw = snap.val() || {};
   const trophiesList = Object.keys(raw).map(key => ({
     id: key,
@@ -527,11 +694,15 @@ onValue(ref(db, 'trophies'), snap => {
   }));
 
   window.STATE.trophies = trophiesList;
-  window.TROPHIES = trophiesList;
   refreshUI();
 });
 
-onValue(ref(db, 'teams'), snap => {
+// Le squadre servono per riconoscere gli account creati prima delle approvazioni
+let resolveTeamsReady;
+const teamsReady = new Promise(r => { resolveTeamsReady = r; });
+
+watch('teams', snap => {
+  resolveTeamsReady();
   const raw = snap.val() || {};
   window.STATE.teams = Object.values(raw).sort((a,b) => b.pts - a.pts);
 
@@ -547,25 +718,89 @@ onValue(ref(db, 'teams'), snap => {
   }
   
   refreshUI();
-});
+}, err => { console.warn('Squadre non leggibili:', err?.message); resolveTeamsReady(); });
 
-onAuthStateChanged(auth, firebaseUser => {
+/* ─── Avvio e accesso ───────────────────────────────────────────────────── */
+// Fine della schermata con il logo (html.resuming): da qui in poi si vede il login o l'app
+function endResume() {
+  document.documentElement.classList.remove('resuming');
+}
+
+const LOGIN_BOXES = { login: 'box-firebase-login', register: 'box-firebase-register', pending: 'box-account-pending', team: 'box-select-team' };
+function showLoginBox(name) {
+  Object.entries(LOGIN_BOXES).forEach(([k, id]) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = k === name ? 'block' : 'none';
+  });
+}
+
+// Avviso "il primo account sarà Patron" (solo finché non esiste un Patron)
+async function refreshFirstPatronNotice() {
+  const note = document.getElementById('first-patron-notice');
+  if (!note) return;
+  note.style.display = 'none';
+  if (auth.currentUser) return;
+  const exists = await patronExists();
+  if (!auth.currentUser) note.style.display = exists ? 'none' : 'block';
+}
+
+function showPending(status) {
+  const rejected = status === STATUS_REJECTED;
+  document.getElementById('pendingIcon').className = rejected ? 'ri-close-circle-line' : 'ri-time-line';
+  document.getElementById('pendingTitle').textContent = rejected ? 'Richiesta di accesso rifiutata' : 'Account in attesa di approvazione';
+  document.getElementById('pendingMsg').textContent = rejected
+    ? 'Un Patron ha rifiutato la creazione di questo account. Contatta il Patron della lega se pensi sia un errore.'
+    : 'Il tuo account è stato creato. Un Patron deve accettarlo prima che tu possa entrare: appena lo farà, l\'app si aprirà da sola.';
+  showLoginBox('pending');
+}
+
+let registering = null;   // promessa della registrazione in corso (crea profilo / richiesta)
+let accessUnsub = null;
+
+onAuthStateChanged(auth, async firebaseUser => {
   updatePatronMenuItem(firebaseUser);
   loadUserSettings(firebaseUser);
-  if (firebaseUser) {
-    document.getElementById('box-firebase-login').style.display = 'none';
-    document.getElementById('box-firebase-register').style.display = 'none';
-    document.getElementById('box-select-team').style.display = 'block';
-    populateLoginDropdown();
-  } else {
-    document.getElementById('box-firebase-login').style.display = 'block';
-    document.getElementById('box-firebase-register').style.display = 'none';
-    document.getElementById('box-select-team').style.display = 'none';
+  if (accessUnsub) { accessUnsub(); accessUnsub = null; }
+  window.STATE.accessOk = false;
+  document.getElementById('first-patron-notice').style.display = 'none';
+
+  if (!firebaseUser) {
+    showLoginBox('login');
+    endResume();
+    refreshFirstPatronNotice();
+    return;
   }
+
+  // durante la registrazione si aspetta che profilo e richiesta siano scritti
+  if (registering) await registering;
+  await teamsReady;
+  const status = await getAccessStatus(firebaseUser, window.STATE.teams);
+  if (!auth.currentUser || auth.currentUser.uid !== firebaseUser.uid) return;
+
+  const enter = () => {
+    window.STATE.accessOk = true;
+    showLoginBox('team');
+    populateLoginDropdown();
+  };
+
+  if (status === STATUS_APPROVED) { enter(); return; }
+
+  showPending(status);
+  endResume();
+  // appena il Patron accetta, si entra senza ricaricare
+  accessUnsub = watchAccessStatus(firebaseUser.uid, st => {
+    if (st === STATUS_APPROVED) {
+      if (accessUnsub) { accessUnsub(); accessUnsub = null; }
+      window.showToast('Account approvato!', 'ok');
+      enter();
+    } else if (st) {
+      showPending(st);
+    }
+  });
 });
 
 // IMPOSTAZIONI "GIOCATORI ON FIRE" (settimane e numero giocatori, gestite dal Patron)
-onValue(ref(db, 'status/onFire'), snap => {
+watch('status/onFire', snap => {
   const v = snap.val() || {};
   window.STATE.onFire = {
     weeks: Math.max(1, parseInt(v.weeks, 10) || 4),
@@ -574,10 +809,9 @@ onValue(ref(db, 'status/onFire'), snap => {
   refreshUI();
 });
 
-onValue(ref(db, 'status/currentRealGW'), snap => { 
+watch('status/currentRealGW', snap => { 
   const val = snap.val();
   window.STATE.giornataRealeCorrente = val ? Number(val) : null;
-  window.STATE.status = { currentGW: window.STATE.giornataRealeCorrente, giornataReale: window.STATE.giornataRealeCorrente };
   
   if (window.STATE.booted) {
     refreshUI(); 
@@ -594,34 +828,30 @@ function caricaDatiCompetizione(compId) {
   compUnsubs.forEach(unsub => { try { unsub(); } catch (e) {} });
   compUnsubs = [];
   const sub = (r, cb) => compUnsubs.push(onValue(r, cb));
+  // nodi della competizione con copia locale (vedi js/services/offlineStore.js)
+  const subCached = (path, cb) => compUnsubs.push(watch(path, cb));
   
   window.STATE.matches = {};
   
-  sub(ref(db, `competitions/${compId}/lineups`), snap => {
-    if (!window.STATE._currentCompData) window.STATE._currentCompData = {};
-    window.STATE._currentCompData.lineups = snap.val() || {};
-    refreshUI();
-  });
-
   sub(ref(db, 'status/live'), snap => {
     const liveAttivo = !!snap.val();
     gestisciSwitchLive(liveAttivo);
   });
 
-  sub(ref(db, `competitions/${compId}/backgroundImage`), snap => {
+  subCached(`competitions/${compId}/backgroundImage`, snap => {
     window.STATE.compBackgroundUrl = snap.val() || '';
     refreshBackground();
     cacheUserTheme(currentUid(), { comp: compId, bg: window.STATE.compBackgroundUrl });
   });
 
   /* Mappatura completa delle variabili CSS del tema (vedi js/services/themeService.js) */
-  sub(ref(db, `competitions/${compId}/theme`), snap => {
+  subCached(`competitions/${compId}/theme`, snap => {
     const css = applyThemeVars(snap.val());
     // il tema resta legato all'utente: al prossimo avvio è già applicato
     cacheUserTheme(currentUid(), { comp: compId, css });
   });
 
-  sub(ref(db, `competitions/${compId}/matches`), snap => { 
+  subCached(`competitions/${compId}/matches`, snap => { 
     window.STATE.matches = snap.val() || {}; 
     refreshUI(); 
   });
@@ -670,7 +900,6 @@ function preferredCompetitionId(list) {
 window._handleCompetitionChange = function(newCompetitionId, opts = {}) {
   if (!newCompetitionId) return;
   window.STATE.currentCompetition = newCompetitionId;
-  window.STATE.activeCompetitionId = newCompetitionId;
   const userSelect = document.getElementById('userCompSelect');
   if (userSelect && userSelect.value !== String(newCompetitionId)) userSelect.value = newCompetitionId;
   if (!opts.silent) {
@@ -687,12 +916,12 @@ window._handleCompetitionChange = function(newCompetitionId, opts = {}) {
   refreshUI();
 };
 
-onValue(ref(db, 'votes'), snap => { 
+watch('votes', snap => { 
   window.STATE.votes = snap.val() || {}; 
   refreshUI(); 
 });
 
-onValue(ref(db, 'trades'), snap => {
+watch('trades', snap => {
   window.STATE.trades = snap.val() || {};
   refreshUI();
 });
@@ -701,18 +930,18 @@ onValue(ref(db, 'trades'), snap => {
 PlayerCard.bindGlobal();
 
 // Giornate per cui esistono le statistiche (serve alla scheda giocatore)
-onValue(ref(db, 'statsMeta'), snap => {
+watch('statsMeta', snap => {
   window.STATE.statsMeta = snap.val() || {};
 }, err => console.warn('Statistiche non leggibili:', err?.message));
 
 // PROBABILI FORMAZIONI (scritte dalla Cloud Function da fantacalcio.it)
 // Niente refreshUI qui: ridisegnare la pagina formazione cancellerebbe le scelte non ancora salvate.
-onValue(ref(db, 'probabili'), snap => {
+watch('probabili', snap => {
   window.STATE.probabili = snap.val() || null;
   if (typeof FormazionePage.onProbabiliUpdate === 'function') FormazionePage.onProbabiliUpdate(window.STATE);
 }, err => console.warn('Probabili formazioni non leggibili:', err?.message));
 
-onValue(ref(db, 'players'), snap => {
+watch('players', snap => {
   window.STATE.players = Object.values(snap.val() || {});
   
   // Avvio Sincronizzazione mirata quando i giocatori sono stati caricati
@@ -724,13 +953,43 @@ onValue(ref(db, 'players'), snap => {
 });
 
 window.toggleAuthBoxes = function(target) {
-  if (target === 'register') {
-    document.getElementById('box-firebase-login').style.display = 'none';
-    document.getElementById('box-firebase-register').style.display = 'block';
+  const register = target === 'register';
+  showLoginBox(register ? 'register' : 'login');
+  document.getElementById(register ? 'registerEmail' : 'loginEmail').focus();
+};
+
+// Messaggi comprensibili per gli errori di Firebase Auth
+function authErrorMessage(error, fallback) {
+  const code = (error && error.code) || '';
+  if (!navigator.onLine || code === 'auth/network-request-failed') return 'Nessuna connessione: riprova quando sei online';
+  if (code === 'auth/too-many-requests') return 'Troppi tentativi: riprova tra qualche minuto';
+  if (code === 'auth/invalid-email') return 'Indirizzo email non valido';
+  if (code === 'auth/email-already-in-use') return 'Esiste già un account con questa email';
+  if (code === 'auth/weak-password') return 'Password troppo debole (minimo 6 caratteri)';
+  return fallback;
+}
+
+// Pulsante occupato durante una richiesta (evita doppi invii)
+function setBusy(btn, busy, label) {
+  if (!btn) return;
+  if (busy) {
+    btn.dataset.label = btn.textContent;
+    btn.textContent = label || 'Attendi…';
+    btn.disabled = true;
   } else {
-    document.getElementById('box-firebase-login').style.display = 'block';
-    document.getElementById('box-firebase-register').style.display = 'none';
+    if (btn.dataset.label) btn.textContent = btn.dataset.label;
+    btn.disabled = false;
   }
+}
+
+window.togglePassword = function(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  btn.setAttribute('aria-pressed', String(show));
+  btn.setAttribute('aria-label', show ? 'Nascondi password' : 'Mostra password');
+  btn.innerHTML = `<i class="${show ? 'ri-eye-off-line' : 'ri-eye-line'}"></i>`;
 };
 
 window.doFirebaseLogin = function() {
@@ -740,12 +999,15 @@ window.doFirebaseLogin = function() {
     window.showToast('Inserisci email e password!', 'err');
     return;
   }
-  signInWithEmailAndPassword(auth, email, pass)
+  const btn = document.querySelector('#box-firebase-login button[type=submit]');
+  setBusy(btn, true, 'Accesso…');
+  signInWithEmailAndPassword(auth, email.trim(), pass)
     .then(() => { window.showToast('Accesso effettuato!', 'ok'); })
     .catch(error => { 
       console.error(error);
-      window.showToast('Email o password errate!', 'err'); 
-    });
+      window.showToast(authErrorMessage(error, 'Email o password errate!'), 'err'); 
+    })
+    .finally(() => setBusy(btn, false));
 };
 
 window.doFirebaseRegister = function() {
@@ -759,27 +1021,47 @@ window.doFirebaseRegister = function() {
     window.showToast('La password deve avere almeno 6 caratteri!', 'err');
     return;
   }
-  createUserWithEmailAndPassword(auth, email, pass)
-    .then(() => { window.showToast('Account creato con successo!', 'ok'); })
-    .catch(error => { 
+  const btn = document.querySelector('#box-firebase-register button[type=submit]');
+  setBusy(btn, true, 'Creazione…');
+  registering = createUserWithEmailAndPassword(auth, email.trim(), pass)
+    .then(cred => registerAccount(cred.user))
+    .then(result => {
+      window.showToast(result === 'patron' ? 'Account Patron creato!' : 'Account creato: in attesa di approvazione', 'ok');
+    })
+    .catch(error => {
       console.error(error);
-      window.showToast('Errore durante la registrazione!', 'err'); 
-    });
+      window.showToast(authErrorMessage(error, 'Errore durante la registrazione!'), 'err');
+    })
+    .finally(() => { registering = null; setBusy(btn, false); });
 };
 
 /* ─── Menu laterale ─────────────────────────────────────────────────────── */
 window.openSideMenu = function() {
-  document.getElementById('side-menu').classList.add('open');
-  document.getElementById('side-menu').setAttribute('aria-hidden', 'false');
+  const menu = document.getElementById('side-menu');
+  menu.classList.add('open');
+  menu.setAttribute('aria-hidden', 'false');
+  menu.inert = false;
   document.getElementById('side-menu-backdrop').classList.add('show');
   document.getElementById('menuHeaderBtn').setAttribute('aria-expanded', 'true');
+  // il focus entra nel menu (tastiera e lettori di schermo)
+  const first = menu.querySelector('.side-menu-item');
+  if (first) first.focus({ preventScroll: true });
+  BackNav.push('side-menu', () => window.closeSideMenu());
 };
 
 window.closeSideMenu = function() {
-  document.getElementById('side-menu').classList.remove('open');
-  document.getElementById('side-menu').setAttribute('aria-hidden', 'true');
+  const menu = document.getElementById('side-menu');
+  const wasOpen = menu.classList.contains('open');
+  menu.classList.remove('open');
+  menu.setAttribute('aria-hidden', 'true');
+  menu.inert = true;
   document.getElementById('side-menu-backdrop').classList.remove('show');
-  document.getElementById('menuHeaderBtn').setAttribute('aria-expanded', 'false');
+  const btn = document.getElementById('menuHeaderBtn');
+  btn.setAttribute('aria-expanded', 'false');
+  if (wasOpen) {
+    BackNav.pop('side-menu');
+    if (menu.contains(document.activeElement)) btn.focus({ preventScroll: true });
+  }
 };
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') window.closeSideMenu(); });
@@ -788,14 +1070,16 @@ const MENU_VIEWS = {
   settings: ImpostazioniApp,
   team: ConfigurazioneSquadra,
   listone: ListoneView,
-  svincolati: SvincolatiView
+  svincolati: SvincolatiView,
+  notifiche: NotificheView
 };
 
 window.openMenuPage = function(name) {
   const view = MENU_VIEWS[name];
   window.closeSideMenu();
-  if (view) MenuPanel.open(view);
+  if (view) MenuPanel.open(view, name);
 };
+window.closeMenuPanel = () => MenuPanel.close();
 
 /* ─── Impostazioni utente (settings/{uid} + cache locale) ───────────────── */
 // Lo sfondo della competizione si vede solo se l'utente non l'ha disattivato
@@ -858,8 +1142,7 @@ window.setUserSetting = async function(key, value) {
 // Apre la scheda di una squadra (usato dalla classifica); da lì si può tornare alla classifica
 window.openTeamPage = function(teamId, from) {
   if (!teamId) return;
-  const btn = document.querySelector('.nav-btn[onclick*="teams"]');
-  window.goPage('teams', btn);
+  window.goPage('teams');
   TeamsPage.openTeamDetail(String(teamId), window.STATE, { from });
 };
 
@@ -869,22 +1152,54 @@ window.goToPatron = function() {
 };
 
 // "Passa a Patron" compare solo se il profilo ha il ruolo patron (users/{uid}/role)
+// Per il Patron: richieste di nuovi account (badge sul menu + notifica alle nuove)
+let requestsUnsub = null;
+function showRequestsCount(n) {
+  const badge = document.getElementById('menuReqBadge');
+  const count = document.getElementById('menuReqCount');
+  [badge, count].forEach(el => {
+    if (!el) return;
+    el.textContent = n;
+    el.style.display = n ? (el === badge ? 'flex' : 'inline-flex') : 'none';
+  });
+}
+function watchRequestsAsPatron() {
+  let known = null;
+  requestsUnsub = watchAccountRequests(list => {
+    if (known) {
+      list.filter(r => !known.has(r.uid)).forEach(r => {
+        notifyNewRequest(r.email);
+        window.showToast(`Nuova richiesta di account: ${r.email || 'nuovo utente'}`, 'ok');
+      });
+    }
+    known = new Set(list.map(r => r.uid));
+    showRequestsCount(list.length);
+  });
+}
+
 async function updatePatronMenuItem(firebaseUser) {
   const item = document.getElementById('menuPatronItem');
   if (!item) return;
   item.style.display = 'none';
+  if (requestsUnsub) { requestsUnsub(); requestsUnsub = null; }
+  showRequestsCount(0);
   if (!firebaseUser) return;
   const autorizzato = await isPatron(firebaseUser);
   // l'utente potrebbe essere cambiato nel frattempo
   if (autorizzato && auth.currentUser && auth.currentUser.uid === firebaseUser.uid) {
     item.style.display = 'flex';
+    ensurePatronFlag();
+    watchRequestsAsPatron();
   }
 }
 
-window.doFirebaseLogout = function() {
+window.doFirebaseLogout = async function() {
+  // il dispositivo smette di ricevere le notifiche push dell'account (prima del logout: serve l'utente)
+  await Promise.race([PushService.unregister(auth.currentUser && auth.currentUser.uid), new Promise(r => setTimeout(r, 3000))]);
   signOut(auth).then(() => {
     localStorage.removeItem('fantaUser');
     localStorage.removeItem(LAST_UID_KEY); // la schermata di login torna neutra; il tema dell'utente resta salvato
+    OfflineStore.clear(); // i dati della lega salvati per l'uso offline non restano sul dispositivo
     window.STATE.user = null;
     window.STATE.booted = false;
     window.showToast('Account disconnesso', 'ok');
@@ -893,7 +1208,7 @@ window.doFirebaseLogout = function() {
 };
 
 function populateLoginDropdown() {
-  if (window.STATE.booted) return;
+  if (window.STATE.booted || !window.STATE.accessOk) return;
   const currentUser = auth.currentUser;
   if (!currentUser) return; 
 
@@ -922,12 +1237,14 @@ function populateLoginDropdown() {
 
   let optionsHTML = '<option value="">Scegli la tua squadra...</option>';
   window.STATE.teams.forEach(t => {
-    optionsHTML += `<option value="${t.id}">${t.name} (${t.owner || 'Nessun proprietario'})</option>`;
+    optionsHTML += `<option value="${esc(t.id)}">${esc(t.name)} (${esc(t.owner || 'Nessun proprietario')})</option>`;
   });
   select.innerHTML = optionsHTML;
+  endResume(); // nessuna squadra associata: serve la scelta
 }
 
 window.doTeamSelection = function() {
+  if (!window.STATE.accessOk) return;
   const select = document.getElementById('loginSelect');
   if (!select) return;
   const id = select.value;
@@ -947,7 +1264,7 @@ window.doTeamSelection = function() {
   }
 };
 
-onValue(ref(db, 'competitions'), snap => {
+watch('competitions', snap => {
   const comps = snap.val() || {};
   
   const list = Object.entries(comps).map(([key, val]) => {
@@ -955,22 +1272,19 @@ onValue(ref(db, 'competitions'), snap => {
   });
   
   window.STATE.competitions = list;
-  window.STATE.allCompetitions = list;
   
   const userSelect = document.getElementById('userCompSelect');
   if (userSelect) {
     if (list.length === 0) {
       userSelect.innerHTML = `<option value="">Nessun torneo nel DB</option>`;
       window.STATE.currentCompetition = '';
-      window.STATE.activeCompetitionId = '';
     } else {
       if (!window.STATE.currentCompetition || !comps[window.STATE.currentCompetition]) {
         const pick = preferredCompetitionId(list);
         window.STATE.currentCompetition = pick;
-        window.STATE.activeCompetitionId = pick;
         caricaDatiCompetizione(pick);
       }
-      userSelect.innerHTML = list.map(c => `<option value="${c.id}" ${String(window.STATE.currentCompetition) === String(c.id) ? 'selected' : ''}>${c.name || c.id}</option>`).join('');
+      userSelect.innerHTML = list.map(c => `<option value="${esc(c.id)}" ${sameId(window.STATE.currentCompetition, c.id) ? 'selected' : ''}>${esc(c.name || c.id)}</option>`).join('');
     }
   }
   refreshUI();
@@ -979,8 +1293,6 @@ onValue(ref(db, 'competitions'), snap => {
 function bootApp() {
   if (window.STATE.booted) return;
   window.STATE.booted = true;
-
-  ClassificaPage.init(db);
 
   const container = document.getElementById('dynamic-pages-container');
   if (container) {
@@ -1005,33 +1317,62 @@ function bootApp() {
   // Avvio Preloader Sincronizzazione
   AssetPreloader.startSync(window.STATE);
 
-  window.goPage('home', document.querySelector('.nav-btn'));
+  document.documentElement.classList.add('booted');
+
+  // pagina iniziale: scorciatoie dell'icona (manifest "shortcuts", es. index.html?page=formazione)
+  // e tocco su una notifica ad app chiusa (sw.js: ?page=mercato oppure ?page=notifiche)
+  const PAGES = ['home', 'calendario', 'classifica', 'formazione', 'mercato', 'teams'];
+  const wanted = new URLSearchParams(location.search).get('page');
+  let start = PAGES.includes(wanted) ? wanted : 'home';
+  if (start === 'formazione' && window.STATE.live) start = 'live';
+  if (wanted) history.replaceState(history.state, '', location.pathname);
+  // Notifiche: elenco/campanella, avvisi delle nuove e invito ad attivarle
+  NotificationCenter.start(window.STATE, currentUid);
+  window.goPage(start);
+  endResume();
+  NotificationCenter.maybeInvite();
+  if (wanted === 'notifiche') window.openMenuPage('notifiche');
 }
+
+let lastCachedLogo = null;
 
 function refreshUI() {
   if (!window.STATE.booted || !window.STATE.user) return;
 
-  // Rientro automatico dei prestiti scaduti (idempotente: può girare su qualunque client)
-  MercatoService.processaScadenze({
+  // Rientro automatico dei prestiti scaduti (idempotente: può girare su qualunque client).
+  // Mai con i dati della copia locale: scriverebbe sul DB uno stato vecchio.
+  const liveData = !['trades', 'players', 'status/currentRealGW'].some(p => cachedPaths.has(p));
+  if (liveData && !Connectivity.isOffline()) MercatoService.processaScadenze({
     trades: Object.values(window.STATE.trades || {}),
     players: window.STATE.players,
-    giornataReale: window.STATE.giornataRealeCorrente
+    giornataReale: window.STATE.giornataRealeCorrente,
+    notify: t => {
+      const opts = { templates: window.STATE.notifTemplates, teams: window.STATE.teams, createdBy: currentUid() || null, rientro: window.STATE.giornataRealeCorrente };
+      return { ...tradeNotificationUpdates('prestitoConcluso', t, t.fromTeamId, opts), ...tradeNotificationUpdates('prestitoConcluso', t, t.toTeamId, opts) };
+    }
   });
+  NotificationCenter.updateBadge();
 
   // AGGIORNAMENTO LOGO NAVBAR (COMPATTO 24px)
   const globalNavbarLogoContainer = document.getElementById('app-global-navbar-logo-container');
   if (globalNavbarLogoContainer) {
-    const currentCompId = window.STATE.currentCompetition || window.STATE.activeCompetitionId;
-    const compData = (window.STATE.competitions || []).find(c => String(c.id) === String(currentCompId));
+    const currentCompId = window.STATE.currentCompetition;
+    const compData = (window.STATE.competitions || []).find(c => sameId(c.id, currentCompId));
 
-    if (compData && compData.logo && compData.logo.trim() !== "") {
-      globalNavbarLogoContainer.innerHTML = `
-        <img src="${compData.logo}" style="height:24px; width:24px; object-fit:contain;" onerror="this.outerHTML='<div style=\'width:24px; height:24px; background:rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:.75rem;\'></div>';" alt="Logo Comp">
-      `;
-    } else {
-      globalNavbarLogoContainer.innerHTML = `
-        <div style="width:24px; height:24px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:.75rem; color:var(--gold)"><i class="ri-trophy-line"></i></div>
-      `;
+    // logo salvato con il tema dell'utente: al prossimo avvio è quello della schermata iniziale
+    const logoUrl = String(compData?.logo || '').trim();
+    if (compData && logoUrl !== lastCachedLogo) {
+      lastCachedLogo = logoUrl;
+      cacheUserTheme(currentUid(), { logo: logoUrl });
+    }
+
+    // si ridisegna solo quando il logo cambia (prima a ogni aggiornamento dei dati: l'immagine sfarfallava)
+    if (globalNavbarLogoContainer.dataset.logo !== logoUrl || !globalNavbarLogoContainer.firstChild) {
+      globalNavbarLogoContainer.dataset.logo = logoUrl;
+      const placeholder = `<div style="width:24px; height:24px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:.75rem; color:var(--gold)"><i class="ri-trophy-line"></i></div>`;
+      globalNavbarLogoContainer.innerHTML = logoUrl
+        ? `<img src="${esc(logoUrl)}" style="height:24px; width:24px; object-fit:contain;" onerror="this.outerHTML=this.dataset.fb" data-fb="${esc(placeholder)}" alt="Logo Comp">`
+        : placeholder;
     }
   }
 
@@ -1057,7 +1398,7 @@ function refreshUI() {
     if (gwCorrenteReale === null || gwCorrenteReale === undefined) {
       const container = document.getElementById('live-match-container');
       if (container) {
-        container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Sincronizzazione giornata e competizione in corso...</p>`;
+        container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);font-family:var(--font-sub,inherit);">Sincronizzazione giornata e competizione in corso...</p>`;
       }
       return; 
     }
@@ -1069,7 +1410,9 @@ function refreshUI() {
   }
 }
 
+// btn = pulsante della barra in basso da evidenziare; se manca si trova da solo (il Live usa quello della Formazione)
 window.goPage = function(name, btn) {
+  btn = btn || document.querySelector(`.nav-btn[data-page="${name === 'live' ? 'formazione' : name}"]`);
   if (window.STATE.currentPage === 'live' && name !== 'live') {
     LiveMatchModule.stopLiveTracking();
   }
@@ -1079,13 +1422,17 @@ window.goPage = function(name, btn) {
   }
 
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => { b.classList.remove('active'); });
   
   const target = document.getElementById('page-' + name);
   if(target) {
     target.classList.add('active');
   }
   if(btn) btn.classList.add('active');
+
+  // "Indietro" del telefono da una pagina diversa dalla Home riporta alla Home (invece di chiudere l'app)
+  if (name === 'home') BackNav.pop('tab');
+  else BackNav.push('tab', () => window.goPage('home'));
   
   const container = document.getElementById('dynamic-pages-container');
   if(container) container.scrollTop = 0;
@@ -1104,12 +1451,45 @@ window.showToast = function(msg, type='ok') {
 window._saveNode = (path, payload) => set(ref(db, path), payload);
 
 if ('serviceWorker' in navigator) {
+  // c'era già un service worker: un nuovo controller vuol dire nuova versione dell'app
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hadController) document.getElementById('update-banner').classList.add('show');
+  });
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
-      .then(reg => console.log('SW registrato', reg))
+      .then(reg => {
+        // controlla gli aggiornamenti quando l'app torna in primo piano
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible' && navigator.onLine) reg.update().catch(() => {});
+        });
+      })
       .catch(err => console.error('Errore SW', err));
   });
 }
+
+/* ─── Installazione PWA (Android/desktop: prompt nativo dal menu laterale) ─ */
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  installPrompt = e;
+  const item = document.getElementById('menuInstallItem');
+  if (item) item.style.display = 'flex';
+});
+window.addEventListener('appinstalled', () => {
+  installPrompt = null;
+  const item = document.getElementById('menuInstallItem');
+  if (item) item.style.display = 'none';
+  window.showToast('App installata!', 'ok');
+});
+window.installApp = async function() {
+  window.closeSideMenu();
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  try { await installPrompt.userChoice; } catch (e) {}
+  installPrompt = null;
+  document.getElementById('menuInstallItem').style.display = 'none';
+};
 </script>
 </body>
 </html>

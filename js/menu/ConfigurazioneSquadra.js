@@ -2,6 +2,9 @@ import { db, ref, update } from '../firebase-config.js';
 import { uploadImageToImgBB } from '../services/integrationImgBB.js';
 import { AssetPreloader } from '../services/assetPreloader.js';
 import { esc, sid, playerThumb } from './menuUtils.js';
+import { MenuPanel } from '../components/MenuPanel.js';
+import { kitImageHTML } from '../components/Kit3D.js';
+import { DivisaSquadra } from './DivisaSquadra.js';
 
 const MAX_FILE_MB = 8;
 const ROLE_ORDER = { P: 0, D: 1, C: 2, A: 3 };
@@ -39,7 +42,8 @@ export const ConfigurazioneSquadra = {
     root.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
-      if (btn.dataset.action === 'remove-logo') this._removeLogo();
+      if (btn.dataset.action === 'open-kit') MenuPanel.open(DivisaSquadra, 'kit');
+      else if (btn.dataset.action === 'remove-logo') this._removeLogo();
       else if (btn.dataset.action === 'reset-photo') this._resetPlayerPhoto(btn.dataset.pid);
     });
   },
@@ -47,6 +51,7 @@ export const ConfigurazioneSquadra = {
   refresh(STATE) {
     if (!this._root || this._busy) return;
     this._renderLogo(STATE);
+    this._renderKit(STATE);
     this._renderPlayers(STATE);
   },
 
@@ -56,6 +61,7 @@ export const ConfigurazioneSquadra = {
   _renderAll(STATE) {
     this._root.innerHTML = `
       <div class="mp-card" id="cfg-logo-card"></div>
+      <div class="mp-card" id="cfg-kit-card"></div>
       <div class="mp-card">
         <div class="mp-card-title">Immagini dei giocatori</div>
         <div class="mp-muted" style="margin-bottom:.6rem;">Carica una foto personalizzata per i giocatori della tua rosa. Se la rimuovi torna l'immagine standard.</div>
@@ -63,7 +69,28 @@ export const ConfigurazioneSquadra = {
       </div>
     `;
     this._renderLogo(STATE);
+    this._renderKit(STATE);
     this._renderPlayers(STATE);
+  },
+
+  _renderKit(STATE) {
+    const card = this._root.querySelector('#cfg-kit-card');
+    if (!card) return;
+    const team = STATE.user || {};
+    // ridisegno solo se divisa o logo sono cambiati (refresh arriva spesso: eviterebbe sfarfallii)
+    const key = JSON.stringify([team.kit || null, team.logo || '']);
+    if (card.dataset.key === key) return;
+    card.dataset.key = key;
+    card.innerHTML = `
+      <div class="mp-card-title">Divisa</div>
+      <div style="display:flex; align-items:center; gap:1rem;">
+        ${team.kit ? kitImageHTML(team.kit, { crestUrl: team.logo || '', width: 240 }, 'style="width:100px; flex-shrink:0;"') : '<div style="width:100px; flex-shrink:0; text-align:center; font-size:2.6rem; color:var(--text3);font-family:var(--font-text3,inherit);"><i class="ri-shirt-line"></i></div>'}
+        <div style="min-width:0;">
+          <div class="mp-muted">${team.kit ? 'Modifica colletto, maniche, disegno, colori, sponsor e patch della tua maglia.' : 'Non hai ancora creato la tua maglia: personalizzala ora!'}</div>
+          <button class="mp-btn" data-action="open-kit" style="margin-top:.6rem;"><i class="ri-shirt-line"></i> ${team.kit ? 'Modifica divisa' : 'Crea divisa'}</button>
+        </div>
+      </div>
+    `;
   },
 
   _renderLogo(STATE) {

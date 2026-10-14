@@ -15,7 +15,7 @@ export const CompetizioniSection = {
   renderHTML() {
     return `
     <div id="sec-crea-competizioni" class="admin-sec" style="display:none;">
-      <div class="sec-title">🏆 Gestione & Nuova Competizione</div>
+      <div class="sec-title"><i class="ri-trophy-line"></i> Gestione & Nuova Competizione</div>
       
       <div class="card" style="max-width: 600px;">
         <div id="form-comp-title" class="label" style="color: var(--accent); margin-bottom: 1rem; font-size: .85rem;">Crea una nuova competizione</div>
@@ -31,7 +31,7 @@ export const CompetizioniSection = {
           <option value="">-- Nessun Trofeo Selezionato --</option>
         </select>
 
-        <div class="label" style="font-size:.8rem; margin-top:.5rem; color:var(--text2)">Logo Competizione (.jpg, .jpeg, .png)</div>
+        <div class="label" style="font-size:.8rem; margin-top:.5rem; color:var(--text2);font-family:var(--font-sub,inherit)">Logo Competizione (.jpg, .jpeg, .png)</div>
         <input type="file" id="compLogoFile" name="compLogoFile" class="input-login" accept=".jpg, .jpeg, .png, .JPG, .JPEG, .PNG, image/jpeg, image/png" style="padding-top:.5rem;">
 
         <label class="label">Tipo Competizione</label>
@@ -54,11 +54,11 @@ export const CompetizioniSection = {
 
         <label class="label">Seleziona Squadre Partecipanti</label>
         <div id="compTeamsCheckboxList" style="max-height: 200px; overflow-y: auto; background: var(--bg3); padding: 10px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 1rem;">
-          <div style="color: var(--text3);">Caricamento squadre...</div>
+          <div style="color: var(--text3); font-family: var(--font-text3, inherit);">Caricamento squadre...</div>
         </div>
 
         <div style="display: flex; gap: 1rem;">
-          <button id="btn-submit-comp" class="btn btn-green" onclick="window.creaCompetizione()">✨ Crea Competizione</button>
+          <button id="btn-submit-comp" class="btn btn-green" onclick="window.creaCompetizione()"><i class="ri-add-circle-line"></i> Crea Competizione</button>
           <button id="btn-cancel-edit-comp" class="btn btn-red" onclick="window.annullaModificaComp()" style="display: none; width: auto;">Annulla</button>
         </div>
       </div>
@@ -94,7 +94,7 @@ export const CompetizioniSection = {
     if (!container) return;
 
     if (!allTeams || allTeams.length === 0) {
-      container.innerHTML = "<div style='color:var(--text3)'>Nessuna squadra disponibile nel DB.</div>";
+      container.innerHTML = "<div style='color:var(--text3);font-family:var(--font-text3,inherit)'>Nessuna squadra disponibile nel DB.</div>";
       return;
     }
 
@@ -139,7 +139,7 @@ export const CompetizioniSection = {
 
     const comps = state.competitions || [];
     if (comps.length === 0) {
-      listContainer.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text3);">Nessuna competizione creata. Usa il modulo sopra per crearne una.</td></tr>`;
+      listContainer.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text3); font-family: var(--font-text3, inherit);">Nessuna competizione creata. Usa il modulo sopra per crearne una.</td></tr>`;
       return;
     }
 
@@ -156,7 +156,7 @@ export const CompetizioniSection = {
       const matchedTrophy = trophies.find(tr => tr.id === trophyId);
       const trophyImgHtml = matchedTrophy && matchedTrophy.image
         ? `<img src="${matchedTrophy.image}" title="${matchedTrophy.name}" style="width:32px; height:32px; object-fit:contain; border-radius:4px; vertical-align:middle;">`
-        : `<span style="font-size:1.2rem;" title="Nessun trofeo">🏆</span>`;
+        : `<i class="ri-trophy-line" style="font-size:1.2rem;color:var(--text3);font-family:var(--font-text3,inherit);" title="Nessun trofeo"></i>`;
 
       let teamsArray = [];
       if (c.teams) {
@@ -167,7 +167,7 @@ export const CompetizioniSection = {
 
       const logoHtml = c.logo 
         ? `<img src="${c.logo}" alt="Logo" style="width:40px; height:40px; object-fit:contain; border-radius:6px; vertical-align:middle;">`
-        : `<div style="width:40px; height:40px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3); vertical-align:middle;">🛡️</div>`;
+        : `<div style="width:40px; height:40px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3);font-family:var(--font-text3,inherit); vertical-align:middle;"><i class="ri-shield-line"></i></div>`;
 
       return `
         <tr>
@@ -184,17 +184,17 @@ export const CompetizioniSection = {
           </td>
           <td style="vertical-align:middle;">
             <button class="btn ${marketOpen ? 'btn-green' : 'btn-red'}" onclick="window.toggleCompMarket('${c.id}', ${marketOpen})" style="padding: .25rem .5rem; font-size: .75rem; width: auto; font-weight:500;">
-              ${marketOpen ? '🟢 Aperto' : '🔴 Chiuso'}
+              ${marketOpen ? '<i class="ri-lock-unlock-line"></i> Aperto' : '<i class="ri-lock-line"></i> Chiuso'}
             </button>
           </td>
           <td style="vertical-align:middle;"><span class="badge ${teamsArray.length > 0 ? 'badge-green' : 'badge-red'}">${teamsArray.length} sq.</span></td>
           <td style="text-align: right; vertical-align:middle;">
             <div style="display: inline-flex; gap: .4rem;">
               <button class="btn btn-blue" onclick="window.caricaCompetizioneNelForm('${c.id}', '${safeName}', '${c.type}', ${gironi}, ${qualificati}, '${teamsString}', '${safeLogo}', '${trophyId}')" style="padding: .35rem .6rem; font-size: .75rem; width: auto;">
-                ✏️ Modifica
+                <i class="ri-edit-line"></i> Modifica
               </button>
               <button class="btn btn-red" onclick="window.eliminaCompetizione('${c.id}', '${safeName}')" style="padding: .35rem .6rem; font-size: .75rem; width: auto;">
-                🗑️ Elimina
+                <i class="ri-delete-bin-line"></i> Elimina
               </button>
             </div>
           </td>
@@ -248,7 +248,7 @@ export const CompetizioniSection = {
 
       document.getElementById('form-comp-title').innerText = `Modifica della Competizione: ${id.toUpperCase()}`;
       const btnSubmit = document.getElementById('btn-submit-comp');
-      btnSubmit.innerText = "💾 Salva Modifiche";
+      btnSubmit.innerHTML = '<i class="ri-save-line"></i> Salva Modifiche';
       btnSubmit.className = "btn btn-blue";
       document.getElementById('btn-cancel-edit-comp').style.display = "inline-flex";
 
@@ -288,7 +288,7 @@ export const CompetizioniSection = {
 
       document.getElementById('form-comp-title').innerText = "Crea una nuova competizione";
       const btnSubmit = document.getElementById('btn-submit-comp');
-      btnSubmit.innerText = "✨ Crea Competizione";
+      btnSubmit.innerHTML = '<i class="ri-add-circle-line"></i> Crea Competizione';
       btnSubmit.className = "btn btn-green";
       document.getElementById('btn-cancel-edit-comp').style.display = "none";
     };
@@ -316,8 +316,8 @@ export const CompetizioniSection = {
       if (teams.length === 0) return window.toast("Seleziona almeno una squadra!", "err");
 
       const btnSubmit = document.getElementById('btn-submit-comp');
-      const originalBtnText = btnSubmit.innerText;
-      btnSubmit.innerText = "⌛ Caricamento Immagine...";
+      const originalBtnText = btnSubmit.innerHTML;
+      btnSubmit.innerHTML = '<i class="ri-loader-4-line"></i> Caricamento Immagine...';
       btnSubmit.disabled = true;
 
       try {
@@ -385,7 +385,7 @@ export const CompetizioniSection = {
         console.error("Errore complessivo intercettato:", err);
         window.toast(err.message || "Errore durante il salvataggio dei dati", "err"); 
       } finally {
-        btnSubmit.innerText = originalBtnText;
+        btnSubmit.innerHTML = originalBtnText;
         btnSubmit.disabled = false;
       }
     };
@@ -413,7 +413,7 @@ export const CompetizioniSection = {
 
     window.eliminaCompetizione = async function(compId, compName) {
       if (!database) return;
-      if (confirm(`⚠️ SEI SICURO?\nEliminando la competizione "${compName}" rimuoverai per sempre tutti i suoi calendari, risultati e classifiche.`)) {
+      if (confirm(`SEI SICURO?\nEliminando la competizione "${compName}" rimuoverai per sempre tutti i suoi calendari, risultati e classifiche.`)) {
         try {
           await remove(ref(database, `competitions/${compId}`));
           window.toast(`Competizione "${compName}" eliminata definitivamente`, "info");

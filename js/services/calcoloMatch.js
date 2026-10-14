@@ -17,21 +17,6 @@ export const RULE_MATCH = {
   porta_inviolata: 1
 };
 
-// Emoji da mostrare nel live in base al tipo di bonus/malus registrato.
-// Usata da liveMatch.js per costruire la stringa di icone accanto al voto.
-export const EMOJI_BONUS = {
-  gol: "⚽",
-  assist: "🅰️",
-  ammonizione: "🟨",
-  espulsione: "🟥",
-  autogol: "⚫",
-  rigore_parato: "🧤",
-  rigore_sbagliato: "❌",
-  rigore_segnato: "🎯",
-  gol_subito: "🥅",
-  porta_inviolata: "🛡️"
-};
-
 export const CalcoloMatchService = {
   /**
    * Normalizza un voto: un voto valido è tra 0 e 10. fantacalcio.it usa il
@@ -42,22 +27,6 @@ export const CalcoloMatchService = {
     const n = parseFloat(String(v ?? '').replace(',', '.'));
     if (!Number.isFinite(n) || n <= 0 || n > 10) return 0;
     return Math.round(n * 100) / 100;
-  },
-
-  /**
-   * Costruisce la stringa di emoji da mostrare nel live a partire
-   * dall'oggetto bonus (es: {gol: 2, ammonizione: 1} -> "⚽⚽🟨").
-   * @param {Object} bonus - conteggio bonus/malus, es. {gol: 1, assist: 1}
-   * @returns {String} emoji concatenate, stringa vuota se nessun bonus
-   */
-  emojiFromBonus(bonus) {
-    if (!bonus) return "";
-    let out = "";
-    Object.keys(EMOJI_BONUS).forEach(evento => {
-      const quantita = parseInt(bonus[evento]) || 0;
-      out += EMOJI_BONUS[evento].repeat(quantita);
-    });
-    return out;
   },
 
   /**

@@ -16,7 +16,7 @@ export const PalmaresSection = {
   renderHTML() {
     return `
     <div id="sec-palmares" class="admin-sec" style="display:none">
-      <div class="sec-title">🏅 Assegnazione Palmarès e Piazzamenti</div>
+      <div class="sec-title"><i class="ri-medal-line"></i> Assegnazione Palmarès e Piazzamenti</div>
       
       <div class="card" style="max-width:500px">
         <div class="label" style="color:var(--accent); margin-bottom:.5rem">Aggiungi Risultato Stagionale</div>
@@ -126,7 +126,7 @@ export const PalmaresSection = {
         Object.entries(seasonComps || {}).forEach(([compId, details]) => {
           const trophyCode = details.trofeo_vinto;
           const trophyLabel = trophyCode 
-            ? `🏆 ${trophyNamesMap[trophyCode] || trophyCode}` 
+            ? `<i class="ri-trophy-fill" style="color:var(--gold)"></i> ${trophyNamesMap[trophyCode] || trophyCode}` 
             : '—';
 
           rows.push({
@@ -144,7 +144,7 @@ export const PalmaresSection = {
 
     if (tbody) {
       if (rows.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text3)">Nessun piazzamento in palmarès.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit)">Nessun piazzamento in palmarès.</td></tr>`;
       } else {
         tbody.innerHTML = rows.map(r => `
           <tr>

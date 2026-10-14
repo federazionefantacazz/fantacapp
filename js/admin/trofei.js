@@ -19,7 +19,7 @@ export const TrofeiSection = {
   renderHTML() {
     return `
     <div id="sec-trofei" class="admin-sec" style="display:none">
-      <div class="sec-title">🏆 Gestione Trofei</div>
+      <div class="sec-title"><i class="ri-trophy-line"></i> Gestione Trofei</div>
       
       <div class="card" style="max-width:500px">
         <div id="formTitleTrophy" class="label" style="color:var(--accent); margin-bottom:.5rem">Aggiungi Nuovo Trofeo</div>
@@ -27,7 +27,7 @@ export const TrofeiSection = {
         <input type="text" id="trName" class="input-login" placeholder="Nome Trofeo (es: Coppa delle Coppe, Scudetto)">
         <textarea id="trDesc" class="input-login" placeholder="Descrizione o note sul trofeo" style="min-height:70px; font-family:inherit; resize:vertical;"></textarea>
         
-        <div class="label" style="font-size:.8rem; margin-top:.5rem; color:var(--text2)">Immagine / Icona Trofeo (.png, .jpg)</div>
+        <div class="label" style="font-size:.8rem; margin-top:.5rem; color:var(--text2);font-family:var(--font-sub,inherit)">Immagine / Icona Trofeo (.png, .jpg)</div>
         <input type="file" id="trImageFile" class="input-login" accept="image/png, image/jpeg, image/jpg" style="padding-top:.5rem;">
         
         <!-- NUOVI CAMPI: ORDINE HOME E SCALA IMMAGINE -->
@@ -76,7 +76,7 @@ export const TrofeiSection = {
     if (!tbody) return;
 
     if (!trophies || trophies.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text3)">Nessun trofeo creato. Usa il modulo sopra per aggiungerne uno.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit)">Nessun trofeo creato. Usa il modulo sopra per aggiungerne uno.</td></tr>`;
       return;
     }
 
@@ -90,13 +90,13 @@ export const TrofeiSection = {
 
       const imageHtml = t.image 
         ? `<img src="${t.image}" alt="Trofeo" style="width:48px; height:48px; object-fit:contain; border-radius:6px; vertical-align:middle;">`
-        : `<div style="width:48px; height:48px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.5rem; color:var(--gold); vertical-align:middle;">🏆</div>`;
+        : `<div style="width:48px; height:48px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.5rem; color:var(--gold); vertical-align:middle;"><i class="ri-trophy-line"></i></div>`;
 
       return `
       <tr>
         <td style="width:60px; text-align:center; vertical-align:middle;">${imageHtml}</td>
         <td style="vertical-align:middle;"><strong>${t.name}</strong></td>
-        <td style="vertical-align:middle; color:var(--text2); font-size:.85rem;">${t.desc || '—'}</td>
+        <td style="vertical-align:middle; color:var(--text2);font-family:var(--font-sub,inherit); font-size:.85rem;">${t.desc || '—'}</td>
         <td style="vertical-align:middle; text-align:center;">#${ordHome}</td>
         <td style="vertical-align:middle; text-align:center;">${scaleVal}%</td>
         <td style="vertical-align:middle;">

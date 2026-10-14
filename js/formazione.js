@@ -1,5 +1,8 @@
 import { GwService } from './services/gwService.js';
 import { ProbabiliService, STATUS_INFO } from './services/probabiliService.js';
+import { BackNav } from './services/backNav.js';
+import { Connectivity } from './services/connectivity.js';
+import { esc, sameId } from './utils.js';
 
 export const FormazionePage = {
   renderHTML() {
@@ -22,7 +25,7 @@ export const FormazionePage = {
           </select>
         </div>
 
-        <div class="label" style="margin-bottom: .5rem; color:var(--title,var(--accent)); display: flex; align-items: center; gap: 0.4rem;"><i class="ri-t-shirt-line"></i> TITOLARI (RETTANGOLO DI GIOCO)</div>
+        <div class="label" style="margin-bottom: .5rem; color:var(--title,var(--accent)); font-family:var(--font-title,inherit); display: flex; align-items: center; gap: 0.4rem;"><i class="ri-t-shirt-line"></i> TITOLARI (RETTANGOLO DI GIOCO)</div>
         
         <div class="soccer-field" id="soccer-field-container">
           <div class="field-lines">
@@ -40,7 +43,7 @@ export const FormazionePage = {
           <label for="save-all-comps" class="label" style="margin: 0; cursor: pointer; color: var(--text);">Salva per tutte le competizioni</label>
         </div>
         
-        <div id="f-save-info" style="font-size:.75rem; color:var(--text2); margin:-.4rem 0 1rem; line-height:1.4;"></div>
+        <div id="f-save-info" style="font-size:.75rem; color:var(--text2);font-family:var(--font-sub,inherit); margin:-.4rem 0 1rem; line-height:1.4;"></div>
 
         <button class="btn btn-green" style="width: 100%; padding: .8rem; margin-bottom:2rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" id="btn-save-lineup"><i class="ri-save-line"></i> Salva Formazione</button>
         </div>
@@ -156,13 +159,13 @@ export const FormazionePage = {
           display: inline-flex; align-items: center; justify-content: center; gap: 1px;
           min-width: 22px; height: 16px; padding: 0 4px; border-radius: 8px;
           font-size: .58rem; font-weight: 700; color: #fff; line-height: 1;
-          font-family: 'DM Sans', sans-serif; box-shadow: 0 2px 5px rgba(0,0,0,.45);
+          font-family: var(--font-text); box-shadow: 0 2px 5px rgba(0,0,0,.45);
           border: 1px solid rgba(255,255,255,.35);
         }
         .pan-slot { cursor: pointer; }
         .pan-pick {
           flex: 1; min-width: 0; background: var(--bg2); border-radius: 8px; padding: .45rem .6rem;
-          font-size: .8rem; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          font-size: .8rem; color: var(--text2); font-family: var(--font-sub, inherit); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .pan-badge .slot-badge { height: 18px; font-size: .62rem; }
 
@@ -185,12 +188,12 @@ export const FormazionePage = {
         @keyframes fpUp { from { transform: translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
         .fp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; padding: 1rem 1rem .6rem; border-bottom: 1px solid rgba(255,255,255,.06); }
         .fp-title { font-weight: 700; font-size: .95rem; color: var(--text); display: flex; align-items: center; }
-        .fp-sub { font-size: .72rem; color: var(--text2); margin-top: 3px; }
+        .fp-sub { font-size: .72rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-top: 3px; }
         .fp-close { background: var(--bg2); border: none; color: var(--text); width: 32px; height: 32px; border-radius: 50%; font-size: 1.1rem; cursor: pointer; flex-shrink: 0; }
         .fp-list { overflow-y: auto; padding: .5rem .6rem; display: flex; flex-direction: column; gap: .4rem; }
         .fp-foot { padding: 0 .6rem .7rem; }
         .fp-foot:empty { display: none; }
-        .fp-empty { text-align: center; color: var(--text3); padding: 2rem 1rem; font-size: .85rem; }
+        .fp-empty { text-align: center; color: var(--text3); font-family: var(--font-text3, inherit); padding: 2rem 1rem; font-size: .85rem; }
         .fp-row {
           display: flex; align-items: center; gap: .65rem; padding: .55rem .65rem;
           background: var(--bg2); border: 1px solid rgba(255,255,255,.05); border-radius: 12px;
@@ -202,21 +205,21 @@ export const FormazionePage = {
         .fp-row.is-used { opacity: .35; filter: grayscale(1); cursor: not-allowed; pointer-events: none; }
         .fp-img { width: 44px; height: 48px; flex-shrink: 0; display: flex; align-items: flex-end; justify-content: center; }
         .fp-img img { width: 44px; height: 48px; object-fit: contain; object-position: bottom; }
-        .fp-ph { width: 36px; height: 36px; border-radius: 50%; background: var(--bg3); color: var(--text3); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .8rem; }
+        .fp-ph { width: 36px; height: 36px; border-radius: 50%; background: var(--bg3); color: var(--text3); font-family: var(--font-text3, inherit); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .8rem; }
         .fp-main { flex: 1; min-width: 0; }
         .fp-name { font-weight: 600; font-size: .88rem; color: var(--text); display: flex; align-items: center; flex-wrap: wrap; gap: .35rem; }
-        .fp-meta { font-size: .72rem; color: var(--text2); margin-top: 2px; display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
-        .fp-club { color: var(--text3); }
+        .fp-meta { font-size: .72rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-top: 2px; display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+        .fp-club { color: var(--text3); font-family: var(--font-text3, inherit); }
         .fp-opp { color: var(--text); font-weight: 600; }
-        .fp-opp em { font-style: normal; font-weight: 400; color: var(--text3); }
+        .fp-opp em { font-style: normal; font-weight: 400; color: var(--text3); font-family: var(--font-text3, inherit); }
         .fp-status { margin-top: 4px; display: flex; flex-direction: column; gap: 2px; }
         .fp-chip { display: inline-flex; align-items: center; gap: 3px; width: fit-content; font-size: .65rem; font-weight: 700; padding: 1px 7px; border-radius: 10px; border: 1px solid; text-transform: uppercase; letter-spacing: .3px; }
-        .fp-note { font-size: .68rem; color: var(--text2); line-height: 1.3; }
+        .fp-note { font-size: .68rem; color: var(--text2); font-family: var(--font-sub, inherit); line-height: 1.3; }
         .fp-pct { width: 64px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; text-align: right; }
         .fp-pct-val { font-weight: 700; font-size: .9rem; font-family: 'DM Mono', monospace; line-height: 1.1; }
         .fp-bar { width: 100%; height: 5px; border-radius: 3px; background: rgba(255,255,255,.12); overflow: hidden; }
         .fp-bar > div { height: 100%; border-radius: 3px; }
-        .fp-xi { font-size: .6rem; color: var(--text3); text-transform: uppercase; letter-spacing: .3px; }
+        .fp-xi { font-size: .6rem; color: var(--text3); font-family: var(--font-text3, inherit); text-transform: uppercase; letter-spacing: .3px; }
         .fp-used-tag, .fp-cur-tag { font-size: .6rem; font-weight: 700; padding: 1px 6px; border-radius: 8px; text-transform: uppercase; }
         .fp-used-tag { background: rgba(255,255,255,.15); color: var(--text); }
         .fp-cur-tag { background: var(--accent); color: #000; }
@@ -246,7 +249,7 @@ export const FormazionePage = {
     const modSelect = document.getElementById('f-modulo');
     if (!modSelect) return;
     
-    if (!window._formazioneInitialized) {
+    if (!this._initialized) {
       modSelect.addEventListener('change', () => this.buildSlots(STATE, true));
       
       const saveBtn = document.getElementById('btn-save-lineup');
@@ -254,14 +257,7 @@ export const FormazionePage = {
         saveBtn.addEventListener('click', () => this.save(STATE));
       }
 
-      const navButtons = document.querySelectorAll('#nav window, .nav-btn, [onclick*="formazione"]');
-      navButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-          setTimeout(() => this.buildSlots(window.STATE), 50);
-        });
-      });
-
-      window._formazioneInitialized = true;
+      this._initialized = true;
     }
 
     this.buildSlots(STATE);
@@ -297,7 +293,7 @@ export const FormazionePage = {
             <i class="ri-lock-line" style="font-size:1.3rem; color:var(--accent3, #ff4757);"></i>
             <div>
               <div style="font-weight:600; font-size:.9rem;">Formazione non modificabile — ${compName}</div>
-              <div style="font-size:.8rem; color:var(--text2); margin-top:2px;">${status.reason}</div>
+              <div style="font-size:.8rem; color:var(--text2);font-family:var(--font-sub,inherit); margin-top:2px;">${status.reason}</div>
             </div>
           </div>
         </div>`;
@@ -335,7 +331,7 @@ export const FormazionePage = {
     const userId = STATE.user.id;
     const compId = STATE.currentCompetition;
     
-    const compData = STATE.competitions?.find ? STATE.competitions.find(c => c.id === compId) : null;
+    const compData = this._comp(STATE, compId);
     
     // Calcolo corretto della GW della competizione
     const gwCompetizione = this.getGwCompetizione(compData, STATE);
@@ -345,6 +341,20 @@ export const FormazionePage = {
     if (gwCompetizione) {
       savedLineup = compData?.matches?.[gwCompetizione]?.lineups?.[userId] || null;
     }
+
+    // refreshUI arriva a ogni dato nuovo da Firebase (voti, scambi...): se competizione, giornata,
+    // rosa e formazione salvata sono le stesse, il campo NON si ridisegna, così le scelte
+    // non ancora salvate restano. Si aggiorna solo il blocco.
+    const rosaSig = STATE.players
+      .filter(p => p && sameId(p.teamId || p.team, userId))
+      .map(p => `${p.id}:${p.role}`).sort().join(',');
+    const sig = [compId, gwCompetizione, userId, savedLineup?.timestamp || '', rosaSig].join('|');
+    const hasSlots = !!document.querySelector('#titolari-field-slots select');
+    if (!userChangedModulo && hasSlots && sig === this._slotsSig) {
+      this.applyLock(compData, STATE);
+      return;
+    }
+    this._slotsSig = sig;
 
     if (savedLineup && savedLineup.modulo && !userChangedModulo) {
         modSelect.value = savedLineup.modulo;
@@ -405,10 +415,6 @@ export const FormazionePage = {
   // ------------------------------------------------------------------
   // Helper grafici
   // ------------------------------------------------------------------
-  _esc(s) {
-    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  },
-
   _photo(p) {
     return p ? (p.photoPersonal || p.photoStandard || '') : '';
   },
@@ -490,6 +496,7 @@ export const FormazionePage = {
     this._renderPicker();
     ov.classList.add('open');
     document.body.style.overflow = 'hidden';
+    BackNav.push('formazione-picker', () => this._closePicker());
   },
 
   _closePicker() {
@@ -497,6 +504,7 @@ export const FormazionePage = {
     if (ov) ov.classList.remove('open');
     document.body.style.overflow = '';
     this._picker = null;
+    BackNav.pop('formazione-picker');
   },
 
   _choose(id) {
@@ -555,7 +563,6 @@ export const FormazionePage = {
       `<span class="rbadge r${role}" style="width:22px;height:22px;font-size:.65rem;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;margin-right:.4rem;">${role}</span>Scegli tra i tuoi ${roleNames[role] || role}`;
     document.getElementById('fp-sub').innerHTML = sub;
 
-    const esc = (s) => this._esc(s);
     const list = document.getElementById('fp-list');
 
     if (!rows.length) {
@@ -579,11 +586,11 @@ export const FormazionePage = {
         // Probabilità
         let pctHtml;
         if (!info.known) {
-          pctHtml = `<div class="fp-pct"><span class="fp-pct-val" style="color:var(--text3);">—</span></div>`;
+          pctHtml = `<div class="fp-pct"><span class="fp-pct-val" style="color:var(--text3);font-family:var(--font-text3,inherit);">—</span></div>`;
         } else if (info.pct === null && (info.st === 'squal' || info.st === 'inf')) {
           pctHtml = `<div class="fp-pct"><span class="fp-pct-val" style="color:${STATUS_INFO[info.st].color};">OUT</span></div>`;
         } else if (info.pct === null) {
-          pctHtml = `<div class="fp-pct"><span class="fp-pct-val" style="color:var(--text3); font-size:.65rem;">non in<br>lista</span></div>`;
+          pctHtml = `<div class="fp-pct"><span class="fp-pct-val" style="color:var(--text3);font-family:var(--font-text3,inherit); font-size:.65rem;">non in<br>lista</span></div>`;
         } else {
           const col = ProbabiliService.pctColor(info.pct);
           pctHtml = `
@@ -671,10 +678,8 @@ export const FormazionePage = {
           }
         }
 
-        let bgShirt = '#475569'; 
-        if (reparto.role === 'D') bgShirt = '#2196f3'; 
-        if (reparto.role === 'C') bgShirt = '#e91e63'; 
-        if (reparto.role === 'A') bgShirt = '#ff5722'; 
+        // colori del ruolo dal tema (sfondo e testo del badge)
+        const roleVar = String(reparto.role || 'P').toLowerCase();
 
         const playerDiv = document.createElement('div');
         playerDiv.className = 'field-player';
@@ -684,7 +689,7 @@ export const FormazionePage = {
         const shirtClass = photoUrl ? 'player-shirt has-png' : 'player-shirt is-circle';
         const shirtStyle = photoUrl 
           ? `background-image: url('${photoUrl}');`
-          : `background-color: ${bgShirt}; color: #fff;`;
+          : `background-color: var(--role-${roleVar}); color: var(--role-${roleVar}-text);`;
 
         const preObj = rosa.find(p => p.id === preselectedId);
 
@@ -696,12 +701,12 @@ export const FormazionePage = {
             <div class="slot-badge-wrap" id="badge-${slotId}">${this._badgeHtml(preObj)}</div>
           </div>
           <div class="player-name-label" id="label-${slotId}" style="${isSelected ? 'color: var(--accent); border-color: var(--accent);' : ''}">
-            ${this._esc(preselectedText)}
+            ${esc(preselectedText)}
           </div>
           
           <select id="${slotId}" data-role="${reparto.role}" data-label-target="label-${slotId}" data-shirt-target="shirt-${slotId}" data-badge-target="badge-${slotId}" class="field-select" tabindex="-1" aria-hidden="true">
             <option value="">-- ${reparto.role} --</option>
-            ${ops.map(p => `<option value="${p.id}" ${p.id === preselectedId ? 'selected' : ''}>${this._esc(p.name)} (${this._esc(p.club)})</option>`).join('')}
+            ${ops.map(p => `<option value="${p.id}" ${p.id === preselectedId ? 'selected' : ''}>${esc(p.name)} (${esc(p.club)})</option>`).join('')}
           </select>
         `;
 
@@ -723,7 +728,7 @@ export const FormazionePage = {
             labelEl.style.borderColor = '';
             
             shirtEl.className = 'player-shirt is-circle';
-            shirtEl.style.cssText = `background-color: ${bgShirt}; color: #fff;`;
+            shirtEl.style.cssText = `background-color: var(--role-${roleVar}); color: var(--role-${roleVar}-text);`;
             shirtEl.textContent = reparto.role;
           } else {
             const pObj = rosa.find(p => String(p.id) === String(val));
@@ -739,7 +744,7 @@ export const FormazionePage = {
               shirtEl.textContent = '';
             } else {
               shirtEl.className = 'player-shirt is-circle';
-              shirtEl.style.cssText = `background-color: ${bgShirt}; color: #fff;`;
+              shirtEl.style.cssText = `background-color: var(--role-${roleVar}); color: var(--role-${roleVar}-text);`;
               shirtEl.textContent = reparto.role;
             }
           }
@@ -755,7 +760,7 @@ export const FormazionePage = {
     if (!container) return;
     container.innerHTML = '';
 
-    const placeholderImg = (imgId) => `<div id="${imgId}" style="width:28px; height:28px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.65rem; color:var(--text3); flex-shrink:0;"><i class="ri-user-3-line"></i></div>`;
+    const placeholderImg = (imgId) => `<div id="${imgId}" style="width:28px; height:28px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.65rem; color:var(--text3);font-family:var(--font-text3,inherit); flex-shrink:0;"><i class="ri-user-3-line"></i></div>`;
     const photoImg = (imgId, url) => `<img id="${imgId}" src="${url}" style="width:28px; height:28px; object-fit:contain; flex-shrink:0;">`;
     
     schema.forEach(item => {
@@ -792,12 +797,12 @@ export const FormazionePage = {
         div.innerHTML = `
           <div class="rbadge r${item.role}" style="width:24px;height:24px;font-size:.65rem;border-radius:5px;flex-shrink:0;">${item.role}</div>
           ${imgHtml}
-          <div class="pan-pick" id="name-${slotId}" style="${preObj ? 'color:var(--text);' : ''}">${preObj ? `${this._esc(preObj.name)} <span style="color:var(--text3); font-size:.72rem;">(${this._esc(preObj.club)})</span>` : emptyTxt}</div>
+          <div class="pan-pick" id="name-${slotId}" style="${preObj ? 'color:var(--text);' : ''}">${preObj ? `${esc(preObj.name)} <span style="color:var(--text3);font-family:var(--font-text3,inherit); font-size:.72rem;">(${esc(preObj.club)})</span>` : emptyTxt}</div>
           <div id="badge-${slotId}" class="pan-badge">${this._badgeHtml(preObj)}</div>
-          <i class="ri-arrow-down-s-line" style="color:var(--text3);"></i>
+          <i class="ri-arrow-down-s-line" style="color:var(--text3);font-family:var(--font-text3,inherit);"></i>
           <select id="${slotId}" data-role="${item.role}" data-img-target="img-${slotId}" data-badge-target="badge-${slotId}" style="display:none;" tabindex="-1" aria-hidden="true">
             <option value="">${emptyTxt}</option>
-            ${ops.map(p => `<option value="${p.id}" ${p.id === preselectedId ? 'selected' : ''}>${this._esc(p.name)} (${this._esc(p.club)})</option>`).join('')}
+            ${ops.map(p => `<option value="${p.id}" ${p.id === preselectedId ? 'selected' : ''}>${esc(p.name)} (${esc(p.club)})</option>`).join('')}
           </select>
         `;
         container.appendChild(div);
@@ -816,7 +821,7 @@ export const FormazionePage = {
 
           const nameEl = document.getElementById(`name-${slotId}`);
           if (nameEl) {
-            nameEl.innerHTML = pObj ? `${this._esc(pObj.name)} <span style="color:var(--text3); font-size:.72rem;">(${this._esc(pObj.club)})</span>` : emptyTxt;
+            nameEl.innerHTML = pObj ? `${esc(pObj.name)} <span style="color:var(--text3);font-family:var(--font-text3,inherit); font-size:.72rem;">(${esc(pObj.club)})</span>` : emptyTxt;
             nameEl.style.color = pObj ? 'var(--text)' : '';
           }
 
@@ -827,7 +832,13 @@ export const FormazionePage = {
     });
   },
 
+  /** Competizione per id (gli id possono essere numeri o stringhe). */
+  _comp(STATE, compId) {
+    return (Array.isArray(STATE.competitions) ? STATE.competitions : []).find(c => sameId(c.id, compId)) || null;
+  },
+
   async save(STATE) {
+    if (this._saving) return; // doppio tocco su "Salva"
     const modulo = document.getElementById('f-modulo').value;
     
     const titS = document.querySelectorAll('#titolari-field-slots select');
@@ -850,19 +861,22 @@ export const FormazionePage = {
     if (saveAllChecked && Array.isArray(STATE.competitions)) {
       STATE.competitions.forEach(c => competitionsToSave.push(c));
     } else {
-      const currentCompId = STATE.currentCompetition;
-      const currentCompData = STATE.competitions?.find ? STATE.competitions.find(c => c.id === currentCompId) : null;
+      const currentCompData = this._comp(STATE, STATE.currentCompetition);
       if (currentCompData) competitionsToSave.push(currentCompData);
     }
 
     // Competizione corrente bloccata: non si salva nulla
-    const curComp = Array.isArray(STATE.competitions) ? STATE.competitions.find(c => c.id === STATE.currentCompetition) : null;
+    const curComp = this._comp(STATE, STATE.currentCompetition);
     const curStatus = curComp ? this.getStatus(curComp, STATE) : null;
     if (!curStatus || !curStatus.canPlay) {
       window.showToast(curStatus?.reason || 'Formazione non modificabile.', 'err');
       return;
     }
 
+    // Offline il database mette in coda la scrittura ma la promessa si risolve solo al ritorno
+    // della rete: non la si aspetta, altrimenti il salvataggio sembrerebbe bloccato.
+    const offline = Connectivity.isOffline();
+    this._saving = true;
     try {
       const saltate = [];
       let salvate = 0;
@@ -888,7 +902,9 @@ export const FormazionePage = {
           timestamp: Date.now()
         };
         
-        await window._saveNode(path, dataToSave);
+        const write = window._saveNode(path, dataToSave);
+        if (offline) write.catch(err => console.error('Formazione non inviata:', err));
+        else await write;
 
         if (!comp.matches) comp.matches = {};
         if (!comp.matches[gwCompetizione]) comp.matches[gwCompetizione] = {};
@@ -900,6 +916,8 @@ export const FormazionePage = {
 
       if (salvate === 0) {
         window.showToast('Formazione non salvata: nessuna competizione disponibile per questa giornata.', 'err');
+      } else if (offline) {
+        window.showToast("Sei offline: la formazione partirà al ritorno della rete (tieni l'app aperta)", 'ok');
       } else if (saltate.length) {
         window.showToast(`Salvata. Esclusa: ${saltate.join('; ')}`, 'ok');
       } else {
@@ -908,6 +926,8 @@ export const FormazionePage = {
     } catch(e) { 
       console.error(e);
       window.showToast('Errore durante il salvataggio', 'err'); 
+    } finally {
+      this._saving = false;
     }
   }
 };

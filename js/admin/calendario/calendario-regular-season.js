@@ -154,7 +154,7 @@ window.generateRandomCalendar = async function () {
     const database = CalendarioState.db || getDatabase();
     await set(ref(database, `competitions/${targetCompId}/matches`), calendarioCompleto);
     await set(ref(database, `competitions/${targetCompId}/status`), { currentGW: 1 });
-    window.toast?.("🎯 Calendario regular season salvato con successo!", "ok");
+    window.toast?.("Calendario regular season salvato con successo!", "ok");
   } catch (err) {
     console.error(err);
     window.toast?.("Errore durante il salvataggio su Firebase", "err");

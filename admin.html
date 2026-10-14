@@ -6,8 +6,11 @@
 <meta name="theme-color" content="#22272f">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <title>Fantacazz — Patron</title>
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
+<link href="fonts/fonts.css" rel="stylesheet">
 <style>
 :root {
+  --font-text: 'DM Sans', sans-serif; /* Font dei testi: il tema può sceglierne un altro per pagina */
   --bg: #1a1e24;       
   --bg2: #22272f;      
   --bg3: #2b323c;      
@@ -24,14 +27,14 @@
   --sidebar-width: 240px;
 }
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body{font-family:var(--font-text);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
 
 .layout { display: none; flex-direction: column; min-height: 100vh; width: 100%; }
 
 /* ─── Header mobile ─────────────────────────────────────────────────────── */
 .mobile-header { display: flex; align-items: center; gap: .75rem; background: var(--bg2); border-bottom: 1px solid var(--border); padding: .6rem 1rem; padding-top: calc(.6rem + env(safe-area-inset-top, 0px)); position: sticky; top: 0; z-index: 100; }
 .mobile-header .logo { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; line-height: 1; flex: 1; min-width: 0; }
-.mobile-header .logo span { font-size: .75rem; font-family: 'DM Sans', sans-serif; color: var(--accent); margin-left: 0.5rem; }
+.mobile-header .logo span { font-size: .75rem; font-family: var(--font-text); color: var(--accent); margin-left: 0.5rem; }
 .menu-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text); width: 40px; height: 40px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
 .menu-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 
@@ -41,7 +44,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .sidebar-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 200; opacity: 0; pointer-events: none; transition: opacity .25s ease; }
 .sidebar-backdrop.show { opacity: 1; pointer-events: auto; }
 .sidebar .logo{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:1px;padding:0 1.5rem;margin-bottom:1rem;color:#fff;display:flex;flex-direction:column}
-.sidebar .logo span{font-size:.75rem;font-family:'DM Sans',sans-serif;color:var(--accent);letter-spacing:0;font-weight:600;text-transform:uppercase;margin-top:-4px}
+.sidebar .logo span{font-size:.75rem;font-family:var(--font-text);color:var(--accent);letter-spacing:0;font-weight:600;text-transform:uppercase;margin-top:-4px}
 
 .theme-picker { padding: 0 1.5rem; margin-bottom: 1rem; }
 .theme-picker .input-login { margin-bottom: 0; }
@@ -53,21 +56,21 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .snav svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 
 .sidebar-bottom { margin-top: auto; padding: 1rem 1.5rem 0; display: flex; flex-direction: column; gap: .6rem; }
-.sync-status { font-size: .75rem; color: var(--text2); background: var(--bg3); padding: .5rem .75rem; border-radius: 6px; border: 1px solid var(--border); text-align: center; }
+.sync-status { font-size: .75rem; color: var(--text2); font-family: var(--font-sub, inherit); background: var(--bg3); padding: .5rem .75rem; border-radius: 6px; border: 1px solid var(--border); text-align: center; }
 
 .main-content { padding: 1rem; padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)); flex: 1; width: 100%; min-width: 0; }
 .admin-sec { animation: fadeIn .25s ease-out; display: none; }
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-.sec-title { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 1px; margin-bottom: 1.25rem; color: var(--title, #fff); }
+.sec-title { font-family: var(--font-title, 'Bebas Neue', sans-serif); font-size: 2rem; letter-spacing: 1px; margin-bottom: 1.25rem; color: var(--title, #fff); }
 
 .card { background: var(--card); border-radius: 12px; padding: 1.25rem; border: 1px solid var(--border); margin-bottom: 1.25rem; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
 .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
 .stat-box { background: var(--bg3); border-radius: 8px; padding: .8rem 1rem; border: 1px solid var(--border); display: flex; flex-direction: column; gap: .25rem; }
 .stat-box .num { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; color: var(--accent); }
-.label { font-size: .72rem; color: var(--label, var(--text2)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-bottom: .3rem; }
+.label { font-size: .72rem; color: var(--label, var(--text2)); font-family: var(--font-label, inherit); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-bottom: .3rem; }
 .input-login { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; color: var(--text, #fff); padding: .65rem .75rem; font-size: .9rem; margin-bottom: 1rem; transition: border-color .2s; }
 .input-login:focus { outline: none; border-color: var(--accent); }
-.btn { width: 100%; padding: .7rem 1rem; border-radius: 6px; border: none; font-weight: 600; font-size: .9rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: .5rem; transition: all .2s; text-decoration: none; }
+.btn { font-family: var(--font-btn, revert); width: 100%; padding: .7rem 1rem; border-radius: 6px; border: none; font-weight: 600; font-size: .9rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: .5rem; transition: all .2s; text-decoration: none; }
 .btn-green { background: var(--btn-primary, var(--accent)); color: var(--btn-primary-text, #0a0f1e); }
 .btn-green:hover { background: #3cd6b4; }
 .btn-blue { background: var(--accent2); color: #fff; }
@@ -83,7 +86,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 .table-wrapper { overflow-x: auto; margin-top: .5rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg3); -webkit-overflow-scrolling: touch; }
 table { width: 100%; border-collapse: collapse; text-align: left; font-size: .85rem; min-width: 500px; }
-th { background: var(--card); color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: .7rem; letter-spacing: 0.5px; padding: .75rem 1rem; border-bottom: 1px solid var(--border); }
+th { background: var(--card); color: var(--text2); font-family: var(--font-sub, inherit); font-weight: 600; text-transform: uppercase; font-size: .7rem; letter-spacing: 0.5px; padding: .75rem 1rem; border-bottom: 1px solid var(--border); }
 td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
 
 .vote-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .5rem; margin-top: .5rem; }
@@ -96,15 +99,15 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 .toast.info { border-left: 4px solid var(--accent2); }
 
 
-.btn-outline { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--text2); }
+.btn-outline { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--text2); font-family: var(--font-sub, inherit); }
 .btn-outline:hover { background: rgba(255,255,255,0.05); color: #fff; }
 
 /* ─── Schermata di accesso Patron ───────────────────────────────────────── */
 .auth-screen { display: none; min-height: 100vh; min-height: 100dvh; align-items: center; justify-content: center; padding: 1.5rem; }
 .auth-card { width: 100%; max-width: 380px; margin-bottom: 0; }
 .auth-card .auth-logo { font-family: 'Bebas Neue', sans-serif; font-size: 2.4rem; letter-spacing: 1px; text-align: center; }
-.auth-card .auth-logo span { display: block; font-size: .75rem; font-family: 'DM Sans', sans-serif; color: var(--accent); font-weight: 600; text-transform: uppercase; margin-top: -4px; }
-.auth-msg { font-size: .85rem; color: var(--text2); text-align: center; margin: 1rem 0; line-height: 1.4; }
+.auth-card .auth-logo span { display: block; font-size: .75rem; font-family: var(--font-text); color: var(--accent); font-weight: 600; text-transform: uppercase; margin-top: -4px; }
+.auth-msg { font-size: .85rem; color: var(--text2); font-family: var(--font-sub, inherit); text-align: center; margin: 1rem 0; line-height: 1.4; }
 .auth-err { color: var(--accent3); }
 .auth-card .btn + .btn { margin-top: .6rem; }
 
@@ -181,7 +184,7 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
       <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
     <div class="logo">Fantacazz<span>Patron</span></div>
-    <div id="mobileSyncStatus" style="font-size: 0.7rem; color: var(--accent)">🟢 Connesso</div>
+    <div id="mobileSyncStatus" style="font-size: 0.7rem; color: var(--accent)"><i class="ri-checkbox-blank-circle-fill"></i> Connesso</div>
   </div>
 
   <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="window.closeSidebar()"></div>
@@ -199,8 +202,8 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
     <div class="nav-links-container"></div>
 
     <div class="sidebar-bottom">
-      <div class="sync-status" id="syncStatus">⚪ Caricamento...</div>
-      <a class="btn btn-outline" href="index.html">← Torna all'app</a>
+      <div class="sync-status" id="syncStatus"><i class="ri-checkbox-blank-circle-line"></i> Caricamento...</div>
+      <a class="btn btn-outline" href="index.html"><i class="ri-arrow-left-line"></i> Torna all'app</a>
     </div>
   </div>
 
@@ -238,6 +241,9 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
   <button class="snav" data-sec="crea-competizioni">
     <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Competizioni
   </button>
+  <button class="snav" data-sec="notifiche">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Notifiche
+  </button>
   <button class="snav" data-sec="themes">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 18a6 6 0 1 0 0-12v12z"/></svg>Temi
   </button>
@@ -251,6 +257,8 @@ import { db, auth, ref, onValue, set, update, onAuthStateChanged, signInWithEmai
 import { get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { MercatoService } from './js/services/mercatoService.js';
 import { isPatron } from './js/services/roleService.js';
+import { ensurePatronFlag } from './js/services/accountService.js';
+import { AccountRequestsSection } from './js/admin/accounts.js';
   
 // Importazione di tutti i sottomoduli amministrativi
 import { DashboardSection }     from './js/admin/dashboard.js';
@@ -264,6 +272,9 @@ import { ClassificaSection }    from './js/admin/classifica.js';
 import { CalendarioSection }    from './js/admin/calendario/calendario.js';
 import { CompetizioniSection }  from './js/admin/competizioni.js';
 import { ThemesSection }        from './js/admin/themes.js';
+import { DiviseSection }        from './js/admin/divise.js';
+import { NotificheSection }     from './js/admin/notifiche.js';
+import { tradeNotificationUpdates } from './js/services/notificationService.js';
 import { applyThemeVars, applyBackground } from './js/services/themeService.js';
 
 if ('serviceWorker' in navigator) {
@@ -320,6 +331,7 @@ onAuthStateChanged(auth, async (user) => {
 
   showAuthView(null);
   layout.style.display = 'flex';
+  ensurePatronFlag();
   if (!adminInitialized) {
     adminInitialized = true;
     initAdminApp();
@@ -360,6 +372,8 @@ function initAdminApp() {
   if (CalendarioSection && typeof CalendarioSection.init === 'function') CalendarioSection.init(db);
   if (CompetizioniSection && typeof CompetizioniSection.init === 'function') CompetizioniSection.init(db);
   if (ThemesSection && typeof ThemesSection.init === 'function') ThemesSection.init(db);
+  if (DiviseSection && typeof DiviseSection.init === 'function') DiviseSection.init(db);
+  if (NotificheSection && typeof NotificheSection.init === 'function') NotificheSection.init(db, auth);
 
   const navTemplate = document.getElementById('nav-template').innerHTML;
   document.querySelector('.sidebar .nav-links-container').innerHTML = navTemplate;
@@ -379,17 +393,19 @@ function initAdminApp() {
       ${typeof CalendarioSection.renderHTML === 'function' ? CalendarioSection.renderHTML() : ''}
       ${typeof CompetizioniSection.renderHTML === 'function' ? CompetizioniSection.renderHTML() : ''}
       ${typeof ThemesSection.renderHTML === 'function' ? ThemesSection.renderHTML() : ''}
+      ${typeof NotificheSection.renderHTML === 'function' ? NotificheSection.renderHTML() : ''}
     `;
   }
 
   const syncStatusEl = document.getElementById('syncStatus');
   if (syncStatusEl) {
-    syncStatusEl.innerHTML = "🟢 Connesso in sicurezza";
+    syncStatusEl.innerHTML = '<i class="ri-shield-check-fill"></i> Connesso in sicurezza';
     syncStatusEl.style.color = "var(--accent)";
   }
 
   startFirebaseSubscriptions();
   window.showSec('dashboard');
+  AccountRequestsSection.init(auth);
 }
 
 function refreshAll() {
@@ -420,6 +436,8 @@ function refreshAll() {
   if (CalendarioSection && typeof CalendarioSection.render === 'function') CalendarioSection.render(state);
   if (CompetizioniSection && typeof CompetizioniSection.render === 'function') CompetizioniSection.render(state);
   if (ThemesSection && typeof ThemesSection.render === 'function') ThemesSection.render(state);
+  if (DiviseSection && typeof DiviseSection.render === 'function') DiviseSection.render(state);
+  if (NotificheSection && typeof NotificheSection.render === 'function') NotificheSection.render(state);
 }
 
 /* ─── Gestione della Navigazione Sincronizzata ──────────────────────────── */
@@ -580,7 +598,11 @@ window.changeRealGW = async function(newGw) {
       const rientrati = await MercatoService.processaScadenze({
         trades: Object.values(tSnap.val() || {}),
         players: Object.entries(pSnap.val() || {}).map(([k, v]) => ({ id: k, ...v })),
-        giornataReale: gwNumber
+        giornataReale: gwNumber,
+        notify: t => {
+          const opts = { templates: NotificheSection.templates, teams: TEAMS, createdBy: auth.currentUser && auth.currentUser.uid, rientro: gwNumber };
+          return { ...tradeNotificationUpdates('prestitoConcluso', t, t.fromTeamId, opts), ...tradeNotificationUpdates('prestitoConcluso', t, t.toTeamId, opts) };
+        }
       });
       if (rientrati) window.toast(`${rientrati} prestit${rientrati === 1 ? 'o scaduto: giocatori rientrati' : 'i scaduti: giocatori rientrati'}`, "ok");
     } catch (e) { console.error('Sweep prestiti:', e); }

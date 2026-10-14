@@ -1,0 +1,10 @@
+Modelli 3D della divisa
+
+shirt.glb        Maglia da calcio fornita dalla Federazione, ottimizzata per l'app.
+collar-polo.glb  Colletto e strisce della V presi da "Adidas Retro Jersey Mold" di akifdesign su CGTrader
+                 https://www.cgtrader.com/free-3d-models/sports/equipment/adidas-retro-jersey-mold
+                 Modello gratuito: licenza come indicato sulla pagina di CGTrader.
+                 Modificato: solo colletto e strisce, ricostruiti dal progetto CLO e spostati sul collo della maglia
+                 (senza loghi né texture).
+neck-polo.bin    Spostamenti del bordo del collo della maglia per il colletto alto: portano la stoffa sulla
+                 cucitura del colletto della stessa maglia retrò (calcolati una volta, non è un modello).
