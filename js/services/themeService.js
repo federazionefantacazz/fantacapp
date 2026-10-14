@@ -32,10 +32,14 @@
  */
 
 /* Font selezionabili dal Patron. Il tema salva la chiave, non il CSS.
-   I file dei font sono in /fonts, dichiarati con @font-face in index.html e admin.html. */
+   I file dei font sono in /fonts, dichiarati con @font-face in fonts/fonts.css. */
 export const THEME_FONTS = [
   { key: 'default', label: 'Font predefinito', css: null }, // il font originale di quel tipo di testo (font.def)
-  { key: 'pirates', label: 'Pirates of Cydonia',     css: "'Pirates of Cydonia', 'DM Sans', sans-serif" }
+  { key: 'pirates',   label: 'Pirates of Cydonia', css: "'Pirates of Cydonia', 'DM Sans', sans-serif" },
+  { key: 'nemoy',     label: 'Nemoy',              css: "'Nemoy', 'DM Sans', sans-serif" },
+  { key: 'novarese',  label: 'Novarese',           css: "'Novarese', 'DM Sans', sans-serif" },
+  { key: 'champions', label: 'Champions',          css: "'Champions', 'DM Sans', sans-serif" },
+  { key: 'seriea',    label: 'Seri EA',            css: "'Seri EA', 'DM Sans', sans-serif" }
 ];
 
 /* Tipi comuni a tutte le pagine di contenuto */
