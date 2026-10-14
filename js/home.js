@@ -37,10 +37,39 @@ function findLastPlayedMatch(comp, teamId) {
   return best;
 }
 
-const LOGO_PLACEHOLDER = `<div style="width:100px; height:100px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-shield-fill" style="font-size:1.5rem; color:var(--text2);font-family:var(--font-sub,inherit)"></i></div>`;
+// card del logo: sfondo e bordo dal tema (pagina Home)
+const LOGO_CARD = 'background:var(--home-logo-bg, var(--bg3)); border:1px solid var(--home-logo-border, rgba(255,255,255,0.08));';
+
+const LOGO_PLACEHOLDER = `<div style="width:100px; height:100px; ${LOGO_CARD} display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-shield-fill" style="font-size:1.5rem; color:var(--text2);font-family:var(--font-sub,inherit)"></i></div>`;
 
 // riquadri dentro la card della squadra (maglia, classifica, palmarès)
-const BOX = 'background: rgba(0,0,0,0.18); border: 1px solid var(--border); border-radius: 14px; padding: 0.6rem 0.7rem;';
+const BOX = 'background: var(--home-box-bg, rgba(0,0,0,0.18)); border: 1px solid var(--home-box-border, var(--border)); border-radius: 14px; padding: 0.6rem 0.7rem;';
+
+/* Nome della squadra su una sola riga: il testo si rimpicciolisce finché il nome ci sta
+   (da 32px fino a 16px); se non basta, alla misura minima va a capo.
+   Si ricalcola quando cambia la larghezza o arriva il font. */
+const TEAM_NAME_MAX = 32, TEAM_NAME_MIN = 16; // px
+function fitTeamName(el) {
+  if (!el || !el.clientWidth) return;
+  let size = TEAM_NAME_MAX;
+  el.style.whiteSpace = 'nowrap';
+  el.style.fontSize = size + 'px';
+  while (el.scrollWidth > el.clientWidth && size > TEAM_NAME_MIN) {
+    size -= 1;
+    el.style.fontSize = size + 'px';
+  }
+  if (el.scrollWidth > el.clientWidth) el.style.whiteSpace = 'normal';
+}
+let teamNameObserver = null;
+function watchTeamName(el) {
+  if (!el) return;
+  fitTeamName(el);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitTeamName(el));
+  if (!teamNameObserver && 'ResizeObserver' in window) {
+    teamNameObserver = new ResizeObserver(() => fitTeamName(el));
+    teamNameObserver.observe(el);
+  }
+}
 
 // "Modifica" sulla maglia apre direttamente l'editor della divisa
 window.openKitEditor = () => MenuPanel.open(DivisaSquadra, 'kit');
@@ -58,8 +87,8 @@ export const HomePage = {
             <div id="userTeamLogo" style="flex-shrink: 0;"></div>
             <div style="flex: 1; min-width: 0; overflow: hidden;">
               <div class="label" style="margin: 0; font-size: 0.68rem;">La mia squadra</div>
-              <h3 id="homeTeamName" style="font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 0.5px; color: var(--text); margin: 0; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Caricamento...</h3>
-              <p id="homeTeamOwner" style="font-size: 0.75rem; color: var(--text2); font-family: var(--font-sub, inherit); margin: 2px 0 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">...</p>
+              <h3 id="homeTeamName" style="font-family: var(--font-team-name, 'Bebas Neue', sans-serif); font-size: 2rem; letter-spacing: 0.5px; text-transform: uppercase; color: var(--team-name, var(--text)); margin: 0; line-height: 1.1; white-space: nowrap; overflow: hidden; overflow-wrap: anywhere;">Caricamento...</h3>
+              <p id="homeTeamOwner" style="font-size: 0.75rem; color: var(--team-owner, var(--text2)); font-family: var(--font-team-owner, var(--font-sub, inherit)); margin: 2px 0 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">...</p>
             </div>
           </div>
 
@@ -160,7 +189,7 @@ export const HomePage = {
     const myTeam = teamsList.find(t => sameId(t.id, STATE.user.id));
 
     if (myTeam) {
-      if (tn) tn.textContent = myTeam.name || "Senza Nome";
+      if (tn) { tn.textContent = myTeam.name || "Senza Nome"; watchTeamName(tn); }
       if (to) to.textContent = `Patron: ${myTeam.owner || "Sconosciuto"}`;
       
       if (onFireTitle) {
@@ -170,7 +199,7 @@ export const HomePage = {
       if (teamLogoContainer) {
         if (myTeam.logo) {
           // logo non caricabile: al suo posto lo scudo segnaposto
-          teamLogoContainer.innerHTML = `<img src="${esc(myTeam.logo)}" style="width:100px; height:100px; object-fit:contain; border-radius:8px; background:var(--bg3); padding:2px; border:1px solid rgba(255,255,255,0.08);" onerror="this.outerHTML=this.dataset.fb" data-fb="${esc(LOGO_PLACEHOLDER)}" alt="Logo">`;
+          teamLogoContainer.innerHTML = `<img src="${esc(myTeam.logo)}" style="width:100px; height:100px; object-fit:contain; border-radius:8px; ${LOGO_CARD} padding:2px;" onerror="this.outerHTML=this.dataset.fb" data-fb="${esc(LOGO_PLACEHOLDER)}" alt="Logo">`;
         } else {
           teamLogoContainer.innerHTML = LOGO_PLACEHOLDER;
         }
@@ -231,7 +260,7 @@ export const HomePage = {
       }
 
     } else {
-      if (tn) tn.textContent = "Spettatore";
+      if (tn) { tn.textContent = "Spettatore"; watchTeamName(tn); }
       if (to) to.textContent = STATE.user.email;
       if (onFireTitle) onFireTitle.textContent = `Giocatori On Fire`;
       if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:52px; height:52px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-eye-line" style="font-size:1.5rem; color:var(--text2);font-family:var(--font-sub,inherit)"></i></div>`;

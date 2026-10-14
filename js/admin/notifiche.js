@@ -18,10 +18,10 @@ const STYLES = `
 @media (max-width: 900px){#sec-notifiche .nt-grid{grid-template-columns:minmax(0,1fr)}}
 #sec-notifiche textarea.input-login{resize:vertical;min-height:80px;font-family:inherit}
 #sec-notifiche .nt-teams{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1rem}
-#sec-notifiche .nt-chip{display:inline-flex;align-items:center;gap:.35rem;padding:.35rem .7rem;border-radius:999px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:.78rem;cursor:pointer;user-select:none}
+#sec-notifiche .nt-chip{display:inline-flex;align-items:center;gap:.35rem;padding:.35rem .7rem;border-radius:999px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-family:var(--font-sub,inherit);font-size:.78rem;cursor:pointer;user-select:none}
 #sec-notifiche .nt-chip.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
 #sec-notifiche .nt-chip input{display:none}
-#sec-notifiche .nt-opt{display:flex;align-items:center;gap:.5rem;font-size:.82rem;color:var(--text2);margin-bottom:.6rem;cursor:pointer}
+#sec-notifiche .nt-opt{display:flex;align-items:center;gap:.5rem;font-size:.82rem;color:var(--text2);font-family:var(--font-sub,inherit);margin-bottom:.6rem;cursor:pointer}
 #sec-notifiche .nt-preview{background:#f2f3f5;color:#1b1d21;border-radius:16px;padding:.8rem .9rem;box-shadow:0 6px 24px rgba(0,0,0,.35);font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
 #sec-notifiche .nt-preview .nt-app{display:flex;align-items:center;gap:.4rem;font-size:.7rem;color:#5d636c;margin-bottom:.45rem}
 #sec-notifiche .nt-preview .nt-app img{width:16px;height:16px;border-radius:4px}
@@ -126,14 +126,14 @@ export const NotificheSection = {
           <div class="card">
             <div class="label" style="margin-bottom:.8rem;">Anteprima</div>
             <div id="nt-preview"></div>
-            <div style="font-size:.72rem; color:var(--text3); margin-top:.8rem; line-height:1.4;">L'aspetto reale dipende dal telefono. Nell'app la notifica compare anche nell'elenco della campanella.</div>
+            <div style="font-size:.72rem; color:var(--text3);font-family:var(--font-text3,inherit); margin-top:.8rem; line-height:1.4;">L'aspetto reale dipende dal telefono. Nell'app la notifica compare anche nell'elenco della campanella.</div>
           </div>
         </div>
       </div>
 
       <div class="card">
         <div class="label" style="color:var(--accent); font-size:.85rem; margin-bottom:.4rem;"><i class="ri-exchange-line"></i> Notifiche automatiche del mercato</div>
-        <div style="font-size:.78rem; color:var(--text2); margin-bottom:.6rem; line-height:1.4;">
+        <div style="font-size:.78rem; color:var(--text2);font-family:var(--font-sub,inherit); margin-bottom:.6rem; line-height:1.4;">
           Partono da sole quando una squadra propone, accetta, rifiuta o ritira una trattativa e quando finisce un prestito.
           Nei testi puoi usare (tocca per inserire):
         </div>
@@ -227,7 +227,7 @@ export const NotificheSection = {
     box.innerHTML = `
       <div class="card" style="display:flex; align-items:center; gap:.8rem; border-left:4px solid var(--gold);">
         <i class="ri-notification-off-line" style="font-size:1.4rem; color:var(--gold);"></i>
-        <div style="flex:1; font-size:.82rem; color:var(--text2); line-height:1.4;">${msg}</div>
+        <div style="flex:1; font-size:.82rem; color:var(--text2);font-family:var(--font-sub,inherit); line-height:1.4;">${msg}</div>
         ${st === 'default' ? `<button class="btn btn-green" style="width:auto; padding:.5rem .9rem;" onclick="window.ntEnablePermission()"><i class="ri-notification-3-line"></i> Attiva</button>` : ''}
       </div>`;
   },
@@ -336,7 +336,7 @@ export const NotificheSection = {
             <label class="nt-switch" title="Attiva/disattiva"><input type="checkbox" id="nt-tpl-on-${key}" data-tpl-toggle="1" ${t.enabled ? 'checked' : ''}><span></span></label>
             <div style="flex:1; min-width:0;">
               <div style="font-size:.9rem; font-weight:600;">${esc(def.label)}</div>
-              <div style="font-size:.72rem; color:var(--text3);">${esc(def.who)}</div>
+              <div style="font-size:.72rem; color:var(--text3);font-family:var(--font-text3,inherit);">${esc(def.who)}</div>
             </div>
           </div>
           <div class="nt-fields">
@@ -379,7 +379,7 @@ export const NotificheSection = {
     const box = document.getElementById('nt-sent');
     if (!box) return;
     if (!this.sent.length) {
-      box.innerHTML = `<div style="font-size:.8rem; color:var(--text3);">Ancora nessuna notifica.</div>`;
+      box.innerHTML = `<div style="font-size:.8rem; color:var(--text3);font-family:var(--font-text3,inherit);">Ancora nessuna notifica.</div>`;
       return;
     }
     const teamName = (id) => (this.teams.find(t => String(t.id) === String(id)) || {}).name || id;
@@ -391,8 +391,8 @@ export const NotificheSection = {
           <i class="${auto ? 'ri-exchange-line' : 'ri-notification-3-line'}" style="font-size:1.1rem; color:${auto ? 'var(--accent2)' : 'var(--accent)'}; margin-top:.15rem;"></i>
           <div style="flex:1; min-width:0;">
             <div style="font-size:.88rem; font-weight:600;">${esc(n.title || '')}</div>
-            ${n.body ? `<div style="font-size:.8rem; color:var(--text2); margin:.15rem 0; white-space:pre-wrap;">${esc(n.body)}</div>` : ''}
-            <div style="font-size:.7rem; color:var(--text3);">${esc(fmt(n.createdAt))} · ${esc(dest)}${auto ? ' · automatica' : ''}</div>
+            ${n.body ? `<div style="font-size:.8rem; color:var(--text2);font-family:var(--font-sub,inherit); margin:.15rem 0; white-space:pre-wrap;">${esc(n.body)}</div>` : ''}
+            <div style="font-size:.7rem; color:var(--text3);font-family:var(--font-text3,inherit);">${esc(fmt(n.createdAt))} · ${esc(dest)}${auto ? ' · automatica' : ''}</div>
           </div>
           <button class="btn btn-outline" style="width:auto; padding:.3rem .55rem; font-size:.75rem;" title="Elimina" onclick="window.ntDelete('${esc(n.id)}')"><i class="ri-delete-bin-line"></i></button>
         </div>`;

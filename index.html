@@ -16,12 +16,8 @@
 <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <title>Fantacapp</title>
+<link href="fonts/fonts.css" rel="stylesheet">
 <style>
-@font-face {
-  font-family: 'Pirates of Cydonia';
-  src: url('fonts/pirates-of-cydonia.ttf') format('truetype');
-  font-display: swap;
-}
 :root {
   --font-text: 'DM Sans', sans-serif; /* Font dei testi: il tema può sceglierne un altro per pagina */
   /* I temi (js/services/themeService.js) ridefiniscono queste variabili per pagina:
@@ -403,6 +399,10 @@ body {
 .status-chip.live .dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:livePulse 1.2s ease-in-out infinite}
 @keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+/* Nomi su 2 righe che si rimpiccioliscono invece di spezzare le parole (fitName in js/utils.js) */
+.fit-box{flex:1 1 0;min-width:0;width:100%;container-type:inline-size}
+.fit-name{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.15;word-break:normal;overflow-wrap:anywhere;
+  font-size:max(.55rem, min(var(--fit-max,.9rem), calc(100cqi / (var(--fit-ch,8) * .56))))}
 .toast{position:fixed;top:calc(env(safe-area-inset-top, 0px) + .75rem);width:max-content;max-width:calc(100vw - 2rem);text-align:center;left:50%;transform:translateX(-50%) translateY(-40px);background:var(--card);border:1px solid rgba(255,255,255,0.1);padding:.75rem 1.5rem;border-radius:12px;font-size:.85rem;font-weight:500;z-index:9999;box-shadow:0 10px 30px rgba(0,0,0,0.5);opacity:0;transition:all 0.3s ease;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.ok{border-color:var(--accent);color:var(--accent)}
@@ -447,13 +447,13 @@ label.label{display:block;text-align:left}
 html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75rem)}
 
 #update-banner{position:fixed;left:.75rem;right:.75rem;bottom:calc(76px + env(safe-area-inset-bottom, 0px));z-index:1300;display:none;align-items:center;gap:.6rem;
-  padding:.6rem .6rem .6rem .9rem;border-radius:14px;background:var(--card);border:1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  padding:.6rem .6rem .6rem .9rem;border-radius:14px;background:var(--upd-bg, var(--card));border:1px solid var(--upd-border, color-mix(in srgb, var(--accent) 50%, transparent));
   box-shadow:0 10px 30px rgba(0,0,0,.45);font-size:.8rem;color:var(--text);animation:fadeIn .25s ease-out}
 #update-banner.show{display:flex}
 #update-banner span{flex:1}
 #update-banner button{border:none;border-radius:10px;padding:.55rem .9rem;font-family:inherit;font-weight:600;font-size:.8rem;cursor:pointer;min-height:40px}
 #update-banner .upd-go{background:var(--btn-primary);color:var(--btn-primary-text);font-family:var(--font-btn,inherit)}
-#update-banner .upd-no{background:transparent;color:var(--text2);font-family:var(--font-sub,inherit);padding:.55rem .6rem}
+#update-banner .upd-no{background:transparent;color:var(--upd-later, var(--text2));font-family:var(--font-sub,inherit);padding:.55rem .6rem}
 </style>
 <style id="dynamic-theme"></style>
 <script>
@@ -617,7 +617,7 @@ html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75re
 <div id="toast" class="toast"></div>
 
 <div id="update-banner">
-  <i class="ri-refresh-line" style="color:var(--accent); font-size:1.1rem;"></i>
+  <i class="ri-refresh-line" style="color:var(--upd-icon, var(--accent)); font-size:1.1rem;"></i>
   <span>È disponibile una nuova versione dell'app.</span>
   <button type="button" class="upd-no" onclick="document.getElementById('update-banner').classList.remove('show')">Dopo</button>
   <button type="button" class="upd-go" onclick="location.reload()">Aggiorna</button>

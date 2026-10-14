@@ -32,10 +32,14 @@
  */
 
 /* Font selezionabili dal Patron. Il tema salva la chiave, non il CSS.
-   I file dei font sono in /fonts, dichiarati con @font-face in index.html e admin.html. */
+   I file dei font sono in /fonts, dichiarati con @font-face in fonts/fonts.css. */
 export const THEME_FONTS = [
   { key: 'default', label: 'Font predefinito', css: null }, // il font originale di quel tipo di testo (font.def)
-  { key: 'pirates', label: 'Pirates of Cydonia',     css: "'Pirates of Cydonia', 'DM Sans', sans-serif" }
+  { key: 'pirates',   label: 'Pirates of Cydonia', css: "'Pirates of Cydonia', 'DM Sans', sans-serif" },
+  { key: 'nemoy',     label: 'Nemoy',              css: "'Nemoy', 'DM Sans', sans-serif" },
+  { key: 'novarese',  label: 'Novarese',           css: "'Novarese', 'DM Sans', sans-serif" },
+  { key: 'champions', label: 'Champions',          css: "'Champions', 'DM Sans', sans-serif" },
+  { key: 'seriea',    label: 'Seri EA',            css: "'Seri EA', 'DM Sans', sans-serif" }
 ];
 
 /* Tipi comuni a tutte le pagine di contenuto */
@@ -168,6 +172,17 @@ export const THEME_PAGES = [
     desc: 'Pannello Listone (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
   { key: 'menuSvincolati', label: 'Svincolati',              selector: '#menu-panel[data-view="svincolati"]',
     desc: 'Pannello Svincolati (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
+  { key: 'updateBanner', label: 'Avviso aggiornamento', selector: '#update-banner',
+    desc: 'Riquadro "È disponibile una nuova versione dell\'app" con i pulsanti Dopo e Aggiorna.',
+    fields: [
+      { key: 'bg',     css: '--upd-bg',     kind: 'text',  def: '#282e37', label: 'Sfondo',        hint: 'Sfondo del riquadro (vuoto = come Schede)' },
+      { key: 'border', css: '--upd-border', kind: 'text',  def: 'rgba(80,227,194,0.5)', label: 'Bordo', hint: 'Bordo del riquadro (vuoto = Evidenza principale al 50%)' },
+      { key: 'icon',   css: '--upd-icon',   kind: 'color', def: '#50e3c2', label: 'Icona',         hint: 'Icona a sinistra (vuoto = Evidenza principale)' },
+      { ...TYPE_TEXT, hint: 'Testo "È disponibile una nuova versione dell\'app."' },
+      { key: 'later',  css: '--upd-later',  kind: 'color', def: '#94a3b8', label: 'Pulsante Dopo', hint: 'Testo del pulsante Dopo (vuoto = come Sottotesti)', font: FONT_SUB },
+      { ...TYPE_BTN,      hint: 'Sfondo del pulsante Aggiorna (vuoto = come Generale)' },
+      { ...TYPE_BTN_TEXT, hint: 'Testo del pulsante Aggiorna' }
+    ] },
   { key: 'login',       label: 'Login',        selector: '#page-login',       desc: 'Accesso e scelta squadra.',
     fields: [
       ...CONTENT_TYPES,
@@ -176,7 +191,26 @@ export const THEME_PAGES = [
       { key: 'inputPlaceholder', css: '--input-placeholder', kind: 'color', def: '#5b6b80',               label: 'Segnaposto campi',   hint: 'Testo di esempio nei campi vuoti (vuoto = come Testi disattivati)' },
       { key: 'inputBorder',      css: '--input-border',      kind: 'text',  def: 'rgba(255,255,255,0.15)', label: 'Bordo campi',       hint: 'Bordo dei campi (quando selezionati usano Evidenza principale)' }
     ] },
-  { key: 'home',        label: 'Home',         selector: '#page-home',        desc: 'Schermata principale.',       fields: CONTENT_TYPES },
+  { key: 'home',        label: 'Home',         selector: '#page-home',        desc: 'Schermata principale.',
+    fields: [
+      ...CONTENT_TYPES,
+      { key: 'teamName',  css: '--team-name',  kind: 'color', def: '#e2e8f0', label: 'Nome squadra', hint: 'Nome della tua squadra in alto (vuoto = come Testi)',
+        font: { key: 'teamNameFont', css: '--font-team-name', def: "'Bebas Neue', sans-serif", defLabel: 'Bebas Neue' } },
+      { key: 'teamOwner', css: '--team-owner', kind: 'color', def: '#94a3b8', label: 'Allenatore',   hint: 'Nome dell\'allenatore sotto il nome della squadra (vuoto = come Sottotesti)',
+        font: { key: 'teamOwnerFont', css: '--font-team-owner', def: "'DM Sans', sans-serif", defLabel: 'DM Sans' } },
+      ...withGroup('Riquadri della squadra', [
+        { key: 'logoBg',          css: '--home-logo-bg',       kind: 'text',  def: '#2b323c',                label: 'Card logo · sfondo',       hint: 'Riquadro del logo della squadra (vuoto = come Campi input)' },
+        { key: 'logoBorder',      css: '--home-logo-border',   kind: 'text',  def: 'rgba(255,255,255,0.08)', label: 'Card logo · bordo',        hint: 'Bordo del riquadro del logo' },
+        { key: 'boxBg',           css: '--home-box-bg',        kind: 'text',  def: 'rgba(0,0,0,0.18)',       label: 'Card interne · sfondo',    hint: 'Maglia, classifica e palmarès dentro il pannello della squadra' },
+        { key: 'boxBorder',       css: '--home-box-border',    kind: 'text',  def: 'rgba(255,255,255,0.08)', label: 'Card interne · bordo',     hint: 'Bordo di maglia, classifica e palmarès (vuoto = come Bordi)' },
+        { key: 'rowActiveBg',     css: '--mc-active-bg',       kind: 'text',  def: 'rgba(80,227,194,0.15)',  label: 'Riga attiva · sfondo',     hint: 'Mini classifica, riga della tua squadra (vuoto = Evidenza principale al 15%)' },
+        { key: 'rowActiveBorder', css: '--mc-active-border',   kind: 'text',  def: '#50e3c2',                label: 'Riga attiva · bordo',      hint: 'Bordo della riga della tua squadra (vuoto = Evidenza principale)' },
+        { key: 'rowActiveText',   css: '--mc-active-text',     kind: 'color', def: '#50e3c2',                label: 'Riga attiva · testo',      hint: 'Posizione, nome e punti della tua squadra (vuoto = Evidenza principale)' },
+        { key: 'rowBg',           css: '--mc-row-bg',          kind: 'text',  def: 'rgba(0,0,0,0.2)',        label: 'Righe · sfondo',           hint: 'Mini classifica, righe delle altre squadre' },
+        { key: 'rowBorder',       css: '--mc-row-border',      kind: 'text',  def: 'rgba(0,0,0,0)',          label: 'Righe · bordo',            hint: 'Bordo delle righe delle altre squadre (vuoto = nessuno)' },
+        { key: 'rowText',         css: '--mc-row-text',        kind: 'color', def: '#e2e8f0',                label: 'Righe · testo',            hint: 'Posizione, nome e punti delle altre squadre (vuoto = come Testi)' }
+      ])
+    ] },
   { key: 'calendario',  label: 'Calendario',   selector: '#page-calendario, #cal-popup',  desc: 'Calendario incontri.',        fields: CONTENT_TYPES },
   { key: 'classifica',  label: 'Classifica',   selector: '#page-classifica',  desc: 'Classifica e tabellone.',     fields: CONTENT_TYPES },
   { key: 'formazione',  label: 'Formazione',   selector: '#page-formazione',  desc: 'Schieramento formazione.',    fields: CONTENT_TYPES },

@@ -1,4 +1,4 @@
-import { esc } from '../utils.js';
+import { esc, fitName } from '../utils.js';
 import { ClassificaService } from "../services/classificaService.js";
 
 const GO_CLASSIFICA = "window.goPage('classifica')";
@@ -54,26 +54,27 @@ export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId, opt
     return `
     <div onclick="${GO_CLASSIFICA}" style="display: flex; flex-direction: column; gap: 0.3rem; width: 100%; cursor: pointer;" title="Clicca per visualizzare la classifica completa">
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.3rem; margin-bottom: 0.1rem;">
-        <div style="font-size: 0.7rem; font-weight: 700; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Classifica${gironeLabel ? ` · ${esc(gironeLabel)}` : ''}</div>
-        <div style="font-size: 0.65rem; color: var(--accent); display: flex; align-items: center; flex-shrink: 0;">Vedi intera <i class="ri-arrow-right-s-line"></i></div>
+        <div style="min-width: 0; font-size: 0.7rem; font-weight: 700; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase; line-height: 1.2;">Classifica${gironeLabel ? `<div style="font-weight: 600; color: var(--text3); font-family: var(--font-text3, inherit);">${esc(gironeLabel)}</div>` : ''}</div>
+        <i class="ri-arrow-right-s-line" aria-label="Vedi intera" style="font-size: 1.1rem; color: var(--accent); flex-shrink: 0;"></i>
       </div>
       <div style="display: flex; align-items: center; gap: 0.35rem; padding: 0 0.4rem;">
-        <span style="${colHead} width: 24px; text-align: left;">Psz</span>
+        <span style="${colHead} width: 22px; text-align: left;">#</span>
         <span style="${colHead} flex: 1; text-align: left;">Squadra</span>
         <span style="${colHead} width: 22px;">Pt</span>
       </div>
       ${rows.map(({ team, pos }) => {
         const s = stats[team.id] || { pts: 0 };
         const isMe = String(team.id) === String(myTeamId);
+        // righe dal tema (pagina Home): attiva = la mia squadra
         const rowBg = isMe
-          ? 'background: color-mix(in srgb, var(--accent) 15%, transparent); border: 1px solid var(--accent);'
-          : 'background: rgba(0,0,0,0.2); border: 1px solid transparent;';
-        const col = isMe ? 'var(--accent)' : 'var(--text)';
+          ? 'background: var(--mc-active-bg, color-mix(in srgb, var(--accent) 15%, transparent)); border: 1px solid var(--mc-active-border, var(--accent));'
+          : 'background: var(--mc-row-bg, rgba(0,0,0,0.2)); border: 1px solid var(--mc-row-border, transparent);';
+        const col = isMe ? 'var(--mc-active-text, var(--accent))' : 'var(--mc-row-text, var(--text))';
         return `
           <div style="display: flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.4rem; border-radius: 6px; ${rowBg} font-size: 0.74rem;">
-            <span style="width: 24px; color: ${isMe ? 'var(--accent)' : 'var(--text2)'}; font-weight: bold;">${pos}°</span>
-            <span style="flex: 1; min-width: 0; color: ${col}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: ${isMe ? 'bold' : 'normal'};">${esc(team.name)}</span>
-            <span style="font-family: 'DM Mono', monospace; width: 22px; text-align: center; font-weight: bold; color: ${col};">${s.pts}</span>
+            <span style="width: 22px; flex-shrink: 0; color: ${isMe ? col : 'var(--mc-row-text, var(--text2))'}; font-weight: bold;">${pos}°</span>
+            ${fitName(team.name, { maxSize: '.74rem', style: `color: ${col}; font-weight: ${isMe ? 'bold' : 'normal'};` })}
+            <span style="font-family: 'DM Mono', monospace; width: 22px; flex-shrink: 0; text-align: center; font-weight: bold; color: ${col};">${s.pts}</span>
           </div>`;
       }).join('')}
     </div>`;
@@ -103,13 +104,13 @@ export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId, opt
         const s = stats[team.id] || { giocate: 0, pts: 0, totFanta: 0 };
         const isMe = String(team.id) === String(myTeamId);
         const rowBg = isMe
-          ? 'background: color-mix(in srgb, var(--accent) 15%, transparent); border: 1px solid var(--accent);'
-          : 'background: rgba(0,0,0,0.15); border: 1px solid transparent;';
-        const numColor = isMe ? 'var(--accent)' : 'var(--text)';
+          ? 'background: var(--mc-active-bg, color-mix(in srgb, var(--accent) 15%, transparent)); border: 1px solid var(--mc-active-border, var(--accent));'
+          : 'background: var(--mc-row-bg, rgba(0,0,0,0.15)); border: 1px solid var(--mc-row-border, transparent);';
+        const numColor = isMe ? 'var(--mc-active-text, var(--accent))' : 'var(--mc-row-text, var(--text))';
 
         return `
           <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 6px; ${rowBg} font-size: 0.75rem;">
-            <span style="font-weight: bold; color: ${isMe ? 'var(--accent)' : 'var(--text3)'}; width: 18px; text-align: center;">${pos}°</span>
+            <span style="font-weight: bold; color: ${isMe ? numColor : 'var(--text3)'}; width: 18px; text-align: center;">${pos}°</span>
             <span style="flex: 1; min-width: 0; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: ${isMe ? 'bold' : 'normal'};">${esc(team.name)}</span>
             <span style="font-family: 'DM Mono', monospace; width: 24px; text-align: center; color: var(--text2);">${s.giocate}</span>
             <span style="font-family: 'DM Mono', monospace; width: 28px; text-align: center; font-weight: bold; color: ${numColor};">${s.pts}</span>

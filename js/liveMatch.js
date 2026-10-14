@@ -23,7 +23,7 @@ import { ref, onValue, get } from "https://www.gstatic.com/firebasejs/10.7.1/fir
 import { CalcoloMatchService, RULE_MATCH } from "./services/calcoloMatch.js";
 import { GwService } from "./services/gwService.js";
 import { ProbabiliService } from "./services/probabiliService.js";
-import { esc } from './utils.js';
+import { esc, fitName } from './utils.js';
 
 const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
 const fmt = (n) => {
@@ -69,7 +69,7 @@ const LIVE_STYLES = `
 .lv-team{display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0;gap:2px}
 .lv-logo{width:54px;height:54px;object-fit:contain;filter:drop-shadow(0 3px 6px rgba(0,0,0,.4))}
 .lv-logo-ph{width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font:1.4rem 'Bebas Neue',sans-serif}
-.lv-tname{font-weight:700;font-size:.88rem;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:.25rem}
+.lv-tname{font-weight:700;margin-top:.25rem;align-self:stretch;flex:0 0 auto}
 .lv-towner{font-size:.68rem;opacity:.75;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lv-tmod{font-size:.68rem;opacity:.6;font-family:'DM Mono',monospace}
 .lv-score{text-align:center;padding:0 .2rem}
@@ -821,7 +821,7 @@ export const LiveMatchModule = {
         ${t.info.logo
           ? `<img class="lv-logo" src="${esc(t.info.logo)}" alt="" loading="lazy">`
           : `<div class="lv-logo-ph">${esc((t.info.name || '?').charAt(0))}</div>`}
-        <div class="lv-tname">${esc(t.info.name)}</div>
+        <div class="lv-tname">${fitName(t.info.name, { maxSize: '.88rem' })}</div>
         ${t.info.owner ? `<div class="lv-towner">${esc(t.info.owner)}</div>` : ''}
         <div class="lv-tmod">${t.lineup?.modulo ? esc(t.lineup.modulo) : (t.lineup ? '' : 'senza formazione')}</div>
       </div>`;
