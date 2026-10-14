@@ -37,10 +37,13 @@ function findLastPlayedMatch(comp, teamId) {
   return best;
 }
 
-const LOGO_PLACEHOLDER = `<div style="width:100px; height:100px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-shield-fill" style="font-size:1.5rem; color:var(--text2);font-family:var(--font-sub,inherit)"></i></div>`;
+// card del logo: sfondo e bordo dal tema (pagina Home)
+const LOGO_CARD = 'background:var(--home-logo-bg, var(--bg3)); border:1px solid var(--home-logo-border, rgba(255,255,255,0.08));';
+
+const LOGO_PLACEHOLDER = `<div style="width:100px; height:100px; ${LOGO_CARD} display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-shield-fill" style="font-size:1.5rem; color:var(--text2);font-family:var(--font-sub,inherit)"></i></div>`;
 
 // riquadri dentro la card della squadra (maglia, classifica, palmarès)
-const BOX = 'background: rgba(0,0,0,0.18); border: 1px solid var(--border); border-radius: 14px; padding: 0.6rem 0.7rem;';
+const BOX = 'background: var(--home-box-bg, rgba(0,0,0,0.18)); border: 1px solid var(--home-box-border, var(--border)); border-radius: 14px; padding: 0.6rem 0.7rem;';
 
 // "Modifica" sulla maglia apre direttamente l'editor della divisa
 window.openKitEditor = () => MenuPanel.open(DivisaSquadra, 'kit');
@@ -170,7 +173,7 @@ export const HomePage = {
       if (teamLogoContainer) {
         if (myTeam.logo) {
           // logo non caricabile: al suo posto lo scudo segnaposto
-          teamLogoContainer.innerHTML = `<img src="${esc(myTeam.logo)}" style="width:100px; height:100px; object-fit:contain; border-radius:8px; background:var(--bg3); padding:2px; border:1px solid rgba(255,255,255,0.08);" onerror="this.outerHTML=this.dataset.fb" data-fb="${esc(LOGO_PLACEHOLDER)}" alt="Logo">`;
+          teamLogoContainer.innerHTML = `<img src="${esc(myTeam.logo)}" style="width:100px; height:100px; object-fit:contain; border-radius:8px; ${LOGO_CARD} padding:2px;" onerror="this.outerHTML=this.dataset.fb" data-fb="${esc(LOGO_PLACEHOLDER)}" alt="Logo">`;
         } else {
           teamLogoContainer.innerHTML = LOGO_PLACEHOLDER;
         }
