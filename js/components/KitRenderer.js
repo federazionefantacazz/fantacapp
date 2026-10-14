@@ -13,6 +13,7 @@ export { COLLAR_SHAPES };
  *   colors: { base, sleeves, collar, cuffs, trim },
  *   layers: [{ type, color, opacity, scale, flipX, flipY, x, y, rot, zone }],  // type: disegno integrato o 'png:<id>'; zone: body | all | sleeves
  *                                                           // x, y: spostamento in % del pezzo (+ = destra/su), rot: gradi
+ *                                                           // wrap: whole (davanti e dietro come un unico pezzo) | repeat | mirror
  *   sleeveTf: { x, y, scale, rot },                         // posizione, dimensione e rotazione delle decorazioni delle maniche
  *   brand: { id, color, url, mono },                        // id: marchio integrato, 'png:<id>' (dal Patron) o 'custom'
  *   crest: { show, size },
@@ -297,7 +298,7 @@ export function normalizeKit(raw) {
     crest: { ...d.crest, ...(k.crest || {}) },
     sponsor: { ...d.sponsor, ...(k.sponsor || {}) },
     layers: toArr(k.layers).map(l => ({
-      type: 'stripes', color: '#ffffff', opacity: 100, scale: 100, flipX: false, flipY: false, x: 0, y: 0, rot: 0,
+      type: 'stripes', color: '#ffffff', opacity: 100, scale: 100, flipX: false, flipY: false, x: 0, y: 0, rot: 0, wrap: 'repeat',
       ...l, zone: l.zone || (l.onSleeves ? 'all' : 'body')
     })),
     patches: toArr(k.patches).map(p => ({ id: p.id, name: p.name || '', src: p.src || '', pos: p.pos || 'chest' })),
@@ -381,14 +382,16 @@ function builtinPattern(layer, part, w, h) {
   if (rasterCache.has(key)) return rasterCache.get(key);
   // il busto (davanti/dietro) corrisponde a x 100..300, y 20..400 della vista frontale;
   // le maniche a una porzione con la stessa densità
-  const vb = part === 'front' || part === 'back' ? [100, 20, 200, 380] : [100, 20, 159, 103];
+  // 'whole': davanti e dietro affiancati come un unico pezzo (x 100..500), il disegno continua dal davanti al dietro
+  const vb = part === 'whole' ? [100, 20, 400, 380] : part === 'front' || part === 'back' ? [100, 20, 200, 380] : [100, 20, 159, 103];
   const sx = layer.flipX ? -1 : 1, sy = layer.flipY ? -1 : 1;
   const tf = (sx < 0 || sy < 0) ? `transform="translate(${sx < 0 ? W : 0},${sy < 0 ? H : 0}) scale(${sx},${sy})"` : '';
   // spostamento (in % del pezzo, positivo = a destra / in alto) e rotazione attorno al centro del pezzo
-  const cx = vb[0] + vb[2] / 2, cy = vb[1] + vb[3] / 2;
-  const move = (tx || ty || rot) ? `transform="translate(${cx + tx / 100 * vb[2]},${cy - ty / 100 * vb[3]}) rotate(${rot}) translate(${-cx},${-cy})"` : '';
+  const cx = part === 'whole' ? 200 : vb[0] + vb[2] / 2, cy = vb[1] + vb[3] / 2; // 'whole': si sposta/ruota attorno al centro del davanti
+  const pw = part === 'whole' ? vb[2] / 2 : vb[2];
+  const move = (tx || ty || rot) ? `transform="translate(${cx + tx / 100 * pw},${cy - ty / 100 * vb[3]}) rotate(${rot}) translate(${-cx},${-cy})"` : '';
   let art;
-  if (p.tile && move) {
+  if (p.tile && (move || part === 'whole')) {
     // motivo ripetuto: lo disegno su un'area tre volte più grande, così spostato o ruotato copre sempre tutto il pezzo
     const w0 = W, h0 = H;
     W = w0 * 3; H = h0 * 3;
@@ -517,6 +520,19 @@ export async function paintKitTexture(rawKit, opts = {}) {
   for (const l of k.layers) {
     const parts = l.zone === 'sleeves' ? ['sleeveL', 'sleeveR'] : l.zone === 'all' ? ['front', 'back', 'sleeveL', 'sleeveR'] : ['front', 'back'];
     const alpha = clamp(l.opacity, 0, 100) / 100;
+    // come si stende sui pezzi: 'whole' davanti e dietro come un unico pezzo, 'repeat' uguale su ogni pezzo,
+    // 'mirror' dietro e manica destra specchiati
+    const wrap = l.wrap === 'whole' || l.wrap === 'mirror' ? l.wrap : 'repeat';
+    const isBody = (p) => p === 'front' || p === 'back';
+    const mirrored = (p) => wrap === 'mirror' && (p === 'back' || p === 'sleeveR');
+    const F = R('front'), wW = Math.round(F.w * 2), wH = Math.round(F.h);
+    // disegna l'immagine del pezzo: src = porzione [sx, 0, sw, sh] dell'immagine (per 'whole' metà di quella unica)
+    const put = (x, r, img, sx, sw, sh, flip) => {
+      x.save(); x.globalAlpha = alpha;
+      if (flip) { x.translate(r.x + r.w, r.y); x.scale(-1, 1); x.drawImage(img, sx, 0, sw, sh, 0, 0, r.w, r.h); }
+      else x.drawImage(img, sx, 0, sw, sh, r.x, r.y, r.w, r.h);
+      x.restore();
+    };
     if (String(l.type).startsWith('png:')) {
       const pp = pngPatterns.find(x => 'png:' + x.id === l.type);
       const img = await loadCleanImage(pp && pp.url);
@@ -527,23 +543,36 @@ export async function paintKitTexture(rawKit, opts = {}) {
         parts.forEach(p => inPart(p, (x) => { x.globalAlpha = alpha; x.drawImage(src, 0, 0, S, S); }));
       } else {
         const s = clamp(l.scale, 30, 250) / 100;
-        parts.forEach(p => inPart(p, (x, r) => {
-          const t = tint(img, safeColor(l.color), r.w, r.h);
-          x.save(); x.globalAlpha = alpha;
-          x.translate(r.x + r.w / 2 + clamp(l.x || 0, -50, 50) / 100 * r.w, r.y + r.h / 2 - clamp(l.y || 0, -50, 50) / 100 * r.h);
+        // PNG disegnato (spostato, ruotato, ingrandito) su una tela w×h
+        const panel = (w, h) => {
+          const c2 = document.createElement('canvas'); c2.width = Math.max(1, Math.round(w)); c2.height = Math.max(1, Math.round(h));
+          const x = c2.getContext('2d'), t = tint(img, safeColor(l.color), w, h);
+          x.translate(w / 2 + clamp(l.x || 0, -50, 50) / 100 * w, h / 2 - clamp(l.y || 0, -50, 50) / 100 * h);
           x.rotate(clamp(l.rot || 0, -180, 180) * Math.PI / 180);
           x.scale((l.flipX ? -1 : 1) * s, (l.flipY ? -1 : 1) * s);
-          x.drawImage(t, -r.w / 2, -r.h / 2, r.w, r.h);
-          x.restore();
+          x.drawImage(t, -w / 2, -h / 2, w, h);
+          return c2;
+        };
+        const whole = wrap === 'whole' && parts.some(isBody) ? panel(wW, wH) : null;
+        parts.forEach(p => inPart(p, (x, r) => {
+          if (whole && isBody(p)) put(x, r, whole, p === 'front' ? 0 : wW / 2, wW / 2, wH, false);
+          else { const c2 = panel(r.w, r.h); put(x, r, c2, 0, c2.width, c2.height, mirrored(p)); }
         }));
       }
       continue;
     }
+    let whole = null;
+    if (wrap === 'whole' && parts.some(isBody)) {
+      const img = await builtinPattern(l, 'whole', wW, wH);
+      if (img) whole = tint(img, safeColor(l.color), wW, wH);
+    }
     for (const p of parts) {
       const r = R(p);
+      if (whole && isBody(p)) { inPart(p, (x) => put(x, r, whole, p === 'front' ? 0 : wW / 2, wW / 2, wH, false)); continue; }
       const img = await builtinPattern(l, p.startsWith('sleeve') ? 'sleeve' : p, Math.round(r.w), Math.round(r.h));
       if (!img) continue;
-      inPart(p, (x) => { x.globalAlpha = alpha; x.drawImage(tint(img, safeColor(l.color), r.w, r.h), r.x, r.y, r.w, r.h); });
+      const t = tint(img, safeColor(l.color), r.w, r.h);
+      inPart(p, (x) => put(x, r, t, 0, t.width, t.height, mirrored(p)));
     }
   }
 

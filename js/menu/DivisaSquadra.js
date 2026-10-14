@@ -2,7 +2,7 @@ import { db, ref, update } from '../firebase-config.js';
 import { uploadPngToImgBB } from '../services/integrationImgBB.js';
 import { createKitViewer, renderKitImage, kitImageHTML, dataUrlToBlob } from '../components/Kit3D.js';
 import { getCutout } from '../services/imageCutout.js';
-import { getPngPatterns, getPngBrands, onKitAssetsChange } from '../services/kitAssets.js';
+import { getPngPatterns, getPngBrands, getPngPatches, onKitAssetsChange } from '../services/kitAssets.js';
 import { esc } from './menuUtils.js';
 import {
   normalizeKit, defaultKit, patternLabel,
@@ -16,6 +16,12 @@ import {
  * Al salvataggio si genera anche una foto PNG (kit.image) usata nel resto dell'app.
  */
 const MAX_LAYERS = 6;
+// come si stende un disegno sui pezzi della maglia
+const LAYER_WRAPS = [
+  { id: 'whole',  label: 'Default', desc: 'Davanti e dietro come un unico pezzo: il disegno continua dal davanti al dietro.' },
+  { id: 'repeat', label: 'Ripetuto', desc: 'Lo stesso disegno uguale su davanti, dietro e maniche.' },
+  { id: 'mirror', label: 'Specchiato', desc: 'Dietro e manica destra sono lo specchio di davanti e manica sinistra.' }
+];
 const MAX_PATCHES = 4;
 const MAX_FILE_MB = 8;
 const FEDERAZIONE_LOGO = 'icons/logo-federazione.jpg';
@@ -120,10 +126,12 @@ const brandThumbUrl = (b, color, base) => svgUrl(`<svg xmlns="http://www.w3.org/
 const patternThumbUrl = (p) => svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${400} ${420}" preserveAspectRatio="xMidYMid slice"><rect width="400" height="420" fill="#2b323c"/>${p.draw('#ffffff', 1, 'th' + p.id)}</svg>`);
 
 /** Patch disponibili: loghi delle competizioni + logo della Federazione. */
+/** Patch disponibili: quella del Fantacazz e quelle caricate dal Patron (Patron → Divise → Patch). */
 function availablePatches(STATE) {
   const comps = Array.isArray(STATE.competitions) ? STATE.competitions : Object.values(STATE.competitions || {});
-  const list = comps.filter(c => c && c.logo).map(c => ({ id: String(c.id), name: c.name || 'Competizione', src: c.logo }));
-  list.push({ id: 'federazione', name: 'Federazione', src: FEDERAZIONE_LOGO });
+  const list = comps.filter(c => c && c.logo && /fantacazz/i.test(c.name || '')).map(c => ({ id: String(c.id), name: c.name, src: c.logo }));
+  if (!list.length) list.push({ id: 'federazione', name: 'Fantacazz', src: FEDERAZIONE_LOGO });
+  getPngPatches().forEach(p => list.push({ id: 'png:' + p.id, name: p.name || 'Patch', src: p.url }));
   return list;
 }
 
@@ -344,6 +352,9 @@ export const DivisaSquadra = {
           </div>
           <div class="kit-sub">Dove applicarlo</div>
           <div class="kit-chips">${ZONES.map(z => this._chip('layer-zone', z.id, z.label, l.zone === z.id)).join('')}</div>
+          <div class="kit-sub">Avanzate</div>
+          <div class="kit-chips">${LAYER_WRAPS.map(w => this._chip('layer-wrap', w.id, w.label, (l.wrap || 'repeat') === w.id)).join('')}</div>
+          <div class="mp-muted" style="margin-top:.3rem;">${esc((LAYER_WRAPS.find(w => w.id === (l.wrap || 'repeat')) || {}).desc || '')}</div>
           <div class="kit-sub">Colore del livello</div>
           <div class="kit-color-row">${this._colorPicker(`${p}.color`, l.color)}</div>
           ${this._range(`${p}.opacity`, 'Opacità', l.opacity, 5, 100, '%')}
@@ -474,7 +485,7 @@ export const DivisaSquadra = {
         ${avail.map(a => `<button class="kit-opt kit-comp" data-act="patch-add" data-v="${esc(a.id)}" title="${esc(a.name)}">
           <img data-cut="${esc(a.src)}" alt=""><span class="lb">${esc(a.name)}</span></button>`).join('')}
       </div>`}
-      <div class="mp-muted" style="margin-top:.6rem;">I loghi vengono scontornati automaticamente. Per ogni patch scegli la posizione: centro petto, sotto lo sponsor, sulle maniche o in fondo alla maglia.</div>`;
+      <div class="mp-muted" style="margin-top:.6rem;">Le patch vengono scontornate automaticamente; il Patron può aggiungerne di nuove. Per ogni patch scegli la posizione: centro petto, sotto lo sponsor, sulle maniche o in fondo alla maglia.</div>`;
   },
 
   /* ------------------------------------------------------------- eventi */
@@ -548,7 +559,7 @@ export const DivisaSquadra = {
       case 'layer-add':
         if (k.layers.length >= MAX_LAYERS) return;
         this._update(kit => {
-          kit.layers.push({ type: 'stripes', color: kit.colors.collar || '#ffffff', opacity: 100, scale: 100, flipX: false, flipY: false, zone: 'body' });
+          kit.layers.push({ type: 'stripes', color: kit.colors.collar || '#ffffff', opacity: 100, scale: 100, flipX: false, flipY: false, x: 0, y: 0, rot: 0, zone: 'body', wrap: 'whole' });
           this._layer = kit.layers.length - 1;
         });
         return;
@@ -572,6 +583,9 @@ export const DivisaSquadra = {
         return;
       case 'layer-zone':
         this._update(kit => { kit.layers[this._layer].zone = v; });
+        return;
+      case 'layer-wrap':
+        this._update(kit => { kit.layers[this._layer].wrap = v; });
         return;
       case 'layer-flag':
         this._update(kit => { const l = kit.layers[this._layer]; l[v] = !l[v]; });

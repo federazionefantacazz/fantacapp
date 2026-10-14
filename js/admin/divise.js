@@ -1,6 +1,6 @@
 import { ref, remove, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { uploadPngToImgBB } from "../services/integrationImgBB.js";
-import { getPngPatterns, getPngBrands, onKitAssetsChange } from "../services/kitAssets.js";
+import { getPngPatterns, getPngBrands, getPngPatches, onKitAssetsChange } from "../services/kitAssets.js";
 import { kitImageHTML } from "../components/Kit3D.js";
 import { esc } from '../utils.js';
 
@@ -74,6 +74,15 @@ export const DiviseSection = {
         <input type="file" id="kitBrandFile" class="input-login" accept="image/png" style="padding-top:.5rem;">
         <button class="btn btn-green" style="width:auto;" onclick="window.diviseAction('add-brand')"><i class="ri-upload-2-line"></i> Carica marchio</button>
       </div>
+
+      <div class="card">
+        <div class="label">Patch (PNG su trasparente)</div>
+        <div style="font-size:.8rem; color:var(--text3);font-family:var(--font-text3,inherit); margin-top:.2rem;">Le squadre le trovano nell'editor (FASE 7) e scelgono dove metterle: petto, sotto lo sponsor, maniche o fondo maglia.</div>
+        <div id="kitPatchesList" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:.6rem; margin:.5rem 0 1rem;"></div>
+        <input type="text" id="kitPatchName" class="input-login" placeholder="Nome della patch (es: Campioni 2025)">
+        <input type="file" id="kitPatchFile" class="input-login" accept="image/png" style="padding-top:.5rem;">
+        <button class="btn btn-green" style="width:auto;" onclick="window.diviseAction('add-patch')"><i class="ri-upload-2-line"></i> Carica patch</button>
+      </div>
     </div>`;
   },
 
@@ -84,9 +93,9 @@ export const DiviseSection = {
   renderLists() {
     const pl = document.getElementById('kitPatternsList');
     if (!pl) return;
-    const patterns = getPngPatterns(), brands = getPngBrands();
+    const patterns = getPngPatterns(), brands = getPngBrands(), patches = getPngPatches();
     // refreshAll arriva spesso: ridisegno solo se le risorse sono cambiate
-    const key = JSON.stringify([patterns, brands]);
+    const key = JSON.stringify([patterns, brands, patches]);
     if (pl.dataset.key === key) return;
     pl.dataset.key = key;
 
@@ -104,15 +113,19 @@ export const DiviseSection = {
     const bl = document.getElementById('kitBrandsList');
     if (bl) bl.innerHTML = brands.map(b => card('brand', b, sampleKit({ brand: { id: 'png:' + b.id } }), 'Marchio')).join('')
       || `<div style="grid-column:1/-1; font-size:.8rem; color:var(--text3);font-family:var(--font-text3,inherit);">Nessun marchio caricato: nell'editor ci sono comunque i marchi integrati.</div>`;
+    const ptl = document.getElementById('kitPatchesList');
+    if (ptl) ptl.innerHTML = patches.map(b => card('patch', b, sampleKit({ patches: [{ id: 'png:' + b.id, name: b.name, src: b.url, pos: 'chest' }] }), 'Patch')).join('')
+      || `<div style="grid-column:1/-1; font-size:.8rem; color:var(--text3);font-family:var(--font-text3,inherit);">Nessuna patch caricata: nell'editor c'è solo quella del Fantacazz.</div>`;
   },
 
   async action(act, a) {
     try {
       switch (act) {
         case 'add-pattern':
-        case 'add-brand': {
+        case 'add-brand':
+        case 'add-patch': {
           const isPattern = act === 'add-pattern';
-          const kind = isPattern ? 'Pattern' : 'Brand';
+          const kind = isPattern ? 'Pattern' : act === 'add-patch' ? 'Patch' : 'Brand';
           const nameEl = document.getElementById(`kit${kind}Name`), fileEl = document.getElementById(`kit${kind}File`);
           const file = fileEl.files && fileEl.files[0];
           if (!nameEl.value.trim() || !file) { toast('Inserisci nome e file PNG', 'err'); return; }
@@ -126,7 +139,7 @@ export const DiviseSection = {
             data.mode = document.getElementById('kitPatternMode').value;
             data.colors = data.mode === 'uv' ? document.getElementById('kitPatternColors').value : 'tint';
           }
-          await push(ref(database, `kitAssets/${isPattern ? 'patterns' : 'brands'}`), data);
+          await push(ref(database, `kitAssets/${isPattern ? 'patterns' : act === 'add-patch' ? 'patches' : 'brands'}`), data);
           nameEl.value = ''; fileEl.value = '';
           this.busy = false;
           toast('Caricato!', 'ok');
@@ -134,8 +147,9 @@ export const DiviseSection = {
         }
         case 'del-pattern':
         case 'del-brand':
-          if (!confirm('Eliminare? Le maglie che lo usano non lo mostreranno più.')) return;
-          await remove(ref(database, `kitAssets/${act === 'del-pattern' ? 'patterns' : 'brands'}/${a}`));
+        case 'del-patch':
+          if (!confirm(act === 'del-patch' ? 'Eliminare? Non si potrà più aggiungere alle maglie (quelle che la usano già la tengono).' : 'Eliminare? Le maglie che lo usano non lo mostreranno più.')) return;
+          await remove(ref(database, `kitAssets/${act === 'del-pattern' ? 'patterns' : act === 'del-patch' ? 'patches' : 'brands'}/${a}`));
           return;
       }
     } catch (err) {
