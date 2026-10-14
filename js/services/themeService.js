@@ -58,8 +58,7 @@ const GENERAL_ONLY_FIELDS = [
     { key: 'card',    css: '--card',       kind: 'color', def: '#282e37',                hint: 'Schede' },
     { key: 'card2',   css: '--card2',      kind: 'color', def: '#333a46',                hint: 'Righe e sub-box dentro le schede' },
     { key: 'subbox',  css: '--subbox-bg',  kind: 'text',  def: 'rgba(0,0,0,0.25)',       hint: 'Pannelli trasparenti (home e classifica)' },
-    { key: 'border',  css: '--border',     kind: 'text',  def: 'rgba(255,255,255,0.08)', hint: 'Bordi, righe e separatori' },
-    { key: 'systemBar', css: '--system-bar-bg', kind: 'color', def: '#000000',            hint: 'Barra di sistema di Android (fascia dei gesti sotto la barra in basso)' }
+    { key: 'border',  css: '--border',     kind: 'text',  def: 'rgba(255,255,255,0.08)', hint: 'Bordi, righe e separatori' }
   ]),
   ...withGroup('Altri testi e pulsanti', [
     { key: 'btnSecondary',     css: '--btn-secondary',      kind: 'color', def: '#3a4352', hint: 'Pulsante secondario' },
