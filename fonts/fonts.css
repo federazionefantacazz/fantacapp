@@ -1,0 +1,30 @@
+/* Font selezionabili dal tema (THEME_FONTS in js/services/themeService.js).
+   Caricati da index.html e admin.html; il browser scarica un file solo quando il font viene usato. */
+@font-face {
+  font-family: 'Pirates of Cydonia';
+  src: url('pirates-of-cydonia.ttf') format('truetype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Nemoy';
+  src: url('nemoy-bold.otf') format('opentype');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Novarese';
+  src: url('novarese-bold.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Champions';
+  src: url('champions-bold.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Seri EA';
+  src: url('seri-ea.ttf') format('truetype');
+  font-display: swap;
+}

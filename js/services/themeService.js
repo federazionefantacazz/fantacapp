@@ -11,7 +11,7 @@
  *     header:    { bg, text },                                    // barra in alto
  *     nav:       { bg, text, btn },                               // barra in basso
  *     drawer:    { bg, title, text, sub },                        // menu laterale
- *     menuPanel | menuSettings | menuTeam | menuKit | menuListone | menuSvincolati:
+ *     menuPanel | menuSettings | menuTeam | menuKit | menuListone | menuSvincolati | menuNotifiche:
  *                { bg, title, text, sub, text3, label, btn, btnText }     // pannelli del menu
  *     liveEditor | matchViewer | formPicker | playerCard:
  *                { bg, title, text, sub, text3, label, btn, btnText }     // finestre sopra le pagine
@@ -32,10 +32,14 @@
  */
 
 /* Font selezionabili dal Patron. Il tema salva la chiave, non il CSS.
-   I file dei font sono in /fonts, dichiarati con @font-face in index.html e admin.html. */
+   I file dei font sono in /fonts, dichiarati con @font-face in fonts/fonts.css. */
 export const THEME_FONTS = [
   { key: 'default', label: 'Font predefinito', css: null }, // il font originale di quel tipo di testo (font.def)
-  { key: 'pirates', label: 'Pirates of Cydonia',     css: "'Pirates of Cydonia', 'DM Sans', sans-serif" }
+  { key: 'pirates',   label: 'Pirates of Cydonia', css: "'Pirates of Cydonia', 'DM Sans', sans-serif" },
+  { key: 'nemoy',     label: 'Nemoy',              css: "'Nemoy', 'DM Sans', sans-serif" },
+  { key: 'novarese',  label: 'Novarese',           css: "'Novarese', 'DM Sans', sans-serif" },
+  { key: 'champions', label: 'Champions',          css: "'Champions', 'DM Sans', sans-serif" },
+  { key: 'seriea',    label: 'Seri EA',            css: "'Seri EA', 'DM Sans', sans-serif" }
 ];
 
 /* Tipi comuni a tutte le pagine di contenuto */
@@ -168,6 +172,8 @@ export const THEME_PAGES = [
     desc: 'Pannello Listone (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
   { key: 'menuSvincolati', label: 'Svincolati',              selector: '#menu-panel[data-view="svincolati"]',
     desc: 'Pannello Svincolati (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
+  { key: 'menuNotifiche',  label: 'Notifiche',               selector: '#menu-panel[data-view="notifiche"], #notif-invite',
+    desc: 'Elenco delle notifiche (campanella) e invito ad attivarle (vuoto = come Pannelli del menu).', fields: [MENU_BG, ...CONTENT_TYPES] },
   { key: 'login',       label: 'Login',        selector: '#page-login',       desc: 'Accesso e scelta squadra.',
     fields: [
       ...CONTENT_TYPES,
