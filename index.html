@@ -447,13 +447,13 @@ label.label{display:block;text-align:left}
 html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75rem)}
 
 #update-banner{position:fixed;left:.75rem;right:.75rem;bottom:calc(76px + env(safe-area-inset-bottom, 0px));z-index:1300;display:none;align-items:center;gap:.6rem;
-  padding:.6rem .6rem .6rem .9rem;border-radius:14px;background:var(--card);border:1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  padding:.6rem .6rem .6rem .9rem;border-radius:14px;background:var(--upd-bg, var(--card));border:1px solid var(--upd-border, color-mix(in srgb, var(--accent) 50%, transparent));
   box-shadow:0 10px 30px rgba(0,0,0,.45);font-size:.8rem;color:var(--text);animation:fadeIn .25s ease-out}
 #update-banner.show{display:flex}
 #update-banner span{flex:1}
 #update-banner button{border:none;border-radius:10px;padding:.55rem .9rem;font-family:inherit;font-weight:600;font-size:.8rem;cursor:pointer;min-height:40px}
 #update-banner .upd-go{background:var(--btn-primary);color:var(--btn-primary-text);font-family:var(--font-btn,inherit)}
-#update-banner .upd-no{background:transparent;color:var(--text2);font-family:var(--font-sub,inherit);padding:.55rem .6rem}
+#update-banner .upd-no{background:transparent;color:var(--upd-later, var(--text2));font-family:var(--font-sub,inherit);padding:.55rem .6rem}
 </style>
 <style id="dynamic-theme"></style>
 <script>
@@ -617,7 +617,7 @@ html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75re
 <div id="toast" class="toast"></div>
 
 <div id="update-banner">
-  <i class="ri-refresh-line" style="color:var(--accent); font-size:1.1rem;"></i>
+  <i class="ri-refresh-line" style="color:var(--upd-icon, var(--accent)); font-size:1.1rem;"></i>
   <span>È disponibile una nuova versione dell'app.</span>
   <button type="button" class="upd-no" onclick="document.getElementById('update-banner').classList.remove('show')">Dopo</button>
   <button type="button" class="upd-go" onclick="location.reload()">Aggiorna</button>
