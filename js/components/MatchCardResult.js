@@ -10,7 +10,7 @@ import { esc, sameId } from '../utils.js';
 export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
   if (!match) {
     return `
-      <div class="card card-sm card-mini" style="background:var(--mini-bg,var(--bg2)); border:1px solid var(--border); text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">
+      <div class="card card-sm card-mini" style="background:var(--mini-bg,var(--bg2)); border:1px solid var(--border); text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1rem; font-size:.85rem;">
         Nessun risultato disponibile.
       </div>
     `;
@@ -21,9 +21,9 @@ export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
 
   const getLogoHtml = (team, size = 36) => {
     if (!team || !team.logo) {
-      return `<div style="width:${size}px; height:${size}px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3); flex-shrink:0;"><i class="ri-shield-fill"></i></div>`;
+      return `<div style="width:${size}px; height:${size}px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3);font-family:var(--font-text3,inherit); flex-shrink:0;"><i class="ri-shield-fill"></i></div>`;
     }
-    return `<img src="${esc(team.logo)}" style="width:${size}px; height:${size}px; object-fit:contain; border-radius:6px; flex-shrink:0; background:var(--bg3);" onerror="this.outerHTML='<div style=\\'width:${size}px; height:${size}px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3); flex-shrink:0;\\'><i class=\\'ri-shield-fill\\'></i></div>';" alt="Logo">`;
+    return `<img src="${esc(team.logo)}" style="width:${size}px; height:${size}px; object-fit:contain; border-radius:6px; flex-shrink:0; background:var(--bg3);" onerror="this.outerHTML='<div style=\\'width:${size}px; height:${size}px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3);font-family:var(--font-text3,inherit); flex-shrink:0;\\'><i class=\\'ri-shield-fill\\'></i></div>';" alt="Logo">`;
   };
 
   const textStyle = `
@@ -48,7 +48,7 @@ export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
   // Intestazione: "Match N" (+ etichetta girone/playoff) a sinistra, stato a destra
   const labelText = opts.label || match.label || match.girone;
   const matchNumHTML = opts.matchNumber
-    ? `<span style="font-size:.7rem; font-weight:700; color:var(--text2); letter-spacing:.4px; text-transform:uppercase; white-space:nowrap; flex-shrink:0;">Match ${opts.matchNumber}</span>`
+    ? `<span style="font-size:.7rem; font-weight:700; color:var(--text2);font-family:var(--font-sub,inherit); letter-spacing:.4px; text-transform:uppercase; white-space:nowrap; flex-shrink:0;">Match ${opts.matchNumber}</span>`
     : '';
   const labelHTML = labelText
     ? `<span style="min-width:0; font-size:.65rem; color:var(--gold); font-weight:700; text-transform:uppercase; display:inline-flex; align-items:center; gap:0.2rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><i class="ri-map-pin-line"></i><span style="overflow:hidden; text-overflow:ellipsis;">${esc(labelText)}</span></span>`
@@ -65,10 +65,10 @@ export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
   // Con l'intestazione i punti vanno a destra, nella stessa riga dello stato: così tutte le card
   // hanno la stessa altezza (concluse, live, formazioni). Senza intestazione restano sotto il risultato.
   const pointsHeaderHTML = pointsText
-    ? `<span style="font-size:.65rem; color:var(--text2); font-weight:600; white-space:nowrap; flex-shrink:0;">${pointsText}</span>`
+    ? `<span style="font-size:.65rem; color:var(--text2);font-family:var(--font-sub,inherit); font-weight:600; white-space:nowrap; flex-shrink:0;">${pointsText}</span>`
     : '';
   const pointsHTML = (pointsText && !hasHeader)
-    ? `<div style="font-size:.65rem; color:var(--text2); text-align:center; margin-top:.3rem; white-space:nowrap;">${pointsText}</div>`
+    ? `<div style="font-size:.65rem; color:var(--text2);font-family:var(--font-sub,inherit); text-align:center; margin-top:.3rem; white-space:nowrap;">${pointsText}</div>`
     : '';
 
   const headerHTML = hasHeader

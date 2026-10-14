@@ -86,18 +86,18 @@ export const CalendarioUI = {
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: .5rem; margin-bottom: 1rem;">
           <div>
             <div class="label" style="color: var(--accent); font-weight: 600; margin-bottom: .15rem;"><i class="ri-calendar-line"></i> Associazione Giornate Reali Serie A</div>
-            <div style="font-size: .75rem; color: var(--text3);">Abbina ogni giornata del calendario generato a una giornata reale (1–38).</div>
+            <div style="font-size: .75rem; color: var(--text3); font-family: var(--font-text3, inherit);">Abbina ogni giornata del calendario generato a una giornata reale (1–38).</div>
           </div>
           <button class="btn btn-green" style="padding: .35rem .9rem; font-size: .8rem; white-space: nowrap;" onclick="window.salvaAssociazioniGwReali()"><i class="ri-save-line"></i> Salva Associazioni</button>
         </div>
         <div id="gwMappingBody" style="display: flex; flex-direction: column; gap: .5rem; max-height: 420px; overflow-y: auto; padding-right: .25rem;">
-          <div style="color: var(--text3); font-size: .85rem;">Seleziona prima una competizione con un calendario generato.</div>
+          <div style="color: var(--text3); font-family: var(--font-text3, inherit); font-size: .85rem;">Seleziona prima una competizione con un calendario generato.</div>
         </div>
       </div>
 
       <div class="card">
         <div class="label" id="genTeamsPreviewTitle">Squadre iscritte a questa competizione:</div>
-        <div id="genTeamsPreview" style="display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; font-size: .85rem; color: var(--text2);"></div>
+        <div id="genTeamsPreview" style="display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; font-size: .85rem; color: var(--text2); font-family: var(--font-sub, inherit);"></div>
       </div>
     </div>`;
   },
@@ -232,7 +232,7 @@ export const CalendarioUI = {
       return `
         <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: .75rem; border-radius: 6px;">
           <div style="color: var(--accent); font-weight: bold; margin-bottom: .5rem; border-bottom: 1px solid var(--border); padding-bottom: .25rem; font-size: .9rem;">${gId.toUpperCase()}</div>
-          ${htmlSquadre || '<div style="color:var(--text3); font-size:.8rem;">Vuoto</div>'}
+          ${htmlSquadre || '<div style="color:var(--text3);font-family:var(--font-text3,inherit); font-size:.8rem;">Vuoto</div>'}
         </div>
       `;
     }).join('');
@@ -269,12 +269,12 @@ export const CalendarioUI = {
 
         return `
           <div style="background: var(--bg2); border: 1px solid var(--border); padding: .6rem; border-radius: 6px; font-size: .8rem; width: 210px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-            <div style="color:var(--text3); font-size:0.65rem; font-weight:bold; margin-bottom:4px; display:flex; justify-content:space-between;">
+            <div style="color:var(--text3);font-family:var(--font-text3,inherit); font-size:0.65rem; font-weight:bold; margin-bottom:4px; display:flex; justify-content:space-between;">
               <span><i class="ri-hashtag"></i> ${m.id.toUpperCase()}</span>
               ${m.gironeProvenienza ? `<span style="color:var(--gold);">${m.gironeProvenienza}</span>` : ''}
             </div>
             <div style="padding: 2px 0; color:#fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><i class="ri-home-4-line"></i> ${nameHome}</div>
-            <div style="padding: 2px 0; color:var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><i class="ri-flight-takeoff-line"></i> ${nameAway}</div>
+            <div style="padding: 2px 0; color:var(--text2);font-family:var(--font-sub,inherit); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><i class="ri-flight-takeoff-line"></i> ${nameAway}</div>
           </div>
         `;
       }).join('<div style="height: 1.2rem;"></div>');
@@ -290,7 +290,7 @@ export const CalendarioUI = {
         </div>
       `;
     }).join(`
-      <div style="display:flex; align-items:center; color:var(--text3);">
+      <div style="display:flex; align-items:center; color:var(--text3);font-family:var(--font-text3,inherit);">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       </div>
     `);
@@ -307,7 +307,7 @@ export const CalendarioUI = {
     if (!body) return;
 
     if (!gwKeys || gwKeys.length === 0) {
-      body.innerHTML = '<div style="color: var(--text3); font-size: .85rem;">Nessuna giornata trovata — genera prima il calendario.</div>';
+      body.innerHTML = '<div style="color: var(--text3); font-family: var(--font-text3, inherit); font-size: .85rem;">Nessuna giornata trovata — genera prima il calendario.</div>';
       return;
     }
 
@@ -331,8 +331,8 @@ export const CalendarioUI = {
 
       return `
         <div style="display: flex; align-items: center; gap: .75rem; background: var(--bg2); padding: .5rem .75rem; border-radius: 6px; border: 1px solid var(--border);">
-          <div style="min-width: 180px; font-size: .85rem; color: var(--text2);"><i class="ri-calendar-2-line"></i> ${label}</div>
-          <div style="color: var(--text3); font-size: .8rem;"><i class="ri-arrow-right-line"></i></div>
+          <div style="min-width: 180px; font-size: .85rem; color: var(--text2); font-family: var(--font-sub, inherit);"><i class="ri-calendar-2-line"></i> ${label}</div>
+          <div style="color: var(--text3); font-family: var(--font-text3, inherit); font-size: .8rem;"><i class="ri-arrow-right-line"></i></div>
           <select
             class="input-login gw-mapping-select"
             data-gw="${gwKey}"

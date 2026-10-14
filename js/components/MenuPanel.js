@@ -21,15 +21,15 @@ function injectStyle() {
     #menu-panel.open { transform: translateX(0); visibility: visible; transition: transform .25s ease; }
     .mp-head { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; min-height: calc(52px + env(safe-area-inset-top, 0px));
       padding: env(safe-area-inset-top, 0px) .8rem 0 .5rem; border-bottom: 1px solid var(--border); background: var(--header-bg); color: var(--bar-text); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
-    .mp-title { margin: 0; font-weight: 400; font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: .5px; color: var(--title, var(--bar-text)); }
+    .mp-title { margin: 0; font-weight: 400; font-family: var(--font-title, 'Bebas Neue', sans-serif); font-size: 1.5rem; letter-spacing: .5px; color: var(--title, var(--bar-text)); }
     .mp-body { flex: 1 1 0; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
       padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px)); }
     .mp-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1rem; margin-bottom: 1rem; }
-    .mp-card-title { font-size: .75rem; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--title, var(--accent)); margin-bottom: .8rem; }
-    .mp-muted { font-size: .75rem; color: var(--text2); line-height: 1.4; }
+    .mp-card-title { font-size: .75rem; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--title, var(--accent)); font-family: var(--font-title, inherit); margin-bottom: .8rem; }
+    .mp-muted { font-size: .75rem; color: var(--text2); font-family: var(--font-sub, inherit); line-height: 1.4; }
     .mp-btn { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; cursor: pointer;
       background: var(--btn-primary); color: var(--btn-primary-text); border: none; border-radius: 10px; padding: .5rem .9rem;
-      font-family: inherit; font-size: .8rem; font-weight: 600; }
+      font-family: var(--font-btn, inherit); font-size: .8rem; font-weight: 600; }
     .mp-btn.ghost { background: transparent; color: var(--btn-outline); border: 1px solid color-mix(in srgb, var(--btn-outline) 45%, transparent); }
     .mp-btn.danger { background: transparent; color: var(--accent3); border: 1px solid var(--accent3); }
     .mp-btn[disabled], .mp-btn.busy { opacity: .5; pointer-events: none; }
@@ -45,37 +45,17 @@ function injectStyle() {
     .mp-switch input:checked + span { background: color-mix(in srgb, var(--accent) 30%, transparent); border-color: var(--accent); }
     .mp-switch input:checked + span::after { transform: translateX(20px); background: var(--accent); }
 
-    #menu-panel .lv-controls { display: flex; flex-direction: column; gap: .6rem; margin-bottom: .8rem; }
-    #menu-panel .lv-search { width: 100%; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: .6rem .8rem; color: var(--text);
-      font-family: inherit; font-size: .85rem; outline: none; user-select: text; -webkit-user-select: text; }
     #menu-panel .lv-chips { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
     #menu-panel .lv-chip { background: var(--bg2); color: var(--text2); border: 1px solid var(--border); border-radius: 999px; padding: .25rem .8rem;
       font-family: inherit; font-size: .75rem; font-weight: 600; cursor: pointer; }
     #menu-panel .lv-chip.on { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); border-color: var(--accent); }
-    #menu-panel .lv-count { margin-left: auto; font-size: .72rem; color: var(--text3); }
-    #menu-panel .lv-wrap { overflow: auto; -webkit-overflow-scrolling: touch; max-height: 62vh; max-height: calc(100dvh - 250px); border: 1px solid var(--border); border-radius: 12px; background: var(--bg2); }
-    #menu-panel .lv-table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 560px; font-size: .78rem; }
-    #menu-panel .lv-table th { position: sticky; top: 0; background: var(--bg3); color: var(--label, var(--text2)); font-size: .68rem; font-weight: 700; text-transform: uppercase;
-      letter-spacing: .4px; padding: .55rem .5rem; text-align: center; white-space: nowrap; cursor: pointer; user-select: none; z-index: 2; }
-    #menu-panel .lv-table th.on { color: var(--accent); }
-    #menu-panel .lv-table td { padding: .4rem .5rem; border-top: 1px solid var(--border); text-align: center; color: var(--text); white-space: nowrap; }
-    #menu-panel .lv-table .l { text-align: left; }
-    #menu-panel .lv-table .c-r { position: sticky; left: 0; width: 34px; min-width: 34px; background: var(--bg2); z-index: 1; padding-left: .5rem; padding-right: .2rem; }
-    #menu-panel .lv-table th.c-r { background: var(--bg3); z-index: 3; }
-    #menu-panel .lv-table .c-n { position: sticky; left: 34px; background: var(--bg2); z-index: 1; min-width: 150px; max-width: 190px; box-shadow: 4px 0 6px -4px rgba(0,0,0,.4); }
-    #menu-panel .lv-table th.c-n { background: var(--bg3); z-index: 3; text-align: left; }
-    #menu-panel .lv-name { display: flex; align-items: center; gap: .5rem; min-width: 0; }
-    #menu-panel .lv-name img, #menu-panel .lv-name .ph { width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; object-fit: contain; }
-    #menu-panel .lv-name span { overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
-    #menu-panel .lv-more { display: block; margin: .8rem auto 0; }
-    #menu-panel .lv-empty { text-align: center; color: var(--text3); font-size: .85rem; padding: 2rem 1rem; }
 
     .cfg-logo { width: 72px; height: 72px; border-radius: 14px; background: var(--bg3); border: 1px solid var(--border); object-fit: contain; flex-shrink: 0; }
     .cfg-player { display: flex; align-items: center; gap: .7rem; padding: .6rem 0; border-bottom: 1px solid var(--border); }
     .cfg-player:last-child { border-bottom: none; }
     .cfg-player img, .cfg-player .ph { width: 48px; height: 48px; border-radius: 10px; object-fit: contain; background: var(--bg3); flex-shrink: 0; }
     .cfg-player .nm { font-size: .85rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .cfg-player .sub { font-size: .7rem; color: var(--text2); }
+    .cfg-player .sub { font-size: .7rem; color: var(--text2); font-family: var(--font-sub, inherit); }
     .cfg-tag { font-size: .62rem; font-weight: 700; color: var(--gold); border: 1px solid var(--gold); border-radius: 4px; padding: 0 .3rem; margin-left: .3rem; }
   `;
   document.head.appendChild(style);

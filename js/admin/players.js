@@ -271,7 +271,7 @@ export const PlayersSection = {
       <!-- Box Gestione Strumenti Listone -->
       <div class="card" style="border-left: 4px solid var(--accent2)">
         <div class="label" style="color: var(--accent2)">Importazione Listone Fantacalcio (CSV / Excel)</div>
-        <p style="font-size: 0.8rem; color: var(--text2); margin-bottom: 0.75rem;">
+        <p style="font-size: 0.8rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-bottom: 0.75rem;">
           Apri il file Excel, seleziona e copia le righe dei calciatori che desideri importare (inclusa o meno la riga di intestazione), poi incollale qui sotto. Il sistema riconoscerà automaticamente ID, Ruolo, Nome, Squadra e Quotazione.
         </p>
         <textarea id="pImportInput" class="input-login" rows="4" placeholder="Incolla qui le righe del file (es: 4312,P,Por,Maignan,Milan,16...)" style="font-family:'DM Mono',monospace; font-size:0.8rem; height:120px; resize:vertical; margin-bottom:0.75rem;"></textarea>
@@ -289,7 +289,7 @@ export const PlayersSection = {
       <div class="card">
         <div style="display:flex;gap:1rem;margin-bottom:1rem;align-items:center">
           <input type="text" id="pSearch" class="input-login" placeholder="Cerca calciatore per nome..." style="margin-bottom:0;max-width:300px" oninput="window.filterPlayersAdmin(this.value)">
-          <div style="font-size:.85rem;color:var(--text2)" id="pFoundCount"></div>
+          <div style="font-size:.85rem;color:var(--text2);font-family:var(--font-sub,inherit)" id="pFoundCount"></div>
         </div>
         <div class="table-wrapper" style="max-height:500px">
           <table>
@@ -314,7 +314,7 @@ export const PlayersSection = {
     if (pFoundCount) pFoundCount.textContent = `Trovati: ${filtered.length}`;
 
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text3); padding:2rem;">Nessun calciatore nel database. Usa il box sopra per importarli.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:2rem;">Nessun calciatore nel database. Usa il box sopra per importarli.</td></tr>`;
       return;
     }
 
@@ -322,7 +322,7 @@ export const PlayersSection = {
       const imgUrl = p.photoPersonal || p.photoStandard || '';
       const imgHTML = imgUrl 
         ? `<img src="${imgUrl}" alt="${p.name}" style="width:32px; height:32px; object-fit:contain; border-radius:4px;">`
-        : `<div style="width:32px; height:32px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.7rem; color:var(--text3);"><i class="ri-user-3-line"></i></div>`;
+        : `<div style="width:32px; height:32px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.7rem; color:var(--text3);font-family:var(--font-text3,inherit);"><i class="ri-user-3-line"></i></div>`;
 
       return `
       <tr>
@@ -360,8 +360,8 @@ export const PlayersSection = {
         ${failures.map(f => `
         <div style="display:flex; align-items:center; gap:0.5rem; padding:0.3rem 0; border-top:1px solid var(--bg3); font-size:0.75rem;">
           <div style="flex:1; min-width:0;">
-            <strong>${esc(f.name)}</strong> <span style="color:var(--text3);">(ID ${esc(f.id)})</span>
-            <div style="color:var(--text2); overflow-wrap:anywhere;">${esc(f.reason)}</div>
+            <strong>${esc(f.name)}</strong> <span style="color:var(--text3);font-family:var(--font-text3,inherit);">(ID ${esc(f.id)})</span>
+            <div style="color:var(--text2);font-family:var(--font-sub,inherit); overflow-wrap:anywhere;">${esc(f.reason)}</div>
           </div>
           <button class="btn btn-outline" style="width:auto; padding:0.25rem 0.6rem; font-size:0.75rem;" onclick="window.retryStandardPhoto('${esc(f.id)}', this)">Foto</button>
         </div>`).join('')}

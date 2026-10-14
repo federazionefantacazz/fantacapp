@@ -60,7 +60,7 @@ const LIVE_STYLES = `
 .lv-toolbar{display:flex;gap:.5rem;align-items:center;margin-bottom:.8rem;flex-wrap:wrap}
 .lv-toolbar .select-rose{flex:1;min-width:180px}
 .lv-seg{display:inline-flex;background:var(--bg3);border-radius:10px;padding:3px;gap:2px;flex-shrink:0}
-.lv-seg button{border:none;background:transparent;color:var(--text2);font:600 .75rem 'DM Sans',sans-serif;padding:.45rem .7rem;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:.3rem}
+.lv-seg button{border:none;background:transparent;color:var(--text2);font:600 .75rem var(--font-text);padding:.45rem .7rem;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:.3rem}
 .lv-seg button.on{background:var(--accent);color:#0a0f1e}
 .lv-wip{font-size:.55rem;font-weight:700;background:var(--lv-warn);color:#0a0f1e;padding:1px 4px;border-radius:4px}
 
@@ -85,16 +85,16 @@ const LIVE_STYLES = `
 .lv-sim-top{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
 .lv-sim-title{font-weight:700;font-size:.85rem;display:flex;align-items:center;gap:.4rem;color:var(--text)}
 .lv-sim-title i{color:var(--accent);font-size:1.1rem}
-.lv-btn{border:1px solid var(--border);background:var(--bg3);color:var(--text);font:600 .75rem 'DM Sans',sans-serif;padding:.4rem .7rem;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:.3rem}
-.lv-btn.prim{background:var(--accent);border-color:var(--accent);color:var(--btn-primary-text)}
+.lv-btn{border:1px solid var(--border);background:var(--bg3);color:var(--text);font:600 .75rem var(--font-text);padding:.4rem .7rem;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:.3rem}
+.lv-btn.prim{background:var(--accent);border-color:var(--accent);color:var(--btn-primary-text);font-family:var(--font-btn,var(--font-text))}
 .lv-sim-body{margin-top:.6rem;display:flex;flex-direction:column;gap:.5rem}
-.lv-sim-row{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;font-size:.78rem;color:var(--text2)}
+.lv-sim-row{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;font-size:.78rem;color:var(--text2);font-family:var(--font-sub,inherit)}
 .lv-sim-row label{display:flex;align-items:center;gap:.4rem;cursor:pointer;color:var(--text)}
 .lv-sim-row input{width:17px;height:17px;accent-color:var(--accent)}
 .lv-sim-res{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;background:var(--bg3);border-radius:10px;padding:.5rem .6rem;text-align:center}
 .lv-sim-res .g{font:1.9rem/1 'Bebas Neue',sans-serif;color:var(--accent)}
 .lv-sim-res .p{font-size:.72rem;color:var(--text2);font-family:'DM Mono',monospace}
-.lv-sim-res .mid{font-size:.6rem;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);padding:0 .4rem}
+.lv-sim-res .mid{font-size:.6rem;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-family:var(--font-text3,inherit);padding:0 .4rem}
 
 .lv-sec{text-align:center;font-size:.78rem;font-weight:600;color:var(--accent2);margin:.8rem 0 .4rem}
 .lv-rows{display:flex;flex-direction:column;gap:4px}
@@ -106,7 +106,7 @@ const LIVE_STYLES = `
 .lv-half.in{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--lv-ok) 60%,transparent)}
 .lv-ph{position:relative;width:36px;height:40px;flex-shrink:0;display:flex;align-items:flex-end;justify-content:center;border-radius:50%;background:color-mix(in srgb,var(--text) 8%,transparent)}
 .lv-ph img{width:36px;height:40px;object-fit:contain;object-position:bottom}
-.lv-ph .lv-ph-r{font-weight:700;font-size:.8rem;color:var(--text3);align-self:center}
+.lv-ph .lv-ph-r{font-weight:700;font-size:.8rem;color:var(--text3);font-family:var(--font-text3,inherit);align-self:center}
 .lv-role{position:absolute;top:-3px;left:-3px;width:15px;height:15px;border-radius:50%;font-size:.55rem;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px var(--card2)}
 .lv-half.away .lv-role{left:auto;right:-3px}
 .lv-info{flex:1;min-width:0}
@@ -116,29 +116,29 @@ const LIVE_STYLES = `
 .lv-ev{font-size:.8rem;color:var(--text);line-height:1;display:inline-flex;align-items:center}
 .lv-card{width:8px;height:11px;border-radius:2px;display:inline-block}
 .lv-card.y{background:#f5d90a}.lv-card.r{background:#e53935}
-.lv-chip{font-size:.52rem;font-weight:700;padding:1px 3px;border-radius:3px;background:var(--bg3);color:var(--text2)}
+.lv-chip{font-size:.52rem;font-weight:700;padding:1px 3px;border-radius:3px;background:var(--bg3);color:var(--text2);font-family:var(--font-sub,inherit)}
 .lv-chip.bad{color:var(--lv-bad)}.lv-chip.ok{color:var(--lv-ok)}
 .lv-arr-in{color:var(--lv-ok);font-size:.85rem}.lv-arr-out{color:var(--lv-bad);font-size:.85rem}
 
 .lv-box{width:36px;height:40px;flex-shrink:0;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:.72rem;font-weight:600;border:1px solid var(--border);background:var(--bg3);color:var(--text2);position:relative;overflow:hidden}
 .lv-box.vote{padding:0}
 .lv-box.vote span{flex:1;width:100%;display:flex;align-items:center;justify-content:center}
-.lv-box.vote .v{color:var(--text2)}
+.lv-box.vote .v{color:var(--text2);font-family:var(--font-sub,inherit)}
 .lv-box.vote .f{color:var(--accent2);background:color-mix(in srgb,var(--accent2) 14%,transparent);font-weight:700}
 .lv-box.live{border-color:var(--lv-ok);background:color-mix(in srgb,var(--lv-ok) 16%,var(--bg3))}
 .lv-box.live .f{color:var(--lv-ok);background:color-mix(in srgb,var(--lv-ok) 22%,transparent)}
 .lv-box.live::after{content:'';position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;background:var(--lv-ok);animation:lvPulse 1.2s infinite}
-.lv-box.sv{border-style:solid;color:var(--text3);font-size:.62rem;letter-spacing:.3px}
+.lv-box.sv{border-style:solid;color:var(--text3);font-family:var(--font-text3,inherit);font-size:.62rem;letter-spacing:.3px}
 .lv-box.todo-tit{border-color:var(--lv-ok);color:var(--lv-ok);background:transparent;font-size:.62rem}
-.lv-box.todo-pan{background:transparent;font-size:.56rem;color:var(--text2)}
+.lv-box.todo-pan{background:transparent;font-size:.56rem;color:var(--text2);font-family:var(--font-sub,inherit)}
 .lv-box.todo-pan i{font-size:.7rem;line-height:.6}
 .lv-box.todo-low{border-color:var(--lv-bad);color:var(--lv-bad);background:transparent;font-size:.62rem}
 .lv-box.todo-inf{border-color:var(--lv-bad);color:var(--lv-bad);background:transparent;font-size:1rem}
-.lv-box.todo-out{background:transparent;color:var(--text3);font-size:1rem}
-.lv-box.todo-time{background:transparent;color:var(--text2);font-size:.5rem;text-align:center;line-height:1.15}
+.lv-box.todo-out{background:transparent;color:var(--text3);font-family:var(--font-text3,inherit);font-size:1rem}
+.lv-box.todo-time{background:transparent;color:var(--text2);font-family:var(--font-sub,inherit);font-size:.5rem;text-align:center;line-height:1.15}
 .lv-box.todo-time i{font-size:.8rem}
 .lv-box.playing{border-color:var(--lv-warn);color:var(--lv-warn);background:transparent;font-size:.9rem}
-.lv-box.wait{background:transparent;color:var(--text3);font-size:.9rem}
+.lv-box.wait{background:transparent;color:var(--text3);font-family:var(--font-text3,inherit);font-size:.9rem}
 .lv-box.sim{border:1px dashed var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
 .lv-box.sim .v,.lv-box.sim .f{color:var(--accent);background:transparent;font-style:italic}
 .lv-box.sim.sv{color:var(--accent)}
@@ -150,15 +150,15 @@ const LIVE_STYLES = `
 .lv-tot{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;text-align:center;gap:.4rem;margin:.3rem 0}
 .lv-tot .n{font:700 1.3rem 'DM Mono',monospace;color:var(--text2)}
 .lv-tot .n.b{color:var(--accent2)}
-.lv-tot .l{font-size:.7rem;color:var(--text2)}
-.lv-sent{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.8rem;font-size:.66rem;color:var(--text3)}
+.lv-tot .l{font-size:.7rem;color:var(--text2);font-family:var(--font-sub,inherit)}
+.lv-sent{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.8rem;font-size:.66rem;color:var(--text3);font-family:var(--font-text3,inherit)}
 .lv-sent div:last-child{text-align:right}
-.lv-legend{display:flex;flex-wrap:wrap;gap:.35rem .8rem;margin-top:.9rem;font-size:.66rem;color:var(--text2);justify-content:center}
+.lv-legend{display:flex;flex-wrap:wrap;gap:.35rem .8rem;margin-top:.9rem;font-size:.66rem;color:var(--text2);font-family:var(--font-sub,inherit);justify-content:center}
 .lv-legend span{display:inline-flex;align-items:center;gap:.3rem}
 .lv-legend .lv-box{width:22px;height:22px;font-size:.5rem;border-radius:5px}
 .lv-legend .lv-box i{font-size:.7rem}
 
-.lv-nolineup{grid-column:1/-1;text-align:center;font-size:.75rem;color:var(--text3);padding:.4rem}
+.lv-nolineup{grid-column:1/-1;text-align:center;font-size:.75rem;color:var(--text3);font-family:var(--font-text3,inherit);padding:.4rem}
 
 .lv-stadium{display:flex;flex-wrap:wrap;gap:1rem}
 .lv-stadium>div{flex:1;min-width:280px}
@@ -186,18 +186,18 @@ const LIVE_STYLES = `
 @media (min-width:700px){.lv-ed{border-radius:18px}}
 .lv-ed-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem}
 .lv-ed-h b{font-size:.95rem;color:var(--text)}
-.lv-ed-h small{display:block;font-size:.7rem;color:var(--text2);font-weight:400}
+.lv-ed-h small{display:block;font-size:.7rem;color:var(--text2);font-family:var(--font-sub,inherit);font-weight:400}
 .lv-ed-x{background:var(--bg2);border:none;color:var(--text);width:32px;height:32px;border-radius:50%;font-size:1.1rem;cursor:pointer}
 .lv-ed-v{display:flex;align-items:center;justify-content:center;gap:.8rem;margin-bottom:.8rem}
 .lv-ed-v button{width:42px;height:42px;border-radius:50%;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:1.2rem;cursor:pointer}
 .lv-ed-v .val{font:2.2rem/1 'Bebas Neue',sans-serif;min-width:70px;text-align:center;color:var(--text)}
 .lv-ed-g{display:grid;grid-template-columns:1fr 1fr;gap:.35rem;margin-bottom:.8rem}
 .lv-ed-e{display:flex;align-items:center;justify-content:space-between;background:var(--bg2);border-radius:9px;padding:.25rem .3rem .25rem .55rem;font-size:.72rem;color:var(--text)}
-.lv-ed-e small{color:var(--text3)}
+.lv-ed-e small{color:var(--text3);font-family:var(--font-text3,inherit)}
 .lv-ed-e div{display:flex;align-items:center;gap:.25rem}
 .lv-ed-e button{width:24px;height:24px;border-radius:6px;border:none;background:var(--bg3);color:var(--text);cursor:pointer;font-weight:700}
 .lv-ed-e b{min-width:12px;text-align:center;font-family:'DM Mono',monospace}
-.lv-ed-fv{text-align:center;font-size:.8rem;color:var(--text2);margin-bottom:.8rem}
+.lv-ed-fv{text-align:center;font-size:.8rem;color:var(--text2);font-family:var(--font-sub,inherit);margin-bottom:.8rem}
 .lv-ed-fv b{color:var(--accent);font-family:'DM Mono',monospace;font-size:1rem}
 .lv-ed-a{display:flex;gap:.4rem}
 .lv-ed-a .lv-btn{flex:1;justify-content:center;padding:.6rem}
@@ -265,7 +265,7 @@ export const LiveMatchModule = {
     if (!gwKey) {
       this.stopLiveTracking();
       container.innerHTML = `
-        <div style="text-align:center; padding: 2rem; color:var(--text2);">
+        <div style="text-align:center; padding: 2rem; color:var(--text2);font-family:var(--font-sub,inherit);">
           <p style="font-size: 1.1rem; margin-bottom: 0.5rem;"><i class="ri-record-circle-fill" style="color:var(--accent3);"></i> Live Match non attivo</p>
           <p style="font-size: 0.85rem; opacity: 0.7;">Nessuna giornata di questa competizione è associata alla giornata di Serie A ${esc(gwReale)}.</p>
         </div>`;
@@ -273,7 +273,7 @@ export const LiveMatchModule = {
     }
 
     if (!this.myTeamId) {
-      container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Errore: ID Squadra mancante.</p>`;
+      container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);font-family:var(--font-sub,inherit);">Errore: ID Squadra mancante.</p>`;
       return;
     }
 
@@ -301,7 +301,7 @@ export const LiveMatchModule = {
       lineups: {}, matchesNode: {}, votes: {}, players: {}, liveMatches: {},
       ready: { match: false, votes: false, players: false }
     };
-    container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Caricamento dati live...</p>`;
+    container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);font-family:var(--font-sub,inherit);">Caricamento dati live...</p>`;
 
     const markReady = (k) => { this._data.ready[k] = true; if (Object.values(this._data.ready).every(Boolean)) this.render(); };
 
@@ -336,7 +336,7 @@ export const LiveMatchModule = {
         .then(snap => { this._data.players = snap.val() || {}; markReady('players'); })
         .catch(err => {
           console.error("Errore nel recupero giocatori:", err);
-          container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Errore di sincronizzazione dati.</p>`;
+          container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);font-family:var(--font-sub,inherit);">Errore di sincronizzazione dati.</p>`;
         });
     }
   },
@@ -373,7 +373,7 @@ export const LiveMatchModule = {
 
     if (couples.length === 0) {
       container.innerHTML = `
-        <div class="card" style="margin-top:.5rem; text-align:center; padding:2rem; color:var(--text2);">
+        <div class="card" style="margin-top:.5rem; text-align:center; padding:2rem; color:var(--text2);font-family:var(--font-sub,inherit);">
           <p style="font-size:1.05rem; margin-bottom:.4rem;"><i class="ri-record-circle-fill" style="color:var(--accent3);"></i> Nessun incontro</p>
           <p style="font-size:.85rem; opacity:.7;">Non ci sono partite in calendario per ${esc(GwService.label(d.gwKey))}.</p>
         </div>`;
@@ -403,7 +403,7 @@ export const LiveMatchModule = {
     const notice = d.status.canPlay ? '' : `
       <div style="display:flex; gap:.6rem; align-items:flex-start; background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:.7rem .9rem; margin-bottom:.8rem;">
         <i class="ri-information-line" style="font-size:1.2rem; color:var(--accent2);"></i>
-        <div style="font-size:.8rem; color:var(--text2);">
+        <div style="font-size:.8rem; color:var(--text2);font-family:var(--font-sub,inherit);">
           <strong style="color:var(--text);">Non giochi in questa giornata.</strong> ${esc(d.status.reason)}<br>
           Puoi seguire gli altri incontri scegliendoli dal menu.
         </div>
@@ -428,7 +428,7 @@ export const LiveMatchModule = {
       <div class="lv-wrap" style="margin-top:.5rem;">
         <div class="sec" style="justify-content:space-between; align-items:center; margin-bottom:.7rem;">
           <span style="display:flex; align-items:center; gap:.5rem;"><span class="lv-livechip" style="margin:0;"><i></i>LIVE</span> Live Match</span>
-          <span style="font-family:'DM Sans',sans-serif; font-size:.78rem; background:var(--bg3); padding:.2rem .6rem; border-radius:20px; color:var(--accent); font-weight:500; letter-spacing:0;">${esc(GwService.label(d.gwKey))}</span>
+          <span style="font-family:var(--font-text); font-size:.78rem; background:var(--bg3); padding:.2rem .6rem; border-radius:20px; color:var(--accent); font-weight:500; letter-spacing:0;">${esc(GwService.label(d.gwKey))}</span>
         </div>
         ${notice}
         <div class="lv-toolbar">
@@ -479,7 +479,7 @@ export const LiveMatchModule = {
       <div style="position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:.8rem;padding:.8rem 1rem;background:var(--bg2);border-bottom:1px solid var(--border);">
         <button id="mv-close" class="btn btn-outline" style="width:auto;padding:.45rem .8rem;"><i class="ri-arrow-left-line"></i> Indietro</button>
         <div style="min-width:0;">
-          <div style="font-size:.7rem;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;">${isPast ? 'Replay match' : 'Formazioni schierate'} · ${esc(GwService.label(gwKey))}</div>
+          <div style="font-size:.7rem;color:var(--text2);font-family:var(--font-sub,inherit);text-transform:uppercase;letter-spacing:.5px;">${isPast ? 'Replay match' : 'Formazioni schierate'} · ${esc(GwService.label(gwKey))}</div>
           <div style="font-weight:700;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(home.name)} vs ${esc(away.name)}</div>
         </div>
       </div>
@@ -880,7 +880,7 @@ export const LiveMatchModule = {
             <i class="ri-hand-coin-line" style="color:var(--accent);"></i> Tocca il voto di un giocatore per modificarlo (anche chi ha già giocato).
             ${edits ? `<button class="lv-btn" data-lv="sim-reset" style="margin-left:auto;"><i class="ri-arrow-go-back-line"></i> Annulla modifiche (${edits})</button>` : ''}
           </div>
-          <div class="lv-sim-row" style="font-size:.7rem; color:var(--text3);">Il risultato simulato applica le sostituzioni dalla panchina (stesso ruolo) per chi resta senza voto.</div>
+          <div class="lv-sim-row" style="font-size:.7rem; color:var(--text3);font-family:var(--font-text3,inherit);">Il risultato simulato applica le sostituzioni dalla panchina (stesso ruolo) per chi resta senza voto.</div>
         </div>
       </div>`;
   },
@@ -895,7 +895,7 @@ export const LiveMatchModule = {
       return html;
     };
     const noLineup = (!home.lineup || !away.lineup)
-      ? `<div class="lv-row">${!home.lineup ? '<div class="lv-half empty" style="justify-content:center;color:var(--text3);font-size:.75rem;">Formazione non inserita</div>' : '<div></div>'}${!away.lineup ? '<div class="lv-half empty" style="justify-content:center;color:var(--text3);font-size:.75rem;">Formazione non inserita</div>' : '<div></div>'}</div>`
+      ? `<div class="lv-row">${!home.lineup ? '<div class="lv-half empty" style="justify-content:center;color:var(--text3);font-family:var(--font-text3,inherit);font-size:.75rem;">Formazione non inserita</div>' : '<div></div>'}${!away.lineup ? '<div class="lv-half empty" style="justify-content:center;color:var(--text3);font-family:var(--font-text3,inherit);font-size:.75rem;">Formazione non inserita</div>' : '<div></div>'}</div>`
       : '';
     return `
       <div class="lv-rows" style="margin-top:.8rem;">
@@ -994,7 +994,7 @@ export const LiveMatchModule = {
 
   _stadiumMarkup(home, away, sim) {
     const field = (t) => {
-      if (!t.lineup) return `<div><div class="lv-stadium-t">${esc(t.info.name)}</div><div style="text-align:center;padding:2rem;background:var(--bg2);border-radius:12px;color:var(--text3);font-size:.85rem;">Formazione non inserita</div></div>`;
+      if (!t.lineup) return `<div><div class="lv-stadium-t">${esc(t.info.name)}</div><div style="text-align:center;padding:2rem;background:var(--bg2);border-radius:12px;color:var(--text3);font-family:var(--font-text3,inherit);font-size:.85rem;">Formazione non inserita</div></div>`;
       const byRole = { P: [], D: [], C: [], A: [] };
       t.tit.forEach(p => { if (byRole[p.role]) byRole[p.role].push(p); });
       const rowY = { A: 18, C: 44, D: 70, P: 89 };
@@ -1019,7 +1019,7 @@ export const LiveMatchModule = {
       });
       return `
         <div>
-          <div class="lv-stadium-t">${esc(t.info.name)}${t.lineup.modulo ? ` <span style="font-weight:400;color:var(--text2);font-size:.75rem;">(${esc(t.lineup.modulo)})</span>` : ''}</div>
+          <div class="lv-stadium-t">${esc(t.info.name)}${t.lineup.modulo ? ` <span style="font-weight:400;color:var(--text2);font-family:var(--font-sub,inherit);font-size:.75rem;">(${esc(t.lineup.modulo)})</span>` : ''}</div>
           <div class="lf-field"><div class="lf-lines"><div class="lf-box"></div><div class="lf-circle"></div></div>${html}</div>
         </div>`;
     };
@@ -1041,7 +1041,7 @@ export const LiveMatchModule = {
       <div class="lv-tot"><span class="n">${tH ? fmt(tH.voti) : '-'}</span><span class="l">solo voti</span><span class="n">${tA ? fmt(tA.voti) : '-'}</span></div>
       <div class="lv-tot"><span class="n b">${tH ? fmt(tH.fv) : '-'}</span><span class="l">con bonus/malus</span><span class="n b">${tA ? fmt(tA.fv) : '-'}</span></div>
       ${mode === 'live' ? `<div class="lv-tot"><span class="n" style="font-size:.85rem;">${tH ? tH.n : 0}/11</span><span class="l">a referto</span><span class="n" style="font-size:.85rem;">${tA ? tA.n : 0}/11</span></div>` : ''}
-      ${mode === 'past' ? `<div style="text-align:center;font-size:.66rem;color:var(--text3);margin-top:.3rem;">Totali con le sostituzioni dalla panchina</div>` : ''}`;
+      ${mode === 'past' ? `<div style="text-align:center;font-size:.66rem;color:var(--text3);font-family:var(--font-text3,inherit);margin-top:.3rem;">Totali con le sostituzioni dalla panchina</div>` : ''}`;
     return `
       <div class="lv-foot" style="margin-top:1.6rem;">
         <span class="lv-foot-title">${title}</span>

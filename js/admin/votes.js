@@ -146,7 +146,7 @@ export const VotesSection = {
     const playersList = this.cachedPlayers || window.PLAYERS || [];
 
     if (playersList.length === 0) {
-      container.innerHTML = '<div style="color:var(--text3);font-size:.85rem">Nessun calciatore presente nell\'applicazione.</div>';
+      container.innerHTML = '<div style="color:var(--text3);font-family:var(--font-text3,inherit);font-size:.85rem">Nessun calciatore presente nell\'applicazione.</div>';
       return;
     }
 

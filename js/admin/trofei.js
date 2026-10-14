@@ -27,7 +27,7 @@ export const TrofeiSection = {
         <input type="text" id="trName" class="input-login" placeholder="Nome Trofeo (es: Coppa delle Coppe, Scudetto)">
         <textarea id="trDesc" class="input-login" placeholder="Descrizione o note sul trofeo" style="min-height:70px; font-family:inherit; resize:vertical;"></textarea>
         
-        <div class="label" style="font-size:.8rem; margin-top:.5rem; color:var(--text2)">Immagine / Icona Trofeo (.png, .jpg)</div>
+        <div class="label" style="font-size:.8rem; margin-top:.5rem; color:var(--text2);font-family:var(--font-sub,inherit)">Immagine / Icona Trofeo (.png, .jpg)</div>
         <input type="file" id="trImageFile" class="input-login" accept="image/png, image/jpeg, image/jpg" style="padding-top:.5rem;">
         
         <!-- NUOVI CAMPI: ORDINE HOME E SCALA IMMAGINE -->
@@ -76,7 +76,7 @@ export const TrofeiSection = {
     if (!tbody) return;
 
     if (!trophies || trophies.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text3)">Nessun trofeo creato. Usa il modulo sopra per aggiungerne uno.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit)">Nessun trofeo creato. Usa il modulo sopra per aggiungerne uno.</td></tr>`;
       return;
     }
 
@@ -96,7 +96,7 @@ export const TrofeiSection = {
       <tr>
         <td style="width:60px; text-align:center; vertical-align:middle;">${imageHtml}</td>
         <td style="vertical-align:middle;"><strong>${t.name}</strong></td>
-        <td style="vertical-align:middle; color:var(--text2); font-size:.85rem;">${t.desc || '—'}</td>
+        <td style="vertical-align:middle; color:var(--text2);font-family:var(--font-sub,inherit); font-size:.85rem;">${t.desc || '—'}</td>
         <td style="vertical-align:middle; text-align:center;">#${ordHome}</td>
         <td style="vertical-align:middle; text-align:center;">${scaleVal}%</td>
         <td style="vertical-align:middle;">

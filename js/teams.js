@@ -21,7 +21,7 @@ export const TeamsPage = {
           </div>
           
           <div id="teams-grid-container" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(100%, 1fr)); gap:1rem; margin-top:.5rem;">
-            <div style="text-align:center; color:var(--text2); padding:2rem;">Caricamento squadre...</div>
+            <div style="text-align:center; color:var(--text2);font-family:var(--font-sub,inherit); padding:2rem;">Caricamento squadre...</div>
           </div>
         </div>
 
@@ -69,7 +69,7 @@ export const TeamsPage = {
     if (!container) return;
 
     if (!STATE.teams || STATE.teams.length === 0) {
-      container.innerHTML = `<div style="text-align:center; color:var(--text2); padding:2rem;">Nessuna squadra nel database.</div>`;
+      container.innerHTML = `<div style="text-align:center; color:var(--text2);font-family:var(--font-sub,inherit); padding:2rem;">Nessuna squadra nel database.</div>`;
       return;
     }
 
@@ -85,7 +85,7 @@ export const TeamsPage = {
             <div style="display:flex; align-items:center; gap:0.4rem;">
               <h3 style="font-size:1.1rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin:0;">${esc(t.name)}</h3>
             </div>
-            <p style="font-size:.72rem; color:var(--text2); margin-top:2px;">Proprietario: <span style="color:var(--accent); font-weight:500;">${esc(t.owner || 'Nessuno')}</span></p>
+            <p style="font-size:.72rem; color:var(--text2);font-family:var(--font-sub,inherit); margin-top:2px;">Proprietario: <span style="color:var(--accent); font-weight:500;">${esc(t.owner || 'Nessuno')}</span></p>
           </div>
           <svg viewBox="0 0 24 24" style="width:18px; height:18px; stroke:var(--text3); stroke-width:2; fill:none;"><polyline points="9 18 15 12 9 6"></polyline></svg>
         </div>
@@ -138,7 +138,7 @@ export const TeamsPage = {
 
     const roster = (STATE.players || []).filter(p => p && sameId(p.teamId, teamId));
     if (roster.length === 0) {
-      container.innerHTML = `<div style="color:var(--text3);text-align:center;padding:2rem;font-size:.85rem">Rosa vuota.</div>`;
+      container.innerHTML = `<div style="color:var(--text3);font-family:var(--font-text3,inherit);text-align:center;padding:2rem;font-size:.85rem">Rosa vuota.</div>`;
       return;
     }
 
@@ -155,7 +155,7 @@ export const TeamsPage = {
         const photoUrl = p.photoPersonal || p.photoStandard || '';
         const imgHtml = photoUrl
           ? `<img src="${esc(photoUrl)}" alt="${esc(p.name)}" loading="lazy" decoding="async" style="width:28px; height:28px; object-fit:contain; border-radius:4px; flex-shrink:0;">`
-          : `<div style="width:28px; height:28px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.7rem; color:var(--text3); flex-shrink:0;"><i class="ri-user-3-line"></i></div>`;
+          : `<div style="width:28px; height:28px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.7rem; color:var(--text3);font-family:var(--font-text3,inherit); flex-shrink:0;"><i class="ri-user-3-line"></i></div>`;
 
         return `
           <div class="pcard" data-player-id="${esc(p.id)}" style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
@@ -189,7 +189,7 @@ export const TeamsPage = {
 
     const wonTrophies = getWonTrophies(team, STATE.trophies, STATE.competitions);
 
-    let trophiesHTML = `<div style="color:var(--text2); font-size:.85rem; font-style:italic;">Bacheca vuota. Nessun trofeo vinto finora.</div>`;
+    let trophiesHTML = `<div style="color:var(--text2);font-family:var(--font-sub,inherit); font-size:.85rem; font-style:italic;">Bacheca vuota. Nessun trofeo vinto finora.</div>`;
 
     if (wonTrophies.length > 0) {
       trophiesHTML = `
@@ -209,7 +209,7 @@ export const TeamsPage = {
                 </div>
                 <div style="text-align:left; flex:1; min-width:0;">
                   <div style="font-size:.9rem; font-weight:600; color:var(--gold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(tr.name)}</div>
-                  <div style="font-size:.75rem; color:var(--text2);">Stagione: <strong style="color:var(--text);">${esc(tr.season)}</strong></div>
+                  <div style="font-size:.75rem; color:var(--text2);font-family:var(--font-sub,inherit);">Stagione: <strong style="color:var(--text);">${esc(tr.season)}</strong></div>
                 </div>
                 <div style="background:rgba(245,166,35,0.15); color:var(--gold); font-size:.7rem; font-weight:600; padding:.2rem .5rem; border-radius:6px; flex-shrink:0;">
                   <i class="ri-trophy-fill"></i> Vinto
@@ -227,7 +227,7 @@ export const TeamsPage = {
         <h2 style="font-family:'Bebas Neue',sans-serif; font-size:2rem; color:var(--text); margin-bottom:0.2rem;">
           ${esc(team.name)}
         </h2>
-        <div style="font-size:.75rem; text-transform:uppercase; color:var(--text2);">
+        <div style="font-size:.75rem; text-transform:uppercase; color:var(--text2);font-family:var(--font-sub,inherit);">
           Allenatore: <span style="color:var(--text); font-weight:500;">${esc(team.owner || 'Senza Proprietario')}</span>
         </div>
         <p style="font-size:.85rem; color:var(--accent); font-style:italic; margin-top:0.5rem;">

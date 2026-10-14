@@ -144,7 +144,7 @@ export const PalmaresSection = {
 
     if (tbody) {
       if (rows.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text3)">Nessun piazzamento in palmarès.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit)">Nessun piazzamento in palmarès.</td></tr>`;
       } else {
         tbody.innerHTML = rows.map(r => `
           <tr>

@@ -27,16 +27,35 @@
  * - field.key = chiave del tipo dentro la pagina
  * - field.css = nome esatto della variabile CSS usata nei fogli di stile
  * - kind      = 'color' (HEX, con color picker) | 'text' (valore libero, es. rgba(...))
+ * - font      = { key, css }: font dello stesso tipo di testo, salvato accanto al colore
+ *               come chiave di THEME_FONTS (menu a tendina nel Patron)
  */
 
+/* Font selezionabili dal Patron. Il tema salva la chiave, non il CSS.
+   I file dei font sono in /fonts, dichiarati con @font-face in index.html e admin.html. */
+export const THEME_FONTS = [
+  { key: 'default', label: 'Font predefinito', css: null }, // il font originale di quel tipo di testo (font.def)
+  { key: 'pirates', label: 'Pirates of Cydonia',     css: "'Pirates of Cydonia', 'DM Sans', sans-serif" }
+];
+
 /* Tipi comuni a tutte le pagine di contenuto */
-const TYPE_TITLE    = { key: 'title',   css: '--title',            kind: 'color', def: '#94a3b8', label: 'Titoli',             hint: 'Titoli di sezione (vuoto = come Sottotesti)' };
-const TYPE_TEXT     = { key: 'text',    css: '--text',             kind: 'color', def: '#e2e8f0', label: 'Testi',              hint: 'Testo principale' };
-const TYPE_SUB      = { key: 'sub',     css: '--text2',            kind: 'color', def: '#94a3b8', label: 'Sottotesti',         hint: 'Descrizioni, dettagli secondari' };
-const TYPE_TEXT3    = { key: 'text3',   css: '--text3',            kind: 'color', def: '#5b6b80', label: 'Testi disattivati',  hint: 'Testo disattivato, segnaposto, note secondarie' };
-const TYPE_LABEL    = { key: 'label',   css: '--label',            kind: 'color', def: '#94a3b8', label: 'Label',              hint: 'Etichette dei campi e dei riquadri (vuoto = come Sottotesti)' };
+/* Font di ogni tipo di testo (field.font): la chiave nel tema e la variabile CSS letta dai fogli di stile.
+   Il font dei testi è anche quello ereditato da tutto il resto della pagina. */
+const DM_SANS = "'DM Sans', sans-serif";
+const FONT_TITLE = { key: 'titleFont', css: '--font-title', def: "'Bebas Neue', sans-serif", defLabel: 'Bebas Neue' };
+const FONT_TEXT  = { key: 'font',      css: '--font-text',  def: DM_SANS, defLabel: 'DM Sans', inherited: true };
+const FONT_SUB   = { key: 'subFont',   css: '--font-sub',   def: DM_SANS, defLabel: 'DM Sans' };
+const FONT_TEXT3 = { key: 'text3Font', css: '--font-text3', def: DM_SANS, defLabel: 'DM Sans' };
+const FONT_LABEL = { key: 'labelFont', css: '--font-label', def: DM_SANS, defLabel: 'DM Sans' };
+const FONT_BTN   = { key: 'btnFont',   css: '--font-btn',   def: 'system-ui, sans-serif', defLabel: 'di sistema' };
+
+const TYPE_TITLE    = { key: 'title',   css: '--title',            kind: 'color', def: '#94a3b8', label: 'Titoli',             hint: 'Titoli di sezione (vuoto = come Sottotesti)', font: FONT_TITLE };
+const TYPE_TEXT     = { key: 'text',    css: '--text',             kind: 'color', def: '#e2e8f0', label: 'Testi',              hint: 'Testo principale', font: FONT_TEXT };
+const TYPE_SUB      = { key: 'sub',     css: '--text2',            kind: 'color', def: '#94a3b8', label: 'Sottotesti',         hint: 'Descrizioni, dettagli secondari', font: FONT_SUB };
+const TYPE_TEXT3    = { key: 'text3',   css: '--text3',            kind: 'color', def: '#5b6b80', label: 'Testi disattivati',  hint: 'Testo disattivato, segnaposto, note secondarie', font: FONT_TEXT3 };
+const TYPE_LABEL    = { key: 'label',   css: '--label',            kind: 'color', def: '#94a3b8', label: 'Label',              hint: 'Etichette dei campi e dei riquadri (vuoto = come Sottotesti)', font: FONT_LABEL };
 const TYPE_BTN      = { key: 'btn',     css: '--btn-primary',      kind: 'color', def: '#50e3c2', label: 'Pulsanti',           hint: 'Sfondo del pulsante principale (vuoto = come Evidenza principale)' };
-const TYPE_BTN_TEXT = { key: 'btnText', css: '--btn-primary-text', kind: 'color', def: '#0a0f1e', label: 'Testi dei pulsanti', hint: 'Testo sul pulsante principale' };
+const TYPE_BTN_TEXT = { key: 'btnText', css: '--btn-primary-text', kind: 'color', def: '#0a0f1e', label: 'Testi dei pulsanti', hint: 'Testo sul pulsante principale', font: FONT_BTN };
 
 const CONTENT_TYPES = [TYPE_TITLE, TYPE_TEXT, TYPE_SUB, TYPE_TEXT3, TYPE_LABEL, TYPE_BTN, TYPE_BTN_TEXT];
 
@@ -94,7 +113,7 @@ export const THEME_PAGES = [
     desc: 'Barra con selettore competizione e pulsante menu (e testata dei pannelli del menu).',
     fields: [
       { key: 'bg',   css: '--header-bg', kind: 'text',  def: 'rgba(18,22,28,0.80)', label: 'Sfondo',          hint: 'Sfondo della barra' },
-      { key: 'text', css: '--bar-text',  kind: 'color', def: '#e2e8f0',             label: 'Testi e icone',   hint: 'Testo, selettore e icone' }
+      { key: 'text', css: '--bar-text',  kind: 'color', def: '#e2e8f0',             label: 'Testi e icone',   hint: 'Testo, selettore e icone', font: FONT_TEXT }
     ]
   },
   {
@@ -102,7 +121,7 @@ export const THEME_PAGES = [
     desc: 'Navigazione principale (Home, Calendario, Classifica, ...). Lo sfondo colora anche la fascia in alto sotto l\'ora su iPhone.',
     fields: [
       { key: 'bg',   css: '--nav-bg',       kind: 'color', def: '#13171c', label: 'Sfondo',               hint: 'Sfondo della barra (vuoto = automatico, più scuro dello sfondo)' },
-      { key: 'text', css: '--nav-inactive', kind: 'color', def: '#6b7a90', label: 'Testi (tab inattivo)', hint: 'Testo e icona dei tab non selezionati' },
+      { key: 'text', css: '--nav-inactive', kind: 'color', def: '#6b7a90', label: 'Testi (tab inattivo)', hint: 'Testo e icona dei tab non selezionati', font: FONT_TEXT },
       { key: 'btn',  css: '--nav-active',   kind: 'color', def: '#50e3c2', label: 'Pulsanti (tab attivo)', hint: 'Tab selezionato (vuoto = come Evidenza principale)' }
     ]
   },
@@ -111,8 +130,8 @@ export const THEME_PAGES = [
     desc: 'Menu che si apre dall\'hamburger.',
     fields: [
       { key: 'bg',    css: '--drawer-bg', kind: 'color', def: '#171b21', label: 'Sfondo',      hint: 'Sfondo del menu (vuoto = automatico)' },
-      { key: 'title', css: '--title',     kind: 'color', def: '#e2e8f0', label: 'Titoli',      hint: 'Titolo "Menu" (vuoto = come Testi)' },
-      { key: 'text',  css: '--bar-text',  kind: 'color', def: '#e2e8f0', label: 'Testi',       hint: 'Voci del menu' },
+      { key: 'title', css: '--title',     kind: 'color', def: '#e2e8f0', label: 'Titoli',      hint: 'Titolo "Menu" (vuoto = come Testi)', font: FONT_TITLE },
+      { key: 'text',  css: '--bar-text',  kind: 'color', def: '#e2e8f0', label: 'Testi',       hint: 'Voci del menu', font: FONT_TEXT },
       { key: 'sub',   css: '--text2',     kind: 'color', def: '#94a3b8', label: 'Sottotesti',  hint: 'Icone delle voci' }
     ]
   },
@@ -229,9 +248,17 @@ export function buildThemeCss(rawTheme) {
   THEME_PAGES.forEach(page => {
     const values = theme[page.key];
     if (!values || typeof values !== 'object') return;
-    const decls = page.fields
-      .filter(f => values[f.key] && sanitize(values[f.key]))
-      .map(f => `${f.css}: ${sanitize(values[f.key])};`);
+    const decls = [];
+    page.fields.forEach(f => {
+      const v = values[f.key] && sanitize(values[f.key]);
+      if (v) decls.push(`${f.css}: ${v};`);
+      const font = f.font && THEME_FONTS.find(x => x.key === values[f.font.key]);
+      if (font) {
+        decls.push(`${f.font.css}: ${font.css || f.font.def};`);
+        // il font dei testi vale anche per tutto ciò che eredita il font nella pagina
+        if (f.font.inherited) decls.push(`font-family: var(${f.font.css});`);
+      }
+    });
     if (decls.length) blocks.push(`${page.selector} { ${decls.join(' ')} }`);
   });
   return blocks.join('\n');

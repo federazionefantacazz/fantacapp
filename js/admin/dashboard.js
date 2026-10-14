@@ -86,7 +86,7 @@ export const DashboardSection = {
           <div class="label" style="color: var(--accent); margin-bottom: .6rem; font-size: .85rem;">
             Stato Campionato & Giornata Reale (Serie A)
           </div>
-          <p style="font-size: .85rem; color: var(--text2); margin-bottom: 1rem;">
+          <p style="font-size: .85rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-bottom: 1rem;">
             Seleziona la giornata corrente del campionato reale.
           </p>
           
@@ -102,7 +102,7 @@ export const DashboardSection = {
           <div class="label" style="color: var(--accent); margin-bottom: .6rem; font-size: .85rem;">
             <i class="ri-record-circle-line"></i> Stato Calcolo Live Piattaforma
           </div>
-          <p style="font-size: .8rem; color: var(--text2); margin-bottom: 1rem;">
+          <p style="font-size: .8rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-bottom: 1rem;">
             Abilita o disabilita il calcolo in tempo reale su tutto il sito (Stato Globale). Successivamente questo stato condizionerà le competizioni.
           </p>
           
@@ -120,7 +120,7 @@ export const DashboardSection = {
           <div class="label" style="color: var(--accent); margin-bottom: .6rem; font-size: .85rem;">
             <i class="ri-fire-line"></i> Giocatori On Fire (Home)
           </div>
-          <p style="font-size: .8rem; color: var(--text2); margin-bottom: 1rem;">
+          <p style="font-size: .8rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-bottom: 1rem;">
             Nella home di ogni patron compaiono i giocatori della sua rosa con la media fantavoto più alta nelle ultime giornate.
           </p>
 
@@ -144,11 +144,11 @@ export const DashboardSection = {
           <div class="label" style="color: var(--accent); margin-bottom: .6rem; font-size: .85rem;">
             <i class="ri-clipboard-line"></i> Probabili Formazioni (fantacalcio.it)
           </div>
-          <p style="font-size: .8rem; color: var(--text2); margin-bottom: 1rem;">
+          <p style="font-size: .8rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-bottom: 1rem;">
             Percentuali di impiego, infortunati, squalificati e avversari mostrati ai patron quando scelgono la formazione.
             Si aggiornano da sole ogni 2 ore (dalle 8 alle 22). Qui puoi forzare un aggiornamento: per non sovraccaricare fantacalcio.it è consentito al massimo una volta ogni 20 minuti.
           </p>
-          <div id="dashboard-probabili-status" style="font-size: .8rem; color: var(--text2); margin-bottom: .8rem;">Caricamento...</div>
+          <div id="dashboard-probabili-status" style="font-size: .8rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-bottom: .8rem;">Caricamento...</div>
           <button class="btn btn-blue" onclick="window.aggiornaProbabiliOra()"><i class="ri-refresh-line"></i> Aggiorna probabili ora</button>
         </div>
 
@@ -156,11 +156,11 @@ export const DashboardSection = {
           <div class="label" style="color: var(--accent); margin-bottom: .6rem; font-size: .85rem;">
             <i class="ri-bar-chart-line"></i> Statistiche Calciatori (fantacalcio.it)
           </div>
-          <p style="font-size: .8rem; color: var(--text2); margin-bottom: 1rem;">
+          <p style="font-size: .8rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-bottom: 1rem;">
             Gol, assist, cartellini, rigori, gol subiti, titolare/subentrato di ogni giornata. Si aggiornano da sole
             quando premi "Salva Risultati Ufficiali" qui sotto; le giornate precedenti mancanti vengono recuperate in automatico, a blocchi.
           </p>
-          <div id="dashboard-stats-status" style="font-size: .8rem; color: var(--text2); margin-bottom: .8rem;">Caricamento...</div>
+          <div id="dashboard-stats-status" style="font-size: .8rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-bottom: .8rem;">Caricamento...</div>
           <div style="display:flex; gap:.5rem; align-items:center;">
             <input type="number" id="statsGwInput" class="input-login" min="1" max="38" placeholder="Giornata" style="margin:0; padding:.6rem; max-width:110px;">
             <button class="btn btn-blue" style="flex:1;" onclick="window.importaStatisticheOra()"><i class="ri-download-line"></i> Importa fino a questa giornata</button>
@@ -171,7 +171,7 @@ export const DashboardSection = {
           <div class="label" style="color: var(--accent); margin-bottom: .6rem; font-size: .85rem;">
             <i class="ri-calculator-line"></i> Calcolatore Risultati Giornata (Salvataggio Master)
           </div>
-          <p style="font-size: .8rem; color: var(--text2); margin-bottom: 1rem;">
+          <p style="font-size: .8rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-bottom: 1rem;">
             Elabora i fantavoti, calcola i punteggi delle squadre, congela i match di questa giornata e aggiorna la classifica o il tabellone.
           </p>
           

@@ -17,7 +17,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <title>Fantacapp</title>
 <style>
+@font-face {
+  font-family: 'Pirates of Cydonia';
+  src: url('fonts/pirates-of-cydonia.ttf') format('truetype');
+  font-display: swap;
+}
 :root {
+  --font-text: 'DM Sans', sans-serif; /* Font dei testi: il tema può sceglierne un altro per pagina */
   /* I temi (js/services/themeService.js) ridefiniscono queste variabili per pagina:
      --title e --label non hanno un valore qui, i fogli di stile usano var(--title, var(--text2)) e var(--label, var(--text2)) */
 
@@ -154,7 +160,7 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   margin-bottom: .5rem;
 }
-.side-menu-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 1px; color: var(--title, var(--bar-text)); }
+.side-menu-title { font-family: var(--font-title, 'Bebas Neue', sans-serif); font-size: 1.5rem; letter-spacing: 1px; color: var(--title, var(--bar-text)); }
 .side-menu-item {
   display: flex;
   align-items: center;
@@ -164,13 +170,13 @@
   background: none;
   border: none;
   color: var(--bar-text);
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-text);
   font-size: .92rem;
   font-weight: 500;
   text-align: left;
   cursor: pointer;
 }
-.side-menu-item i { font-size: 1.25rem; color: var(--text2); }
+.side-menu-item i { font-size: 1.25rem; color: var(--text2); font-family: var(--font-sub, inherit); }
 .side-menu-item:active { background: rgba(255, 255, 255, 0.06); }
 .side-menu-sep { height: 1px; background: rgba(255, 255, 255, 0.08); margin: .5rem 0; }
 .side-menu-item.patron i { color: var(--gold); }
@@ -187,7 +193,7 @@
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 14px !important;
   color: var(--bar-text) !important;
-  font-family: 'DM Sans', sans-serif !important;
+  font-family: var(--font-text) !important;
   font-size: 0.72rem !important;
   font-weight: 600 !important;
   padding: 0.25rem 1.5rem 0.25rem 0.65rem !important;
@@ -229,7 +235,7 @@ body {
   position: fixed;
   top: 0;
   left: 0;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-text);
   background: var(--bg);
   color: var(--text);
   -webkit-user-select: none;
@@ -280,23 +286,23 @@ body {
 }
 
 .logo{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:1px;background:linear-gradient(45deg, #fff, var(--text2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.sec{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:0.5px;color:var(--title,var(--text2));margin-bottom:.8rem;display:flex;align-items:center;gap:.4rem}
+.sec{font-family:var(--font-title,'Bebas Neue',sans-serif);font-size:1.4rem;letter-spacing:0.5px;color:var(--title,var(--text2));margin-bottom:.8rem;display:flex;align-items:center;gap:.4rem}
 .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1rem;margin-bottom:1rem;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
-.label{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--label,var(--text2));font-weight:600;margin-bottom:.4rem}
+.label{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--label,var(--text2));font-family:var(--font-label,inherit);font-weight:600;margin-bottom:.4rem}
 .pcard{background:var(--card2);border-radius:12px;padding:.5rem .75rem;display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem;transition:background .15s ease}
 .pcard:active{background:rgba(255,255,255,0.04)}
 .rbadge{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:#fff;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15)}
 .rP{background:var(--role-p);color:var(--role-p-text)}.rD{background:var(--role-d);color:var(--role-d-text)}.rC{background:var(--role-c);color:var(--role-c-text)}.rA{background:var(--role-a);color:var(--role-a-text)}
 .pi{flex:1;min-width:0}
 .pn{font-size:.9rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
-.pm{font-size:.72rem;color:var(--text2)}
-.pr{text-align:right;flex-shrink:0}.price{font-size:.9rem;font-weight:600;font-family:'DM Mono',monospace;color:var(--gold)}.pavg{font-size:.68rem;color:var(--text2)}
-.btn{background:var(--btn-secondary);color:var(--btn-secondary-text);border:none;padding:.7rem 1.2rem;border-radius:10px;font-size:.85rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;transition:all 0.2s;width:100%}
+.pm{font-size:.72rem;color:var(--text2);font-family:var(--font-sub,inherit)}
+.pr{text-align:right;flex-shrink:0}.price{font-size:.9rem;font-weight:600;font-family:'DM Mono',monospace;color:var(--gold)}.pavg{font-size:.68rem;color:var(--text2);font-family:var(--font-sub,inherit)}
+.btn{background:var(--btn-secondary);color:var(--btn-secondary-text);font-family:var(--font-btn,revert);border:none;padding:.7rem 1.2rem;border-radius:10px;font-size:.85rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;transition:all 0.2s;width:100%}
 .btn-green{background:var(--btn-primary);color:var(--btn-primary-text);font-weight:600}
 .btn-red{background:var(--accent3);color:#fff;font-weight:600}
 .btn-outline{background:transparent;border:1px solid color-mix(in srgb, var(--btn-outline) 45%, transparent);color:var(--btn-outline)}
 .btn:active{opacity:0.8;transform:scale(0.98)}
-.select-rose, .input-login{width:100%;background:var(--bg3);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:.75rem .9rem;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:1rem;outline:none;min-height:46px}
+.select-rose, .input-login{width:100%;background:var(--bg3);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:.75rem .9rem;color:var(--text2);font-family:var(--font-text);font-size:1rem;outline:none;min-height:46px}
 .input-login:focus,.select-rose:focus{border-color:var(--accent)}
 .input-login{background:var(--bg2);border-color:rgba(255,255,255,0.15);margin-bottom:1rem;user-select:text !important;-webkit-user-select:text !important;}
 /* Campi del login: colori propri, modificabili dal tema (pagina Login) */
@@ -348,7 +354,7 @@ body {
   flex-direction: column;
   align-items: center;
   gap: .2rem;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-text);
   font-size: .65rem !important;
   font-weight: 500;
   cursor: pointer;
@@ -409,7 +415,7 @@ html.resuming #page-login{visibility:hidden}
 @media (prefers-reduced-motion:reduce){#splash-logo{animation:none}}
 
 /* Avviso primo Patron / account in attesa */
-.login-note{font-size:.8rem;color:var(--text2);line-height:1.45;text-align:left}
+.login-note{font-size:.8rem;color:var(--text2);font-family:var(--font-sub,inherit);line-height:1.45;text-align:left}
 .login-note i{color:var(--gold);margin-right:.3rem}
 #box-account-pending .pending-ico{font-size:2.4rem;color:var(--gold);margin-bottom:.4rem}
 .badge-dot{position:absolute;top:4px;right:4px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--accent3);color:#fff;font-size:.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1}
@@ -422,7 +428,7 @@ label.label{display:block;text-align:left}
 /* Login: mostra/nascondi password */
 .pw-wrap{position:relative;margin-bottom:1rem}
 .pw-wrap .input-login{margin-bottom:0;padding-right:3rem}
-.pw-toggle{position:absolute;top:0;right:0;width:46px;height:100%;background:none;border:none;color:var(--text2);font-size:1.15rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.pw-toggle{position:absolute;top:0;right:0;width:46px;height:100%;background:none;border:none;color:var(--text2);font-family:var(--font-sub,inherit);font-size:1.15rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .btn[disabled]{opacity:.6;pointer-events:none}
 
 /* ==================== OFFLINE / AGGIORNAMENTI ==================== */
@@ -440,8 +446,8 @@ html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75re
 #update-banner.show{display:flex}
 #update-banner span{flex:1}
 #update-banner button{border:none;border-radius:10px;padding:.55rem .9rem;font-family:inherit;font-weight:600;font-size:.8rem;cursor:pointer;min-height:40px}
-#update-banner .upd-go{background:var(--btn-primary);color:var(--btn-primary-text)}
-#update-banner .upd-no{background:transparent;color:var(--text2);padding:.55rem .6rem}
+#update-banner .upd-go{background:var(--btn-primary);color:var(--btn-primary-text);font-family:var(--font-btn,inherit)}
+#update-banner .upd-no{background:transparent;color:var(--text2);font-family:var(--font-sub,inherit);padding:.55rem .6rem}
 </style>
 <style id="dynamic-theme"></style>
 <script>
@@ -1362,7 +1368,7 @@ function refreshUI() {
     if (gwCorrenteReale === null || gwCorrenteReale === undefined) {
       const container = document.getElementById('live-match-container');
       if (container) {
-        container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);">Sincronizzazione giornata e competizione in corso...</p>`;
+        container.innerHTML = `<p style="text-align:center; padding: 2rem; color:var(--text2);font-family:var(--font-sub,inherit);">Sincronizzazione giornata e competizione in corso...</p>`;
       }
       return; 
     }

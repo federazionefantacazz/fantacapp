@@ -44,21 +44,21 @@ function injectStyle() {
     .kit-view-btns { position: absolute; right: 0; bottom: 0; display: flex; gap: .3rem; z-index: 2; }
     .kit-view-btns button { background: color-mix(in srgb, var(--bg2) 85%, transparent); color: var(--text2); border: 1px solid var(--border);
       border-radius: 999px; padding: .2rem .6rem; font-family: inherit; font-size: .7rem; font-weight: 600; cursor: pointer; }
-    .kit-hint { position: absolute; left: 0; bottom: 0; font-size: .65rem; color: var(--text3); z-index: 2; }
-    .kit-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text3); font-size: .8rem; }
+    .kit-hint { position: absolute; left: 0; bottom: 0; font-size: .65rem; color: var(--text3); font-family: var(--font-text3, inherit); z-index: 2; }
+    .kit-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text3); font-family: var(--font-text3, inherit); font-size: .8rem; }
     .kit-actions { display: flex; gap: .5rem; justify-content: center; margin-top: .5rem; flex-wrap: wrap; }
     .kit-dirty { font-size: .7rem; color: var(--gold); text-align: center; margin-top: .3rem; min-height: 1em; }
 
     .kit-acc { background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: .6rem; overflow: hidden; }
     .kit-acc-head { width: 100%; display: flex; align-items: center; gap: .5rem; padding: .85rem 1rem; background: none; border: none;
-      color: var(--title, var(--accent)); font-family: inherit; font-size: .8rem; font-weight: 700; text-align: left; cursor: pointer; }
+      color: var(--title, var(--accent)); font-family: var(--font-title, inherit); font-size: .8rem; font-weight: 700; text-align: left; cursor: pointer; }
     .kit-acc-head span { flex: 1; }
     .kit-acc-head i { font-size: 1.2rem; transition: transform .2s; }
     .kit-acc.open .kit-acc-head i { transform: rotate(180deg); }
     .kit-acc-body { display: none; padding: 0 1rem 1rem; }
     .kit-acc.open .kit-acc-body { display: block; }
 
-    .kit-sub { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--label, var(--text2)); margin: .9rem 0 .5rem; }
+    .kit-sub { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--label, var(--text2)); font-family: var(--font-label, inherit); margin: .9rem 0 .5rem; }
     .kit-sub:first-child { margin-top: 0; }
     .kit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: .45rem; }
     .kit-grid.wide { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
@@ -82,7 +82,7 @@ function injectStyle() {
     .kit-sw.on { outline: 2px solid var(--accent); outline-offset: 1px; }
 
     .kit-chips { display: flex; flex-wrap: wrap; gap: .35rem; }
-    .kit-field { display: flex; align-items: center; gap: .6rem; margin: .5rem 0; font-size: .78rem; color: var(--text2); }
+    .kit-field { display: flex; align-items: center; gap: .6rem; margin: .5rem 0; font-size: .78rem; color: var(--text2); font-family: var(--font-sub, inherit); }
     .kit-field > span { min-width: 92px; }
     .kit-field input[type="range"] { flex: 1; accent-color: var(--accent); }
     .kit-field input[type="text"], .kit-field select { flex: 1; min-width: 0; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
@@ -94,8 +94,8 @@ function injectStyle() {
     .kit-layer .th { width: 40px; flex-shrink: 0; pointer-events: none; }
     .kit-layer .th > div { width: 100%; }
     .kit-layer .nm { flex: 1; min-width: 0; font-size: .8rem; font-weight: 600; color: var(--text); pointer-events: none; }
-    .kit-layer .nm small { display: block; font-weight: 400; color: var(--text2); font-size: .68rem; }
-    .kit-icon-btn { background: transparent; border: 1px solid var(--border); color: var(--text2); border-radius: 8px; width: 30px; height: 30px;
+    .kit-layer .nm small { display: block; font-weight: 400; color: var(--text2); font-family: var(--font-sub, inherit); font-size: .68rem; }
+    .kit-icon-btn { background: transparent; border: 1px solid var(--border); color: var(--text2); font-family: var(--font-sub, inherit); border-radius: 8px; width: 30px; height: 30px;
       display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; font-size: 1rem; }
     .kit-icon-btn:disabled { opacity: .3; pointer-events: none; }
     .kit-layer-edit { border: 1px dashed var(--border); border-radius: 12px; padding: .7rem; margin: .4rem 0 .8rem; }
@@ -425,10 +425,10 @@ export const DivisaSquadra = {
     const cell = (id, inner, label) => `<button class="kit-opt ${k.brand.id === id ? 'on' : ''}" data-act="brand" data-v="${esc(id)}" title="${esc(label)}">
         <div class="kit-brand" style="background:${esc(k.colors.base)};">${inner}</div><span class="lb">${esc(label)}</span></button>`;
     const cells = [
-      cell('none', '<i class="ri-forbid-line" style="font-size:1.3rem; color:var(--text2);"></i>', 'Nessuno'),
+      cell('none', '<i class="ri-forbid-line" style="font-size:1.3rem; color:var(--text2);font-family:var(--font-sub,inherit);"></i>', 'Nessuno'),
       ...getPngBrands().map(b => cell('png:' + b.id, `<img src="${esc(b.url)}" alt="">`, b.name)),
       ...BRANDS.filter(b => b.id !== 'none' && b.id !== 'custom').map(b => cell(b.id, `<img src="${brandThumbUrl(b, k.brand.color, k.colors.base)}" alt="">`, b.label)),
-      cell('custom', k.brand.url ? `<img src="${esc(k.brand.url)}" alt="">` : '<i class="ri-upload-2-line" style="font-size:1.3rem; color:var(--text2);"></i>', 'Il tuo PNG')
+      cell('custom', k.brand.url ? `<img src="${esc(k.brand.url)}" alt="">` : '<i class="ri-upload-2-line" style="font-size:1.3rem; color:var(--text2);font-family:var(--font-sub,inherit);"></i>', 'Il tuo PNG')
     ];
     return `
       <div class="kit-sub">Stemma della squadra (in alto a sinistra)</div>

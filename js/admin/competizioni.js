@@ -31,7 +31,7 @@ export const CompetizioniSection = {
           <option value="">-- Nessun Trofeo Selezionato --</option>
         </select>
 
-        <div class="label" style="font-size:.8rem; margin-top:.5rem; color:var(--text2)">Logo Competizione (.jpg, .jpeg, .png)</div>
+        <div class="label" style="font-size:.8rem; margin-top:.5rem; color:var(--text2);font-family:var(--font-sub,inherit)">Logo Competizione (.jpg, .jpeg, .png)</div>
         <input type="file" id="compLogoFile" name="compLogoFile" class="input-login" accept=".jpg, .jpeg, .png, .JPG, .JPEG, .PNG, image/jpeg, image/png" style="padding-top:.5rem;">
 
         <label class="label">Tipo Competizione</label>
@@ -54,7 +54,7 @@ export const CompetizioniSection = {
 
         <label class="label">Seleziona Squadre Partecipanti</label>
         <div id="compTeamsCheckboxList" style="max-height: 200px; overflow-y: auto; background: var(--bg3); padding: 10px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 1rem;">
-          <div style="color: var(--text3);">Caricamento squadre...</div>
+          <div style="color: var(--text3); font-family: var(--font-text3, inherit);">Caricamento squadre...</div>
         </div>
 
         <div style="display: flex; gap: 1rem;">
@@ -94,7 +94,7 @@ export const CompetizioniSection = {
     if (!container) return;
 
     if (!allTeams || allTeams.length === 0) {
-      container.innerHTML = "<div style='color:var(--text3)'>Nessuna squadra disponibile nel DB.</div>";
+      container.innerHTML = "<div style='color:var(--text3);font-family:var(--font-text3,inherit)'>Nessuna squadra disponibile nel DB.</div>";
       return;
     }
 
@@ -139,7 +139,7 @@ export const CompetizioniSection = {
 
     const comps = state.competitions || [];
     if (comps.length === 0) {
-      listContainer.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text3);">Nessuna competizione creata. Usa il modulo sopra per crearne una.</td></tr>`;
+      listContainer.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text3); font-family: var(--font-text3, inherit);">Nessuna competizione creata. Usa il modulo sopra per crearne una.</td></tr>`;
       return;
     }
 
@@ -156,7 +156,7 @@ export const CompetizioniSection = {
       const matchedTrophy = trophies.find(tr => tr.id === trophyId);
       const trophyImgHtml = matchedTrophy && matchedTrophy.image
         ? `<img src="${matchedTrophy.image}" title="${matchedTrophy.name}" style="width:32px; height:32px; object-fit:contain; border-radius:4px; vertical-align:middle;">`
-        : `<i class="ri-trophy-line" style="font-size:1.2rem;color:var(--text3);" title="Nessun trofeo"></i>`;
+        : `<i class="ri-trophy-line" style="font-size:1.2rem;color:var(--text3);font-family:var(--font-text3,inherit);" title="Nessun trofeo"></i>`;
 
       let teamsArray = [];
       if (c.teams) {
@@ -167,7 +167,7 @@ export const CompetizioniSection = {
 
       const logoHtml = c.logo 
         ? `<img src="${c.logo}" alt="Logo" style="width:40px; height:40px; object-fit:contain; border-radius:6px; vertical-align:middle;">`
-        : `<div style="width:40px; height:40px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3); vertical-align:middle;"><i class="ri-shield-line"></i></div>`;
+        : `<div style="width:40px; height:40px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3);font-family:var(--font-text3,inherit); vertical-align:middle;"><i class="ri-shield-line"></i></div>`;
 
       return `
         <tr>
