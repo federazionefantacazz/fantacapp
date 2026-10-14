@@ -1,4 +1,4 @@
-import { esc, sameId } from '../utils.js';
+import { esc, sameId, fitName } from '../utils.js';
 
 /**
  * Card risultato di un incontro.
@@ -26,17 +26,8 @@ export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
     return `<img src="${esc(team.logo)}" style="width:${size}px; height:${size}px; object-fit:contain; border-radius:6px; flex-shrink:0; background:var(--bg3);" onerror="this.outerHTML='<div style=\\'width:${size}px; height:${size}px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.2rem; color:var(--text3);font-family:var(--font-text3,inherit); flex-shrink:0;\\'><i class=\\'ri-shield-fill\\'></i></div>';" alt="Logo">`;
   };
 
-  const textStyle = `
-    font-size: clamp(0.7rem, 3.5vw, 0.9rem); 
-    font-weight: 700; 
-    color: var(--text); 
-    line-height: 1.15; 
-    display: -webkit-box; 
-    -webkit-line-clamp: 2; 
-    -webkit-box-orient: vertical; 
-    overflow: hidden; 
-    word-break: break-word;
-  `;
+  // nome su 2 righe al massimo: si rimpicciolisce invece di spezzare le parole (fitName)
+  const nameStyle = 'font-weight:700; color:var(--text);';
 
   const isFinished = match.finished === true;
   const scoreHome = (isFinished || match.goalHome != null) ? match.goalHome : '-';
@@ -81,23 +72,23 @@ export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
       <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
         
         <!-- Squadra Casa -->
-        <div style="display:flex; align-items:center; gap:0.6rem; min-width:0; flex:1; justify-content:flex-start;">
-          ${getLogoHtml(tHome, 36)}
-          <span style="${textStyle} text-align:left;">${esc(tHome.name)}</span>
+        <div style="display:flex; align-items:center; gap:0.45rem; min-width:0; flex:1; justify-content:flex-start;">
+          ${getLogoHtml(tHome, 34)}
+          ${fitName(tHome.name, { style: `${nameStyle} text-align:left;` })}
         </div>
 
         <!-- Centro: Risultato e Punti -->
-        <div style="flex-shrink:0; text-align:center; padding: 0 0.2rem;">
-          <div style="font-family:'DM Mono',monospace; font-size:1.2rem; font-weight:700; background:var(--bg3); padding:.2rem .6rem; border-radius:6px; color:var(--accent); display:inline-block; letter-spacing:1px;">
+        <div style="flex-shrink:0; text-align:center;">
+          <div style="font-family:'DM Mono',monospace; font-size:1.2rem; font-weight:700; background:var(--bg3); padding:.2rem .45rem; border-radius:6px; color:var(--accent); display:inline-block; letter-spacing:1px;">
             ${scoreHome}:${scoreAway}
           </div>
           ${pointsHTML}
         </div>
 
         <!-- Squadra Ospite -->
-        <div style="display:flex; align-items:center; gap:0.6rem; min-width:0; flex:1; justify-content:flex-end;">
-          <span style="${textStyle} text-align:right;">${esc(tAway.name)}</span>
-          ${getLogoHtml(tAway, 36)}
+        <div style="display:flex; align-items:center; gap:0.45rem; min-width:0; flex:1; justify-content:flex-end;">
+          ${fitName(tAway.name, { style: `${nameStyle} text-align:right;` })}
+          ${getLogoHtml(tAway, 34)}
         </div>
 
       </div>

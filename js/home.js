@@ -58,8 +58,8 @@ export const HomePage = {
             <div id="userTeamLogo" style="flex-shrink: 0;"></div>
             <div style="flex: 1; min-width: 0; overflow: hidden;">
               <div class="label" style="margin: 0; font-size: 0.68rem;">La mia squadra</div>
-              <h3 id="homeTeamName" style="font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 0.5px; color: var(--text); margin: 0; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Caricamento...</h3>
-              <p id="homeTeamOwner" style="font-size: 0.75rem; color: var(--text2); font-family: var(--font-sub, inherit); margin: 2px 0 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">...</p>
+              <h3 id="homeTeamName" style="font-family: var(--font-team-name, 'Bebas Neue', sans-serif); font-size: 2rem; letter-spacing: 0.5px; color: var(--team-name, var(--text)); margin: 0; line-height: 1.1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere;">Caricamento...</h3>
+              <p id="homeTeamOwner" style="font-size: 0.75rem; color: var(--team-owner, var(--text2)); font-family: var(--font-team-owner, var(--font-sub, inherit)); margin: 2px 0 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">...</p>
             </div>
           </div>
 
