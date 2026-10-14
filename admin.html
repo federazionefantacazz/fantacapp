@@ -245,6 +245,9 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
   <button class="snav" data-sec="crea-competizioni">
     <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Competizioni
   </button>
+  <button class="snav" data-sec="notifiche">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Notifiche
+  </button>
   <button class="snav" data-sec="themes">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 18a6 6 0 1 0 0-12v12z"/></svg>Temi
   </button>
@@ -274,6 +277,8 @@ import { CalendarioSection }    from './js/admin/calendario/calendario.js';
 import { CompetizioniSection }  from './js/admin/competizioni.js';
 import { ThemesSection }        from './js/admin/themes.js';
 import { DiviseSection }        from './js/admin/divise.js';
+import { NotificheSection }     from './js/admin/notifiche.js';
+import { tradeNotificationUpdates } from './js/services/notificationService.js';
 import { applyThemeVars, applyBackground } from './js/services/themeService.js';
 
 if ('serviceWorker' in navigator) {
@@ -372,6 +377,7 @@ function initAdminApp() {
   if (CompetizioniSection && typeof CompetizioniSection.init === 'function') CompetizioniSection.init(db);
   if (ThemesSection && typeof ThemesSection.init === 'function') ThemesSection.init(db);
   if (DiviseSection && typeof DiviseSection.init === 'function') DiviseSection.init(db);
+  if (NotificheSection && typeof NotificheSection.init === 'function') NotificheSection.init(db, auth);
 
   const navTemplate = document.getElementById('nav-template').innerHTML;
   document.querySelector('.sidebar .nav-links-container').innerHTML = navTemplate;
@@ -391,6 +397,7 @@ function initAdminApp() {
       ${typeof CalendarioSection.renderHTML === 'function' ? CalendarioSection.renderHTML() : ''}
       ${typeof CompetizioniSection.renderHTML === 'function' ? CompetizioniSection.renderHTML() : ''}
       ${typeof ThemesSection.renderHTML === 'function' ? ThemesSection.renderHTML() : ''}
+      ${typeof NotificheSection.renderHTML === 'function' ? NotificheSection.renderHTML() : ''}
     `;
   }
 
@@ -434,6 +441,7 @@ function refreshAll() {
   if (CompetizioniSection && typeof CompetizioniSection.render === 'function') CompetizioniSection.render(state);
   if (ThemesSection && typeof ThemesSection.render === 'function') ThemesSection.render(state);
   if (DiviseSection && typeof DiviseSection.render === 'function') DiviseSection.render(state);
+  if (NotificheSection && typeof NotificheSection.render === 'function') NotificheSection.render(state);
 }
 
 /* ─── Gestione della Navigazione Sincronizzata ──────────────────────────── */
@@ -594,7 +602,11 @@ window.changeRealGW = async function(newGw) {
       const rientrati = await MercatoService.processaScadenze({
         trades: Object.values(tSnap.val() || {}),
         players: Object.entries(pSnap.val() || {}).map(([k, v]) => ({ id: k, ...v })),
-        giornataReale: gwNumber
+        giornataReale: gwNumber,
+        notify: t => {
+          const opts = { templates: NotificheSection.templates, teams: TEAMS, createdBy: auth.currentUser && auth.currentUser.uid, rientro: gwNumber };
+          return { ...tradeNotificationUpdates('prestitoConcluso', t, t.fromTeamId, opts), ...tradeNotificationUpdates('prestitoConcluso', t, t.toTeamId, opts) };
+        }
       });
       if (rientrati) window.toast(`${rientrati} prestit${rientrati === 1 ? 'o scaduto: giocatori rientrati' : 'i scaduti: giocatori rientrati'}`, "ok");
     } catch (e) { console.error('Sweep prestiti:', e); }

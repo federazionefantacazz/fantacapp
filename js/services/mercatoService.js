@@ -162,8 +162,9 @@ export const MercatoService = {
    * Fa rientrare i giocatori dei prestiti scaduti: un prestito che inizia alla giornata S
    * e dura N giornate termina alla giornata S+N (i giocatori tornano quando la giornata
    * di Serie A corrente raggiunge S+N). Idempotente: può essere chiamato da qualunque client.
+   * notify(trade) = notifiche da scrivere dopo il rientro (se non riescono il rientro resta valido).
    */
-  async processaScadenze({ trades, players, giornataReale }) {
+  async processaScadenze({ trades, players, giornataReale, notify }) {
     const gw = Number(giornataReale);
     if (this._sweeping || !Number.isFinite(gw)) return 0;
     const list = (trades || []).filter(t => t && t.status === 'active' && t.endGw !== undefined && gw >= Number(t.endGw) && !this._swept.has(t.id));
@@ -187,6 +188,10 @@ export const MercatoService = {
     try {
       await update(ref(db), updates);
       list.forEach(t => this._swept.add(t.id));
+      if (typeof notify === 'function') {
+        const notifs = Object.assign({}, ...list.map(t => notify(t) || {}));
+        if (Object.keys(notifs).length) update(ref(db), notifs).catch(err => console.warn('Notifiche prestiti non inviate:', err?.message));
+      }
       return list.length;
     } catch (err) {
       console.error('Errore rientro prestiti:', err);
