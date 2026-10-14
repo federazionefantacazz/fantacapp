@@ -37,7 +37,7 @@ function findLastPlayedMatch(comp, teamId) {
   return best;
 }
 
-const LOGO_PLACEHOLDER = `<div style="width:100px; height:100px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-shield-fill" style="font-size:1.5rem; color:var(--text2)"></i></div>`;
+const LOGO_PLACEHOLDER = `<div style="width:100px; height:100px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-shield-fill" style="font-size:1.5rem; color:var(--text2);font-family:var(--font-sub,inherit)"></i></div>`;
 
 // riquadri dentro la card della squadra (maglia, classifica, palmarès)
 const BOX = 'background: rgba(0,0,0,0.18); border: 1px solid var(--border); border-radius: 14px; padding: 0.6rem 0.7rem;';
@@ -59,7 +59,7 @@ export const HomePage = {
             <div style="flex: 1; min-width: 0; overflow: hidden;">
               <div class="label" style="margin: 0; font-size: 0.68rem;">La mia squadra</div>
               <h3 id="homeTeamName" style="font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 0.5px; color: var(--text); margin: 0; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Caricamento...</h3>
-              <p id="homeTeamOwner" style="font-size: 0.75rem; color: var(--text2); margin: 2px 0 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">...</p>
+              <p id="homeTeamOwner" style="font-size: 0.75rem; color: var(--text2); font-family: var(--font-sub, inherit); margin: 2px 0 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">...</p>
             </div>
           </div>
 
@@ -67,18 +67,18 @@ export const HomePage = {
           <div id="homeBoxes" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; width: 100%;">
             <div id="homeKitBox" style="${BOX} display: flex; flex-direction: column; min-width: 0;">
               <div onclick="window.openKitEditor && window.openKitEditor()" style="display: flex; align-items: center; justify-content: space-between; gap: 0.3rem; margin-bottom: 0.3rem; cursor: pointer;">
-                <div style="font-size: 0.7rem; font-weight: 700; color: var(--text2); text-transform: uppercase;">Maglia</div>
+                <div style="font-size: 0.7rem; font-weight: 700; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase;">Maglia</div>
                 <div id="homeKitAction" style="font-size: 0.65rem; color: var(--accent); display: flex; align-items: center; flex-shrink: 0;">Modifica <i class="ri-arrow-right-s-line"></i></div>
               </div>
               <div id="homeTeamKit" onclick="window.openKitEditor && window.openKitEditor()" style="flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer;"></div>
             </div>
             <div id="homeMiniClassifica" style="${BOX} min-width: 0;">
-              <div style="font-size: 0.7rem; font-weight: 600; color: var(--text2);">Caricamento...</div>
+              <div style="font-size: 0.7rem; font-weight: 600; color: var(--text2); font-family: var(--font-sub, inherit);">Caricamento...</div>
             </div>
             <div style="${BOX} grid-column: 1 / -1;">
               <div class="label" style="margin-bottom: 0.4rem; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase;"><i class="ri-trophy-line"></i> Palmarès</div>
               <div id="homeTeamTrophies" style="display: flex; align-items: flex-end; justify-content: flex-start; gap: 0.6rem; flex-wrap: wrap;">
-                <span style="font-size: 0.75rem; color: var(--text3); font-style: italic;">Nessun trofeo</span>
+                <span style="font-size: 0.75rem; color: var(--text3); font-family: var(--font-text3, inherit); font-style: italic;">Nessun trofeo</span>
               </div>
             </div>
           </div>
@@ -96,12 +96,12 @@ export const HomePage = {
         <!-- PROSSIMO AVVERSARIO -->
         <div class="sec" style="margin-bottom:.6rem;">Prossimo Avversario</div>
         <div id="homeNextMatch" style="margin-bottom:1.5rem;">
-          <div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Nessun match programmato.</div>
+          <div style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1rem; font-size:.85rem;">Nessun match programmato.</div>
         </div>
 
         <div class="sec" id="onFireTitle" style="margin-bottom:.6rem;">Giocatori On Fire <i class="ri-fire-fill" style="color: #ff4757;"></i></div>
         <div class="scroll-voti" id="homeOnFirePlayers">
-          <div style="text-align:center; color:var(--text3); padding:1.5rem; font-size:.85rem; width:100%;">Nessun dato sulle prestazioni disponibile.</div>
+          <div style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1.5rem; font-size:.85rem; width:100%;">Nessun dato sulle prestazioni disponibile.</div>
         </div>
       </div>
     `;
@@ -134,7 +134,7 @@ export const HomePage = {
               <i class="ri-time-line" style="font-size: 1.2rem; color: var(--accent2);"></i>
               <div>
                 <div style="font-size: .85rem; font-weight: 600; color: var(--text);">Pre-Campionato Attivo</div>
-                <div style="font-size: .75rem; color: var(--text2); margin-top: 1px;">Le liste sono aperte. Prepara la rosa prima della 1ª Giornata!</div>
+                <div style="font-size: .75rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-top: 1px;">Le liste sono aperte. Prepara la rosa prima della 1ª Giornata!</div>
               </div>
             </div>
           </div>
@@ -146,7 +146,7 @@ export const HomePage = {
               <i class="ri-football-line" style="font-size: 1.2rem; color: var(--accent);"></i>
               <div>
                 <div style="font-size: .85rem; font-weight: 600; color: var(--text);">Campionato Live — Serie A</div>
-                <div style="font-size: .75rem; color: var(--text2); margin-top: 1px;">Siamo attualmente alla <strong style="color: var(--accent);">${realGw}ª Giornata</strong> reale.</div>
+                <div style="font-size: .75rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-top: 1px;">Siamo attualmente alla <strong style="color: var(--accent);">${realGw}ª Giornata</strong> reale.</div>
               </div>
             </div>
           </div>
@@ -182,7 +182,7 @@ export const HomePage = {
           kitBox.dataset.key = key;
           kitBox.innerHTML = myTeam.kit
             ? kitImageHTML(myTeam.kit, { crestUrl: myTeam.logo || '', width: 360 }, 'style="width:100%; max-width:150px; margin:0 auto;"')
-            : `<i class="ri-shirt-line" style="font-size: 3rem; color: var(--text3);"></i>`;
+            : `<i class="ri-shirt-line" style="font-size: 3rem; color: var(--text3); font-family: var(--font-text3, inherit);"></i>`;
           if (kitAction) kitAction.innerHTML = `${myTeam.kit ? 'Modifica' : 'Crea'} <i class="ri-arrow-right-s-line"></i>`;
         }
       }
@@ -226,7 +226,7 @@ export const HomePage = {
           trophiesContainer.style.flexWrap = 'wrap';
           trophiesContainer.innerHTML = wonTrophies.map(renderTrophy).join('');
         } else {
-          trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3); font-style: italic;">Nessun trofeo in bacheca</span>`;
+          trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3); font-family: var(--font-text3, inherit); font-style: italic;">Nessun trofeo in bacheca</span>`;
         }
       }
 
@@ -234,9 +234,9 @@ export const HomePage = {
       if (tn) tn.textContent = "Spettatore";
       if (to) to.textContent = STATE.user.email;
       if (onFireTitle) onFireTitle.textContent = `Giocatori On Fire`;
-      if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:52px; height:52px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-eye-line" style="font-size:1.5rem; color:var(--text2)"></i></div>`;
-      if (trophiesContainer) trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3);">--</span>`;
-      if (miniClassificaBox) miniClassificaBox.innerHTML = `<div style="font-size: 0.7rem; color: var(--text3);">Non associato a una squadra.</div>`;
+      if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:52px; height:52px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-eye-line" style="font-size:1.5rem; color:var(--text2);font-family:var(--font-sub,inherit)"></i></div>`;
+      if (trophiesContainer) trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3); font-family: var(--font-text3, inherit);">--</span>`;
+      if (miniClassificaBox) miniClassificaBox.innerHTML = `<div style="font-size: 0.7rem; color: var(--text3); font-family: var(--font-text3, inherit);">Non associato a una squadra.</div>`;
       if (kitBox) { kitBox.dataset.key = ''; kitBox.innerHTML = ''; }
       if (kitWrap) kitWrap.style.display = 'none';
       if (boxes) boxes.style.gridTemplateColumns = '1fr';
@@ -252,7 +252,7 @@ export const HomePage = {
         nm.innerHTML = createMatchCardVS(myMatch, teamsList);
       }
     } else {
-      if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">Seleziona una competizione dal menu in alto.</div>`;
+      if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1rem; font-size:.85rem;">Seleziona una competizione dal menu in alto.</div>`;
     }
 
     // --- ULTIMA PARTITA GIOCATA nella competizione selezionata ---
@@ -356,7 +356,7 @@ export const HomePage = {
               ${photoHtml}
               <div class="pi" style="flex:1; min-width:0;">
                 <div class="pn" style="color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(p.name)} <span class="rbadge r${role}" style="display:inline-flex; width:16px; height:16px; font-size:.6rem; border-radius:4px; vertical-align:middle;">${role}</span></div>
-                <div class="pm" style="color:var(--text2); font-size:0.7rem;">${esc(p.club || '')} • ${count} pres. nelle ${periodo}</div>
+                <div class="pm" style="color:var(--text2);font-family:var(--font-sub,inherit); font-size:0.7rem;">${esc(p.club || '')} • ${count} pres. nelle ${periodo}</div>
               </div>
               <div style="text-align:right;">
                 <div style="${customStyle}">${avg.toFixed(2)}</div>
@@ -365,7 +365,7 @@ export const HomePage = {
           `;
         }).join('');
       } else {
-        onFireContainer.innerHTML = `<div style="text-align:center; color:var(--text3); padding:1.5rem; font-size:.85rem; width:100%;">Nessun fantavoto registrato nelle ${periodo}.</div>`;
+        onFireContainer.innerHTML = `<div style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1.5rem; font-size:.85rem; width:100%;">Nessun fantavoto registrato nelle ${periodo}.</div>`;
       }
     }
   }

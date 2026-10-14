@@ -3,7 +3,7 @@ import { esc, sameId } from '../utils.js';
 export const createMatchCardVS = (match, teamsList = []) => {
   if (!match) {
     return `
-      <div class="card card-sm card-mini" style="background:var(--mini-bg,var(--bg2)); border:1px solid var(--border); text-align:center; color:var(--text3); padding:1rem; font-size:.85rem;">
+      <div class="card card-sm card-mini" style="background:var(--mini-bg,var(--bg2)); border:1px solid var(--border); text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1rem; font-size:.85rem;">
         Nessun match programmato.
       </div>
     `;
@@ -15,9 +15,9 @@ export const createMatchCardVS = (match, teamsList = []) => {
   // Loghi più grandi (36px)
   const getLogoHtml = (team, size = 36) => {
     if (!team || !team.logo) {
-      return `<i class="ri-shield-fill" style="font-size:${size}px; color:var(--text2); display:flex; align-items:center; justify-content:center; flex-shrink:0;"></i>`;
+      return `<i class="ri-shield-fill" style="font-size:${size}px; color:var(--text2);font-family:var(--font-sub,inherit); display:flex; align-items:center; justify-content:center; flex-shrink:0;"></i>`;
     }
-    return `<img src="${esc(team.logo)}" style="width:${size}px; height:${size}px; object-fit:contain; border-radius:6px; flex-shrink:0;" onerror="this.outerHTML='<i class=\\'ri-shield-fill\\' style=\\'font-size:${size}px; color:var(--text2); display:flex; align-items:center; justify-content:center; flex-shrink:0;\\'></i>';" alt="Logo">`;
+    return `<img src="${esc(team.logo)}" style="width:${size}px; height:${size}px; object-fit:contain; border-radius:6px; flex-shrink:0;" onerror="this.outerHTML='<i class=\\'ri-shield-fill\\' style=\\'font-size:${size}px; color:var(--text2);font-family:var(--font-sub,inherit); display:flex; align-items:center; justify-content:center; flex-shrink:0;\\'></i>';" alt="Logo">`;
   };
 
   /* 

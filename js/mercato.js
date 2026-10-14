@@ -23,12 +23,12 @@ const STYLES = `
 .mk-rosters{display:flex;gap:.8rem;flex-wrap:wrap}
 .mk-roster{flex:1;min-width:280px}
 .mk-rhead{font-weight:600;font-size:.85rem;margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem}
-.mk-rgroup{font-size:.68rem;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);margin:.6rem 0 .3rem}
+.mk-rgroup{font-size:.68rem;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);font-family:var(--font-sub,inherit);margin:.6rem 0 .3rem}
 .mk-prow{display:flex;align-items:center;gap:.6rem;padding:.4rem .55rem;border-radius:10px;background:var(--card2);margin-bottom:.3rem;cursor:pointer;border:1px solid transparent;transition:all .15s}
 .mk-prow.sel{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
 .mk-prow.lock{opacity:.45;cursor:not-allowed}
 .mk-prow .nm{font-size:.82rem;font-weight:500;line-height:1.1}
-.mk-prow .sub{font-size:.68rem;color:var(--text2)}
+.mk-prow .sub{font-size:.68rem;color:var(--text2);font-family:var(--font-sub,inherit)}
 .mk-check{margin-left:auto;width:20px;height:20px;border-radius:6px;border:2px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0}
 .mk-prow.sel .mk-check{background:var(--accent);border-color:var(--accent);color:#0a0f1e}
 .mk-sumcols{display:flex;gap:.8rem;flex-wrap:wrap}
@@ -57,7 +57,7 @@ export const MercatoPage = {
 
         <div id="mk-nuova" class="market-subpage">
           <div class="card">
-            <div class="label" style="color:var(--title,var(--accent)); margin-bottom: .6rem; display: flex; align-items: center; gap: 0.4rem;"><i class="ri-add-circle-line"></i> Proponi una trattativa</div>
+            <div class="label" style="color:var(--title,var(--accent)); font-family:var(--font-title,inherit); margin-bottom: .6rem; display: flex; align-items: center; gap: 0.4rem;"><i class="ri-add-circle-line"></i> Proponi una trattativa</div>
 
             <div class="label">Tipo di trattativa</div>
             <div class="mk-seg">
@@ -77,7 +77,7 @@ export const MercatoPage = {
           <div class="card" style="text-align: center; padding: 2.5rem 1.5rem; border: 1px dashed var(--accent3);">
             <div style="font-size: 2.5rem; margin-bottom: .8rem; color: var(--accent3);"><i class="ri-lock-line"></i></div>
             <div class="label" style="color: var(--accent3); font-size: .9rem; margin-bottom: .5rem;">Sessione Chiusa</div>
-            <p style="font-size: .8rem; color: var(--text2); line-height: 1.4;">
+            <p style="font-size: .8rem; color: var(--text2); font-family: var(--font-sub, inherit); line-height: 1.4;">
               Acquisti e svincoli dal mercato degli svincolati sono momentaneamente disattivati dall'amministratore della lega.
             </p>
           </div>
@@ -231,7 +231,7 @@ export const MercatoPage = {
     const sel = side === 'give' ? this.ui.give : this.ui.get;
     const roster = this._roster(teamId);
     let html = `<div class="mk-roster card card-sm"><div class="mk-rhead"><i class="ri-team-line"></i> ${esc(title)}</div>`;
-    if (!roster.length) html += `<div style="font-size:.8rem;color:var(--text2);padding:.5rem">Nessun giocatore in rosa.</div>`;
+    if (!roster.length) html += `<div style="font-size:.8rem;color:var(--text2);font-family:var(--font-sub,inherit);padding:.5rem">Nessun giocatore in rosa.</div>`;
     ROLES.forEach(r => {
       const list = roster.filter(p => p.role === r).sort((a, b) => String(a.name).localeCompare(String(b.name)));
       if (!list.length) return;
@@ -245,7 +245,7 @@ export const MercatoPage = {
     if (!box) return;
     const dest = this.ui.dest;
     if (!dest || !this._team(dest)) {
-      box.innerHTML = `<div style="text-align:center;color:var(--text3);font-size:.85rem;padding:1.5rem">Scegli una squadra per vedere le due rose.</div>`;
+      box.innerHTML = `<div style="text-align:center;color:var(--text3);font-family:var(--font-text3,inherit);font-size:.85rem;padding:1.5rem">Scegli una squadra per vedere le due rose.</div>`;
       return;
     }
 
@@ -270,7 +270,7 @@ export const MercatoPage = {
     const names = (ids) => ids.map(id => {
       const p = pmap.get(id);
       return `<div class="mk-line"><span class="rbadge r${esc(p.role)}" style="width:20px;height:20px;font-size:.62rem;border-radius:5px">${esc(p.role)}</span>${esc(p.name)}</div>`;
-    }).join('') || `<div style="font-size:.75rem;color:var(--text3)">Nessuno</div>`;
+    }).join('') || `<div style="font-size:.75rem;color:var(--text3);font-family:var(--font-text3,inherit)">Nessuno</div>`;
 
     const gw = this._gw();
     const durataBox = isLoan ? `
@@ -279,7 +279,7 @@ export const MercatoPage = {
         <select id="mk-durata" class="select-rose" style="background:var(--bg3)">
           ${Array.from({ length: LOAN_MAX - LOAN_MIN + 1 }, (_, i) => LOAN_MIN + i).map(n => `<option value="${n}" ${n === this.ui.durata ? 'selected' : ''}>${n} giornate</option>`).join('')}
         </select>
-        <div style="font-size:.75rem;color:var(--text2);margin-top:.4rem">Se accettato ora: dalla G${gw} alla G${gw + this.ui.durata}, poi i giocatori tornano alle squadre di origine.</div>
+        <div style="font-size:.75rem;color:var(--text2);font-family:var(--font-sub,inherit);margin-top:.4rem">Se accettato ora: dalla G${gw} alla G${gw + this.ui.durata}, poi i giocatori tornano alle squadre di origine.</div>
       </div>` : '';
 
     box.innerHTML = `
@@ -289,7 +289,7 @@ export const MercatoPage = {
       </div>
 
       <div class="card" style="margin-top:.8rem">
-        <div class="label" style="color:var(--title,var(--accent));margin-bottom:.6rem"><i class="ri-clipboard-line"></i> Riepilogo ${isLoan ? 'prestito' : 'scambio'}</div>
+        <div class="label" style="color:var(--title,var(--accent)); font-family:var(--font-title,inherit);margin-bottom:.6rem"><i class="ri-clipboard-line"></i> Riepilogo ${isLoan ? 'prestito' : 'scambio'}</div>
         <div class="mk-sumcols">
           <div class="mk-sumcol"><div class="label" style="font-size:.7rem">Cedi (${give.length})</div>${names(give)}</div>
           <div class="mk-sumcol"><div class="label" style="font-size:.7rem">Ricevi (${get.length})</div>${names(get)}</div>
@@ -342,11 +342,11 @@ export const MercatoPage = {
     if (t.tipo === 'prestito') {
       if (t.status === 'active') {
         const left = MercatoService.giornateRimaste(t, this._gw());
-        loanInfo = `<div style="font-size:.75rem;color:var(--text2);margin-top:.6rem"><i class="ri-calendar-line"></i> Dalla G${t.startGw} alla G${t.endGw} · rientro alla G${t.endGw} (${left === 0 ? 'in scadenza' : `restano ${left} giornate`})</div>`;
+        loanInfo = `<div style="font-size:.75rem;color:var(--text2);font-family:var(--font-sub,inherit);margin-top:.6rem"><i class="ri-calendar-line"></i> Dalla G${t.startGw} alla G${t.endGw} · rientro alla G${t.endGw} (${left === 0 ? 'in scadenza' : `restano ${left} giornate`})</div>`;
       } else if (t.status === 'returned') {
-        loanInfo = `<div style="font-size:.75rem;color:var(--text2);margin-top:.6rem"><i class="ri-calendar-line"></i> G${t.startGw} <i class="ri-arrow-right-line"></i> G${t.endGw} · giocatori rientrati (G${t.returnedAtGw})</div>`;
+        loanInfo = `<div style="font-size:.75rem;color:var(--text2);font-family:var(--font-sub,inherit);margin-top:.6rem"><i class="ri-calendar-line"></i> G${t.startGw} <i class="ri-arrow-right-line"></i> G${t.endGw} · giocatori rientrati (G${t.returnedAtGw})</div>`;
       } else {
-        loanInfo = `<div style="font-size:.75rem;color:var(--text2);margin-top:.6rem"><i class="ri-calendar-line"></i> Durata proposta: ${t.durata} giornate</div>`;
+        loanInfo = `<div style="font-size:.75rem;color:var(--text2);font-family:var(--font-sub,inherit);margin-top:.6rem"><i class="ri-calendar-line"></i> Durata proposta: ${t.durata} giornate</div>`;
       }
     }
 
@@ -365,7 +365,7 @@ export const MercatoPage = {
           </div>`;
       }
     }
-    const reason = t.reason ? `<div style="font-size:.72rem;color:var(--text2);margin-top:.5rem">${esc(t.reason)}</div>` : '';
+    const reason = t.reason ? `<div style="font-size:.72rem;color:var(--text2);font-family:var(--font-sub,inherit);margin-top:.5rem">${esc(t.reason)}</div>` : '';
 
     return `
       <div class="card card-sm mk-trade">
@@ -381,7 +381,7 @@ export const MercatoPage = {
           <div class="mk-sumcol"><div class="label" style="font-size:.7rem">Ricevi</div>${list(ricevo)}</div>
         </div>
         ${loanInfo}${warn}${reason}
-        <div style="font-size:.68rem;color:var(--text3);margin-top:.5rem">${mine ? 'Inviata da te' : 'Ricevuta'} · ${date}</div>
+        <div style="font-size:.68rem;color:var(--text3);font-family:var(--font-text3,inherit);margin-top:.5rem">${mine ? 'Inviata da te' : 'Ricevuta'} · ${date}</div>
         ${actions}
       </div>`;
   },
@@ -398,8 +398,8 @@ export const MercatoPage = {
     const history = all.filter(t => !['pending', 'active'].includes(t.status));
 
     const section = (icon, title, list, empty) => `
-      <div class="label mk-sec"><i class="${icon}"></i> ${title} <span style="color:var(--text3)">(${list.length})</span></div>
-      ${list.length ? list.map(t => this._tradeCard(t)).join('') : `<div style="text-align:center;color:var(--text3);font-size:.8rem;padding:.8rem">${empty}</div>`}`;
+      <div class="label mk-sec"><i class="${icon}"></i> ${title} <span style="color:var(--text3);font-family:var(--font-text3,inherit)">(${list.length})</span></div>
+      ${list.length ? list.map(t => this._tradeCard(t)).join('') : `<div style="text-align:center;color:var(--text3);font-family:var(--font-text3,inherit);font-size:.8rem;padding:.8rem">${empty}</div>`}`;
 
     box.innerHTML =
       section('ri-inbox-line', 'Offerte ricevute', received, 'Nessuna offerta da gestire.') +

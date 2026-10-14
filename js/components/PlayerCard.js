@@ -311,22 +311,22 @@ export const PlayerCard = {
 .pc-photo img{max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5))}
 .pc-photo span{width:72px;height:72px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--text3)}
 .pc-id{min-width:0;padding-bottom:.2rem}
-.pc-role{display:flex;align-items:center;gap:.4rem;font-size:.75rem;color:var(--text2)}
+.pc-role{display:flex;align-items:center;gap:.4rem;font-size:.75rem;color:var(--text2);font-family:var(--font-sub,inherit)}
 .pc-role .rbadge{width:20px;height:20px;font-size:.6rem;border-radius:5px}
 .pc-name{font-family:'Bebas Neue',sans-serif;font-size:2.3rem;line-height:1;letter-spacing:.5px;margin:.25rem 0;color:var(--text);word-break:break-word}
-.pc-club{font-size:.82rem;color:var(--text2)}
+.pc-club{font-size:.82rem;color:var(--text2);font-family:var(--font-sub,inherit)}
 .pc-owner{display:inline-block;margin-left:.35rem;padding:1px 8px;border-radius:10px;background:var(--bg2);color:var(--gold);font-size:.72rem}
-.pc-next{padding:.6rem 1.2rem;font-size:.78rem;color:var(--text2);border-bottom:1px solid rgba(255,255,255,.05)}
+.pc-next{padding:.6rem 1.2rem;font-size:.78rem;color:var(--text2);font-family:var(--font-sub,inherit);border-bottom:1px solid rgba(255,255,255,.05)}
 .pc-next b{color:var(--text)}
 .pc-chip{display:inline-block;margin-left:.3rem;padding:0 7px;border-radius:9px;font-size:.66rem;font-weight:700;color:var(--c);border:1px solid var(--c);background:color-mix(in srgb,var(--c) 14%,transparent)}
-.pc-loading,.pc-empty{padding:2rem 1.2rem;text-align:center;color:var(--text2);font-size:.85rem}
+.pc-loading,.pc-empty{padding:2rem 1.2rem;text-align:center;color:var(--text2);font-family:var(--font-sub,inherit);font-size:.85rem}
 .pc-body{padding:1rem 1.2rem 0}
 .pc-big{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
 .pc-big>div{padding:.2rem 0}
 .pc-num{font-family:'Bebas Neue',sans-serif;font-size:2.6rem;line-height:1;color:var(--text)}
 .pc-num.sm{font-size:1.7rem;color:var(--accent)}
-.pc-lab{font-size:.75rem;color:var(--text2)}
-.pc-sub{font-size:.68rem;color:var(--text3);margin-top:1px}
+.pc-lab{font-size:.75rem;color:var(--text2);font-family:var(--font-sub,inherit)}
+.pc-sub{font-size:.68rem;color:var(--text3);font-family:var(--font-text3,inherit);margin-top:1px}
 .pc-avg{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:.9rem 0 .6rem}
 .pc-avg>div{display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;padding:.55rem .8rem;border-radius:12px;background:var(--bg2)}
 .pc-extra{display:grid;grid-template-columns:1fr 1fr;column-gap:1.2rem}
@@ -348,15 +348,15 @@ export const PlayerCard = {
 .pc-dot.g{background:#fff}.pc-dot.a{background:#7fd3ff}.pc-dot.y{background:#f5c518}.pc-dot.r{background:#ff4757}
 .pc-t{background:#2f8f3a}
 .pc-s{background:#2563c9}
-.pc-n{background:transparent;border-color:rgba(255,255,255,.18);color:var(--text3)}
+.pc-n{background:transparent;border-color:rgba(255,255,255,.18);color:var(--text3);font-family:var(--font-text3,inherit)}
 .pc-i{background:#c2410c}
 .pc-q{background:#7e3fbf}
-.pc-f{background:transparent;border:1px dashed rgba(255,255,255,.1);color:var(--text3)}
-.pc-legend{display:flex;flex-wrap:wrap;gap:.35rem .9rem;margin-top:.6rem;font-size:.68rem;color:var(--text2)}
+.pc-f{background:transparent;border:1px dashed rgba(255,255,255,.1);color:var(--text3);font-family:var(--font-text3,inherit)}
+.pc-legend{display:flex;flex-wrap:wrap;gap:.35rem .9rem;margin-top:.6rem;font-size:.68rem;color:var(--text2);font-family:var(--font-sub,inherit)}
 .pc-legend span{display:flex;align-items:center;gap:.3rem}
 .pc-sw{width:10px;height:10px;border-radius:3px;display:inline-block}
 .pc-sw.pc-n{border:1px solid rgba(255,255,255,.35)}
-.pc-day{margin-top:.8rem;padding:.7rem .8rem;border-radius:12px;background:var(--bg2);font-size:.8rem;color:var(--text2);line-height:1.5}
+.pc-day{margin-top:.8rem;padding:.7rem .8rem;border-radius:12px;background:var(--bg2);font-size:.8rem;color:var(--text2);font-family:var(--font-sub,inherit);line-height:1.5}
 .pc-day b{color:var(--text)}
 `;
   },

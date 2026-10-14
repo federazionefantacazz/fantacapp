@@ -3,7 +3,7 @@ import { esc, sameId } from '../utils.js';
 
 export function renderAnteprimaClassificaTabellone(comp, teamsList, myTeamId) {
   if (!comp || !teamsList || !myTeamId) {
-    return `<div style="font-size: 0.7rem; color: var(--text3);">Dati competizione o squadra non disponibili.</div>`;
+    return `<div style="font-size: 0.7rem; color: var(--text3); font-family: var(--font-text3, inherit);">Dati competizione o squadra non disponibili.</div>`;
   }
 
   // Ultimo incontro della squadra nel tabellone (la giornata più avanzata), con i "VINCENTE_..." già risolti
@@ -35,7 +35,7 @@ export function renderAnteprimaClassificaTabellone(comp, teamsList, myTeamId) {
          title="Clicca per visualizzare il tabellone completo">
       
       <div style="display: flex; align-items: center; justify-content: space-between;">
-        <div style="font-size: 0.68rem; font-weight: 600; color: var(--text2); text-transform: uppercase;"><i class="ri-git-branch-line"></i> Mini Tabellone</div>
+        <div style="font-size: 0.68rem; font-weight: 600; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase;"><i class="ri-git-branch-line"></i> Mini Tabellone</div>
         <div style="font-size: 0.65rem; color: var(--accent); display: flex; align-items: center; gap: 2px;">Vedi intero <i class="ri-arrow-right-s-line"></i></div>
       </div>
 

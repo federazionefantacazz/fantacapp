@@ -22,7 +22,7 @@ const COLS = [
 const fmt = (n) => (n === null || n === undefined ? '–' : n.toFixed(2));
 
 function fvStyle(n) {
-  if (n === null || n === undefined) return 'color:var(--text3);';
+  if (n === null || n === undefined) return 'color:var(--text3);font-family:var(--font-text3,inherit);';
   if (n >= 7) return 'color:var(--accent); font-weight:700;';
   if (n < 6) return 'color:var(--accent3); font-weight:700;';
   return 'font-weight:700;';
@@ -88,12 +88,12 @@ function createView({ mode, title, emptyMsg }) {
       <tr data-player-id="${esc(p.id)}" style="cursor:pointer;" title="Apri la scheda di ${esc(p.name)}">
         <td class="c-r"><span class="rbadge r${esc(p.role)}" style="width:22px; height:22px; font-size:.65rem; border-radius:6px;">${esc(p.role)}</span></td>
         <td class="c-n l"><div class="lv-name">${playerThumb(p)}<span>${esc(p.name)}</span></div></td>
-        <td style="color:var(--text2);">${esc(p.club || '–')}</td>
+        <td style="color:var(--text2);font-family:var(--font-sub,inherit);">${esc(p.club || '–')}</td>
         <td style="font-family:'DM Mono',monospace;">${fmt(s.mv)}</td>
         <td style="font-family:'DM Mono',monospace; ${fvStyle(s.fv)}">${fmt(s.fv)}</td>
         <td style="font-family:'DM Mono',monospace; color:var(--text2);">${s.pres || '–'}</td>
         <td style="font-family:'DM Mono',monospace; color:var(--gold);">${esc(p.value ?? '–')}</td>
-        ${isListone ? `<td style="color:var(--text2);">${esc(ctx.ownerName(p) || (p.loan ? 'In prestito' : 'Svincolato'))}</td>` : ''}
+        ${isListone ? `<td style="color:var(--text2);font-family:var(--font-sub,inherit);">${esc(ctx.ownerName(p) || (p.loan ? 'In prestito' : 'Svincolato'))}</td>` : ''}
       </tr>`).join('');
 
     box.innerHTML = `

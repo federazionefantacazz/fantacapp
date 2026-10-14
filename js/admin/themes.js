@@ -23,7 +23,7 @@ export const ThemesSection = {
         <button id="tab-btn-theme-competizioni" class="btn btn-blue" onclick="window.switchThemeSubTab('competizioni')" style="padding: .4rem .8rem; font-size: .85rem; width: auto;">
           <i class="ri-trophy-line"></i> Competizioni
         </button>
-        <button id="tab-btn-theme-squadre" class="btn" onclick="window.switchThemeSubTab('squadre')" style="padding: .4rem .8rem; font-size: .85rem; width: auto; background: var(--bg3); color: var(--text2);">
+        <button id="tab-btn-theme-squadre" class="btn" onclick="window.switchThemeSubTab('squadre')" style="padding: .4rem .8rem; font-size: .85rem; width: auto; background: var(--bg3); color: var(--text2); font-family: var(--font-sub, inherit);">
           <i class="ri-shirt-line"></i> Squadre
         </button>
       </div>
@@ -45,8 +45,8 @@ export const ThemesSection = {
 
           <!-- Preview Sfondo Attuale -->
           <div id="themePreviewContainer" style="margin-top: 1rem; display: none; text-align: center;">
-            <div class="label" style="font-size: .8rem; color: var(--text2); margin-bottom: .4rem;">Sfondo Attuale</div>
-            <div id="themeBgPreview" style="width: 100%; height: 160px; border-radius: 8px; border: 1px solid var(--border); background-size: cover; background-position: center; background-repeat: no-repeat; background-color: var(--bg3); display: flex; align-items: center; justify-content: center; color: var(--text3); font-size: .85rem;">
+            <div class="label" style="font-size: .8rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-bottom: .4rem;">Sfondo Attuale</div>
+            <div id="themeBgPreview" style="width: 100%; height: 160px; border-radius: 8px; border: 1px solid var(--border); background-size: cover; background-position: center; background-repeat: no-repeat; background-color: var(--bg3); display: flex; align-items: center; justify-content: center; color: var(--text3); font-family: var(--font-text3, inherit); font-size: .85rem;">
               Nessun Sfondo Impostato
             </div>
             <button id="btn-remove-theme-bg" class="btn btn-red" onclick="window.rimuoviSfondoCompetizione()" style="margin-top: .5rem; padding: .3rem .6rem; font-size: .75rem; width: auto; display: none;">
@@ -54,7 +54,7 @@ export const ThemesSection = {
             </button>
           </div>
 
-          <div class="label" style="font-size:.8rem; margin-top: 1rem; color:var(--text2)">Nuova Immagine di Sfondo (.jpg, .jpeg, .png)</div>
+          <div class="label" style="font-size:.8rem; margin-top: 1rem; color:var(--text2);font-family:var(--font-sub,inherit)">Nuova Immagine di Sfondo (.jpg, .jpeg, .png)</div>
           <input type="file" id="themeBgFile" name="themeBgFile" class="input-login" accept=".jpg, .jpeg, .png, .JPG, .JPEG, .PNG, image/jpeg, image/png" style="padding-top:.5rem;">
 
           <div style="margin-top: 1.5rem;">
@@ -66,9 +66,9 @@ export const ThemesSection = {
         <div class="card" style="max-width: 760px;">
           <div class="label" style="color: var(--accent); margin-bottom: 1rem; font-size: .85rem;">Personalizza Tema per Pagina</div>
 
-          <div style="font-size: .75rem; color: var(--text3); margin-bottom: .8rem;">
-            Scegli la pagina, poi imposta i singoli tipi (titoli, testi, font dei testi, sottotesti, testi disattivati, label, pulsanti, testi dei pulsanti).
-            Quello che lasci vuoto eredita da <strong>Generale</strong>. Il nome sotto ogni campo è la variabile CSS usata nell'app.
+          <div style="font-size: .75rem; color: var(--text3); font-family: var(--font-text3, inherit); margin-bottom: .8rem;">
+            Scegli la pagina, poi imposta i singoli tipi (titoli, testi, sottotesti, testi disattivati, label, pulsanti, testi dei pulsanti).
+            Sotto ogni testo puoi scegliere anche il font. Quello che lasci vuoto eredita da <strong>Generale</strong>. Il nome sotto ogni campo è la variabile CSS usata nell'app.
           </div>
 
           <div id="themeLegacyNotice" style="display:none; font-size:.75rem; color: var(--gold); margin-bottom: .8rem;">
@@ -79,7 +79,7 @@ export const ThemesSection = {
             ${THEME_PAGES.map((pg, i) => `
               <button type="button" class="btn ${i === 0 ? 'btn-blue' : ''}" data-theme-page="${pg.key}"
                 onclick="window.switchThemePage('${pg.key}')"
-                style="padding: .35rem .7rem; font-size: .8rem; width: auto; ${i === 0 ? '' : 'background: var(--bg3); color: var(--text2);'}">${pg.label}</button>`).join('')}
+                style="padding: .35rem .7rem; font-size: .8rem; width: auto; ${i === 0 ? '' : 'background: var(--bg3); color: var(--text2); font-family: var(--font-sub, inherit);'}">${pg.label}</button>`).join('')}
           </div>
 
           ${this.renderPagePanels()}
@@ -106,17 +106,20 @@ export const ThemesSection = {
               <label class="label" style="text-transform: none; letter-spacing: 0; margin-bottom: .1rem;">${v.label || v.hint}</label>
               <div style="font-family: 'DM Mono', monospace; font-size: .68rem; color: var(--text3); margin-bottom: .3rem;">${v.css}${v.label ? ' · ' + v.hint : ''}</div>
               <div style="display: flex; gap: .5rem; align-items: center;">
-                ${v.kind === 'font'
-                  ? `<select id="theme-text-${id}" class="input-login" style="margin-bottom: 0;">
-                      <option value="">${page.key === 'general' ? 'Font default' : '-- Come Generale --'}</option>
-                      ${THEME_FONTS.map(fo => `<option value="${fo.key}" style="font-family: ${fo.css.replace(/"/g, '&quot;')};">${fo.label}</option>`).join('')}
-                    </select>`
-                  : ''}
                 ${v.kind === 'color'
                   ? `<input type="color" id="theme-color-${id}" class="input-login" value="${v.def}" style="padding: 0; height: 38px; width: 50px; cursor: pointer; margin-bottom: 0;">`
                   : ''}
-                ${v.kind !== 'font' ? `<input type="text" id="theme-text-${id}" class="input-login" style="margin-bottom: 0;" placeholder="${v.def}">` : ''}
+                <input type="text" id="theme-text-${id}" class="input-login" style="margin-bottom: 0;" placeholder="${v.def}">
               </div>
+              ${v.font ? `
+              <div style="display: flex; gap: .5rem; align-items: center; margin-top: .4rem;">
+                <i class="ri-font-size" title="Font" style="color: var(--text3); width: 50px; text-align: center; flex-shrink: 0;"></i>
+                <select id="theme-text-${page.key}__${v.font.key}" class="input-login" style="margin-bottom: 0;" title="${v.font.css}">
+                  <option value="">${page.key === 'general' ? `Font predefinito (${v.font.defLabel})` : 'Font: come Generale'}</option>
+                  ${THEME_FONTS.filter(fo => fo.css || page.key !== 'general')
+                    .map(fo => `<option value="${fo.key}">${fo.css ? fo.label : `${fo.label} (${v.font.defLabel})`}</option>`).join('')}
+                </select>
+              </div>` : ''}
             </div>`;
   },
 
@@ -132,7 +135,7 @@ export const ThemesSection = {
       });
       return `
         <div id="theme-page-${page.key}" class="theme-page-panel" style="display: ${i === 0 ? 'block' : 'none'};">
-          <div style="font-size: .8rem; color: var(--text2); margin-bottom: .2rem;">${page.desc}</div>
+          <div style="font-size: .8rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-bottom: .2rem;">${page.desc}</div>
           <div style="font-family: 'DM Mono', monospace; font-size: .7rem; color: var(--text3); margin-bottom: 1rem;">Ambito CSS: ${page.selector}</div>
           ${groups.map(g => `
             ${g.name ? `<div class="label" style="color: var(--accent); margin: 1rem 0 .6rem;">${g.name}</div>` : ''}
@@ -169,7 +172,10 @@ export const ThemesSection = {
 
   registerGlobalActions() {
     // elenco piatto di tutti i campi: id = "pagina__tipo"
-    const allFields = THEME_PAGES.flatMap(pg => pg.fields.map(f => ({ page: pg.key, key: f.key, id: `${pg.key}__${f.key}`, def: f.def })));
+    const allFields = THEME_PAGES.flatMap(pg => pg.fields.flatMap(f => [
+      { page: pg.key, key: f.key, id: `${pg.key}__${f.key}`, def: f.def },
+      ...(f.font ? [{ page: pg.key, key: f.font.key, id: `${pg.key}__${f.font.key}`, def: '' }] : [])
+    ]));
 
     // Sincronizzazione bidirezionale input color e text (delegata: funziona anche se il markup viene creato dopo)
     document.addEventListener('input', (e) => {

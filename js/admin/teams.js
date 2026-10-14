@@ -30,7 +30,7 @@ export const TeamsSection = {
         <input type="text" id="tName" class="input-login" placeholder="Nome Fantasquadra">
         <input type="text" id="tOwner" class="input-login" placeholder="Nome Presidente">
         
-        <div class="label" style="font-size:.8rem; margin-top:.5rem; color:var(--text2)">Logo Squadra (Seleziona da Android)</div>
+        <div class="label" style="font-size:.8rem; margin-top:.5rem; color:var(--text2);font-family:var(--font-sub,inherit)">Logo Squadra (Seleziona da Android)</div>
         <input type="file" id="tLogoFile" class="input-login" accept="image/png, image/jpeg, image/jpg" style="padding-top:.5rem;">
         
         <input type="text" id="tMotto" class="input-login" placeholder="Motto della squadra" style="margin-top:.5rem;">
@@ -76,14 +76,14 @@ export const TeamsSection = {
       // Loghi modificati: portati da 32px a 48px con object-fit proporzionale
       const logoHtml = t.logo 
         ? `<img src="${t.logo}" alt="Logo" style="width:48px; height:48px; object-fit:contain; border-radius:6px; vertical-align:middle;">`
-        : `<div style="width:48px; height:48px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.5rem; color:var(--text3); vertical-align:middle;"><i class="ri-shield-line"></i></div>`;
+        : `<div style="width:48px; height:48px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:1.5rem; color:var(--text3);font-family:var(--font-text3,inherit); vertical-align:middle;"><i class="ri-shield-line"></i></div>`;
 
       return `
       <tr>
         <td style="width:60px; text-align:center;">${logoHtml}</td>
         <td style="vertical-align:middle;">
           <strong>${t.name}</strong>
-          ${t.motto ? `<br><small style="color:var(--text2); font-style:italic;">"${t.motto}"</small>` : ''}
+          ${t.motto ? `<br><small style="color:var(--text2);font-family:var(--font-sub,inherit); font-style:italic;">"${t.motto}"</small>` : ''}
         </td>
         <td style="vertical-align:middle;">${t.owner || '—'}</td>
         <td style="vertical-align:middle;"><span class="badge badge-green">${t.pts || 0} pts</span></td>

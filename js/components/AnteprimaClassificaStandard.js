@@ -12,7 +12,7 @@ const GO_CLASSIFICA = "window.goPage('classifica')";
  */
 export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId, opts = {}) {
   if (!comp || !teamsList || !myTeamId) {
-    return `<div style="font-size: 0.7rem; color: var(--text3);">Dati competizione o squadra non disponibili.</div>`;
+    return `<div style="font-size: 0.7rem; color: var(--text3); font-family: var(--font-text3, inherit);">Dati competizione o squadra non disponibili.</div>`;
   }
 
   const classificaDbNode = comp.classifica || {};
@@ -24,7 +24,7 @@ export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId, opt
   if (compType === 'misto') {
     const girone = ClassificaService.getGironeDiSquadra(comp, myTeamId, teamsList);
     if (!girone) {
-      return `<div style="font-size: 0.7rem; color: var(--text3);">Squadra non presente in nessun girone.</div>`;
+      return `<div style="font-size: 0.7rem; color: var(--text3); font-family: var(--font-text3, inherit);">Squadra non presente in nessun girone.</div>`;
     }
     compTeams = girone.squadre;
     gironeLabel = girone.nome;
@@ -37,7 +37,7 @@ export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId, opt
 
   const myIndex = sortedTeams.findIndex(t => String(t.id) === String(myTeamId));
   if (myIndex === -1) {
-    return `<div style="font-size: 0.7rem; color: var(--text3);">Squadra non presente in classifica.</div>`;
+    return `<div style="font-size: 0.7rem; color: var(--text3); font-family: var(--font-text3, inherit);">Squadra non presente in classifica.</div>`;
   }
 
   const subset = [];
@@ -45,7 +45,7 @@ export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId, opt
   subset.push({ team: sortedTeams[myIndex], pos: myIndex + 1 });
   if (myIndex < sortedTeams.length - 1) subset.push({ team: sortedTeams[myIndex + 1], pos: myIndex + 2 });
 
-  const colHead = 'font-size: 0.6rem; font-weight: 700; color: var(--text3); text-transform: uppercase; text-align: center;';
+  const colHead = 'font-size: 0.6rem; font-weight: 700; color: var(--text3); font-family: var(--font-text3, inherit); text-transform: uppercase; text-align: center;';
 
   if (opts.compact) {
     // sempre 3 righe quando possibile (anche se la squadra è prima o ultima)
@@ -54,7 +54,7 @@ export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId, opt
     return `
     <div onclick="${GO_CLASSIFICA}" style="display: flex; flex-direction: column; gap: 0.3rem; width: 100%; cursor: pointer;" title="Clicca per visualizzare la classifica completa">
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.3rem; margin-bottom: 0.1rem;">
-        <div style="font-size: 0.7rem; font-weight: 700; color: var(--text2); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Classifica${gironeLabel ? ` · ${esc(gironeLabel)}` : ''}</div>
+        <div style="font-size: 0.7rem; font-weight: 700; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Classifica${gironeLabel ? ` · ${esc(gironeLabel)}` : ''}</div>
         <div style="font-size: 0.65rem; color: var(--accent); display: flex; align-items: center; flex-shrink: 0;">Vedi intera <i class="ri-arrow-right-s-line"></i></div>
       </div>
       <div style="display: flex; align-items: center; gap: 0.35rem; padding: 0 0.4rem;">
@@ -85,7 +85,7 @@ export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId, opt
          title="Clicca per visualizzare la classifica completa">
 
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.15rem;">
-        <div style="font-size: 0.7rem; font-weight: 600; color: var(--text2); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+        <div style="font-size: 0.7rem; font-weight: 600; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
           <i class="ri-bar-chart-2-line"></i> Mini Classifica${gironeLabel ? ` · ${esc(gironeLabel)}` : ''}
         </div>
         <div style="font-size: 0.65rem; color: var(--accent); display: flex; align-items: center; gap: 2px; flex-shrink: 0;">Vedi intera <i class="ri-arrow-right-s-line"></i></div>

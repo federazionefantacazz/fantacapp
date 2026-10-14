@@ -37,7 +37,7 @@ export const DiviseSection = {
 
       <div class="card">
         <div class="label" style="color:var(--accent)">Come funziona</div>
-        <div style="font-size:.85rem; color:var(--text2); line-height:1.5;">
+        <div style="font-size:.85rem; color:var(--text2);font-family:var(--font-sub,inherit); line-height:1.5;">
           La maglia dell'editor è un <b>modello 3D</b>: colori, disegni, sponsor, stemma e patch vengono dipinti sulla sua
           <b>mappa UV</b> (la maglia "scucita": davanti, dietro, maniche, colletto) e le pieghe del tessuto sono quelle reali del modello.
           Qui puoi aggiungere <b>disegni</b> e <b>marchi tecnici</b> in PNG che i giocatori ritrovano nell'editor.
@@ -94,16 +94,16 @@ export const DiviseSection = {
       <div style="background:var(--bg3); border:1px solid var(--border); border-radius:10px; padding:.4rem; text-align:center;">
         ${kitImageHTML(kit, { width: 280, textureSize: 1024, crestUrl: SAMPLE_LOGO, live: true })}
         <div style="font-size:.75rem; font-weight:600; margin:.3rem 0 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(a.name)}</div>
-        <div style="font-size:.65rem; color:var(--text3); margin-bottom:.3rem;">${sub}</div>
+        <div style="font-size:.65rem; color:var(--text3);font-family:var(--font-text3,inherit); margin-bottom:.3rem;">${sub}</div>
         <button class="btn btn-red" style="padding:.2rem .4rem; font-size:.7rem;" onclick="window.diviseAction('del-${kind}','${esc(a.id)}')">Elimina</button>
       </div>`;
     pl.innerHTML = patterns.map(p => card('pattern', p,
       sampleKit({ layers: [{ type: 'png:' + p.id, color: '#0d1b4c', opacity: 100, zone: 'all' }] }),
       p.mode === 'uv' ? `Grafica UV${p.colors === 'original' ? ', colori originali' : ''}` : 'Adattato ai pezzi')).join('')
-      || `<div style="grid-column:1/-1; font-size:.8rem; color:var(--text3);">Nessun disegno caricato: nell'editor ci sono comunque i disegni integrati.</div>`;
+      || `<div style="grid-column:1/-1; font-size:.8rem; color:var(--text3);font-family:var(--font-text3,inherit);">Nessun disegno caricato: nell'editor ci sono comunque i disegni integrati.</div>`;
     const bl = document.getElementById('kitBrandsList');
     if (bl) bl.innerHTML = brands.map(b => card('brand', b, sampleKit({ brand: { id: 'png:' + b.id } }), 'Marchio')).join('')
-      || `<div style="grid-column:1/-1; font-size:.8rem; color:var(--text3);">Nessun marchio caricato: nell'editor ci sono comunque i marchi integrati.</div>`;
+      || `<div style="grid-column:1/-1; font-size:.8rem; color:var(--text3);font-family:var(--font-text3,inherit);">Nessun marchio caricato: nell'editor ci sono comunque i marchi integrati.</div>`;
   },
 
   async action(act, a) {

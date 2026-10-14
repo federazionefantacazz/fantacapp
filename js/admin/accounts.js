@@ -82,7 +82,7 @@ export const AccountRequestsSection = {
             <div class="label" style="color: var(--accent); margin: 0; font-size: .85rem;"><i class="ri-user-add-line"></i> Richieste nuovi account</div>
             ${notifyBtn}
           </div>
-          <div style="font-size:.8rem; color:var(--text3); margin-top:.6rem;">Nessuna richiesta in attesa.</div>
+          <div style="font-size:.8rem; color:var(--text3);font-family:var(--font-text3,inherit); margin-top:.6rem;">Nessuna richiesta in attesa.</div>
         </div>`;
       return;
     }
@@ -98,7 +98,7 @@ export const AccountRequestsSection = {
           <div style="display:flex; align-items:center; gap:.6rem; padding:.6rem 0; border-top:1px solid var(--border);">
             <div style="flex:1; min-width:0;">
               <div style="font-size:.88rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(r.email || r.uid)}</div>
-              <div style="font-size:.7rem; color:var(--text3);">${esc(fmt(r.createdAt))}</div>
+              <div style="font-size:.7rem; color:var(--text3);font-family:var(--font-text3,inherit);">${esc(fmt(r.createdAt))}</div>
             </div>
             <button class="btn btn-green" style="width:auto; padding:.4rem .7rem; font-size:.78rem;" onclick="window.approvaAccount('${esc(r.uid)}')"><i class="ri-check-line"></i> Accetta</button>
             <button class="btn btn-red" style="width:auto; padding:.4rem .7rem; font-size:.78rem;" onclick="window.rifiutaAccount('${esc(r.uid)}')"><i class="ri-close-line"></i> Rifiuta</button>
