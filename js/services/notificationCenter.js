@@ -8,13 +8,14 @@
  *  - invito ad attivare le notifiche: una barra che compare dopo l'ingresso, con "Attiva" / "Non ora"
  *    (il permesso del browser va chiesto da un tocco dell'utente, mai all'avvio)
  *
- * Le notifiche di sistema arrivano finché l'app è aperta o in background; ad app chiusa serve
- * il push (Firebase Cloud Messaging), da aggiungere in un secondo momento sugli stessi dati.
+ * Ad app chiusa arrivano col push (js/services/pushService.js + Cloud Function inviaNotifica):
+ * stessa notifica, stesso tag, quindi niente doppioni.
  */
 import {
   watchNotifications, watchTemplates, isForTeam, showSystemNotification,
   notificationsSupported, permissionState, requestPermission
 } from './notificationService.js';
+import { PushService } from './pushService.js';
 
 const SHOWN_PREFIX = 'fantacapp-notif-shown-';   // ultima notifica già segnalata su questo dispositivo
 const ASK_KEY = 'fantacapp-notif-ask';            // quando l'utente ha scelto "Non ora"
@@ -69,6 +70,7 @@ export const NotificationCenter = {
         if (e.data && e.data.type === 'notification-click') this.openTarget(e.data.page);
       });
     }
+    this.syncPush();
   },
 
   /** Notifiche della propria squadra, dalla più recente. */
@@ -175,12 +177,22 @@ export const NotificationCenter = {
     }, 2500);
   },
 
+  /** Push ad app chiusa: token registrato solo con permesso concesso e notifiche attive. */
+  syncPush() {
+    const uid = this._getUid ? this._getUid() : '';
+    if (!uid || !this.STATE) return;
+    const on = (this.STATE.settings || {}).notificationsEnabled !== false && permissionState() === 'granted';
+    if (on) PushService.register(uid, this.STATE.user && this.STATE.user.id);
+    else PushService.unregister(uid);
+  },
+
   /** Chiede il permesso (da un tocco dell'utente) e attiva l'impostazione. Ritorna lo stato del permesso. */
   async enable() {
     const res = await requestPermission();
     if (res === 'granted') {
       if ((this.STATE.settings || {}).notificationsEnabled === false) await window.setUserSetting('notificationsEnabled', true);
       window.showToast('Notifiche attivate', 'ok');
+      this.syncPush();
     } else if (res === 'denied') {
       window.showToast('Notifiche bloccate: puoi riattivarle dalle impostazioni del telefono', 'err');
     }

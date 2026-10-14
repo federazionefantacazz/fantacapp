@@ -635,6 +635,7 @@ import { ConfigurazioneSquadra } from './js/menu/ConfigurazioneSquadra.js';
 import { ListoneView, SvincolatiView } from './js/menu/ListoneView.js';
 import { NotificheView } from './js/menu/NotificheView.js';
 import { NotificationCenter } from './js/services/notificationCenter.js';
+import { PushService } from './js/services/pushService.js';
 import { tradeNotificationUpdates } from './js/services/notificationService.js';
 
 import { HomePage } from './js/home.js';
@@ -1192,7 +1193,9 @@ async function updatePatronMenuItem(firebaseUser) {
   }
 }
 
-window.doFirebaseLogout = function() {
+window.doFirebaseLogout = async function() {
+  // il dispositivo smette di ricevere le notifiche push dell'account (prima del logout: serve l'utente)
+  await Promise.race([PushService.unregister(auth.currentUser && auth.currentUser.uid), new Promise(r => setTimeout(r, 3000))]);
   signOut(auth).then(() => {
     localStorage.removeItem('fantaUser');
     localStorage.removeItem(LAST_UID_KEY); // la schermata di login torna neutra; il tema dell'utente resta salvato
