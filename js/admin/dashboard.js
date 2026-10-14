@@ -178,21 +178,16 @@ export const DashboardSection = {
             <i class="ri-calculator-line"></i> Calcolatore Risultati Giornata (Salvataggio Master)
           </div>
           <p style="font-size: .8rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-bottom: 1rem;">
-            Elabora i fantavoti, calcola i punteggi delle squadre, congela i match di questa giornata e aggiorna la classifica o il tabellone.
-            Usa i voti della giornata di Serie A associata: importa prima i voti ufficiali.
+            Scegli la giornata di Serie A: con i suoi voti vengono calcolate insieme tutte le competizioni che hanno
+            una giornata associata (punteggi, risultati, classifica e tabellone). Importa prima i voti ufficiali.
           </p>
           
           <div style="display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1rem;">
             <div>
-              <label class="label">Competizione Target:</label>
-              <select id="calcCompSelect" class="input-login" style="margin:0; padding: .65rem;">
-                <option value="">Caricamento competizioni...</option>
-              </select>
+              <label class="label" for="calcRealGwSelect">Giornata di Serie A:</label>
+              <select id="calcRealGwSelect" class="input-login" style="margin:0; padding: .65rem;"></select>
             </div>
-            <div>
-              <label class="label">Giornata di Gioco (GW):</label>
-              <input type="number" id="calcGwInput" class="input-login" style="margin:0; padding: .65rem;" value="1" min="1">
-            </div>
+            <div id="calcPreview" style="font-size: .78rem; color: var(--text2); font-family: var(--font-sub, inherit); line-height: 1.45;"></div>
           </div>
           
           <button class="btn btn-green" onclick="window.eseguiCalcoloPunteggi()"><i class="ri-flashlight-line"></i> Salva Risultati Ufficiali e Classifica</button>
@@ -203,7 +198,6 @@ export const DashboardSection = {
 
   render(state) {
     this._competitions = state.competitions || [];
-    const activeCompId = window.CURRENT_COMPETITION || (this._competitions[0]?.id || "");
 
     const selectEl = document.getElementById('realGwSelect');
     if (selectEl && selectEl.options.length === 0) {
@@ -237,22 +231,39 @@ export const DashboardSection = {
 
     this._syncOnFireInputs();
 
-    const calcCompSelect = document.getElementById('calcCompSelect');
-    if (calcCompSelect) {
-      if (this._competitions.length === 0) {
-        calcCompSelect.innerHTML = '<option value="">Nessuna competizione trovata</option>';
-      } else {
-        calcCompSelect.innerHTML = this._competitions.map(c => `
-          <option value="${c.id}" ${activeCompId === c.id ? 'selected' : ''}>${c.name}</option>
-        `).join('');
+    // Calcolatore: giornata di Serie A (di default quella attiva) e anteprima delle competizioni
+    const calcSel = document.getElementById('calcRealGwSelect');
+    if (calcSel) {
+      if (calcSel.options.length === 0) {
+        calcSel.innerHTML = Array.from({ length: 38 }, (_, i) => `<option value="${i + 1}">${i + 1}ª giornata</option>`).join('');
+        calcSel.addEventListener('change', () => { calcSel.dataset.userEdited = 'true'; this._renderCalcPreview(); });
       }
+      const cur = Number(state.CURRENT_REAL_GW) || 0;
+      if (!calcSel.dataset.userEdited && cur >= 1) calcSel.value = String(cur);
+      this._renderCalcPreview();
     }
-    
-    const currentComp = this._competitions.find(c => c.id === activeCompId);
-    const calcGwInput = document.getElementById('calcGwInput');
-    if (currentComp && calcGwInput && !calcGwInput.dataset.userEdited) {
-      calcGwInput.value = currentComp.status?.currentGW || 1;
-    }
+  },
+
+  /** Elenco delle competizioni che verranno calcolate per la giornata di Serie A scelta */
+  _renderCalcPreview() {
+    const el = document.getElementById('calcPreview');
+    const gw = parseInt(document.getElementById('calcRealGwSelect')?.value, 10);
+    if (!el || !gw) return;
+    const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const si = [], no = [];
+    (this._competitions || []).forEach(c => {
+      const gwId = GwService.getGwKey(c, gw);
+      const n = gwId ? Object.keys(c.matches?.[gwId]?.couples || {}).length : 0;
+      if (gwId && n) {
+        const fatte = Object.values(c.matches[gwId].couples).filter(x => x && x.finished).length;
+        si.push(`<strong>${esc(c.name || c.id)}</strong> · ${esc(GwService.label(gwId))} · ${n} partite${fatte ? ` <span style="color:var(--gold);">(già calcolata: verrà ricalcolata)</span>` : ''}`);
+      } else {
+        no.push(esc(c.name || c.id));
+      }
+    });
+    el.innerHTML = si.length
+      ? `Verranno calcolate:<br>${si.join('<br>')}${no.length ? `<br><span style="color:var(--text3);">Non coinvolte: ${no.join(', ')}</span>` : ''}`
+      : `<span style="color:var(--accent3);">Nessuna competizione ha partite associate a questa giornata.</span>`;
   },
 
   _syncOnFireInputs() {
@@ -260,6 +271,235 @@ export const DashboardSection = {
     const n = document.getElementById('onFirePlayers');
     if (w) w.value = String(this._onFire.weeks);
     if (n) n.value = String(this._onFire.players);
+  },
+
+  /**
+   * Risultati di una giornata di una competizione: punteggi e gol delle partite,
+   * classifica (se non è a eliminazione diretta pura) e avanzamento nel tabellone.
+   * Non scrive nulla: aggiunge i percorsi da aggiornare in `updates`.
+   */
+  _calcolaCompetizione({ compId, compData, gwId, mappaFantavotiLocali, ruoliGiocatori, updates }) {
+    const couples = compData.matches?.[gwId]?.couples || {};
+    const allLineups = compData.matches?.[gwId]?.lineups || {};
+
+    // 6. Elaborazione Risultati Match di Giornata
+    Object.keys(couples).forEach(matchKey => {
+      const match = couples[matchKey];
+      const homeTeamId = match.homeId || match.home || match.idHome;
+      const awayTeamId = match.awayId || match.away || match.idAway;
+
+      const ptHome = CalcoloMatchService.calcolaTotaleSquadra(allLineups, homeTeamId, mappaFantavotiLocali, ruoliGiocatori);
+      const ptAway = CalcoloMatchService.calcolaTotaleSquadra(allLineups, awayTeamId, mappaFantavotiLocali, ruoliGiocatori);
+
+      const gHome = CalcoloMatchService.calcolaGol(ptHome);
+      const gAway = CalcoloMatchService.calcolaGol(ptAway);
+
+      const basePath = `competitions/${compId}/matches/${gwId}/couples/${matchKey}`;
+      updates[`${basePath}/punteggioFinaleHome`] = ptHome;
+      updates[`${basePath}/punteggioFinaleAway`] = ptAway;
+      updates[`${basePath}/goalHome`] = gHome;
+      updates[`${basePath}/goalAway`] = gAway;
+      updates[`${basePath}/finished`] = true;
+
+      // Aggiornamento Classifica Standard (se NON è a eliminazione diretta pura)
+      if (compData.type !== 'diretta') {
+        let puntiHome = 0, puntiAway = 0;
+        let vHome = 0, dHome = 0, lHome = 0;
+        let vAway = 0, dAway = 0, lAway = 0;
+
+        if (gHome > gAway) {
+          puntiHome = 3; vHome = 1; puntiAway = 0; lAway = 1;
+        } else if (gHome < gAway) {
+          puntiHome = 0; lHome = 1; puntiAway = 3; vAway = 1;
+        } else {
+          puntiHome = 1; dHome = 1; puntiAway = 1; dAway = 1;
+        }
+
+        if (homeTeamId) {
+          const classHomePath = `competitions/${compId}/classifica/${gwId}/${homeTeamId}`;
+          updates[`${classHomePath}/punteggiofanta`] = ptHome;
+          updates[`${classHomePath}/punti`] = puntiHome;
+          updates[`${classHomePath}/golFatti`] = gHome;
+          updates[`${classHomePath}/golSubiti`] = gAway;
+          updates[`${classHomePath}/vittoria`] = vHome;
+          updates[`${classHomePath}/pareggio`] = dHome;
+          updates[`${classHomePath}/sconfitta`] = lHome;
+        }
+
+        if (awayTeamId) {
+          const classAwayPath = `competitions/${compId}/classifica/${gwId}/${awayTeamId}`;
+          updates[`${classAwayPath}/punteggiofanta`] = ptAway;
+          updates[`${classAwayPath}/punti`] = puntiAway;
+          updates[`${classAwayPath}/golFatti`] = gAway;
+          updates[`${classAwayPath}/golSubiti`] = gHome;
+          updates[`${classAwayPath}/vittoria`] = vAway;
+          updates[`${classAwayPath}/pareggio`] = dAway;
+          updates[`${classAwayPath}/sconfitta`] = lAway;
+        }
+      }
+    });
+
+    // 7. GESTIONE TABELLONE ED ELIMINAZIONE DIRETTA (Avanzamento Vincenti)
+    if ((compData.type === 'diretta' || compData.type === 'misto' || compData.type === 'misto-speciale') && compData.tabelloneStructure && compData.tabelloneStructure.fasi) {
+      const tabellone = compData.tabelloneStructure;
+      const regola = tabellone.regolaIncontri || tabellone.tipoScontro || tabellone.modalita;
+      const isAndataRitorno = regola === 'andata-ritorno' || regola === 'andata_ritorno';
+      
+      // Copia del calendario della competizione (già letto): si aggiunge la giornata appena calcolata
+      const allMatches = JSON.parse(JSON.stringify(compData.matches || {}));
+
+      // Includiamo i dati appena calcolati per la giornata corrente
+      allMatches[gwId] = allMatches[gwId] || { couples: {} };
+      Object.keys(couples).forEach(matchKey => {
+        const match = couples[matchKey];
+        const homeTeamId = match.homeId || match.home || match.idHome;
+        const awayTeamId = match.awayId || match.away || match.idAway;
+        
+        const ptHome = CalcoloMatchService.calcolaTotaleSquadra(allLineups, homeTeamId, mappaFantavotiLocali, ruoliGiocatori);
+        const ptAway = CalcoloMatchService.calcolaTotaleSquadra(allLineups, awayTeamId, mappaFantavotiLocali, ruoliGiocatori);
+
+        allMatches[gwId].couples[matchKey] = {
+          ...match,
+          punteggioFinaleHome: ptHome,
+          punteggioFinaleAway: ptAway,
+          goalHome: CalcoloMatchService.calcolaGol(ptHome),
+          goalAway: CalcoloMatchService.calcolaGol(ptAway),
+          finished: true
+        };
+      });
+
+      const fasi = tabellone.fasi;
+      const fasiKeys = Object.keys(fasi).sort();
+
+      fasiKeys.forEach((faseKey, index) => {
+        const faseObj = fasi[faseKey];
+        const matchList = faseObj.matchList || [];
+
+        matchList.forEach((m) => {
+          const matchId = m.id; // es: "tf1_m2"
+          let vincenteId = null;
+
+          if (!isAndataRitorno) {
+            // --- SOLO ANDATA ---
+            let foundMatch = null;
+            Object.keys(allMatches).forEach(gw => {
+              const couplesGw = allMatches[gw].couples || {};
+              if (couplesGw[matchId] && couplesGw[matchId].finished) {
+                foundMatch = couplesGw[matchId];
+              }
+            });
+
+            if (foundMatch) {
+              const gH = Number(foundMatch.goalHome ?? foundMatch.homeScore ?? 0);
+              const gA = Number(foundMatch.goalAway ?? foundMatch.awayScore ?? 0);
+              const ptH = Number(foundMatch.punteggioFinaleHome || 0);
+              const ptA = Number(foundMatch.punteggioFinaleAway || 0);
+
+              if (gH > gA) vincenteId = foundMatch.homeId || foundMatch.home;
+              else if (gA > gH) vincenteId = foundMatch.awayId || foundMatch.away;
+              else {
+                // In caso di parità di gol, vince chi ha il fantapunteggio più alto
+                if (ptH > ptA) vincenteId = foundMatch.homeId || foundMatch.home;
+                else if (ptA > ptH) vincenteId = foundMatch.awayId || foundMatch.away;
+                else vincenteId = foundMatch.homeId || foundMatch.home;
+              }
+            }
+          } else {
+            // --- ANDATA E RITORNO ---
+            let matchAndata = null;
+            let matchRitorno = null;
+
+            Object.keys(allMatches).forEach(gw => {
+              const couplesGw = allMatches[gw].couples || {};
+              if (couplesGw[matchId] && couplesGw[matchId].finished) {
+                matchAndata = couplesGw[matchId];
+              }
+              if (couplesGw[`${matchId}_ritorno`] && couplesGw[`${matchId}_ritorno`].finished) {
+                matchRitorno = couplesGw[`${matchId}_ritorno`];
+              }
+            });
+
+            if (matchAndata && matchRitorno) {
+              // Identifichiamo formalmente chi gioca in casa all'andata e chi fuori
+              const teamAndataCasa = matchAndata.homeId || matchAndata.home;
+              const teamAndataFuori = matchAndata.awayId || matchAndata.away;
+
+              // Gol e Fantapunti totalizzati nell'Andata
+              let totGolCasa = Number(matchAndata.goalHome ?? matchAndata.homeScore ?? 0);
+              let totGolFuori = Number(matchAndata.goalAway ?? matchAndata.awayScore ?? 0);
+              let totPtCasa = Number(matchAndata.punteggioFinaleHome || 0);
+              let totPtFuori = Number(matchAndata.punteggioFinaleAway || 0);
+
+              // Al RITORNO i ruoli si invertono:
+              // Chi ha giocato fuori all'andata (teamAndataFuori) ora gioca in casa (goalHome al ritorno).
+              // Chi ha giocato in casa all'andata (teamAndataCasa) ora gioca fuori (goalAway al ritorno).
+              const rHomeId = matchRitorno.homeId || matchRitorno.home;
+
+              if (rHomeId === teamAndataFuori) {
+                totGolFuori += Number(matchRitorno.goalHome ?? matchRitorno.homeScore ?? 0);
+                totGolCasa += Number(matchRitorno.goalAway ?? matchRitorno.awayScore ?? 0);
+                totPtFuori += Number(matchRitorno.punteggioFinaleHome || 0);
+                totPtCasa += Number(matchRitorno.punteggioFinaleAway || 0);
+              } else {
+                // Fallback di sicurezza nel caso i campi fossero ribaltati a DB
+                totGolCasa += Number(matchRitorno.goalHome ?? matchRitorno.homeScore ?? 0);
+                totGolFuori += Number(matchRitorno.goalAway ?? matchRitorno.awayScore ?? 0);
+                totPtCasa += Number(matchRitorno.punteggioFinaleHome || 0);
+                totPtFuori += Number(matchRitorno.punteggioFinaleAway || 0);
+              }
+
+              // Valutazione esito globale aggregato
+              if (totGolCasa > totGolFuori) vincenteId = teamAndataCasa;
+              else if (totGolFuori > totGolCasa) vincenteId = teamAndataFuori;
+              else {
+                // Parità di gol aggregati: spareggio sui fantapunti complessivi
+                if (totPtCasa > totPtFuori) vincenteId = teamAndataCasa;
+                else if (totPtFuori > totPtCasa) vincenteId = teamAndataFuori;
+                else vincenteId = teamAndataCasa;
+              }
+            }
+          }
+
+          // Se abbiamo determinato un vincente, aggiorniamo sia il Tabellone sia il Calendario (Matches)
+          if (vincenteId) {
+            const targetPlaceholder = `VINCENTE_${matchId}`;
+
+            // A) Aggiorna la struttura visuale del tabellone (per le fasi successive)
+            if (fasiKeys[index + 1]) {
+              const nextFaseKey = fasiKeys[index + 1];
+              const nextMatchList = fasi[nextFaseKey].matchList || [];
+
+              nextMatchList.forEach((nextM, nextMIndex) => {
+                const basePathNext = `competitions/${compId}/tabelloneStructure/fasi/${nextFaseKey}/matchList/${nextMIndex}`;
+
+                if (nextM.homeId === targetPlaceholder) {
+                  updates[`${basePathNext}/homeId`] = vincenteId;
+                }
+                if (nextM.awayId === targetPlaceholder) {
+                  updates[`${basePathNext}/awayId`] = vincenteId;
+                }
+              });
+            }
+
+            // B) Aggiorna le vere partite a calendario (matches -> gwX -> couples) rispettando il luogo casa/fuori
+            Object.keys(allMatches).forEach(gKey => {
+              const couplesGw = allMatches[gKey].couples || {};
+              Object.keys(couplesGw).forEach(cKey => {
+                const coupleObj = couplesGw[cKey];
+                const couplePath = `competitions/${compId}/matches/${gKey}/couples/${cKey}`;
+
+                if (coupleObj.homeId === targetPlaceholder) {
+                  updates[`${couplePath}/homeId`] = vincenteId;
+                }
+                if (coupleObj.awayId === targetPlaceholder) {
+                  updates[`${couplePath}/awayId`] = vincenteId;
+                }
+              });
+            });
+          }
+        });
+      });
+    }
   },
 
   registerGlobalActions() {
@@ -303,7 +543,6 @@ export const DashboardSection = {
     };
 
     document.addEventListener('input', (e) => {
-      if (e.target.id === 'calcGwInput') e.target.dataset.userEdited = "true";
     });
 
     window.changeGlobalLiveStatus = async (value) => {
@@ -321,23 +560,11 @@ export const DashboardSection = {
     window.eseguiCalcoloPunteggi = async () => {
       if (!this.db) return console.error("Database non inizializzato");
 
-      const compId = document.getElementById('calcCompSelect')?.value;
-      const gwNum = document.getElementById('calcGwInput')?.value;
-      if (!compId || !gwNum) return window.toast("Competizione e Giornata obbligatorie!", "err");
-
-      const gwId = `gw${gwNum}`;
+      const gwSerieA = parseInt(document.getElementById('calcRealGwSelect')?.value, 10);
+      if (!(gwSerieA >= 1 && gwSerieA <= 38)) return window.toast("Scegli la giornata di Serie A da calcolare", "err");
 
       try {
-        window.toast("Esecuzione calcolo master e congelamento giornata...", "info");
-
-        // 1. Recupero dati competizione
-        const compSnap = await get(ref(this.db, `competitions/${compId}`));
-        if (!compSnap.exists()) return window.toast("Competizione non trovata!", "err");
-        const compData = compSnap.val();
-
-        // 2. Recupero Voti Globale: i voti sono salvati per giornata di SERIE A (votes/gw{n}),
-        //    che può essere diversa dalla giornata della competizione (gwId)
-        const gwSerieA = GwService.getRealOf(compData, gwId) || Number(gwNum);
+        // 1. Voti della giornata di Serie A (unici per tutte le competizioni)
         const votesPath = `votes/gw${gwSerieA}`;
         const votesSnap = await get(ref(this.db, votesPath));
         if (!votesSnap.exists()) {
@@ -351,30 +578,31 @@ export const DashboardSection = {
           `Vuoi calcolare lo stesso con i voti attuali (live o inseriti a mano)?`)) {
           return window.toast("Calcolo annullato: importa prima i voti ufficiali.", "info");
         }
-        const votiGiocatori = votesSnap.val();
 
-        // 3. Recupero Match della giornata
-        const matchesSnap = await get(ref(this.db, `competitions/${compId}/matches/${gwId}/couples`));
-        if (!matchesSnap.exists()) {
-          return window.toast("Nessun match trovato per questa giornata in questa competizione.", "err");
+        // 2. Competizioni con una giornata associata a questa giornata di Serie A
+        const compsSnap = await get(ref(this.db, 'competitions'));
+        const comps = compsSnap.exists() ? compsSnap.val() : {};
+        const daCalcolare = Object.entries(comps)
+          .map(([compId, compData]) => ({ compId, compData, gwId: GwService.getGwKey(compData, gwSerieA) }))
+          .filter(c => c.gwId && Object.keys(c.compData.matches?.[c.gwId]?.couples || {}).length);
+        if (!daCalcolare.length) {
+          return window.toast(`Nessuna competizione ha partite associate alla ${gwSerieA}ª giornata di Serie A.`, "err");
         }
-        const couples = matchesSnap.val();
 
-        // 4. Recupero Lineups della giornata
-        const lineupsSnap = await get(ref(this.db, `competitions/${compId}/matches/${gwId}/lineups`));
-        const allLineups = lineupsSnap.exists() ? lineupsSnap.val() : {};
+        window.toast(`Calcolo della ${gwSerieA}ª giornata di Serie A in corso...`, "info");
 
         const updates = {};
         const mappaFantavotiLocali = {};
 
-        // 4b. Ruoli dei giocatori (servono per far entrare il panchinaro giusto al posto di un s.v.)
+        // 3. Ruoli dei giocatori (servono per far entrare il panchinaro giusto al posto di un s.v.)
         const playersSnap = await get(ref(this.db, 'players'));
         const ruoliGiocatori = {};
         Object.values(playersSnap.exists() ? playersSnap.val() : {}).forEach(pl => {
           if (pl && pl.id !== undefined) ruoliGiocatori[pl.id] = pl.role;
         });
 
-        // 5. Calcolo Voti Giocatori (solo chi ha un voto > 0: gli altri sono s.v.)
+        // 4. Fantavoti dei giocatori (solo chi ha un voto > 0: gli altri sono s.v.)
+        const votiGiocatori = votesSnap.val();
         Object.keys(votiGiocatori).forEach(playerId => {
           const datiVoto = votiGiocatori[playerId];
           if (CalcoloMatchService.hasVoto(datiVoto)) {
@@ -384,230 +612,15 @@ export const DashboardSection = {
           }
         });
 
-        // 6. Elaborazione Risultati Match di Giornata
-        Object.keys(couples).forEach(matchKey => {
-          const match = couples[matchKey];
-          const homeTeamId = match.homeId || match.home || match.idHome;
-          const awayTeamId = match.awayId || match.away || match.idAway;
-
-          const ptHome = CalcoloMatchService.calcolaTotaleSquadra(allLineups, homeTeamId, mappaFantavotiLocali, ruoliGiocatori);
-          const ptAway = CalcoloMatchService.calcolaTotaleSquadra(allLineups, awayTeamId, mappaFantavotiLocali, ruoliGiocatori);
-
-          const gHome = CalcoloMatchService.calcolaGol(ptHome);
-          const gAway = CalcoloMatchService.calcolaGol(ptAway);
-
-          const basePath = `competitions/${compId}/matches/${gwId}/couples/${matchKey}`;
-          updates[`${basePath}/punteggioFinaleHome`] = ptHome;
-          updates[`${basePath}/punteggioFinaleAway`] = ptAway;
-          updates[`${basePath}/goalHome`] = gHome;
-          updates[`${basePath}/goalAway`] = gAway;
-          updates[`${basePath}/finished`] = true;
-
-          // Aggiornamento Classifica Standard (se NON è a eliminazione diretta pura)
-          if (compData.type !== 'diretta') {
-            let puntiHome = 0, puntiAway = 0;
-            let vHome = 0, dHome = 0, lHome = 0;
-            let vAway = 0, dAway = 0, lAway = 0;
-
-            if (gHome > gAway) {
-              puntiHome = 3; vHome = 1; puntiAway = 0; lAway = 1;
-            } else if (gHome < gAway) {
-              puntiHome = 0; lHome = 1; puntiAway = 3; vAway = 1;
-            } else {
-              puntiHome = 1; dHome = 1; puntiAway = 1; dAway = 1;
-            }
-
-            if (homeTeamId) {
-              const classHomePath = `competitions/${compId}/classifica/${gwId}/${homeTeamId}`;
-              updates[`${classHomePath}/punteggiofanta`] = ptHome;
-              updates[`${classHomePath}/punti`] = puntiHome;
-              updates[`${classHomePath}/golFatti`] = gHome;
-              updates[`${classHomePath}/golSubiti`] = gAway;
-              updates[`${classHomePath}/vittoria`] = vHome;
-              updates[`${classHomePath}/pareggio`] = dHome;
-              updates[`${classHomePath}/sconfitta`] = lHome;
-            }
-
-            if (awayTeamId) {
-              const classAwayPath = `competitions/${compId}/classifica/${gwId}/${awayTeamId}`;
-              updates[`${classAwayPath}/punteggiofanta`] = ptAway;
-              updates[`${classAwayPath}/punti`] = puntiAway;
-              updates[`${classAwayPath}/golFatti`] = gAway;
-              updates[`${classAwayPath}/golSubiti`] = gHome;
-              updates[`${classAwayPath}/vittoria`] = vAway;
-              updates[`${classAwayPath}/pareggio`] = dAway;
-              updates[`${classAwayPath}/sconfitta`] = lAway;
-            }
-          }
+        // 5. Risultati, classifica e tabellone di ogni competizione
+        daCalcolare.forEach(({ compId, compData, gwId }) => {
+          this._calcolaCompetizione({ compId, compData, gwId, mappaFantavotiLocali, ruoliGiocatori, updates });
         });
 
-        // 7. GESTIONE TABELLONE ED ELIMINAZIONE DIRETTA (Avanzamento Vincenti)
-        if ((compData.type === 'diretta' || compData.type === 'misto' || compData.type === 'misto-speciale') && compData.tabelloneStructure && compData.tabelloneStructure.fasi) {
-          const tabellone = compData.tabelloneStructure;
-          const regola = tabellone.regolaIncontri || tabellone.tipoScontro || tabellone.modalita;
-          const isAndataRitorno = regola === 'andata-ritorno' || regola === 'andata_ritorno';
-          
-          const allMatchesSnap = await get(ref(this.db, `competitions/${compId}/matches`));
-          const allMatches = allMatchesSnap.exists() ? allMatchesSnap.val() : {};
-
-          // Includiamo i dati appena calcolati per la giornata corrente
-          allMatches[gwId] = allMatches[gwId] || { couples: {} };
-          Object.keys(couples).forEach(matchKey => {
-            const match = couples[matchKey];
-            const homeTeamId = match.homeId || match.home || match.idHome;
-            const awayTeamId = match.awayId || match.away || match.idAway;
-            
-            const ptHome = CalcoloMatchService.calcolaTotaleSquadra(allLineups, homeTeamId, mappaFantavotiLocali, ruoliGiocatori);
-            const ptAway = CalcoloMatchService.calcolaTotaleSquadra(allLineups, awayTeamId, mappaFantavotiLocali, ruoliGiocatori);
-
-            allMatches[gwId].couples[matchKey] = {
-              ...match,
-              punteggioFinaleHome: ptHome,
-              punteggioFinaleAway: ptAway,
-              goalHome: CalcoloMatchService.calcolaGol(ptHome),
-              goalAway: CalcoloMatchService.calcolaGol(ptAway),
-              finished: true
-            };
-          });
-
-          const fasi = tabellone.fasi;
-          const fasiKeys = Object.keys(fasi).sort();
-
-          fasiKeys.forEach((faseKey, index) => {
-            const faseObj = fasi[faseKey];
-            const matchList = faseObj.matchList || [];
-
-            matchList.forEach((m) => {
-              const matchId = m.id; // es: "tf1_m2"
-              let vincenteId = null;
-
-              if (!isAndataRitorno) {
-                // --- SOLO ANDATA ---
-                let foundMatch = null;
-                Object.keys(allMatches).forEach(gw => {
-                  const couplesGw = allMatches[gw].couples || {};
-                  if (couplesGw[matchId] && couplesGw[matchId].finished) {
-                    foundMatch = couplesGw[matchId];
-                  }
-                });
-
-                if (foundMatch) {
-                  const gH = Number(foundMatch.goalHome ?? foundMatch.homeScore ?? 0);
-                  const gA = Number(foundMatch.goalAway ?? foundMatch.awayScore ?? 0);
-                  const ptH = Number(foundMatch.punteggioFinaleHome || 0);
-                  const ptA = Number(foundMatch.punteggioFinaleAway || 0);
-
-                  if (gH > gA) vincenteId = foundMatch.homeId || foundMatch.home;
-                  else if (gA > gH) vincenteId = foundMatch.awayId || foundMatch.away;
-                  else {
-                    // In caso di parità di gol, vince chi ha il fantapunteggio più alto
-                    if (ptH > ptA) vincenteId = foundMatch.homeId || foundMatch.home;
-                    else if (ptA > ptH) vincenteId = foundMatch.awayId || foundMatch.away;
-                    else vincenteId = foundMatch.homeId || foundMatch.home;
-                  }
-                }
-              } else {
-                // --- ANDATA E RITORNO ---
-                let matchAndata = null;
-                let matchRitorno = null;
-
-                Object.keys(allMatches).forEach(gw => {
-                  const couplesGw = allMatches[gw].couples || {};
-                  if (couplesGw[matchId] && couplesGw[matchId].finished) {
-                    matchAndata = couplesGw[matchId];
-                  }
-                  if (couplesGw[`${matchId}_ritorno`] && couplesGw[`${matchId}_ritorno`].finished) {
-                    matchRitorno = couplesGw[`${matchId}_ritorno`];
-                  }
-                });
-
-                if (matchAndata && matchRitorno) {
-                  // Identifichiamo formalmente chi gioca in casa all'andata e chi fuori
-                  const teamAndataCasa = matchAndata.homeId || matchAndata.home;
-                  const teamAndataFuori = matchAndata.awayId || matchAndata.away;
-
-                  // Gol e Fantapunti totalizzati nell'Andata
-                  let totGolCasa = Number(matchAndata.goalHome ?? matchAndata.homeScore ?? 0);
-                  let totGolFuori = Number(matchAndata.goalAway ?? matchAndata.awayScore ?? 0);
-                  let totPtCasa = Number(matchAndata.punteggioFinaleHome || 0);
-                  let totPtFuori = Number(matchAndata.punteggioFinaleAway || 0);
-
-                  // Al RITORNO i ruoli si invertono:
-                  // Chi ha giocato fuori all'andata (teamAndataFuori) ora gioca in casa (goalHome al ritorno).
-                  // Chi ha giocato in casa all'andata (teamAndataCasa) ora gioca fuori (goalAway al ritorno).
-                  const rHomeId = matchRitorno.homeId || matchRitorno.home;
-
-                  if (rHomeId === teamAndataFuori) {
-                    totGolFuori += Number(matchRitorno.goalHome ?? matchRitorno.homeScore ?? 0);
-                    totGolCasa += Number(matchRitorno.goalAway ?? matchRitorno.awayScore ?? 0);
-                    totPtFuori += Number(matchRitorno.punteggioFinaleHome || 0);
-                    totPtCasa += Number(matchRitorno.punteggioFinaleAway || 0);
-                  } else {
-                    // Fallback di sicurezza nel caso i campi fossero ribaltati a DB
-                    totGolCasa += Number(matchRitorno.goalHome ?? matchRitorno.homeScore ?? 0);
-                    totGolFuori += Number(matchRitorno.goalAway ?? matchRitorno.awayScore ?? 0);
-                    totPtCasa += Number(matchRitorno.punteggioFinaleHome || 0);
-                    totPtFuori += Number(matchRitorno.punteggioFinaleAway || 0);
-                  }
-
-                  // Valutazione esito globale aggregato
-                  if (totGolCasa > totGolFuori) vincenteId = teamAndataCasa;
-                  else if (totGolFuori > totGolCasa) vincenteId = teamAndataFuori;
-                  else {
-                    // Parità di gol aggregati: spareggio sui fantapunti complessivi
-                    if (totPtCasa > totPtFuori) vincenteId = teamAndataCasa;
-                    else if (totPtFuori > totPtCasa) vincenteId = teamAndataFuori;
-                    else vincenteId = teamAndataCasa;
-                  }
-                }
-              }
-
-              // Se abbiamo determinato un vincente, aggiorniamo sia il Tabellone sia il Calendario (Matches)
-              if (vincenteId) {
-                const targetPlaceholder = `VINCENTE_${matchId}`;
-
-                // A) Aggiorna la struttura visuale del tabellone (per le fasi successive)
-                if (fasiKeys[index + 1]) {
-                  const nextFaseKey = fasiKeys[index + 1];
-                  const nextMatchList = fasi[nextFaseKey].matchList || [];
-
-                  nextMatchList.forEach((nextM, nextMIndex) => {
-                    const basePathNext = `competitions/${compId}/tabelloneStructure/fasi/${nextFaseKey}/matchList/${nextMIndex}`;
-
-                    if (nextM.homeId === targetPlaceholder) {
-                      updates[`${basePathNext}/homeId`] = vincenteId;
-                    }
-                    if (nextM.awayId === targetPlaceholder) {
-                      updates[`${basePathNext}/awayId`] = vincenteId;
-                    }
-                  });
-                }
-
-                // B) Aggiorna le vere partite a calendario (matches -> gwX -> couples) rispettando il luogo casa/fuori
-                Object.keys(allMatches).forEach(gKey => {
-                  const couplesGw = allMatches[gKey].couples || {};
-                  Object.keys(couplesGw).forEach(cKey => {
-                    const coupleObj = couplesGw[cKey];
-                    const couplePath = `competitions/${compId}/matches/${gKey}/couples/${cKey}`;
-
-                    if (coupleObj.homeId === targetPlaceholder) {
-                      updates[`${couplePath}/homeId`] = vincenteId;
-                    }
-                    if (coupleObj.awayId === targetPlaceholder) {
-                      updates[`${couplePath}/awayId`] = vincenteId;
-                    }
-                  });
-                });
-              }
-            });
-          });
-        }
-
-        // 8. Applicazione Atomica degli Aggiornamenti
+        // 6. Applicazione atomica: tutte le competizioni insieme
         await update(ref(this.db), updates);
-        window.toast(`Giornata ${gwId.toUpperCase()} salvata e dati aggiornati correttamente!`, "ok");
-
-
+        const elenco = daCalcolare.map(c => `${c.compData.name || c.compId} (${GwService.label(c.gwId)})`).join(', ');
+        window.toast(`${gwSerieA}ª giornata di Serie A calcolata: ${elenco}`, "ok");
       } catch (err) {
         console.error(err);
         window.toast("Errore critico durante il salvataggio completo della giornata", "err");
