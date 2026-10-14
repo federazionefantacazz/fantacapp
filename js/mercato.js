@@ -1,5 +1,6 @@
-import { db, ref, set, update } from './firebase-config.js';
+import { db, auth, ref, set, update } from './firebase-config.js';
 import { MercatoService, ROLES, LOAN_MIN, LOAN_MAX } from './services/mercatoService.js';
+import { tradeNotificationUpdates } from './services/notificationService.js';
 import { esc, sid } from './utils.js';
 
 const ROLE_NAME = { P: 'Portieri', D: 'Difensori', C: 'Centrocampisti', A: 'Attaccanti' };
@@ -312,7 +313,9 @@ export const MercatoPage = {
 
     const trade = MercatoService.buildTrade(proposta, this.STATE.players, this._gw());
     try {
+      const key = trade.tipo === 'prestito' ? 'prestitoProposto' : 'scambioProposto';
       await set(ref(db, `trades/${trade.id}`), trade);
+      this._sendNotifs(this._notif(key, trade, trade.toTeamId));
       window.showToast('Offerta inviata!', 'ok');
       this.ui.give.clear();
       this.ui.get.clear();
@@ -408,6 +411,22 @@ export const MercatoPage = {
       section('ri-history-line', 'Storico', history, 'Ancora nessuna trattativa conclusa.');
   },
 
+  /** Notifica automatica (testi del Patron) relativa alla trattativa, per la squadra teamId. */
+  _notif(key, trade, teamId, extra = {}) {
+    return tradeNotificationUpdates(key, trade, teamId, {
+      templates: this.STATE.notifTemplates,
+      teams: this.STATE.teams,
+      createdBy: auth.currentUser ? auth.currentUser.uid : null,
+      ...extra
+    });
+  },
+
+  /** Le notifiche si scrivono dopo la trattativa: se non riescono, la trattativa resta valida. */
+  _sendNotifs(updates) {
+    if (!updates || !Object.keys(updates).length) return;
+    update(ref(db), updates).catch(err => console.warn('Notifica non inviata:', err?.message));
+  },
+
   _tradeById(id) { return Object.values(this.STATE.trades || {}).find(t => t && t.id === id); },
 
   async _withdraw(id) {
@@ -415,7 +434,11 @@ export const MercatoPage = {
     if (!t || t.status !== 'pending' || sid(t.fromTeamId) !== this._me()) return;
     if (!confirm("Vuoi ritirare l'offerta?")) return;
     try {
-      await update(ref(db, `trades/${id}`), { status: 'withdrawn', respondedAt: Date.now() });
+      await update(ref(db), {
+        [`trades/${id}/status`]: 'withdrawn',
+        [`trades/${id}/respondedAt`]: Date.now()
+      });
+      this._sendNotifs(this._notif('offertaRitirata', t, t.toTeamId));
       window.showToast('Offerta ritirata', 'ok');
     } catch (err) { console.error(err); window.showToast('Errore nel ritiro', 'err'); }
   },
@@ -424,7 +447,11 @@ export const MercatoPage = {
     const t = this._tradeById(id);
     if (!t || t.status !== 'pending' || sid(t.toTeamId) !== this._me()) return;
     try {
-      await update(ref(db, `trades/${id}`), { status: 'rejected', respondedAt: Date.now() });
+      await update(ref(db), {
+        [`trades/${id}/status`]: 'rejected',
+        [`trades/${id}/respondedAt`]: Date.now()
+      });
+      this._sendNotifs(this._notif('offertaRifiutata', t, t.fromTeamId));
       window.showToast('Offerta rifiutata', 'ok');
     } catch (err) { console.error(err); window.showToast('Errore nel rifiuto', 'err'); }
   },
@@ -441,8 +468,18 @@ export const MercatoPage = {
       : 'Accetti lo scambio? I giocatori cambieranno squadra definitivamente.';
     if (!confirm(msg)) return;
 
+    // notifiche: a chi aveva proposto, e alle squadre delle offerte annullate da questa
+    const notifs = this._notif(t.tipo === 'prestito' ? 'prestitoAccettato' : 'scambioAccettato', t, t.fromTeamId,
+      { rientro: t.tipo === 'prestito' ? res.updates[`trades/${t.id}/endGw`] : '' });
+    Object.entries(res.updates).forEach(([path, v]) => {
+      const m = path.match(/^trades\/(.+)\/status$/);
+      const other = m && v === 'cancelled' ? this._tradeById(m[1]) : null;
+      if (other) Object.assign(notifs, this._notif('offertaAnnullata', other, other.fromTeamId), this._notif('offertaAnnullata', other, other.toTeamId));
+    });
+
     try {
       await update(ref(db), res.updates);
+      this._sendNotifs(notifs);
       window.showToast(t.tipo === 'prestito' ? 'Prestito accettato!' : 'Scambio concluso!', 'ok');
     } catch (err) { console.error(err); window.showToast("Errore nell'accettazione", 'err'); }
   }
