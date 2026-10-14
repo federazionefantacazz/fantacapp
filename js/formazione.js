@@ -159,7 +159,7 @@ export const FormazionePage = {
           display: inline-flex; align-items: center; justify-content: center; gap: 1px;
           min-width: 22px; height: 16px; padding: 0 4px; border-radius: 8px;
           font-size: .58rem; font-weight: 700; color: #fff; line-height: 1;
-          font-family: 'DM Sans', sans-serif; box-shadow: 0 2px 5px rgba(0,0,0,.45);
+          font-family: var(--font-text); box-shadow: 0 2px 5px rgba(0,0,0,.45);
           border: 1px solid rgba(255,255,255,.35);
         }
         .pan-slot { cursor: pointer; }

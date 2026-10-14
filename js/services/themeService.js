@@ -27,18 +27,27 @@
  * - field.key = chiave del tipo dentro la pagina
  * - field.css = nome esatto della variabile CSS usata nei fogli di stile
  * - kind      = 'color' (HEX, con color picker) | 'text' (valore libero, es. rgba(...))
+ *               | 'font' (chiave di THEME_FONTS, scelta da menu a tendina)
  */
+
+/* Font selezionabili dal Patron. Il tema salva la chiave, non il CSS.
+   I file dei font sono in /fonts, dichiarati con @font-face in index.html e admin.html. */
+export const THEME_FONTS = [
+  { key: 'default', label: 'Font default (DM Sans)', css: "'DM Sans', sans-serif" },
+  { key: 'pirates', label: 'Pirates of Cydonia',     css: "'Pirates of Cydonia', 'DM Sans', sans-serif" }
+];
 
 /* Tipi comuni a tutte le pagine di contenuto */
 const TYPE_TITLE    = { key: 'title',   css: '--title',            kind: 'color', def: '#94a3b8', label: 'Titoli',             hint: 'Titoli di sezione (vuoto = come Sottotesti)' };
 const TYPE_TEXT     = { key: 'text',    css: '--text',             kind: 'color', def: '#e2e8f0', label: 'Testi',              hint: 'Testo principale' };
+const TYPE_FONT     = { key: 'font',    css: '--font-text',        kind: 'font',  def: '',        label: 'Font dei testi',     hint: 'Font del testo della pagina (vuoto = come Generale)' };
 const TYPE_SUB      = { key: 'sub',     css: '--text2',            kind: 'color', def: '#94a3b8', label: 'Sottotesti',         hint: 'Descrizioni, dettagli secondari' };
 const TYPE_TEXT3    = { key: 'text3',   css: '--text3',            kind: 'color', def: '#5b6b80', label: 'Testi disattivati',  hint: 'Testo disattivato, segnaposto, note secondarie' };
 const TYPE_LABEL    = { key: 'label',   css: '--label',            kind: 'color', def: '#94a3b8', label: 'Label',              hint: 'Etichette dei campi e dei riquadri (vuoto = come Sottotesti)' };
 const TYPE_BTN      = { key: 'btn',     css: '--btn-primary',      kind: 'color', def: '#50e3c2', label: 'Pulsanti',           hint: 'Sfondo del pulsante principale (vuoto = come Evidenza principale)' };
 const TYPE_BTN_TEXT = { key: 'btnText', css: '--btn-primary-text', kind: 'color', def: '#0a0f1e', label: 'Testi dei pulsanti', hint: 'Testo sul pulsante principale' };
 
-const CONTENT_TYPES = [TYPE_TITLE, TYPE_TEXT, TYPE_SUB, TYPE_TEXT3, TYPE_LABEL, TYPE_BTN, TYPE_BTN_TEXT];
+const CONTENT_TYPES = [TYPE_TITLE, TYPE_TEXT, TYPE_FONT, TYPE_SUB, TYPE_TEXT3, TYPE_LABEL, TYPE_BTN, TYPE_BTN_TEXT];
 
 /* Sfondo dei pannelli del menu: sotto il colore c'è lo sfondo della competizione,
    quindi un colore trasparente (rgba) lo lascia vedere come nelle altre pagine */
@@ -127,6 +136,7 @@ export const THEME_PAGES = [
       { key: 'border', css: '--border',      kind: 'text',  def: 'rgba(255,255,255,0.08)', hint: 'Bordi e separatori dentro le card', label: 'Bordo' },
       { ...TYPE_TITLE },
       { ...TYPE_TEXT },
+      { ...TYPE_FONT },
       { ...TYPE_SUB },
       { ...TYPE_TEXT3 },
       { ...TYPE_LABEL },
@@ -229,10 +239,25 @@ export function buildThemeCss(rawTheme) {
   THEME_PAGES.forEach(page => {
     const values = theme[page.key];
     if (!values || typeof values !== 'object') return;
-    const decls = page.fields
-      .filter(f => values[f.key] && sanitize(values[f.key]))
-      .map(f => `${f.css}: ${sanitize(values[f.key])};`);
+    const decls = [];
+    let font = null;
+    page.fields.forEach(f => {
+      if (!values[f.key]) return;
+      if (f.kind === 'font') {
+        font = THEME_FONTS.find(x => x.key === values[f.key]);
+        if (font) decls.push(`${f.css}: ${font.css};`, 'font-family: var(--font-text);');
+        return;
+      }
+      const v = sanitize(values[f.key]);
+      if (v) decls.push(`${f.css}: ${v};`);
+    });
     if (decls.length) blocks.push(`${page.selector} { ${decls.join(' ')} }`);
+    // pulsanti e campi non ereditano il font dal browser: si allineano a quello scelto
+    if (font) {
+      const scoped = page.selector.split(',').map(s => s.trim())
+        .map(s => `${s} :is(button, input, select, textarea)`).join(', ');
+      blocks.push(`${scoped} { font-family: var(--font-text); }`);
+    }
   });
   return blocks.join('\n');
 }

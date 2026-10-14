@@ -8,7 +8,13 @@
 <title>Fantacazz — Patron</title>
 <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
 <style>
+@font-face {
+  font-family: 'Pirates of Cydonia';
+  src: url('fonts/pirates-of-cydonia.ttf') format('truetype');
+  font-display: swap;
+}
 :root {
+  --font-text: 'DM Sans', sans-serif; /* Font dei testi: il tema può sceglierne un altro per pagina */
   --bg: #1a1e24;       
   --bg2: #22272f;      
   --bg3: #2b323c;      
@@ -25,14 +31,14 @@
   --sidebar-width: 240px;
 }
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body{font-family:var(--font-text);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
 
 .layout { display: none; flex-direction: column; min-height: 100vh; width: 100%; }
 
 /* ─── Header mobile ─────────────────────────────────────────────────────── */
 .mobile-header { display: flex; align-items: center; gap: .75rem; background: var(--bg2); border-bottom: 1px solid var(--border); padding: .6rem 1rem; padding-top: calc(.6rem + env(safe-area-inset-top, 0px)); position: sticky; top: 0; z-index: 100; }
 .mobile-header .logo { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; line-height: 1; flex: 1; min-width: 0; }
-.mobile-header .logo span { font-size: .75rem; font-family: 'DM Sans', sans-serif; color: var(--accent); margin-left: 0.5rem; }
+.mobile-header .logo span { font-size: .75rem; font-family: var(--font-text); color: var(--accent); margin-left: 0.5rem; }
 .menu-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text); width: 40px; height: 40px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
 .menu-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 
@@ -42,7 +48,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .sidebar-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 200; opacity: 0; pointer-events: none; transition: opacity .25s ease; }
 .sidebar-backdrop.show { opacity: 1; pointer-events: auto; }
 .sidebar .logo{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:1px;padding:0 1.5rem;margin-bottom:1rem;color:#fff;display:flex;flex-direction:column}
-.sidebar .logo span{font-size:.75rem;font-family:'DM Sans',sans-serif;color:var(--accent);letter-spacing:0;font-weight:600;text-transform:uppercase;margin-top:-4px}
+.sidebar .logo span{font-size:.75rem;font-family:var(--font-text);color:var(--accent);letter-spacing:0;font-weight:600;text-transform:uppercase;margin-top:-4px}
 
 .theme-picker { padding: 0 1.5rem; margin-bottom: 1rem; }
 .theme-picker .input-login { margin-bottom: 0; }
@@ -104,7 +110,7 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 .auth-screen { display: none; min-height: 100vh; min-height: 100dvh; align-items: center; justify-content: center; padding: 1.5rem; }
 .auth-card { width: 100%; max-width: 380px; margin-bottom: 0; }
 .auth-card .auth-logo { font-family: 'Bebas Neue', sans-serif; font-size: 2.4rem; letter-spacing: 1px; text-align: center; }
-.auth-card .auth-logo span { display: block; font-size: .75rem; font-family: 'DM Sans', sans-serif; color: var(--accent); font-weight: 600; text-transform: uppercase; margin-top: -4px; }
+.auth-card .auth-logo span { display: block; font-size: .75rem; font-family: var(--font-text); color: var(--accent); font-weight: 600; text-transform: uppercase; margin-top: -4px; }
 .auth-msg { font-size: .85rem; color: var(--text2); text-align: center; margin: 1rem 0; line-height: 1.4; }
 .auth-err { color: var(--accent3); }
 .auth-card .btn + .btn { margin-top: .6rem; }

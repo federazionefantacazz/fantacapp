@@ -1,7 +1,7 @@
 import { ref, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { uploadBackgroundToImgBB } from "../services/integrationImgBB.js";
 import { DiviseSection } from "./divise.js";
-import { THEME_PAGES, THEME_VERSION, normalizeTheme } from "../services/themeService.js";
+import { THEME_PAGES, THEME_VERSION, THEME_FONTS, normalizeTheme } from "../services/themeService.js";
 
 let database = null;
 
@@ -67,7 +67,7 @@ export const ThemesSection = {
           <div class="label" style="color: var(--accent); margin-bottom: 1rem; font-size: .85rem;">Personalizza Tema per Pagina</div>
 
           <div style="font-size: .75rem; color: var(--text3); margin-bottom: .8rem;">
-            Scegli la pagina, poi imposta i singoli tipi (titoli, testi, sottotesti, testi disattivati, label, pulsanti, testi dei pulsanti).
+            Scegli la pagina, poi imposta i singoli tipi (titoli, testi, font dei testi, sottotesti, testi disattivati, label, pulsanti, testi dei pulsanti).
             Quello che lasci vuoto eredita da <strong>Generale</strong>. Il nome sotto ogni campo è la variabile CSS usata nell'app.
           </div>
 
@@ -106,10 +106,16 @@ export const ThemesSection = {
               <label class="label" style="text-transform: none; letter-spacing: 0; margin-bottom: .1rem;">${v.label || v.hint}</label>
               <div style="font-family: 'DM Mono', monospace; font-size: .68rem; color: var(--text3); margin-bottom: .3rem;">${v.css}${v.label ? ' · ' + v.hint : ''}</div>
               <div style="display: flex; gap: .5rem; align-items: center;">
+                ${v.kind === 'font'
+                  ? `<select id="theme-text-${id}" class="input-login" style="margin-bottom: 0;">
+                      <option value="">${page.key === 'general' ? 'Font default' : '-- Come Generale --'}</option>
+                      ${THEME_FONTS.map(fo => `<option value="${fo.key}" style="font-family: ${fo.css.replace(/"/g, '&quot;')};">${fo.label}</option>`).join('')}
+                    </select>`
+                  : ''}
                 ${v.kind === 'color'
                   ? `<input type="color" id="theme-color-${id}" class="input-login" value="${v.def}" style="padding: 0; height: 38px; width: 50px; cursor: pointer; margin-bottom: 0;">`
                   : ''}
-                <input type="text" id="theme-text-${id}" class="input-login" style="margin-bottom: 0;" placeholder="${v.def}">
+                ${v.kind !== 'font' ? `<input type="text" id="theme-text-${id}" class="input-login" style="margin-bottom: 0;" placeholder="${v.def}">` : ''}
               </div>
             </div>`;
   },

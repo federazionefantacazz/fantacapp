@@ -60,7 +60,7 @@ const LIVE_STYLES = `
 .lv-toolbar{display:flex;gap:.5rem;align-items:center;margin-bottom:.8rem;flex-wrap:wrap}
 .lv-toolbar .select-rose{flex:1;min-width:180px}
 .lv-seg{display:inline-flex;background:var(--bg3);border-radius:10px;padding:3px;gap:2px;flex-shrink:0}
-.lv-seg button{border:none;background:transparent;color:var(--text2);font:600 .75rem 'DM Sans',sans-serif;padding:.45rem .7rem;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:.3rem}
+.lv-seg button{border:none;background:transparent;color:var(--text2);font:600 .75rem var(--font-text);padding:.45rem .7rem;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:.3rem}
 .lv-seg button.on{background:var(--accent);color:#0a0f1e}
 .lv-wip{font-size:.55rem;font-weight:700;background:var(--lv-warn);color:#0a0f1e;padding:1px 4px;border-radius:4px}
 
@@ -85,7 +85,7 @@ const LIVE_STYLES = `
 .lv-sim-top{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
 .lv-sim-title{font-weight:700;font-size:.85rem;display:flex;align-items:center;gap:.4rem;color:var(--text)}
 .lv-sim-title i{color:var(--accent);font-size:1.1rem}
-.lv-btn{border:1px solid var(--border);background:var(--bg3);color:var(--text);font:600 .75rem 'DM Sans',sans-serif;padding:.4rem .7rem;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:.3rem}
+.lv-btn{border:1px solid var(--border);background:var(--bg3);color:var(--text);font:600 .75rem var(--font-text);padding:.4rem .7rem;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:.3rem}
 .lv-btn.prim{background:var(--accent);border-color:var(--accent);color:var(--btn-primary-text)}
 .lv-sim-body{margin-top:.6rem;display:flex;flex-direction:column;gap:.5rem}
 .lv-sim-row{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;font-size:.78rem;color:var(--text2)}
@@ -428,7 +428,7 @@ export const LiveMatchModule = {
       <div class="lv-wrap" style="margin-top:.5rem;">
         <div class="sec" style="justify-content:space-between; align-items:center; margin-bottom:.7rem;">
           <span style="display:flex; align-items:center; gap:.5rem;"><span class="lv-livechip" style="margin:0;"><i></i>LIVE</span> Live Match</span>
-          <span style="font-family:'DM Sans',sans-serif; font-size:.78rem; background:var(--bg3); padding:.2rem .6rem; border-radius:20px; color:var(--accent); font-weight:500; letter-spacing:0;">${esc(GwService.label(d.gwKey))}</span>
+          <span style="font-family:var(--font-text); font-size:.78rem; background:var(--bg3); padding:.2rem .6rem; border-radius:20px; color:var(--accent); font-weight:500; letter-spacing:0;">${esc(GwService.label(d.gwKey))}</span>
         </div>
         ${notice}
         <div class="lv-toolbar">
