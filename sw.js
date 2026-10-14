@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.3.8'; // Incrementa ad ogni modifica dei file statici
+const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.3.9'; // Incrementa ad ogni modifica dei file statici
 const IMAGE_CACHE = 'fantacapp-images-v1'; // riempita da js/services/assetPreloader.js: non va cancellata agli aggiornamenti
 // Librerie e font esterni (Firebase SDK, icone, Google Fonts): URL con versione fissa, restano tra un aggiornamento e l'altro
 const RUNTIME_CACHE = 'fantacapp-runtime-v1';
@@ -58,6 +58,7 @@ const ASSETS_TO_CACHE = [
   './js/services/palmaresService.js',
   './js/services/notificationService.js',
   './js/services/notificationCenter.js',
+  './js/services/pushService.js',
 
   // Componenti
   './js/components/AnteprimaClassifica.js',
@@ -236,6 +237,25 @@ function staleWhileRevalidate(request, cacheName) {
     })
   );
 }
+
+// Push ad app chiusa (Cloud Function inviaNotifica → Firebase Cloud Messaging, messaggio "solo dati").
+// Stesso tag della notifica mostrata dall'app aperta: se arrivano entrambe, la seconda sostituisce la prima.
+self.addEventListener('push', event => {
+  let payload = {};
+  try { payload = event.data ? event.data.json() : {}; } catch (e) { payload = { data: { body: event.data && event.data.text() } }; }
+  const d = payload.data || payload.notification || {};
+  const opts = {
+    body: d.body || '',
+    icon: d.icon || 'icons/icon-192.png',
+    badge: 'icons/icon-192.png',
+    tag: d.id || undefined,
+    data: { page: d.page || '', id: d.id || '' },
+    requireInteraction: d.requireInteraction === 'true',
+    silent: d.silent === 'true'
+  };
+  if (d.image) opts.image = d.image;
+  event.waitUntil(self.registration.showNotification(d.title || 'FantaCApp', opts));
+});
 
 // Tocco su una notifica: si porta in primo piano l'app (o la si apre) sulla pagina indicata.
 // Le notifiche del Patron senza pagina aprono l'elenco delle notifiche.

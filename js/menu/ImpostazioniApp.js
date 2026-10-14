@@ -73,6 +73,7 @@ export const ImpostazioniApp = {
       if (res !== 'granted') { input.checked = false; this._render(window.STATE); return; }
     }
     await window.setUserSetting('notificationsEnabled', input.checked);
+    NotificationCenter.syncPush(); // registra o cancella il token push di questo dispositivo
     this._render(window.STATE);
   },
 
