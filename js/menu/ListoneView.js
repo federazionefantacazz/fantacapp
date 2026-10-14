@@ -45,7 +45,7 @@ function injectStyle() {
     #menu-panel .ls-search input::placeholder { color: var(--text3); }
     #menu-panel .ls-icon { position: relative; width: 46px; height: 46px; flex-shrink: 0; border-radius: 50%; border: none; background: var(--bg3); color: var(--text);
       font-size: 1.3rem; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-    #menu-panel .ls-icon.on { background: var(--accent2); color: #fff; }
+    #menu-panel .ls-icon.on { background: var(--accent); color: var(--btn-primary-text); }
     #menu-panel .ls-icon .ls-dot { position: absolute; top: 2px; right: 2px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--accent3); color: #fff;
       font-size: .62rem; font-weight: 700; display: flex; align-items: center; justify-content: center; font-family: var(--font-text); }
     #menu-panel .ls-icon .ls-dot[hidden] { display: none; }
@@ -57,16 +57,16 @@ function injectStyle() {
     #menu-panel .ls-radio { display: flex; align-items: center; gap: .8rem; width: 100%; background: none; border: none; padding: .6rem 0; cursor: pointer;
       color: var(--text); font-family: inherit; font-size: 1rem; font-weight: 500; text-align: left; }
     #menu-panel .ls-radio .o { width: 22px; height: 22px; flex-shrink: 0; border-radius: 50%; border: 2px solid var(--text2); display: flex; align-items: center; justify-content: center; }
-    #menu-panel .ls-radio.on .o { border-color: var(--accent2); }
-    #menu-panel .ls-radio.on .o::after { content: ''; width: 12px; height: 12px; border-radius: 50%; background: var(--accent2); }
-    #menu-panel .ls-radio .dir { margin-left: auto; color: var(--accent2); font-size: .8rem; display: flex; align-items: center; gap: .2rem; }
+    #menu-panel .ls-radio.on .o { border-color: var(--accent); }
+    #menu-panel .ls-radio.on .o::after { content: ''; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); }
+    #menu-panel .ls-radio .dir { margin-left: auto; color: var(--accent); font-size: .8rem; display: flex; align-items: center; gap: .2rem; }
 
     #menu-panel .ls-scroll { display: flex; gap: .5rem; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: .3rem; scrollbar-width: none; }
     #menu-panel .ls-scroll::-webkit-scrollbar { display: none; }
     #menu-panel .ls-wrap { display: flex; gap: .5rem; flex-wrap: wrap; }
     #menu-panel .ls-tag { flex-shrink: 0; min-width: 46px; height: 46px; padding: 0 .9rem; border-radius: 12px; border: 1px solid var(--border); background: transparent;
       color: var(--text2); font-family: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
-    #menu-panel .ls-tag.on { background: color-mix(in srgb, var(--accent2) 22%, transparent); border-color: var(--accent2); color: var(--text); }
+    #menu-panel .ls-tag.on { background: color-mix(in srgb, var(--accent) 22%, transparent); border-color: var(--accent); color: var(--text); }
     #menu-panel .ls-tag.role { width: 52px; padding: 0; font-size: 1.05rem; }
     #menu-panel .ls-tag.role.on[data-frole="P"] { background: var(--role-p); color: var(--role-p-text); border-color: var(--role-p); }
     #menu-panel .ls-tag.role.on[data-frole="D"] { background: var(--role-d); color: var(--role-d-text); border-color: var(--role-d); }
@@ -78,12 +78,12 @@ function injectStyle() {
       display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 1rem; }
     #menu-panel .ls-slider { position: relative; flex: 1; height: 42px; }
     #menu-panel .ls-slider .track { position: absolute; left: 11px; right: 11px; top: 50%; height: 8px; margin-top: -4px; border-radius: 4px; background: var(--bg3); }
-    #menu-panel .ls-slider .fill { position: absolute; top: 0; bottom: 0; border-radius: 4px; background: var(--accent2); }
+    #menu-panel .ls-slider .fill { position: absolute; top: 0; bottom: 0; border-radius: 4px; background: var(--accent); }
     #menu-panel .ls-slider input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; background: none; pointer-events: none;
       -webkit-appearance: none; appearance: none; }
     #menu-panel .ls-slider input::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; pointer-events: auto; width: 26px; height: 26px; border-radius: 50%;
-      background: var(--text); border: 3px solid var(--accent2); cursor: pointer; }
-    #menu-panel .ls-slider input::-moz-range-thumb { pointer-events: auto; width: 20px; height: 20px; border-radius: 50%; background: var(--text); border: 3px solid var(--accent2); cursor: pointer; }
+      background: var(--text); border: 3px solid var(--accent); cursor: pointer; }
+    #menu-panel .ls-slider input::-moz-range-thumb { pointer-events: auto; width: 20px; height: 20px; border-radius: 50%; background: var(--text); border: 3px solid var(--accent); cursor: pointer; }
     #menu-panel .ls-slider input::-moz-range-track { background: none; }
     #menu-panel .ls-reset { display: block; margin: 1.2rem auto .3rem; background: none; border: none; color: var(--accent3); font-family: inherit; font-size: 1rem;
       font-weight: 600; cursor: pointer; padding: .4rem 1rem; }
@@ -91,8 +91,8 @@ function injectStyle() {
     #menu-panel .ls-head { display: flex; align-items: center; padding: 0 .9rem .5rem; color: var(--label, var(--text2)); font-family: var(--font-label, inherit); font-size: .85rem; font-weight: 600; }
     #menu-panel .ls-head .t { flex: 1; }
     #menu-panel .ls-head .t small { font-weight: 500; color: var(--text3); font-family: var(--font-text3, inherit); margin-left: .3rem; }
-    #menu-panel .ls-head button { width: 60px; background: none; border: none; color: inherit; font: inherit; text-align: center; cursor: pointer; padding: 0; }
-    #menu-panel .ls-head button.on { color: var(--accent2); }
+    #menu-panel .ls-head button { width: 54px; background: none; border: none; color: inherit; font: inherit; text-align: center; cursor: pointer; padding: 0; }
+    #menu-panel .ls-head button.on { color: var(--accent); }
 
     #menu-panel .ls-card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; margin-bottom: .7rem; cursor: pointer; }
     #menu-panel .ls-card:active { opacity: .85; }
@@ -104,15 +104,16 @@ function injectStyle() {
     #menu-panel .ls-info { flex: 1; min-width: 0; }
     #menu-panel .ls-name { font-size: 1.15rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; }
     #menu-panel .ls-club { font-size: .85rem; color: var(--text2); font-family: var(--font-sub, inherit); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: .1rem; }
-    #menu-panel .ls-num { width: 60px; flex-shrink: 0; text-align: center; font-size: 1.1rem; font-weight: 600; color: var(--text); }
+    #menu-panel .ls-stats { font-size: .75rem; color: var(--text3); font-family: var(--font-text3, inherit); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: .1rem; }
+    #menu-panel .ls-num { width: 54px; flex-shrink: 0; text-align: center; font-size: 1.1rem; font-weight: 600; color: var(--text); }
     #menu-panel .ls-num.qt { color: var(--gold); }
     #menu-panel .ls-num.none { color: var(--text3); font-family: var(--font-text3, inherit); font-weight: 500; }
     #menu-panel .ls-num.hi { color: var(--accent); }
     #menu-panel .ls-num.lo { color: var(--accent3); }
-    #menu-panel .ls-band { display: flex; justify-content: space-between; gap: .8rem; padding: .4rem 1.1rem; background: color-mix(in srgb, var(--accent2) 60%, #000); color: #fff;
+    #menu-panel .ls-band { display: flex; justify-content: space-between; gap: .8rem; padding: .4rem 1.1rem; background: var(--accent); color: var(--btn-primary-text);
       font-size: .85rem; font-weight: 600; }
     #menu-panel .ls-band span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: uppercase; letter-spacing: .3px; }
-    #menu-panel .ls-band.loan { background: color-mix(in srgb, var(--gold) 80%, #000); }
+    #menu-panel .ls-band.loan { background: color-mix(in srgb, var(--gold) 80%, #000); color: #fff; }
     #menu-panel .ls-more { display: block; margin: .4rem auto 0; }
     #menu-panel .ls-empty { text-align: center; color: var(--text3); font-family: var(--font-text3, inherit); font-size: .9rem; padding: 2rem 1rem; }
   `;
@@ -280,7 +281,7 @@ function createView({ mode, title, emptyMsg }) {
 
   function card({ p, s }, ctx) {
     const owner = isListone ? ctx.ownerName(p) : '';
-    const extra = [p.club || '', s.pres ? `${s.pres} pres.` : '', s.mv !== null && s.mv !== undefined ? `MV ${fmtAvg(s.mv)}` : '']
+    const extra = [s.pres ? `${s.pres} pres.` : '', s.mv !== null && s.mv !== undefined ? `MV ${fmtAvg(s.mv)}` : '']
       .filter(Boolean).join(' · ');
     let band = '';
     if (isListone && p.loan) {
@@ -297,7 +298,8 @@ function createView({ mode, title, emptyMsg }) {
           <div class="ls-photo">${playerThumb(p)}${hasPhoto ? `<span class="ls-role rbadge r${esc(p.role)}">${esc(p.role)}</span>` : ''}</div>
           <div class="ls-info">
             <div class="ls-name">${esc(p.name)}</div>
-            <div class="ls-club">${esc(extra || '–')}</div>
+            <div class="ls-club">${esc(p.club || '–')}</div>
+            ${extra ? `<div class="ls-stats">${esc(extra)}</div>` : ''}
           </div>
           <div class="ls-num ${fvClass(s.fv)}">${fmtAvg(s.fv)}</div>
           <div class="ls-num qt ${qt === null ? 'none' : ''}">${qt === null ? '–' : esc(qt)}</div>
