@@ -176,7 +176,14 @@ export const THEME_PAGES = [
       { key: 'inputPlaceholder', css: '--input-placeholder', kind: 'color', def: '#5b6b80',               label: 'Segnaposto campi',   hint: 'Testo di esempio nei campi vuoti (vuoto = come Testi disattivati)' },
       { key: 'inputBorder',      css: '--input-border',      kind: 'text',  def: 'rgba(255,255,255,0.15)', label: 'Bordo campi',       hint: 'Bordo dei campi (quando selezionati usano Evidenza principale)' }
     ] },
-  { key: 'home',        label: 'Home',         selector: '#page-home',        desc: 'Schermata principale.',       fields: CONTENT_TYPES },
+  { key: 'home',        label: 'Home',         selector: '#page-home',        desc: 'Schermata principale.',
+    fields: [
+      ...CONTENT_TYPES,
+      { key: 'teamName',  css: '--team-name',  kind: 'color', def: '#e2e8f0', label: 'Nome squadra', hint: 'Nome della tua squadra in alto (vuoto = come Testi)',
+        font: { key: 'teamNameFont', css: '--font-team-name', def: "'Bebas Neue', sans-serif", defLabel: 'Bebas Neue' } },
+      { key: 'teamOwner', css: '--team-owner', kind: 'color', def: '#94a3b8', label: 'Allenatore',   hint: 'Nome dell\'allenatore sotto il nome della squadra (vuoto = come Sottotesti)',
+        font: { key: 'teamOwnerFont', css: '--font-team-owner', def: "'DM Sans', sans-serif", defLabel: 'DM Sans' } }
+    ] },
   { key: 'calendario',  label: 'Calendario',   selector: '#page-calendario, #cal-popup',  desc: 'Calendario incontri.',        fields: CONTENT_TYPES },
   { key: 'classifica',  label: 'Classifica',   selector: '#page-classifica',  desc: 'Classifica e tabellone.',     fields: CONTENT_TYPES },
   { key: 'formazione',  label: 'Formazione',   selector: '#page-formazione',  desc: 'Schieramento formazione.',    fields: CONTENT_TYPES },
