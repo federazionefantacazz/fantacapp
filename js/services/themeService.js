@@ -183,6 +183,35 @@ export const THEME_PAGES = [
       { ...TYPE_BTN,      hint: 'Sfondo del pulsante Aggiorna (vuoto = come Generale)' },
       { ...TYPE_BTN_TEXT, hint: 'Testo del pulsante Aggiorna' }
     ] },
+  { key: 'notifInvite', label: 'Avviso notifiche', selector: '#notif-invite',
+    desc: 'Riquadro "Attiva le notifiche" con i pulsanti Attiva e Non ora.',
+    fields: [
+      { key: 'bg',     css: '--ni-bg',     kind: 'text',  def: '#282e37', label: 'Sfondo', hint: 'Sfondo del riquadro (vuoto = come Schede)' },
+      { key: 'border', css: '--ni-border', kind: 'text',  def: 'rgba(255,255,255,0.08)', label: 'Bordo', hint: 'Bordo del riquadro e del pulsante Non ora (vuoto = come Bordi)' },
+      { key: 'icon',   css: '--ni-icon',   kind: 'color', def: '#50e3c2', label: 'Icona', hint: 'Campanella a sinistra (vuoto = Evidenza principale)' },
+      { ...TYPE_TEXT, hint: 'Titolo del riquadro' },
+      { ...TYPE_SUB,  hint: 'Spiegazione sotto il titolo' },
+      { key: 'later',  css: '--ni-later',  kind: 'color', def: '#94a3b8', label: 'Pulsante Non ora', hint: 'Testo del pulsante Non ora (vuoto = come Sottotesti)' },
+      { ...TYPE_BTN,      hint: 'Sfondo del pulsante Attiva (vuoto = come Generale)' },
+      { ...TYPE_BTN_TEXT, hint: 'Testo del pulsante Attiva' }
+    ] },
+  { key: 'offlineBanner', label: 'Avviso offline', selector: '#offline-banner',
+    desc: 'Etichetta in alto "Offline · dati aggiornati ..." quando manca la connessione.',
+    fields: [
+      { key: 'bg',     css: '--off-bg',     kind: 'text',  def: 'rgba(40,46,55,0.92)', label: 'Sfondo', hint: 'Sfondo dell\'etichetta' },
+      { key: 'border', css: '--off-border', kind: 'text',  def: 'rgba(245,166,35,0.55)', label: 'Bordo', hint: 'Bordo (vuoto = Oro al 55%)' },
+      { key: 'icon',   css: '--off-icon',   kind: 'color', def: '#f5a623', label: 'Icona', hint: 'Icona a sinistra (vuoto = Oro)' },
+      { ...TYPE_TEXT, hint: 'Testo dell\'etichetta' }
+    ] },
+  { key: 'toast', label: 'Messaggi brevi', selector: '.toast',
+    desc: 'Messaggi che compaiono per qualche secondo in alto (es. "Formazione salvata", errori).',
+    fields: [
+      { key: 'bg',     css: '--toast-bg',     kind: 'text',  def: '#282e37', label: 'Sfondo', hint: 'Sfondo del messaggio (vuoto = come Schede)' },
+      { key: 'border', css: '--toast-border', kind: 'text',  def: 'rgba(255,255,255,0.1)', label: 'Bordo', hint: 'Bordo dei messaggi informativi' },
+      { ...TYPE_TEXT, hint: 'Testo dei messaggi informativi' },
+      { key: 'ok',     css: '--toast-ok',     kind: 'color', def: '#50e3c2', label: 'Conferma', hint: 'Testo e bordo dei messaggi di conferma (vuoto = Evidenza principale)' },
+      { key: 'err',    css: '--toast-err',    kind: 'color', def: '#ff6b6b', label: 'Errore', hint: 'Testo e bordo dei messaggi di errore (vuoto = Errore e Live)' }
+    ] },
   { key: 'login',       label: 'Login',        selector: '#page-login',       desc: 'Accesso e scelta squadra.',
     fields: [
       ...CONTENT_TYPES,
@@ -217,6 +246,25 @@ export const THEME_PAGES = [
   { key: 'mercato',     label: 'Mercato',      selector: '#page-mercato',     desc: 'Scambi e prestiti.',          fields: CONTENT_TYPES },
   { key: 'teams',       label: 'Squadre',      selector: '#page-teams',       desc: 'Elenco squadre e scheda club.', fields: CONTENT_TYPES },
   { key: 'live',        label: 'Live',         selector: '#page-live',        desc: 'Partita in diretta.',         fields: CONTENT_TYPES },
+  { key: 'kitZoom', label: 'Zoom maglia', selector: '.kit-zoom',
+    desc: 'Finestra a tutto schermo con la maglia ingrandita (pulsante lente nell\'editor della divisa).',
+    fields: [
+      { key: 'bg',        css: '--kz-bg',         kind: 'text',  def: '#1a1e24', label: 'Sfondo', hint: 'Sfondo della finestra (vuoto = come Sfondo pagina)' },
+      { ...TYPE_TITLE, hint: 'Titolo "Anteprima maglia" (vuoto = come Testi)' },
+      { key: 'btnBg',     css: '--kz-btn-bg',     kind: 'text',  def: '#22272f', label: 'Pulsanti · sfondo', hint: 'Chiudi, Davanti, Retro, Zoom (vuoto = come Superficie secondaria)' },
+      { key: 'btnBorder', css: '--kz-btn-border', kind: 'text',  def: 'rgba(255,255,255,0.08)', label: 'Pulsanti · bordo', hint: 'Bordo dei pulsanti (vuoto = come Bordi)' },
+      { key: 'btnText',   css: '--kz-btn-text',   kind: 'color', def: '#e2e8f0', label: 'Pulsanti · testo', hint: 'Testo dei pulsanti (vuoto = come Testi)', font: FONT_BTN }
+    ] },
+  { key: 'kitPicker', label: 'Scelta disegni maglia', selector: '.kit-modal',
+    desc: 'Finestra che si apre dal basso nell\'editor della divisa per scegliere disegni, colletti, marchi...',
+    fields: [
+      { key: 'overlay', css: '--km-overlay', kind: 'text', def: 'rgba(0,0,0,0.6)', label: 'Velo dietro', hint: 'Colore sopra la pagina dietro la finestra' },
+      { key: 'bg',      css: '--km-bg',      kind: 'text', def: '#282e37', label: 'Sfondo', hint: 'Sfondo della finestra (vuoto = come Schede)' },
+      { key: 'border',  css: '--km-border',  kind: 'text', def: 'rgba(255,255,255,0.08)', label: 'Bordo', hint: 'Bordo della finestra (vuoto = come Bordi)' },
+      { ...TYPE_TITLE, hint: 'Titolo della finestra (vuoto = come Testi)' },
+      { ...TYPE_SUB,   hint: 'Nomi sotto le anteprime' },
+      { key: 'accent',  css: '--accent',     kind: 'color', def: '#50e3c2', label: 'Selezione', hint: 'Bordo e spunta della scelta attiva (vuoto = Evidenza principale)' }
+    ] },
   { key: 'liveEditor',  label: 'Modifica voto (Live)', selector: '#lv-editor',
     desc: 'Finestra per simulare voto e bonus di un giocatore nel Live.', fields: [SHEET_BG, ...CONTENT_TYPES] },
   { key: 'matchViewer', label: 'Partita (replay)',     selector: '#match-viewer',

@@ -24,17 +24,17 @@ const ASK_AGAIN_MS = 7 * 24 * 3600 * 1000;        // l'invito torna dopo una set
 const STYLES = `
 .hdr-bell{position:relative}
 #notif-invite{position:fixed;left:.8rem;right:.8rem;bottom:calc(76px + env(safe-area-inset-bottom, 0px));z-index:1400;
-  display:flex;align-items:center;gap:.7rem;padding:.8rem .9rem;border-radius:14px;background:var(--card);border:1px solid var(--border);
+  display:flex;align-items:center;gap:.7rem;padding:.8rem .9rem;border-radius:14px;background:var(--ni-bg, var(--card));border:1px solid var(--ni-border, var(--border));
   box-shadow:0 10px 30px rgba(0,0,0,.4);transform:translateY(20px);opacity:0;pointer-events:none;transition:all .3s ease;max-width:520px;margin:0 auto}
 #notif-invite.show{transform:none;opacity:1;pointer-events:auto}
 #notif-invite .ni-ico{width:38px;height:38px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.25rem;
-  color:var(--accent);background:color-mix(in srgb,var(--accent) 15%,transparent)}
+  color:var(--ni-icon, var(--accent));background:color-mix(in srgb,var(--ni-icon, var(--accent)) 15%,transparent)}
 #notif-invite .ni-txt{flex:1;min-width:0;font-size:.78rem;line-height:1.35;color:var(--text2);font-family:var(--font-sub,inherit)}
 #notif-invite .ni-txt b{display:block;color:var(--text);font-size:.85rem;margin-bottom:.1rem;font-family:var(--font-text,inherit)}
 #notif-invite .ni-btns{display:flex;flex-direction:column;gap:.3rem;flex-shrink:0}
 #notif-invite button{border:none;border-radius:8px;padding:.4rem .7rem;font-size:.75rem;font-weight:600;cursor:pointer;font-family:var(--font-btn,inherit)}
 #notif-invite .ni-yes{background:var(--btn-primary,var(--accent));color:var(--btn-primary-text,#0a0f1e)}
-#notif-invite .ni-no{background:transparent;color:var(--text2);border:1px solid var(--border)}
+#notif-invite .ni-no{background:transparent;color:var(--ni-later, var(--text2));border:1px solid var(--ni-border, var(--border))}
 `;
 
 function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
