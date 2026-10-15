@@ -405,3 +405,72 @@ export function kitPairHTML(kit, kit2, opts = {}, attrs = '') {
         onclick="event.stopPropagation(); this.closest('.kit-pair').classList.toggle('swapped')"><i class="ri-arrow-left-right-line"></i></button>
     </div></div>`;
 }
+
+const SHOW_STYLE_ID = 'kit-show-style';
+function injectShowStyle() {
+  if (document.getElementById(SHOW_STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = SHOW_STYLE_ID;
+  style.textContent = `
+    .kit-show { position: relative; width: 100%; height: 320px; }
+    .kit-show .ks-3d { position: absolute; inset: 0; }
+    .kit-show .ks-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text3); font-size: .8rem; pointer-events: none; }
+    .kit-show .ks-label { position: absolute; top: 0; left: 0; z-index: 2; font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+      color: var(--text2); background: color-mix(in srgb, var(--bg2) 80%, transparent); border: 1px solid var(--border); border-radius: 999px; padding: .15rem .55rem; pointer-events: none; }
+    .kit-show .ks-other { position: absolute; right: 0; bottom: 0; z-index: 2; width: 27%; cursor: pointer; filter: drop-shadow(0 2px 6px rgba(0,0,0,.45)); }
+    .kit-show-bar { display: flex; gap: .35rem; justify-content: center; flex-wrap: wrap; margin-top: .5rem; }
+    .kit-show-bar button { background: var(--bg2); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: .4rem .7rem;
+      font-family: var(--font-btn, inherit); font-weight: 700; font-size: .78rem; cursor: pointer; display: inline-flex; align-items: center; gap: .3rem; }
+    .kit-show-bar button.ks-sw { color: var(--accent); }
+  `;
+  document.head.appendChild(style);
+}
+
+/**
+ * Vetrina 3D delle divise (scheda del club): la maglia si ruota in ogni direzione, si ingrandisce e si sposta
+ * come nella vista ingrandita dell'editor. Con due maglie l'altra è piccola in basso a destra:
+ * toccandola (o con "Scambia") passa in 3D. Restituisce { dispose() }.
+ */
+export function mountKitShowcase(container, kit, kit2, opts = {}) {
+  injectShowStyle();
+  const kits = [kit, kit2].filter(Boolean);
+  if (!container || !kits.length) return { dispose() {} };
+  const labels = kit && kit2 ? ['Prima maglia', 'Seconda maglia'] : [kit ? 'Prima maglia' : 'Seconda maglia'];
+  let cur = 0;
+  container.innerHTML = `
+    <div class="kit-show">
+      <div class="ks-loading">Caricamento maglia 3D…</div>
+      <div class="ks-3d"></div>
+      <div class="ks-label"></div>
+      ${kits.length > 1 ? '<div class="ks-other" title="Mostra l\'altra maglia"></div>' : ''}
+    </div>
+    <div class="kit-show-bar">
+      <button data-ks="front">Davanti</button><button data-ks="back">Retro</button>
+      <button data-ks="in" aria-label="Avvicina">＋ Zoom</button><button data-ks="out" aria-label="Allontana">− Zoom</button>
+      ${kits.length > 1 ? '<button data-ks="swap" class="ks-sw" title="Scambia prima e seconda maglia"><i class="ri-arrow-left-right-line"></i> Scambia</button>' : ''}
+    </div>`;
+  const viewer = createKitViewer(container.querySelector('.ks-3d'), { zoom: true });
+  viewer.ready.then(() => { const l = container.querySelector('.ks-loading'); if (l) l.remove(); })
+    .catch(() => { const l = container.querySelector('.ks-loading'); if (l) l.textContent = 'Il 3D non è supportato su questo dispositivo'; });
+  const show = () => {
+    viewer.update(kits[cur], { crestUrl: opts.crestUrl || '' }).catch(e => console.error('Divisa:', e));
+    viewer.setView('front');
+    container.querySelector('.ks-label').textContent = labels[cur];
+    const other = container.querySelector('.ks-other');
+    if (other) other.innerHTML = kitImageHTML(kits[1 - cur], { crestUrl: opts.crestUrl || '', width: 240 });
+  };
+  show();
+  const onClick = (e) => {
+    const b = e.target.closest('[data-ks], .ks-other');
+    if (!b) return;
+    const a = b.classList.contains('ks-other') ? 'swap' : b.dataset.ks;
+    if (a === 'swap') { if (kits.length > 1) { cur = 1 - cur; show(); } }
+    else if (a === 'in') viewer.zoomBy(.75);
+    else if (a === 'out') viewer.zoomBy(1 / .75);
+    else viewer.setView(a);
+  };
+  container.addEventListener('click', onClick);
+  return {
+    dispose() { container.removeEventListener('click', onClick); viewer.dispose(); }
+  };
+}

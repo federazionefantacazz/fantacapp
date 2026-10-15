@@ -6,7 +6,7 @@ import { getPngPatterns, getPngBrands, getPngPatches, onKitAssetsChange } from '
 import { esc } from './menuUtils.js';
 import {
   normalizeKit, defaultKit, patternLabel,
-  PRESETS, PATTERNS, BRANDS, SPONSOR_FONTS, PATCH_POSITIONS, ZONES, COLLARS, COLLAR_SHAPES, CUFFS, SLEEVE_DECO
+  PRESETS, PATTERNS, BRANDS, SPONSOR_FONTS, NUMBER_FONTS, PATCH_POSITIONS, ZONES, COLLARS, COLLAR_SHAPES, CUFFS, SLEEVE_DECO
 } from '../components/KitRenderer.js';
 
 /**
@@ -301,8 +301,9 @@ export const DivisaSquadra = {
       ['design',  'FASE 3: Disegno (livelli)'],
       ['colors',  'FASE 4: Seleziona i colori'],
       ['sponsor', 'FASE 5: Scelta dello SPONSOR'],
-      ['brand',   'FASE 6: Stemma e marchio tecnico'],
-      ['patches', 'FASE 7: Scelta delle PATCH']
+      ['back',    'FASE 6: Retro: nome, numero e sponsor'],
+      ['brand',   'FASE 7: Stemma e marchio tecnico'],
+      ['patches', 'FASE 8: Scelta delle PATCH']
     ];
     this._root.innerHTML = `
       <div class="kit-stage">
@@ -341,7 +342,10 @@ export const DivisaSquadra = {
     const box = this._root.querySelector('#kit-3d');
     if (box && !this._viewer) {
       this._viewer = createKitViewer(box);
-      this._viewer.ready.then(() => { const l = this._root && this._root.querySelector('#kit-loading'); if (l) l.remove(); })
+      this._viewer.ready.then(() => {
+        const l = this._root && this._root.querySelector('#kit-loading'); if (l) l.remove();
+        if (this._open === 'back' && this._viewer) this._viewer.setView('back'); // fase Retro aperta prima che il 3D fosse pronto
+      })
         .catch(e => { console.error(e); const l = this._root && this._root.querySelector('#kit-loading'); if (l) l.textContent = 'Il 3D non è supportato su questo dispositivo'; });
     }
     if (this._viewer) this._viewer.update(this._kit, { crestUrl: this._crest() }).catch(e => console.error('Divisa:', e));
@@ -366,7 +370,7 @@ export const DivisaSquadra = {
     if (!box) return;
     const fn = {
       model: this._secModel, styles: this._secStyles, design: this._secDesign, colors: this._secColors,
-      sponsor: this._secSponsor, brand: this._secBrand, patches: this._secPatches
+      sponsor: this._secSponsor, back: this._secBack, brand: this._secBrand, patches: this._secPatches
     }[key];
     box.innerHTML = fn.call(this);
     box.querySelectorAll('img[data-cut]').forEach(img => getCutout(img.dataset.cut).then(u => { if (u) img.src = u; }));
@@ -529,37 +533,70 @@ export const DivisaSquadra = {
       <input type="file" accept="image/png" data-upload="${kind}" style="display:none;"></label>`;
   },
 
-  _secSponsor() {
-    const sp = this._kit.sponsor;
+  _secSponsor() { return this._sponsorEditor('sponsor'); },
+
+  /** Editor di uno sponsor: 'sponsor' (davanti) o 'backSponsor' (retro). Le azioni hanno data-key con lo sponsor. */
+  _sponsorEditor(key) {
+    const sp = this._kit[key];
+    const chip = (act, value, label, on) => this._chip(act, value, label, on).replace('<button ', `<button data-key="${key}" `);
     let body = '';
     if (sp.mode === 'image') {
       body = `
         <div class="kit-field" style="flex-wrap:wrap;">
           ${sp.url ? `<img class="kit-upload-thumb" src="${esc(sp.url)}" alt="Sponsor">` : ''}
-          ${this._uploadBtn('sponsor', !!sp.url, 'immagine')}
+          ${this._uploadBtn(key, !!sp.url, 'immagine')}
         </div>
         <div class="mp-muted">Solo immagini <b>PNG</b>, meglio se con sfondo trasparente.</div>
         <div class="kit-chips" style="margin:.6rem 0;">
-          ${this._chip('sponsor-mono', '0', 'Colori originali', !sp.mono)}
-          ${this._chip('sponsor-mono', '1', 'Tinta unica', sp.mono)}
+          ${chip('sponsor-mono', '0', 'Colori originali', !sp.mono)}
+          ${chip('sponsor-mono', '1', 'Tinta unica', sp.mono)}
         </div>
-        ${sp.mono ? `<div class="kit-color-row">${this._colorPicker('sponsor.color', sp.color)}</div>` : ''}`;
+        ${sp.mono ? `<div class="kit-color-row">${this._colorPicker(`${key}.color`, sp.color)}</div>` : ''}`;
     } else if (sp.mode === 'text') {
       body = `
-        <label class="kit-field"><span>Testo</span><input type="text" maxlength="24" value="${esc(sp.text)}" data-text="sponsor.text" placeholder="Nome dello sponsor"></label>
+        <label class="kit-field"><span>Testo</span><input type="text" maxlength="24" value="${esc(sp.text)}" data-text="${key}.text" placeholder="Nome dello sponsor"></label>
         <div class="kit-sub">Carattere</div>
-        <div class="kit-chips">${SPONSOR_FONTS.map(f => this._chip('sponsor-font', f.id, f.label, sp.font === f.id)).join('')}</div>
+        <div class="kit-chips">${SPONSOR_FONTS.map(f => chip('sponsor-font', f.id, f.label, sp.font === f.id)).join('')}</div>
         <div class="kit-sub">Colore</div>
-        <div class="kit-color-row">${this._colorPicker('sponsor.color', sp.color)}</div>`;
+        <div class="kit-color-row">${this._colorPicker(`${key}.color`, sp.color)}</div>`;
     }
     return `
       <div class="kit-chips" style="margin-bottom:.6rem;">
-        ${this._chip('sponsor-mode', 'none', 'Nessuno', sp.mode === 'none')}
-        ${this._chip('sponsor-mode', 'image', 'Immagine PNG', sp.mode === 'image')}
-        ${this._chip('sponsor-mode', 'text', 'Scritta', sp.mode === 'text')}
+        ${chip('sponsor-mode', 'none', 'Nessuno', sp.mode === 'none')}
+        ${chip('sponsor-mode', 'image', 'Immagine PNG', sp.mode === 'image')}
+        ${chip('sponsor-mode', 'text', 'Scritta', sp.mode === 'text')}
       </div>
       ${body}
-      ${sp.mode !== 'none' ? this._range('sponsor.scale', 'Dimensione', sp.scale, 40, 160, '%') + this._range('sponsor.y', 'Posizione', sp.y, -60, 80) : ''}`;
+      ${sp.mode !== 'none' ? this._range(`${key}.scale`, 'Dimensione', sp.scale, 40, 160, '%') + this._range(`${key}.y`, 'Posizione', sp.y, -60, 80) : ''}`;
+  },
+
+  _secBack() {
+    const bp = this._kit.backPrint;
+    return `
+      <div class="kit-sub">Nome e numero</div>
+      <div class="kit-chips">
+        ${this._chip('back-show', '1', 'Mostra nome e numero', bp.show)}
+        ${this._chip('back-show', '0', 'Nascondi', !bp.show)}
+      </div>
+      ${bp.show ? `
+        <label class="kit-field"><span>Nome</span><input type="text" maxlength="16" value="${esc(bp.name)}" data-text="backPrint.name" placeholder="Es. ROSSI"></label>
+        <label class="kit-field"><span>Numero</span><input type="text" inputmode="numeric" maxlength="2" value="${esc(bp.number)}" data-text="backPrint.number" placeholder="Es. 10"></label>
+        <div class="kit-sub">Carattere</div>
+        <div class="kit-chips">${NUMBER_FONTS.map(f => this._chip('back-font', f.id, f.label, bp.font === f.id)).join('')}</div>
+        <div class="kit-sub">Colore</div>
+        <div class="kit-color-row">${this._colorPicker('backPrint.color', bp.color)}</div>
+        <div class="kit-sub">Bordo</div>
+        <div class="kit-chips">
+          ${this._chip('back-outline', '0', 'Senza bordo', !bp.outline)}
+          ${this._chip('back-outline', '1', 'Con bordo', !!bp.outline)}
+        </div>
+        ${bp.outline ? `<div class="kit-color-row" style="margin-top:.4rem;">${this._colorPicker('backPrint.outline', bp.outline)}</div>` : ''}
+        ${this._range('backPrint.nameSize', 'Dim. nome', bp.nameSize, 60, 150, '%')}
+        ${this._range('backPrint.numSize', 'Dim. numero', bp.numSize, 60, 150, '%')}
+        ${this._range('backPrint.y', 'Posizione', bp.y, -50, 50)}` : ''}
+      <div class="kit-sub" style="margin-top:1.2rem;">Sponsor sul retro (sotto il numero)</div>
+      ${this._sponsorEditor('backSponsor')}
+      <div class="mp-muted" style="margin-top:.6rem;">Aprendo questa fase la maglia si gira sul retro: usa <b>Davanti</b> per tornare al fronte.</div>`;
   },
 
   _secBrand() {
@@ -674,6 +711,7 @@ export const DivisaSquadra = {
         this._root.querySelectorAll('.kit-acc').forEach(a => a.classList.toggle('open', a.dataset.sec === this._open));
         this._renderSection();
         this._scrollToOpen();
+        if (this._viewer && this._open) this._viewer.setView(this._open === 'back' ? 'back' : 'front');
         return;
       case 'slot': this._switchSlot(Number(v)); return;
       case 'copy-first': this._copyFirst(); return;
@@ -775,9 +813,14 @@ export const DivisaSquadra = {
         return;
 
       // sponsor
-      case 'sponsor-mode': this._update(kit => { kit.sponsor.mode = v; }); return;
-      case 'sponsor-font': this._update(kit => { kit.sponsor.font = v; }); return;
-      case 'sponsor-mono': this._update(kit => { kit.sponsor.mono = v === '1'; }); return;
+      case 'sponsor-mode': this._update(kit => { kit[btn.dataset.key].mode = v; }); return;
+      case 'sponsor-font': this._update(kit => { kit[btn.dataset.key].font = v; }); return;
+      case 'sponsor-mono': this._update(kit => { kit[btn.dataset.key].mono = v === '1'; }); return;
+
+      // retro: nome e numero
+      case 'back-show': this._update(kit => { kit.backPrint.show = v === '1'; }); return;
+      case 'back-font': this._update(kit => { kit.backPrint.font = v; }); return;
+      case 'back-outline': this._update(kit => { kit.backPrint.outline = v === '1' ? (kit.colors.base === '#000000' ? '#ffffff' : '#000000') : ''; }); return;
 
       // stemma e marchio
       case 'crest-show': this._update(kit => { kit.crest.show = v === '1'; }); return;
@@ -855,7 +898,7 @@ export const DivisaSquadra = {
       const url = await uploadPngToImgBB(file);
       if (!this._kit) return;
       this._update(kit => {
-        if (kind === 'sponsor') kit.sponsor.url = url;
+        if (kind === 'sponsor' || kind === 'backSponsor') kit[kind].url = url;
         else kit.brand.url = url;
       });
       window.showToast('Immagine caricata: ricorda di salvare la divisa', 'ok');

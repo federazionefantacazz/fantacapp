@@ -18,6 +18,8 @@ export { COLLAR_SHAPES };
  *   brand: { id, color, url, mono },                        // id: marchio integrato, 'png:<id>' (dal Patron) o 'custom'
  *   crest: { show, size, swap },                           // swap: stemma al posto del marchio tecnico e viceversa
  *   sponsor: { mode: 'none'|'image'|'text', url, text, font, color, mono, scale, y },
+ *   backSponsor: { ...come sponsor },                       // sponsor sul retro (sotto il numero)
+ *   backPrint: { show, name, number, font, color, outline, nameSize, numSize, y },  // nome e numero sul retro
  *   patches: [{ id, src, name, pos }],
  *   image                                                   // foto PNG della maglia (fronte) generata al salvataggio
  * }
@@ -227,6 +229,17 @@ export const SPONSOR_FONTS = [
   { id: 'script', label: 'Corsivo',  css: "'Brush Script MT', 'Segoe Script', cursive", weight: 700, style: 'italic' }
 ];
 
+// Caratteri per nome e numero sul retro (i font locali sono in fonts/fonts.css)
+export const NUMBER_FONTS = [
+  { id: 'seriea',    label: 'Serie A',   css: "'Seri EA', 'Bebas Neue', Impact, sans-serif", weight: 400, style: 'normal' },
+  { id: 'champions', label: 'Champions', css: "'Champions', 'Bebas Neue', Impact, sans-serif", weight: 700, style: 'normal' },
+  { id: 'bebas',     label: 'Moderno',   css: "'Bebas Neue', Impact, sans-serif", weight: 400, style: 'normal' },
+  { id: 'novarese',  label: 'Elegante',  css: "'Novarese', Georgia, serif", weight: 700, style: 'normal' },
+  { id: 'nemoy',     label: 'Squadrato', css: "'Nemoy', 'Arial Black', sans-serif", weight: 700, style: 'normal' },
+  { id: 'black',     label: 'Pesante',   css: "'Arial Black', Arial, sans-serif", weight: 900, style: 'normal' },
+  { id: 'serif',     label: 'Classico',  css: "Georgia, 'Times New Roman', serif", weight: 700, style: 'normal' }
+];
+
 export const PATCH_POSITIONS = [
   { id: 'chest',  label: 'Centro petto' },
   { id: 'belly',  label: 'Sotto lo sponsor' },
@@ -280,6 +293,8 @@ export function defaultKit() {
     brand: { id: 'nike', color: '#ffffff', url: '', mono: false },
     crest: { show: true, size: 100, swap: false },
     sponsor: { mode: 'none', url: '', text: '', font: 'bebas', color: '#ffffff', mono: false, scale: 100, y: 0 },
+    backSponsor: { mode: 'none', url: '', text: '', font: 'bebas', color: '#ffffff', mono: false, scale: 100, y: 0 },
+    backPrint: { show: false, name: '', number: '10', font: 'seriea', color: '#ffffff', outline: '', nameSize: 100, numSize: 100, y: 0 },
     patches: []
   };
 }
@@ -299,6 +314,8 @@ export function normalizeKit(raw) {
     brand: { ...d.brand, ...(k.brand || {}) },
     crest: { ...d.crest, ...(k.crest || {}) },
     sponsor: { ...d.sponsor, ...(k.sponsor || {}) },
+    backSponsor: { ...d.backSponsor, ...(k.backSponsor || {}) },
+    backPrint: { ...d.backPrint, ...(k.backPrint || {}) },
     layers: toArr(k.layers).map(l => ({
       type: 'stripes', color: '#ffffff', opacity: 100, scale: 100, flipX: false, flipY: false, x: 0, y: 0, rot: 0, wrap: 'repeat',
       ...l, zone: l.zone || (l.onSleeves ? 'all' : 'body')
@@ -331,6 +348,9 @@ export const ANCHORS = {
   crest:   { part: 'front', x: .70, y: .30, s: .17 },
   brand:   { part: 'front', x: .30, y: .30, s: .15 },
   sponsor: { part: 'front', x: .50, y: .51, w: .66, h: .20 },
+  backName:    { part: 'back', x: .50, y: .24, w: .62, h: .075 },
+  backNumber:  { part: 'back', x: .50, y: .45, w: .56, h: .27 },
+  backSponsor: { part: 'back', x: .50, y: .74, w: .58, h: .14 },
   chest:   { part: 'front', x: .50, y: .30, s: .10 },
   belly:   { part: 'front', x: .50, y: .73, s: .14 },
   hem:     { part: 'front', x: .27, y: .90, s: .10 },
@@ -442,6 +462,61 @@ function drawContain(ctx, img, cx, cy, bw, bh, rot = 0) {
 async function loadCut(url) {
   if (!url) return null;
   return loadCleanImage(await getCutout(url));
+}
+
+/** Aspetta il font (se è un font web) prima di scriverci sul canvas. */
+async function ensureFont(ft, px) {
+  if (!document.fonts || !document.fonts.load) return;
+  try { await document.fonts.load(`${ft.style} ${ft.weight} ${Math.round(px)}px ${ft.css}`); } catch (e) { /* uso il ripiego */ }
+}
+
+/** Scritta centrata in (cx, cy) che sta in bw × bh (si rimpicciolisce se è troppo larga). */
+async function drawFitText(ctx, txt, ft, color, cx, cy, bw, bh, { outline = '', spacing = 0 } = {}) {
+  let px = bh;
+  await ensureFont(ft, px);
+  const setFont = () => { ctx.font = `${ft.style} ${ft.weight} ${px}px ${ft.css}`; if ('letterSpacing' in ctx) ctx.letterSpacing = `${(px * spacing).toFixed(1)}px`; };
+  setFont();
+  const mw = ctx.measureText(txt).width;
+  if (mw > bw) { px *= bw / mw; setFont(); }
+  ctx.save();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+  if (outline) { ctx.strokeStyle = safeColor(outline); ctx.lineWidth = px * .09; ctx.strokeText(txt, cx, cy); }
+  ctx.fillStyle = safeColor(color);
+  ctx.fillText(txt, cx, cy);
+  ctx.restore();
+  if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+}
+
+/** Sponsor (immagine PNG o scritta) nel riquadro A del pezzo r. */
+async function drawSponsor(ctx, sp, A, r) {
+  if (!sp || sp.mode === 'none') return;
+  const f = clamp(sp.scale, 40, 160) / 100;
+  const bw = A.w * r.w * f, bh = A.h * r.h * f;
+  const cx = r.x + A.x * r.w, cy = r.y + (A.y + clamp(sp.y, -60, 80) / 400) * r.h;
+  if (sp.mode === 'image' && sp.url) {
+    const img0 = await loadCleanImage(sp.url);
+    if (img0) drawContain(ctx, sp.mono ? tint(img0, safeColor(sp.color), img0.naturalWidth, img0.naturalHeight) : img0, cx, cy, bw, bh);
+  } else if (sp.mode === 'text' && String(sp.text || '').trim()) {
+    const ft = SPONSOR_FONTS.find(x => x.id === sp.font) || SPONSOR_FONTS[0];
+    await drawFitText(ctx, String(sp.text).trim().slice(0, 24), ft, sp.color, cx, cy, bw, bh * .62);
+  }
+}
+
+/** Nome (in alto) e numero (sotto) sul retro della maglia. */
+async function drawBackPrint(ctx, bp, r) {
+  if (!bp || !bp.show) return;
+  const ft = NUMBER_FONTS.find(x => x.id === bp.font) || NUMBER_FONTS[0];
+  const dy = -clamp(bp.y, -50, 50) / 400 * r.h; // + = più in alto
+  const name = String(bp.name || '').trim().toUpperCase().slice(0, 16);
+  const num = String(bp.number || '').replace(/\D/g, '').slice(0, 2);
+  if (name) {
+    const A = ANCHORS.backName, f = clamp(bp.nameSize, 60, 150) / 100;
+    await drawFitText(ctx, name, ft, bp.color, r.x + A.x * r.w, r.y + A.y * r.h + dy, A.w * r.w * f, A.h * r.h * f, { outline: bp.outline, spacing: .06 });
+  }
+  if (num) {
+    const A = ANCHORS.backNumber, f = clamp(bp.numSize, 60, 150) / 100;
+    await drawFitText(ctx, num, ft, bp.color, r.x + A.x * r.w, r.y + A.y * r.h + dy, A.w * r.w * f, A.h * r.h * f, { outline: bp.outline });
+  }
 }
 
 /* --------------------------------------------- maschera e scollo del modello */
@@ -666,25 +741,9 @@ export async function paintKitTexture(rawKit, opts = {}) {
         ? tint(brandImg, safeColor(b.color), brandImg.naturalWidth || brandImg.width, brandImg.naturalHeight || brandImg.height) : brandImg;
       drawContain(ctx, img, a.x, a.y, a.s, a.s * .75);
     }
-    const sp = k.sponsor;
-    if (sp.mode !== 'none') {
-      const A = ANCHORS.sponsor, r = R('front'), f = clamp(sp.scale, 40, 160) / 100;
-      const bw = A.w * r.w * f, bh = A.h * r.h * f;
-      const cx = r.x + A.x * r.w, cy = r.y + (A.y + clamp(sp.y, -60, 80) / 400) * r.h;
-      if (sp.mode === 'image' && sp.url) {
-        const img0 = await loadCleanImage(sp.url);
-        if (img0) drawContain(ctx, sp.mono ? tint(img0, safeColor(sp.color), img0.naturalWidth, img0.naturalHeight) : img0, cx, cy, bw, bh);
-      } else if (sp.mode === 'text' && String(sp.text || '').trim()) {
-        const ft = SPONSOR_FONTS.find(x => x.id === sp.font) || SPONSOR_FONTS[0];
-        const txt = String(sp.text).trim().slice(0, 24);
-        let px = bh * .62;
-        ctx.font = `${ft.style} ${ft.weight} ${px}px ${ft.css}`;
-        const mw = ctx.measureText(txt).width;
-        if (mw > bw) { px *= bw / mw; ctx.font = `${ft.style} ${ft.weight} ${px}px ${ft.css}`; }
-        ctx.fillStyle = safeColor(sp.color); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(txt, cx, cy);
-      }
-    }
+    await drawSponsor(ctx, k.sponsor, ANCHORS.sponsor, R('front'));
+    await drawSponsor(ctx, k.backSponsor, ANCHORS.backSponsor, R('back'));
+    await drawBackPrint(ctx, k.backPrint, R('back'));
     for (const p of k.patches) {
       const A = ANCHORS[p.pos];
       if (!A || !p.src) continue;
