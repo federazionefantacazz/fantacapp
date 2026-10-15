@@ -111,8 +111,14 @@ function editorPixelRatio() {
   return q === 'low' ? 2 : q === 'high' ? 3 : 2.5;
 }
 
+/** Risoluzione della texture dell'editor (stessa impostazione): più alta = stemma, marchi e scritte più nitidi. */
+function editorTextureSize() {
+  const q = ((window.STATE && window.STATE.settings) || {}).kit3dQuality;
+  return q === 'low' ? 2048 : q === 'high' ? 4096 : 3072;
+}
+
 class Stage {
-  constructor(L, model, canvas, { interactive = false, width = 600, height = 640 } = {}) {
+  constructor(L, model, canvas, { interactive = false, zoom = false, width = 600, height = 640 } = {}) {
     const { THREE } = L;
     this.L = L;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
@@ -150,9 +156,19 @@ class Stage {
     if (interactive) {
       const c = new L.OrbitControls(this.camera, canvas);
       c.target.copy(this.center);
-      c.enablePan = false;
-      c.enableZoom = false;
-      c.minPolarAngle = c.maxPolarAngle = Math.PI / 2; // solo rotazione orizzontale
+      if (zoom) {
+        // vista ingrandita: zoom (due dita / rotella), spostamento e un po' di rotazione verticale
+        c.enablePan = true; c.screenSpacePanning = true;
+        c.enableZoom = true; c.minDistance = this.dist * .22; c.maxDistance = this.dist * 1.15;
+        c.minPolarAngle = Math.PI * .3; c.maxPolarAngle = Math.PI * .7;
+        c.enableDamping = true; c.dampingFactor = .12;
+        const loop = () => { if (this.controls) { if (c.update()) this.render(); this._raf = requestAnimationFrame(loop); } };
+        this._raf = requestAnimationFrame(loop);
+      } else {
+        c.enablePan = false;
+        c.enableZoom = false;
+        c.minPolarAngle = c.maxPolarAngle = Math.PI / 2; // solo rotazione orizzontale
+      }
       c.addEventListener('change', () => this.render());
       this.controls = c;
       this.setView(0); // i controlli appena creati puntano all'origine: riallineo sulla maglia
@@ -198,6 +214,15 @@ class Stage {
     });
   }
 
+  /** Avvicina (f < 1) o allontana (f > 1) la camera dal punto guardato, nei limiti dei controlli. */
+  zoomBy(f) {
+    if (!this.controls) return;
+    const c = this.controls, v = this.camera.position.clone().sub(c.target);
+    const len = Math.min(c.maxDistance, Math.max(c.minDistance, v.length() * f));
+    this.camera.position.copy(c.target).add(v.setLength(len));
+    c.update(); this.render();
+  }
+
   setView(yawDeg) {
     const a = yawDeg * Math.PI / 180;
     this.camera.position.set(this.center.x + Math.sin(a) * this.dist, this.center.y, this.center.z + Math.cos(a) * this.dist);
@@ -222,26 +247,29 @@ class Stage {
   render() { this.renderer.render(this.scene, this.camera); }
 
   dispose() {
+    if (this._raf) cancelAnimationFrame(this._raf);
     if (this.controls) this.controls.dispose();
+    this.controls = null;
     this.texture.dispose();
     this.renderer.dispose();
   }
 }
 
 /**
- * Maglia 3D ruotabile dentro `container`. Restituisce { update(kit, opts), setView('front'|'back'), dispose() }.
+ * Maglia 3D ruotabile dentro `container` (zoom: true = vista ingrandita con zoom e spostamento).
+ * Restituisce { update(kit, opts), setView('front'|'back'), zoomBy(f), dispose() }.
  * opts di update: { crestUrl }
  */
-export function createKitViewer(container) {
+export function createKitViewer(container, { zoom = false } = {}) {
   const canvas = document.createElement('canvas');
-  canvas.style.cssText = 'width:100%; height:100%; display:block; touch-action:pan-y; cursor:grab;';
+  canvas.style.cssText = `width:100%; height:100%; display:block; touch-action:${zoom ? 'none' : 'pan-y'}; cursor:grab;`;
   container.innerHTML = '';
   container.appendChild(canvas);
   let stage = null, disposed = false, token = 0;
   const ready = Promise.all([loadLib(), loadModel()]).then(([L, model]) => {
     if (disposed) return null;
     const r = container.getBoundingClientRect();
-    stage = new Stage(L, model, canvas, { interactive: true, width: Math.max(1, r.width), height: Math.max(1, r.height) });
+    stage = new Stage(L, model, canvas, { interactive: true, zoom, width: Math.max(1, r.width), height: Math.max(1, r.height) });
     return stage;
   });
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => {
@@ -256,7 +284,7 @@ export function createKitViewer(container) {
     async update(kit, opts = {}) {
       const my = ++token;
       const k = normalizeKit(kit);
-      const [st, tex, model] = await Promise.all([ready, paintKitTexture(k, { ...opts, size: opts.size || 2048 }), loadVariant(k.collarShape)]);
+      const [st, tex, model] = await Promise.all([ready, paintKitTexture(k, { ...opts, size: opts.size || editorTextureSize() }), loadVariant(k.collarShape)]);
       if (!st || disposed || my !== token) return;
       st.setModel(model);
       st.applyKit(k, tex);
@@ -268,6 +296,7 @@ export function createKitViewer(container) {
       stage.setView(view === 'back' ? 180 : 0);
       stage.render();
     },
+    zoomBy(f) { if (stage) stage.zoomBy(f); },
     dispose() {
       disposed = true;
       if (ro) ro.disconnect();

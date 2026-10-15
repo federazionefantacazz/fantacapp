@@ -16,7 +16,7 @@ export { COLLAR_SHAPES };
  *                                                           // wrap: whole (davanti e dietro come un unico pezzo) | repeat | mirror
  *   sleeveTf: { x, y, scale, rot },                         // posizione, dimensione e rotazione delle decorazioni delle maniche
  *   brand: { id, color, url, mono },                        // id: marchio integrato, 'png:<id>' (dal Patron) o 'custom'
- *   crest: { show, size },
+ *   crest: { show, size, swap },                           // swap: stemma al posto del marchio tecnico e viceversa
  *   sponsor: { mode: 'none'|'image'|'text', url, text, font, color, mono, scale, y },
  *   patches: [{ id, src, name, pos }],
  *   image                                                   // foto PNG della maglia (fronte) generata al salvataggio
@@ -240,7 +240,9 @@ export const PATCH_POSITIONS = [
 export const ZONES = [
   { id: 'body',    label: 'Solo busto' },
   { id: 'all',     label: 'Busto e maniche' },
-  { id: 'sleeves', label: 'Solo maniche' }
+  { id: 'sleeves', label: 'Solo maniche' },
+  { id: 'front',   label: 'Solo busto davanti' },
+  { id: 'back',    label: 'Solo busto dietro' }
 ];
 
 // Colletto: la striscia del colletto del modello 3D + eventuale bordo sul petto/schiena
@@ -276,7 +278,7 @@ export function defaultKit() {
     colors: { base: '#1e5bb8', sleeves: '#1e5bb8', collar: '#ffffff', cuffs: '#ffffff', trim: '#ffffff' },
     layers: [],
     brand: { id: 'nike', color: '#ffffff', url: '', mono: false },
-    crest: { show: true, size: 100 },
+    crest: { show: true, size: 100, swap: false },
     sponsor: { mode: 'none', url: '', text: '', font: 'bebas', color: '#ffffff', mono: false, scale: 100, y: 0 },
     patches: []
   };
@@ -518,11 +520,13 @@ export async function paintKitTexture(rawKit, opts = {}) {
   // 2. disegni (livelli)
   const pngPatterns = getPngPatterns();
   for (const l of k.layers) {
-    const parts = l.zone === 'sleeves' ? ['sleeveL', 'sleeveR'] : l.zone === 'all' ? ['front', 'back', 'sleeveL', 'sleeveR'] : ['front', 'back'];
+    const parts = l.zone === 'sleeves' ? ['sleeveL', 'sleeveR'] : l.zone === 'all' ? ['front', 'back', 'sleeveL', 'sleeveR']
+      : l.zone === 'front' ? ['front'] : l.zone === 'back' ? ['back'] : ['front', 'back'];
     const alpha = clamp(l.opacity, 0, 100) / 100;
     // come si stende sui pezzi: 'whole' davanti e dietro come un unico pezzo, 'repeat' uguale su ogni pezzo,
     // 'mirror' dietro e manica destra specchiati
-    const wrap = l.wrap === 'whole' || l.wrap === 'mirror' ? l.wrap : 'repeat';
+    // su un solo pezzo (solo davanti / solo dietro) il disegno si stende semplicemente su quel pezzo
+    const wrap = l.zone === 'front' || l.zone === 'back' ? 'repeat' : l.wrap === 'whole' || l.wrap === 'mirror' ? l.wrap : 'repeat';
     const isBody = (p) => p === 'front' || p === 'back';
     const mirrored = (p) => wrap === 'mirror' && (p === 'back' || p === 'sleeveR');
     const F = R('front'), wW = Math.round(F.w * 2), wH = Math.round(F.h);
@@ -643,7 +647,7 @@ export async function paintKitTexture(rawKit, opts = {}) {
     const at = (a) => { const r = R(a.part); return { x: r.x + a.x * r.w, y: r.y + a.y * r.h, s: (a.s || .1) * r.w, r }; };
     if (k.crest.show && opts.crestUrl) {
       const img = await loadCut(opts.crestUrl);
-      const a = at(ANCHORS.crest), s = a.s * clamp(k.crest.size, 60, 150) / 100;
+      const a = at({ ...ANCHORS.crest, x: k.crest.swap ? ANCHORS.brand.x : ANCHORS.crest.x }), s = a.s * clamp(k.crest.size, 60, 150) / 100;
       drawContain(ctx, img, a.x, a.y, s, s);
     }
     const b = k.brand;
@@ -657,7 +661,7 @@ export async function paintKitTexture(rawKit, opts = {}) {
       if (bb && bb.id !== 'none' && bb.id !== 'custom') brandImg = await brandSvgImage(bb, b.color, c.base);
     }
     if (brandImg) {
-      const a = at(ANCHORS.brand);
+      const a = at({ ...ANCHORS.brand, x: k.crest.swap ? ANCHORS.crest.x : ANCHORS.brand.x }); // crest.swap: stemma e marchio invertiti
       const img = (b.id === 'custom' || String(b.id).startsWith('png:')) && b.mono
         ? tint(brandImg, safeColor(b.color), brandImg.naturalWidth || brandImg.width, brandImg.naturalHeight || brandImg.height) : brandImg;
       drawContain(ctx, img, a.x, a.y, a.s, a.s * .75);
