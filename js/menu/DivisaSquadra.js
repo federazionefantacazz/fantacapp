@@ -6,7 +6,7 @@ import { getPngPatterns, getPngBrands, getPngPatches, onKitAssetsChange } from '
 import { esc } from './menuUtils.js';
 import {
   normalizeKit, defaultKit, patternLabel,
-  PRESETS, PATTERNS, BRANDS, SPONSOR_FONTS, NUMBER_FONTS, PATCH_POSITIONS, ZONES, COLLARS, COLLAR_SHAPES, CUFFS, SLEEVE_DECO
+  PRESETS, PATTERNS, BRANDS, SPONSOR_FONTS, NUMBER_FONTS, PATCH_POSITIONS, ZONES, COLLARS, COLLAR_SHAPES, CUFFS, SLEEVE_DECO, SHOULDER_SHAPES
 } from '../components/KitRenderer.js';
 
 /**
@@ -437,15 +437,29 @@ export const DivisaSquadra = {
       <div class="kit-grid">${COLLARS.map(c => this._opt('collar', c.id, this._thumb({ ...base, collar: c.id }), c.label, k.collar === c.id)).join('')}</div>`}
       <div class="kit-sub">Polsini</div>
       <div class="kit-grid">${CUFFS.map(c => this._opt('cuffs', c.id, this._thumb({ ...base, cuffs: c.id }), c.label, k.cuffs === c.id)).join('')}</div>
+      <div class="kit-sub">Spalle</div>
+      <div class="kit-grid">${SHOULDER_SHAPES.map(sh => this._opt('shoulderShape', sh.id, this._thumb({ ...base, shoulders: { ...k.shoulders, shape: sh.id } }), sh.label, k.shoulders.shape === sh.id)).join('')}</div>
+      ${k.shoulders.shape !== 'none' ? `
+      ${this._range('shoulders.size', 'Dimensione', k.shoulders.size, 50, 160, '%')}
+      <div class="kit-chips" style="margin-top:.4rem;">
+        ${this._chip('shoulder-match', '1', 'Colore delle maniche', k.shoulders.match)}
+        ${this._chip('shoulder-match', '0', 'Colore a scelta', !k.shoulders.match)}
+      </div>
+      ${k.shoulders.match ? '' : `<div class="kit-color-row" style="margin-top:.4rem;">${this._colorPicker('colors.shoulders', k.colors.shoulders)}</div>`}` : ''}
       <div class="kit-sub">Decorazioni maniche</div>
       <div class="kit-grid">${SLEEVE_DECO.map(d => this._opt('sleeveDeco', d.id, this._thumb({ ...base, sleeveDeco: d.id }), d.label, k.sleeveDeco === d.id)).join('')}</div>
+      ${k.sleeveDeco === 'stripes3' || k.sleeveDeco === 'stripes2' ? `
+      <div class="kit-chips" style="margin-top:.5rem;">
+        ${this._chip('stripes-reach', '0', 'Solo sulla manica', !k.sleeveDecoShoulder)}
+        ${this._chip('stripes-reach', '1', 'Dal colletto al polsino', k.sleeveDecoShoulder)}
+      </div>` : ''}
       ${k.sleeveDeco !== 'none' ? `
       ${this._range('sleeveTf.scale', 'Dimensione', k.sleeveTf.scale, 40, 200, '%')}
       ${this._range('sleeveTf.x', 'Sposta ↔', k.sleeveTf.x, -50, 50)}
       ${this._range('sleeveTf.y', 'Sposta ↕', k.sleeveTf.y, -50, 50)}
       ${this._range('sleeveTf.rot', 'Rotazione', k.sleeveTf.rot, -180, 180, '°')}
       <div class="kit-chips" style="margin-top:.4rem;">${this._chip('sleeve-reset', '1', 'Ripristina posizione', false)}</div>` : ''}
-      <div class="mp-muted" style="margin-top:.6rem;">Colori di colletto, polsini e finiture nella FASE 4. Ruota la maglia per vedere maniche e retro.</div>`;
+      <div class="mp-muted" style="margin-top:.6rem;">Colori di maniche, colletto, polsini e finiture nella FASE 4 (anche maniche di colori diversi). Ruota la maglia per vedere maniche e retro.</div>`;
   },
 
   _secStyles() {
@@ -516,8 +530,17 @@ export const DivisaSquadra = {
 
   _secColors() {
     const k = this._kit;
+    const split = !!k.colors.sleevesR;
+    const fields = COLOR_FIELDS.flatMap(f => f.key !== 'sleeves' ? [f] : split
+      ? [{ key: 'sleeves', label: 'Manica sinistra' }, { key: 'sleevesR', label: 'Manica destra' }] : [f]);
+    if (k.shoulders.shape !== 'none' && !k.shoulders.match) fields.splice(fields.findIndex(f => f.key === 'collar'), 0, { key: 'shoulders', label: 'Spalle' });
     return `
-      ${COLOR_FIELDS.map(f => `
+      <div class="kit-chips" style="margin-bottom:.4rem;">
+        ${this._chip('sleeves-split', '0', 'Maniche uguali', !split)}
+        ${this._chip('sleeves-split', '1', 'Maniche di colori diversi', split)}
+      </div>
+      ${split ? '<div class="mp-muted">Sinistra e destra guardando la maglia di fronte.</div>' : ''}
+      ${fields.map(f => `
         <div class="kit-color-row">
           <div class="nm">${f.label}</div>
           ${this._colorPicker(`colors.${f.key}`, k.colors[f.key])}
@@ -750,13 +773,25 @@ export const DivisaSquadra = {
         this._update(() => this._set(btn.dataset.path, v));
         return;
       case 'sleeves-as-base':
-        this._update(kit => { kit.colors.sleeves = kit.colors.base; });
+        this._update(kit => { kit.colors.sleeves = kit.colors.base; if (kit.colors.sleevesR) kit.colors.sleevesR = kit.colors.base; });
+        return;
+      case 'sleeves-split':
+        this._update(kit => { kit.colors.sleevesR = v === '1' ? (kit.colors.sleevesR || kit.colors.sleeves) : ''; });
+        return;
+      case 'shoulderShape':
+        this._update(kit => { kit.shoulders.shape = v; });
+        return;
+      case 'shoulder-match':
+        this._update(kit => { kit.shoulders.match = v === '1'; });
+        return;
+      case 'stripes-reach':
+        this._update(kit => { kit.sleeveDecoShoulder = v === '1'; });
         return;
       case 'swap-colors':
         this._update(kit => {
           const c = kit.colors;
           [c.base, c.collar] = [c.collar, c.base];
-          c.sleeves = c.base; c.cuffs = c.collar; c.trim = c.collar;
+          c.sleeves = c.base; c.sleevesR = ''; c.cuffs = c.collar; c.trim = c.collar;
         });
         return;
 
