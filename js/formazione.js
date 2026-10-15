@@ -2,6 +2,7 @@ import { GwService } from './services/gwService.js';
 import { ProbabiliService, STATUS_INFO } from './services/probabiliService.js';
 import { BackNav } from './services/backNav.js';
 import { Connectivity } from './services/connectivity.js';
+import { kitImageHTML } from './components/Kit3D.js';
 import { esc, sameId } from './utils.js';
 
 export const FormazionePage = {
@@ -37,6 +38,8 @@ export const FormazionePage = {
 
         <div class="label" style="margin-bottom: .5rem; color: var(--gold); margin-top: 1.5rem; display: flex; align-items: center; gap: 0.4rem;"><i class="ri-user-shared-line"></i> PANCHINA (1 P | 2 D | 2 C | 2 A)</div>
         <div id="panchina-slots" style="display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1rem;"></div>
+
+        <div id="f-kit-pick"></div>
 
         <div class="card card-sm" style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.8rem; background: var(--bg2);">
           <input type="checkbox" id="save-all-comps" checked style="width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer;">
@@ -257,6 +260,14 @@ export const FormazionePage = {
         saveBtn.addEventListener('click', () => this.save(STATE));
       }
 
+      const kitPick = document.getElementById('f-kit-pick');
+      if (kitPick) kitPick.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-kit]');
+        if (!b || b.disabled) return;
+        this._kitChoice = Number(b.dataset.kit);
+        this._renderKitPick(window.STATE || STATE);
+      });
+
       this._initialized = true;
     }
 
@@ -351,10 +362,13 @@ export const FormazionePage = {
     const sig = [compId, gwCompetizione, userId, savedLineup?.timestamp || '', rosaSig].join('|');
     const hasSlots = !!document.querySelector('#titolari-field-slots select');
     if (!userChangedModulo && hasSlots && sig === this._slotsSig) {
+      this._renderKitPick(STATE);
       this.applyLock(compData, STATE);
       return;
     }
+    if (sig !== this._slotsSig) this._kitChoice = savedLineup?.kit === 2 ? 2 : 1;
     this._slotsSig = sig;
+    this._renderKitPick(STATE);
 
     if (savedLineup && savedLineup.modulo && !userChangedModulo) {
         modSelect.value = savedLineup.modulo;
@@ -833,6 +847,35 @@ export const FormazionePage = {
   },
 
   /** Competizione per id (gli id possono essere numeri o stringhe). */
+  /** Maglia con cui scendere in campo (prima o seconda): si sceglie solo se la squadra le ha tutte e due. */
+  _renderKitPick(STATE) {
+    const box = document.getElementById('f-kit-pick');
+    if (!box) return;
+    const team = (STATE.teams || []).find(t => sameId(t.id, STATE.user?.id)) || STATE.user || {};
+    const kits = { 1: team.kit, 2: team.kit2 };
+    if (!kits[1] || !kits[2]) {
+      if (box.dataset.key !== 'none') { box.dataset.key = 'none'; box.innerHTML = ''; }
+      return;
+    }
+    const choice = this._kitChoice === 2 ? 2 : 1;
+    const key = JSON.stringify([kits[1].image || kits[1], kits[2].image || kits[2], team.logo || '', choice]);
+    if (box.dataset.key === key) return;
+    box.dataset.key = key;
+    const opt = (n, label) => `
+      <button type="button" data-kit="${n}" style="flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:.3rem; padding:.5rem; cursor:pointer;
+        background:${choice === n ? 'color-mix(in srgb, var(--accent) 14%, transparent)' : 'var(--bg3)'}; border:2px solid ${choice === n ? 'var(--accent)' : 'transparent'};
+        border-radius:12px; color:${choice === n ? 'var(--accent)' : 'var(--text2)'}; font-family:inherit; font-size:.75rem; font-weight:700;">
+        ${kitImageHTML(kits[n], { crestUrl: team.logo || '', width: 240 }, 'style="width:80px; pointer-events:none;"')}
+        <span>${choice === n ? '<i class="ri-checkbox-circle-fill"></i> ' : ''}${label}</span>
+      </button>`;
+    box.innerHTML = `
+      <div class="card card-sm" style="margin-bottom: 1rem;">
+        <div class="label" style="margin-bottom: .5rem;"><i class="ri-shirt-line"></i> Maglia per questa partita</div>
+        <div style="display:flex; gap:.6rem;">${opt(1, 'Prima maglia')}${opt(2, 'Seconda maglia')}</div>
+        <div style="font-size:.7rem; color:var(--text3); font-family:var(--font-text3, inherit); margin-top:.4rem;">La maglia scelta si vede nel live accanto al tuo stemma. Con "Salva per tutte le competizioni" vale per tutte.</div>
+      </div>`;
+  },
+
   _comp(STATE, compId) {
     return (Array.isArray(STATE.competitions) ? STATE.competitions : []).find(c => sameId(c.id, compId)) || null;
   },
@@ -899,6 +942,7 @@ export const FormazionePage = {
           modulo, 
           titolari: titIds, 
           panchina: panIds, 
+          kit: this._kitChoice === 2 ? 2 : 1,
           timestamp: Date.now()
         };
         

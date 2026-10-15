@@ -1,5 +1,5 @@
 import { BackNav } from './services/backNav.js';
-import { kitPairHTML } from './components/Kit3D.js';
+import { mountKitShowcase } from './components/Kit3D.js';
 import { getWonTrophies } from './services/palmaresService.js';
 import { esc, sameId } from './utils.js';
 
@@ -238,8 +238,8 @@ export const TeamsPage = {
       ${team.kit || team.kit2 ? `
       <div class="card" style="margin-bottom:1rem; background:var(--card); text-align:left;">
         <div class="label">${team.kit && team.kit2 ? 'Divise' : 'Divisa'}</div>
-        ${kitPairHTML(team.kit, team.kit2, { crestUrl: team.logo || '', width: 480 },
-          `style="width:${team.kit && team.kit2 ? 300 : 230}px; max-width:${team.kit && team.kit2 ? 90 : 80}%; margin:.4rem auto 0;"`)}
+        <div id="club-info-kit" style="margin-top:.4rem;"></div>
+        <div style="font-size:.68rem; color:var(--text3); font-family:var(--font-text3, inherit); text-align:center; margin-top:.3rem;"><i class="ri-drag-move-line"></i> Trascina per ruotare, due dita per lo zoom</div>
       </div>` : ''}
 
       <div class="card" style="margin-bottom:1rem; background:var(--card); text-align:left;">
@@ -258,9 +258,16 @@ export const TeamsPage = {
     `;
 
     modal.style.display = 'flex';
-    const closeInfo = () => { modal.style.display = 'none'; BackNav.pop('club-info'); };
+    // maglie in 3D (ruotabili e ingrandibili): il contesto WebGL si libera alla chiusura
+    if (this._kitShow) this._kitShow.dispose();
+    this._kitShow = mountKitShowcase(content.querySelector('#club-info-kit'), team.kit, team.kit2, { crestUrl: team.logo || '' });
+    const hide = () => {
+      modal.style.display = 'none';
+      if (this._kitShow) { this._kitShow.dispose(); this._kitShow = null; }
+    };
+    const closeInfo = () => { hide(); BackNav.pop('club-info'); };
     closeBtn.onclick = closeInfo;
-    BackNav.push('club-info', () => { modal.style.display = 'none'; });
+    BackNav.push('club-info', hide);
   },
 
   backToTeamsList() {

@@ -24,6 +24,7 @@ import { CalcoloMatchService, RULE_MATCH } from "./services/calcoloMatch.js";
 import { GwService } from "./services/gwService.js";
 import { ProbabiliService } from "./services/probabiliService.js";
 import { esc, fitName } from './utils.js';
+import { kitImageHTML } from './components/Kit3D.js';
 
 const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
 const fmt = (n) => {
@@ -68,6 +69,8 @@ const LIVE_STYLES = `
 .lv-head{position:relative;overflow:hidden;border-radius:16px;padding:1rem .6rem .9rem;background:var(--subbox-bg);border:1px solid var(--border);color:var(--text);display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:.4rem;box-shadow:0 6px 20px rgba(0,0,0,.3)}
 .lv-team{display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0;gap:2px}
 .lv-logo{width:54px;height:54px;object-fit:contain;filter:drop-shadow(0 3px 6px rgba(0,0,0,.4))}
+.lv-badge{display:flex;align-items:center;justify-content:center;gap:.3rem}
+.lv-kit{width:46px;flex-shrink:0;filter:drop-shadow(0 3px 6px rgba(0,0,0,.4))}
 .lv-logo-ph{width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font:1.4rem 'Bebas Neue',sans-serif}
 .lv-tname{font-weight:700;margin-top:.25rem;align-self:stretch;flex:0 0 auto}
 .lv-towner{font-size:.68rem;opacity:.75;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -352,7 +355,7 @@ export const LiveMatchModule = {
     const sid = String(id ?? '');
     if (/BYE|RIPOSO/i.test(sid)) return { name: 'Riposo', logo: '', owner: '' };
     const team = (window.STATE?.teams || []).find(t => String(t.id) === sid);
-    if (team) return { name: team.name || sid, logo: team.logo || '', owner: team.owner || '' };
+    if (team) return { name: team.name || sid, logo: team.logo || '', owner: team.owner || '', kit: team.kit || null, kit2: team.kit2 || null };
     if (sid.startsWith('VINCENTE_')) return { name: `Vincente ${sid.replace('VINCENTE_', '')}`, logo: '', owner: '' };
     return { name: sid || '—', logo: '', owner: '' };
   },
@@ -818,15 +821,27 @@ export const LiveMatchModule = {
   },
 
   _headerMarkup({ mode, home, away, tH, tA, couple, updatedAt, ufficiali }) {
-    const team = (t) => `
+    // maglia scelta con la formazione (prima o seconda); senza scelta la prima
+    const kitOf = (t) => {
+      const order = t.lineup?.kit === 2 ? [['kit2', 'Seconda maglia'], ['kit', 'Prima maglia']] : [['kit', 'Prima maglia'], ['kit2', 'Seconda maglia']];
+      const hit = order.find(([f]) => t.info[f]);
+      return hit ? { kit: t.info[hit[0]], label: hit[1] } : { kit: null, label: '' };
+    };
+    const team = (t) => {
+      const { kit, label: kitLabel } = kitOf(t);
+      return `
       <div class="lv-team">
+        <div class="lv-badge">
         ${t.info.logo
           ? `<img class="lv-logo" src="${esc(t.info.logo)}" alt="" loading="lazy">`
           : `<div class="lv-logo-ph">${esc((t.info.name || '?').charAt(0))}</div>`}
+        ${kit ? kitImageHTML(kit, { crestUrl: t.info.logo || '', width: 160 }, `class="lv-kit" title="${kitLabel}"`) : ''}
+        </div>
         <div class="lv-tname">${fitName(t.info.name, { maxSize: '.88rem' })}</div>
         ${t.info.owner ? `<div class="lv-towner">${esc(t.info.owner)}</div>` : ''}
         <div class="lv-tmod">${t.lineup?.modulo ? esc(t.lineup.modulo) : (t.lineup ? '' : 'senza formazione')}</div>
       </div>`;
+    };
 
     let center = '';
     if (mode === 'live') {
