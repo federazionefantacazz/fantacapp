@@ -364,3 +364,44 @@ export function kitImageHTML(kit, opts = {}, attrs = '') {
   });
   return `<div ${attrs}><img data-kit-img="${id}" alt="Divisa" style="${style} opacity:.15; transition:opacity .2s;" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></div>`;
 }
+
+const PAIR_STYLE_ID = 'kit-pair-style';
+function injectPairStyle() {
+  if (document.getElementById(PAIR_STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = PAIR_STYLE_ID;
+  style.textContent = `
+    .kit-pair { position: relative; width: 100%; aspect-ratio: 10 / 9; }
+    .kit-pair .kp-kit { position: absolute; transition: left .35s ease, top .35s ease, width .35s ease, filter .35s ease; }
+    .kit-pair:not(.swapped) .kp-1, .kit-pair.swapped .kp-2 { left: 0; top: 0; width: 74%; z-index: 1; }
+    .kit-pair:not(.swapped) .kp-2, .kit-pair.swapped .kp-1 { left: 60%; top: 52%; width: 40%; z-index: 2; filter: drop-shadow(0 2px 6px rgba(0,0,0,.45)); }
+    .kit-pair .kp-swap { position: absolute; top: 0; right: 0; z-index: 3; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; padding: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 1rem;
+      background: color-mix(in srgb, var(--bg2) 85%, transparent); color: var(--accent); border: 1px solid var(--border); }
+    .kit-pair .kp-swap i { transition: transform .35s ease; }
+    .kit-pair.swapped .kp-swap i { transform: rotate(180deg); }
+  `;
+  document.head.appendChild(style);
+}
+
+/** Prima maglia mostrata in questo momento in grande nella coppia (1 o 2). */
+export function kitPairShown(el) {
+  const pair = el && el.closest ? (el.classList.contains('kit-pair') ? el : el.querySelector('.kit-pair')) : null;
+  return pair && pair.classList.contains('swapped') ? 2 : 1;
+}
+
+/**
+ * Prima e seconda maglia insieme: una in grande a sinistra, l'altra piccola in basso a destra;
+ * la freccia le scambia. Con una sola maglia mostra solo quella.
+ * opts: come kitImageHTML (crestUrl, width = larghezza della maglia grande); attrs: attributi del contenitore.
+ */
+export function kitPairHTML(kit, kit2, opts = {}, attrs = '') {
+  if (!kit || !kit2) return kitImageHTML(kit || kit2, opts, attrs);
+  injectPairStyle();
+  return `<div ${attrs}><div class="kit-pair">
+      ${kitImageHTML(kit, opts, 'class="kp-kit kp-1" title="Prima maglia"')}
+      ${kitImageHTML(kit2, opts, 'class="kp-kit kp-2" title="Seconda maglia"')}
+      <button type="button" class="kp-swap" title="Scambia prima e seconda maglia" aria-label="Scambia prima e seconda maglia"
+        onclick="event.stopPropagation(); this.closest('.kit-pair').classList.toggle('swapped')"><i class="ri-arrow-left-right-line"></i></button>
+    </div></div>`;
+}

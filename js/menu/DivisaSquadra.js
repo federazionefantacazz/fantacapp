@@ -14,6 +14,7 @@ import {
  * La maglia è un modello 3D (components/Kit3D.js) vestito con la texture dipinta da components/KitRenderer.js;
  * disegni e marchi in PNG si aggiungono dall'area Patron (sezione Divise).
  * Al salvataggio si genera anche una foto PNG (kit.image) usata nel resto dell'app.
+ * Ogni squadra ha due maglie: la prima (team.kit) e la seconda (team.kit2), create allo stesso modo.
  */
 const MAX_LAYERS = 6;
 
@@ -51,6 +52,7 @@ const LAYER_WRAPS = [
   { id: 'mirror', label: 'Specchiato', desc: 'Dietro e manica destra sono lo specchio di davanti e manica sinistra.' }
 ];
 const MAX_PATCHES = 4;
+const SLOTS = { 1: { field: 'kit', label: 'Prima maglia' }, 2: { field: 'kit2', label: 'Seconda maglia' } };
 const MAX_FILE_MB = 8;
 const FEDERAZIONE_LOGO = 'icons/logo-federazione.jpg';
 
@@ -89,6 +91,9 @@ function injectStyle() {
     .kit-hint { position: absolute; left: 0; bottom: 0; font-size: .65rem; color: var(--text3); font-family: var(--font-text3, inherit); z-index: 2; }
     .kit-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text3); font-family: var(--font-text3, inherit); font-size: .8rem; }
     .kit-actions { display: flex; gap: .5rem; justify-content: center; margin-top: .5rem; flex-wrap: wrap; }
+    .kit-slots { display: flex; gap: .4rem; justify-content: center; margin-bottom: .5rem; }
+    .kit-slots .lv-chip { position: relative; }
+    .kit-slots .lv-chip.dirty::after { content: ''; position: absolute; top: 2px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--gold); }
     .kit-dirty { font-size: .7rem; color: var(--gold); text-align: center; margin-top: .3rem; min-height: 1em; }
 
     .kit-acc { background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: .6rem; overflow: hidden; }
@@ -190,6 +195,9 @@ export const DivisaSquadra = {
   _open: 'model',
   _layer: 0,
   _busy: false,
+  _slot: 1,
+  /** Maglia da aprire (1 o 2) alla prossima apertura dell'editor; poi torna null. */
+  startSlot: null,
 
   mount(body, STATE) {
     injectStyle();
@@ -202,9 +210,10 @@ export const DivisaSquadra = {
       return;
     }
     this._teamId = team.id;
-    this._kit = normalizeKit(team.kit || defaultKit());
-    this._saved = JSON.stringify(this._kit);
-    this._layer = 0;
+    this._drafts = {};
+    this._slot = this.startSlot === 2 ? 2 : 1;
+    this.startSlot = null;
+    this._loadSlot(this._slot);
     this._open = 'model';
     this._renderAll();
 
@@ -219,7 +228,7 @@ export const DivisaSquadra = {
 
   refresh() {
     // lo stemma può cambiare (Configurazione squadra): aggiorno solo l'anteprima, senza toccare le modifiche
-    if (this._root && this._kit) this._renderPreview();
+    if (this._root && this._kit) { this._renderSlots(); this._renderPreview(); }
   },
 
   unmount() {
@@ -230,6 +239,52 @@ export const DivisaSquadra = {
     this._viewer = null;
     this._root = null;
     this._kit = null;
+    this._drafts = null;
+  },
+
+  /* --------------------------------------------------- prima / seconda maglia */
+  _field(slot = this._slot) { return SLOTS[slot].field; },
+
+  /** Carica nell'editor la maglia indicata: la bozza non salvata se c'è, altrimenti quella salvata. */
+  _loadSlot(slot) {
+    const d = this._drafts[slot];
+    if (d) {
+      this._kit = d.kit; this._saved = d.saved; this._layer = d.layer;
+    } else {
+      const team = window.STATE.user || {};
+      this._kit = normalizeKit(team[this._field(slot)] || defaultKit());
+      this._saved = JSON.stringify(this._kit);
+      this._layer = 0;
+    }
+    this._slot = slot;
+  },
+
+  /** Passa all'altra maglia tenendo da parte le modifiche non salvate di quella attuale. */
+  _switchSlot(slot) {
+    if (slot === this._slot || !SLOTS[slot] || this._busy) return;
+    this._drafts[this._slot] = { kit: this._kit, saved: this._saved, layer: this._layer };
+    this._picker = null;
+    this._loadSlot(slot);
+    this._renderSlots();
+    this._renderPreview();
+    this._renderSection();
+  },
+
+  _renderSlots() {
+    const box = this._root && this._root.querySelector('#kit-slots');
+    if (!box) return;
+    const team = window.STATE.user || {};
+    box.innerHTML = Object.entries(SLOTS).map(([n, sl]) => {
+      const slot = Number(n);
+      const d = slot === this._slot ? { kit: this._kit, saved: this._saved } : this._drafts[slot];
+      const dirty = d && JSON.stringify(d.kit) !== d.saved;
+      const label = sl.label + (team[sl.field] ? '' : ' (nuova)');
+      return `<button class="lv-chip ${slot === this._slot ? 'on' : ''} ${dirty ? 'dirty' : ''}" data-act="slot" data-v="${slot}">${esc(label)}</button>`;
+    }).join('');
+    const reset = this._root.querySelector('[data-act="reset"]');
+    if (reset) reset.innerHTML = `<i class="ri-delete-bin-line"></i> Elimina ${this._slot === 2 ? 'la seconda' : 'la prima'} maglia e ricomincia da zero`;
+    const copy = this._root.querySelector('[data-act="copy-first"]');
+    if (copy) copy.style.display = this._slot === 2 ? '' : 'none';
   },
 
   /* -------------------------------------------------------------- render */
@@ -251,6 +306,7 @@ export const DivisaSquadra = {
     ];
     this._root.innerHTML = `
       <div class="kit-stage">
+        <div class="kit-slots" id="kit-slots"></div>
         <div class="kit-preview">
           <div class="kit-loading" id="kit-loading">Caricamento maglia 3D…</div>
           <div id="kit-3d"></div>
@@ -269,11 +325,13 @@ export const DivisaSquadra = {
           <button class="kit-acc-head" data-act="toggle" data-sec="${key}"><span>${label}</span><i class="ri-arrow-down-s-line"></i></button>
           <div class="kit-acc-body" id="kit-sec-${key}"></div>
         </div>`).join('')}
-      <div class="mp-muted" style="text-align:center; margin-top:.4rem;">La divisa è visibile a tutti nella scheda del tuo club.</div>
+      <div class="mp-muted" style="text-align:center; margin-top:.4rem;">Prima e seconda maglia sono visibili a tutti nella scheda del tuo club.</div>
       <div class="kit-actions" style="margin-top:1rem;">
-        <button class="mp-btn danger" data-act="reset"><i class="ri-delete-bin-line"></i> Elimina divisa e ricomincia da zero</button>
+        <button class="mp-btn ghost" data-act="copy-first"><i class="ri-file-copy-line"></i> Parti dalla prima maglia</button>
+        <button class="mp-btn danger" data-act="reset"><i class="ri-delete-bin-line"></i> Elimina maglia e ricomincia da zero</button>
       </div>
     `;
+    this._renderSlots();
     this._renderPreview();
     this._renderSection();
   },
@@ -289,6 +347,8 @@ export const DivisaSquadra = {
     if (this._viewer) this._viewer.update(this._kit, { crestUrl: this._crest() }).catch(e => console.error('Divisa:', e));
     const dirty = this._root.querySelector('#kit-dirty');
     if (dirty) dirty.textContent = this._dirty() ? 'Modifiche non salvate' : '';
+    const tab = this._root.querySelector(`#kit-slots [data-v="${this._slot}"]`);
+    if (tab) tab.classList.toggle('dirty', this._dirty());
   },
 
   /** Durante trascinamenti (cursori, selettore colore) ridisegno al massimo una volta per frame. */
@@ -576,7 +636,7 @@ export const DivisaSquadra = {
     const el = document.createElement('div');
     el.className = 'kit-zoom';
     el.innerHTML = `
-      <div class="kit-zoom-head"><span>Anteprima maglia</span><button data-z="close" aria-label="Chiudi"><i class="ri-close-line"></i> Chiudi</button></div>
+      <div class="kit-zoom-head"><span>${esc(SLOTS[this._slot].label)}</span><button data-z="close" aria-label="Chiudi"><i class="ri-close-line"></i> Chiudi</button></div>
       <div class="kit-zoom-stage"><div></div></div>
       <div class="kit-zoom-bar">
         <button data-z="front">Davanti</button><button data-z="back">Retro</button>
@@ -615,6 +675,8 @@ export const DivisaSquadra = {
         this._renderSection();
         this._scrollToOpen();
         return;
+      case 'slot': this._switchSlot(Number(v)); return;
+      case 'copy-first': this._copyFirst(); return;
       case 'save': this._save(); return;
       case 'reset': this._reset(); return;
       case 'undo':
@@ -805,23 +867,39 @@ export const DivisaSquadra = {
     }
   },
 
-  /** Cancella la divisa salvata e riparte dalla maglia di base. */
+  /** Seconda maglia: riparte da una copia della prima (salvata o in modifica), da salvare poi. */
+  _copyFirst() {
+    if (this._slot !== 2 || !this._kit) return;
+    const first = this._drafts[1] ? this._drafts[1].kit : (window.STATE.user || {}).kit;
+    if (!first) { window.showToast('Crea prima la prima maglia', 'err'); return; }
+    if (this._dirty() && !confirm('Sostituire la seconda maglia con una copia della prima? Le modifiche non salvate andranno perse.')) return;
+    const kit = normalizeKit(clone(first));
+    delete kit.image;
+    this._kit = kit;
+    this._layer = 0;
+    this._renderPreview(); this._renderSection();
+    window.showToast('Copiata la prima maglia: modificala e salvala', 'ok');
+  },
+
+  /** Cancella la maglia salvata (prima o seconda) e riparte dalla maglia di base. */
   async _reset() {
     if (this._busy || !this._kit) return;
     const team = window.STATE.user;
     if (!team || String(team.id) !== String(this._teamId)) return;
-    if (!confirm('Eliminare la divisa? Verrà cancellata e ripartirai dalla maglia di base.')) return;
+    const field = this._field();
+    const name = this._slot === 2 ? 'la seconda maglia' : 'la prima maglia';
+    if (!confirm(`Eliminare ${name}? Verrà cancellata e ripartirai dalla maglia di base.`)) return;
     this._busy = true;
     try {
-      if (team.kit) await update(ref(db, `teams/${team.id}`), { kit: null });
-      team.kit = null; // aggiornamento immediato; il listener del DB lo riconferma
+      if (team[field]) await update(ref(db, `teams/${team.id}`), { [field]: null });
+      team[field] = null; // aggiornamento immediato; il listener del DB lo riconferma
       this._kit = normalizeKit(defaultKit());
       this._saved = JSON.stringify(this._kit);
       this._layer = 0;
       this._open = 'model';
       this._root.querySelectorAll('.kit-acc').forEach(a => a.classList.toggle('open', a.dataset.sec === this._open));
-      this._renderPreview(); this._renderSection();
-      window.showToast('Divisa eliminata: puoi ricrearla da zero', 'ok');
+      this._renderSlots(); this._renderPreview(); this._renderSection();
+      window.showToast(`${this._slot === 2 ? 'Seconda' : 'Prima'} maglia eliminata: puoi ricrearla da zero`, 'ok');
     } catch (err) {
       console.error(err);
       window.showToast('Eliminazione non riuscita, riprova', 'err');
@@ -840,21 +918,25 @@ export const DivisaSquadra = {
     window.showToast('Salvataggio in corso...', 'ok');
     const kit = clone(this._kit);
     delete kit.image;
+    const field = this._field();
+    const slot = this._slot;
     try {
       // foto della maglia per il resto dell'app (scheda club, configurazione squadra)
       try {
         const dataUrl = await renderKitImage(kit, { crestUrl: this._crest(), width: 600 });
         if (dataUrl) {
           const blob = await dataUrlToBlob(dataUrl);
-          kit.image = await uploadPngToImgBB(new File([blob], `divisa-${team.id}.png`, { type: 'image/png' }), 600);
+          kit.image = await uploadPngToImgBB(new File([blob], `divisa-${team.id}${slot === 2 ? '-2' : ''}.png`, { type: 'image/png' }), 600);
         }
       } catch (e) { console.warn('Foto della divisa non caricata', e); }
-      await update(ref(db, `teams/${team.id}`), { kit });
-      team.kit = kit; // aggiornamento immediato; il listener del DB lo riconferma
+      await update(ref(db, `teams/${team.id}`), { [field]: kit });
+      team[field] = kit; // aggiornamento immediato; il listener del DB lo riconferma
+      if (!this._kit) return;
       if (kit.image) this._kit.image = kit.image;
       this._saved = JSON.stringify(this._kit);
+      this._renderSlots();
       this._renderPreview();
-      window.showToast('Divisa salvata!', 'ok');
+      window.showToast(`${slot === 2 ? 'Seconda' : 'Prima'} maglia salvata!`, 'ok');
     } catch (err) {
       console.error(err);
       window.showToast('Salvataggio non riuscito, riprova', 'err');

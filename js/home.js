@@ -4,7 +4,7 @@ import { renderAnteprimaClassifica } from './components/AnteprimaClassifica.js';
 import { CalcoloMatchService } from './services/calcoloMatch.js';
 import { createMatchCardResult } from './components/MatchCardResult.js';
 import { LiveMatchModule } from './liveMatch.js';
-import { kitImageHTML } from './components/Kit3D.js';
+import { kitPairHTML, kitPairShown } from './components/Kit3D.js';
 import { MenuPanel } from './components/MenuPanel.js';
 import { DivisaSquadra } from './menu/DivisaSquadra.js';
 import { getWonTrophies } from './services/palmaresService.js';
@@ -71,8 +71,13 @@ function watchTeamName(el) {
   }
 }
 
-// "Modifica" sulla maglia apre direttamente l'editor della divisa
-window.openKitEditor = () => MenuPanel.open(DivisaSquadra, 'kit');
+// "Modifica" sulla maglia apre direttamente l'editor della divisa, sulla maglia mostrata in grande
+window.openKitEditor = () => {
+  const team = window.STATE && window.STATE.user;
+  const shown = kitPairShown(document.getElementById('homeTeamKit'));
+  DivisaSquadra.startSlot = team && team.kit && team.kit2 ? shown : (team && !team.kit && team.kit2 ? 2 : 1);
+  MenuPanel.open(DivisaSquadra, 'kit');
+};
 
 export const HomePage = {
   renderHTML(STATE = {}) {
@@ -206,13 +211,17 @@ export const HomePage = {
       }
 
       if (kitBox) {
-        const key = myTeam.kit ? (myTeam.kit.image || JSON.stringify(myTeam.kit)) + '|' + (myTeam.logo || '') : 'none';
+        const kitKey = (k) => k ? (k.image || JSON.stringify(k)) : 'none';
+        const hasKit = !!(myTeam.kit || myTeam.kit2);
+        const key = hasKit ? kitKey(myTeam.kit) + '|' + kitKey(myTeam.kit2) + '|' + (myTeam.logo || '') : 'none';
         if (kitBox.dataset.key !== key) {
           kitBox.dataset.key = key;
-          kitBox.innerHTML = myTeam.kit
-            ? kitImageHTML(myTeam.kit, { crestUrl: myTeam.logo || '', width: 360 }, 'style="width:100%; max-width:150px; margin:0 auto;"')
+          // prima maglia in grande, seconda piccola in basso a destra (la freccia le scambia)
+          kitBox.innerHTML = hasKit
+            ? kitPairHTML(myTeam.kit, myTeam.kit2, { crestUrl: myTeam.logo || '', width: 360 },
+                `style="width:100%; max-width:${myTeam.kit && myTeam.kit2 ? 190 : 150}px; margin:0 auto;"`)
             : `<i class="ri-shirt-line" style="font-size: 3rem; color: var(--text3); font-family: var(--font-text3, inherit);"></i>`;
-          if (kitAction) kitAction.innerHTML = `${myTeam.kit ? 'Modifica' : 'Crea'} <i class="ri-arrow-right-s-line"></i>`;
+          if (kitAction) kitAction.innerHTML = `${hasKit ? 'Modifica' : 'Crea'} <i class="ri-arrow-right-s-line"></i>`;
         }
       }
       if (kitWrap) kitWrap.style.display = '';
