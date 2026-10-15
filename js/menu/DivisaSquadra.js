@@ -413,8 +413,11 @@ export const DivisaSquadra = {
           <div class="kit-sub">Dove applicarlo</div>
           <div class="kit-chips">${ZONES.map(z => this._chip('layer-zone', z.id, z.label, l.zone === z.id)).join('')}</div>
           <div class="kit-sub">Avanzate</div>
+          ${l.zone === 'front' || l.zone === 'back' ? `
+          <div class="kit-chips">${LAYER_WRAPS.map(w => `<button class="lv-chip ${w.id === 'whole' ? 'on' : ''}" disabled style="${w.id === 'whole' ? '' : 'opacity:.4;'}">${esc(w.label)}</button>`).join('')}</div>
+          <div class="mp-muted" style="margin-top:.3rem;">Su un solo pezzo il disegno si stende semplicemente su quel pezzo.</div>` : `
           <div class="kit-chips">${LAYER_WRAPS.map(w => this._chip('layer-wrap', w.id, w.label, (l.wrap || 'repeat') === w.id)).join('')}</div>
-          <div class="mp-muted" style="margin-top:.3rem;">${esc((LAYER_WRAPS.find(w => w.id === (l.wrap || 'repeat')) || {}).desc || '')}</div>
+          <div class="mp-muted" style="margin-top:.3rem;">${esc((LAYER_WRAPS.find(w => w.id === (l.wrap || 'repeat')) || {}).desc || '')}</div>`}
           <div class="kit-sub">Colore del livello</div>
           <div class="kit-color-row">${this._colorPicker(`${p}.color`, l.color)}</div>
           ${this._range(`${p}.opacity`, 'Opacità', l.opacity, 5, 100, '%')}
@@ -502,7 +505,7 @@ export const DivisaSquadra = {
       cell('custom', k.brand.url ? `<img src="${esc(k.brand.url)}" alt="">` : '<i class="ri-upload-2-line" style="font-size:1.3rem; color:var(--text2);font-family:var(--font-sub,inherit);"></i>', 'Il tuo PNG')
     ];
     return `
-      <div class="kit-sub">Stemma della squadra (in alto a sinistra)</div>
+      <div class="kit-sub">Stemma della squadra (in alto a ${k.crest.swap ? 'destra' : 'sinistra'})</div>
       ${crest ? `
         <div class="kit-chips">
           ${this._chip('crest-show', '1', 'Mostra stemma', k.crest.show)}
@@ -511,7 +514,8 @@ export const DivisaSquadra = {
         ${k.crest.show ? this._range('crest.size', 'Dimensione', k.crest.size, 60, 150, '%') : ''}
         <div class="mp-muted">Lo stemma viene scontornato automaticamente.</div>`
         : `<div class="mp-muted">Non hai ancora un logo: caricalo da <b>Configurazione squadra</b> e comparirà sulla maglia.</div>`}
-      <div class="kit-sub">Marchio tecnico (in alto a destra)</div>
+      <div class="kit-chips" style="margin-top:.6rem;">${this._chip('crest-swap', '1', '⇄ Inverti stemma e marchio tecnico', !!k.crest.swap)}</div>
+      <div class="kit-sub">Marchio tecnico (in alto a ${k.crest.swap ? 'sinistra' : 'destra'})</div>
       <div class="kit-grid wide">${cells.join('')}</div>
       ${k.brand.id === 'custom' ? `
         <div class="kit-field">${this._uploadBtn('brand', !!k.brand.url, 'marchio')}</div>
@@ -675,6 +679,7 @@ export const DivisaSquadra = {
 
       // stemma e marchio
       case 'crest-show': this._update(kit => { kit.crest.show = v === '1'; }); return;
+      case 'crest-swap': this._update(kit => { kit.crest.swap = !kit.crest.swap; }); return;
       case 'brand': this._update(kit => { kit.brand.id = v; }); return;
       case 'brand-mono': this._update(kit => { kit.brand.mono = v === '1'; }); return;
 

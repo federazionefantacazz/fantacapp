@@ -111,6 +111,12 @@ function editorPixelRatio() {
   return q === 'low' ? 2 : q === 'high' ? 3 : 2.5;
 }
 
+/** Risoluzione della texture dell'editor (stessa impostazione): più alta = stemma, marchi e scritte più nitidi. */
+function editorTextureSize() {
+  const q = ((window.STATE && window.STATE.settings) || {}).kit3dQuality;
+  return q === 'low' ? 2048 : q === 'high' ? 4096 : 3072;
+}
+
 class Stage {
   constructor(L, model, canvas, { interactive = false, width = 600, height = 640 } = {}) {
     const { THREE } = L;
@@ -256,7 +262,7 @@ export function createKitViewer(container) {
     async update(kit, opts = {}) {
       const my = ++token;
       const k = normalizeKit(kit);
-      const [st, tex, model] = await Promise.all([ready, paintKitTexture(k, { ...opts, size: opts.size || 2048 }), loadVariant(k.collarShape)]);
+      const [st, tex, model] = await Promise.all([ready, paintKitTexture(k, { ...opts, size: opts.size || editorTextureSize() }), loadVariant(k.collarShape)]);
       if (!st || disposed || my !== token) return;
       st.setModel(model);
       st.applyKit(k, tex);
