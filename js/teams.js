@@ -1,5 +1,5 @@
 import { BackNav } from './services/backNav.js';
-import { kitImageHTML } from './components/Kit3D.js';
+import { kitPairHTML } from './components/Kit3D.js';
 import { getWonTrophies } from './services/palmaresService.js';
 import { esc, sameId } from './utils.js';
 
@@ -235,10 +235,11 @@ export const TeamsPage = {
         </p>
       </div>
 
-      ${team.kit ? `
+      ${team.kit || team.kit2 ? `
       <div class="card" style="margin-bottom:1rem; background:var(--card); text-align:left;">
-        <div class="label">Divisa</div>
-        ${kitImageHTML(team.kit, { crestUrl: team.logo || '', width: 480 }, 'style="width:230px; max-width:80%; margin:.4rem auto 0;"')}
+        <div class="label">${team.kit && team.kit2 ? 'Divise' : 'Divisa'}</div>
+        ${kitPairHTML(team.kit, team.kit2, { crestUrl: team.logo || '', width: 480 },
+          `style="width:${team.kit && team.kit2 ? 300 : 230}px; max-width:${team.kit && team.kit2 ? 90 : 80}%; margin:.4rem auto 0;"`)}
       </div>` : ''}
 
       <div class="card" style="margin-bottom:1rem; background:var(--card); text-align:left;">
