@@ -474,3 +474,77 @@ export function mountKitShowcase(container, kit, kit2, opts = {}) {
     dispose() { container.removeEventListener('click', onClick); viewer.dispose(); }
   };
 }
+
+const ZOOM_STYLE_ID = 'kit-zoom-style';
+function injectZoomStyle() {
+  if (document.getElementById(ZOOM_STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = ZOOM_STYLE_ID;
+  // stesse classi della vista ingrandita dell'editor: il tema (Zoom maglia) vale anche qui
+  style.textContent = `
+    .kit-zoom { position: fixed; inset: 0; z-index: 4000; background: var(--kz-bg, var(--bg, #111)); display: flex; flex-direction: column; }
+    .kit-zoom-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: calc(.6rem + env(safe-area-inset-top, 0px)) .8rem .4rem; color: var(--title, var(--text)); font-family: var(--font-title, inherit); font-weight: 700; }
+    .kit-zoom-head span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .kit-zoom-stage { flex: 1; min-height: 0; position: relative; }
+    .kit-zoom-stage > div { position: absolute; inset: 0; }
+    .kit-zoom-bar { display: flex; gap: .4rem; justify-content: center; flex-wrap: wrap; padding: .5rem .8rem calc(.8rem + env(safe-area-inset-bottom, 0px)); }
+    .kit-zoom-bar button, .kit-zoom-head button { background: var(--kz-btn-bg, var(--bg2)); color: var(--kz-btn-text, var(--text)); font-family: var(--font-btn, inherit); border: 1px solid var(--kz-btn-border, var(--border)); border-radius: 10px; padding: .45rem .8rem; font-weight: 700; cursor: pointer; font-size: .85rem; flex-shrink: 0; }
+    .kit-zoom-tabs { display: flex; gap: .4rem; justify-content: center; flex-wrap: wrap; padding: 0 .8rem .3rem; }
+    .kit-zoom-tabs button { background: var(--kz-btn-bg, var(--bg2)); color: var(--kz-btn-text, var(--text)); border: 1px solid var(--kz-btn-border, var(--border)); border-radius: 999px; padding: .3rem .8rem; font-family: var(--font-btn, inherit); font-weight: 700; font-size: .78rem; cursor: pointer; max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .kit-zoom-tabs button.on { border-color: var(--accent); color: var(--accent); }
+  `;
+  document.head.appendChild(style);
+}
+
+/**
+ * Maglie in 3D a tutto schermo (es. dal live): items = [{ kit, crestUrl, label }], start = indice iniziale.
+ * Si ruota in ogni direzione, zoom e spostamento come nella vista ingrandita dell'editor; con più maglie
+ * le schede in alto passano dall'una all'altra. Restituisce { close() }; opts.onClose alla chiusura.
+ */
+export function openKitOverlay(items, start = 0, opts = {}) {
+  const list = (items || []).filter(it => it && it.kit);
+  if (!list.length) return { close() {} };
+  injectZoomStyle();
+  let cur = Math.min(Math.max(0, start), list.length - 1);
+  const el = document.createElement('div');
+  el.className = 'kit-zoom';
+  if (opts.zIndex) el.style.zIndex = opts.zIndex;
+  const esc = (t) => String(t ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  el.innerHTML = `
+    <div class="kit-zoom-head"><span></span><button data-z="close" aria-label="Chiudi"><i class="ri-close-line"></i> Chiudi</button></div>
+    ${list.length > 1 ? `<div class="kit-zoom-tabs">${list.map((it, i) => `<button data-z="pick" data-i="${i}">${esc(it.label || `Maglia ${i + 1}`)}</button>`).join('')}</div>` : ''}
+    <div class="kit-zoom-stage"><div></div></div>
+    <div class="kit-zoom-bar">
+      <button data-z="front">Davanti</button><button data-z="back">Retro</button>
+      <button data-z="in" aria-label="Avvicina">＋ Zoom</button>
+      <button data-z="out" aria-label="Allontana">− Zoom</button>
+    </div>`;
+  document.body.appendChild(el);
+  const viewer = createKitViewer(el.querySelector('.kit-zoom-stage > div'), { zoom: true });
+  const show = () => {
+    const it = list[cur];
+    el.querySelector('.kit-zoom-head span').textContent = it.title || it.label || 'Maglia';
+    el.querySelectorAll('[data-z="pick"]').forEach(b => b.classList.toggle('on', Number(b.dataset.i) === cur));
+    viewer.update(it.kit, { crestUrl: it.crestUrl || '' }).catch(err => console.error('Divisa:', err));
+    viewer.setView('front');
+  };
+  show();
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    viewer.dispose(); el.remove();
+    if (opts.onClose) opts.onClose();
+  };
+  el.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-z]');
+    if (!b) return;
+    const z = b.dataset.z;
+    if (z === 'close') close();
+    else if (z === 'pick') { cur = Number(b.dataset.i); show(); }
+    else if (z === 'in') viewer.zoomBy(.75);
+    else if (z === 'out') viewer.zoomBy(1 / .75);
+    else viewer.setView(z);
+  });
+  return { close };
+}

@@ -24,7 +24,8 @@ import { CalcoloMatchService, RULE_MATCH } from "./services/calcoloMatch.js";
 import { GwService } from "./services/gwService.js";
 import { ProbabiliService } from "./services/probabiliService.js";
 import { esc, fitName } from './utils.js';
-import { kitImageHTML } from './components/Kit3D.js';
+import { kitImageHTML, openKitOverlay } from './components/Kit3D.js';
+import { BackNav } from './services/backNav.js';
 
 const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
 const fmt = (n) => {
@@ -70,7 +71,7 @@ const LIVE_STYLES = `
 .lv-team{display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0;gap:2px}
 .lv-logo{width:54px;height:54px;object-fit:contain;filter:drop-shadow(0 3px 6px rgba(0,0,0,.4))}
 .lv-badge{display:flex;align-items:center;justify-content:center;gap:.3rem}
-.lv-kit{width:46px;flex-shrink:0;filter:drop-shadow(0 3px 6px rgba(0,0,0,.4))}
+.lv-kit{width:46px;flex-shrink:0;filter:drop-shadow(0 3px 6px rgba(0,0,0,.4));cursor:pointer}
 .lv-logo-ph{width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font:1.4rem 'Bebas Neue',sans-serif}
 .lv-tname{font-weight:700;margin-top:.25rem;align-self:stretch;flex:0 0 auto}
 .lv-towner{font-size:.68rem;opacity:.75;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -542,6 +543,16 @@ export const LiveMatchModule = {
       } else if (act === 'sim-reset') {
         this._sim.overrides = {};
         root._lvRerender();
+      } else if (act === 'kit3d') {
+        // maglie delle due squadre in 3D, a partire da quella toccata
+        const items = (this._kitSets || {})[btn.dataset.set];
+        if (!items) return;
+        if (this._kitOverlay) this._kitOverlay.close();
+        this._kitOverlay = openKitOverlay(items, Number(btn.dataset.i) || 0, {
+          zIndex: 6000,
+          onClose: () => { this._kitOverlay = null; BackNav.pop('live-kit3d'); }
+        });
+        BackNav.push('live-kit3d', () => { if (this._kitOverlay) this._kitOverlay.close(); });
       } else if (act === 'edit' && this._sim.on) {
         e.stopPropagation(); // non apro la scheda giocatore
         this._openEditor(btn.dataset.pid, root._lvRerender);
@@ -827,15 +838,21 @@ export const LiveMatchModule = {
       const hit = order.find(([f]) => t.info[f]);
       return hit ? { kit: t.info[hit[0]], label: hit[1] } : { kit: null, label: '' };
     };
+    // maglie per la vista 3D (tocco sulla maglia): prima la squadra di casa, poi l'ospite
+    const setKey = `${home.id}|${away.id}`;
+    const items = [home, away].map(t => ({ t, ...kitOf(t) })).filter(x => x.kit)
+      .map(x => ({ kit: x.kit, crestUrl: x.t.info.logo || '', label: x.t.info.name, title: `${x.t.info.name} · ${x.label}`, id: String(x.t.id) }));
+    (this._kitSets ||= {})[setKey] = items;
     const team = (t) => {
       const { kit, label: kitLabel } = kitOf(t);
+      const kitIdx = items.findIndex(it => it.id === String(t.id));
       return `
       <div class="lv-team">
         <div class="lv-badge">
         ${t.info.logo
           ? `<img class="lv-logo" src="${esc(t.info.logo)}" alt="" loading="lazy">`
           : `<div class="lv-logo-ph">${esc((t.info.name || '?').charAt(0))}</div>`}
-        ${kit ? kitImageHTML(kit, { crestUrl: t.info.logo || '', width: 160 }, `class="lv-kit" title="${kitLabel}"`) : ''}
+        ${kit ? kitImageHTML(kit, { crestUrl: t.info.logo || '', width: 160 }, `class="lv-kit" title="${kitLabel} · tocca per vederla in 3D" data-lv="kit3d" data-set="${esc(setKey)}" data-i="${kitIdx}"`) : ''}
         </div>
         <div class="lv-tname">${fitName(t.info.name, { maxSize: '.88rem' })}</div>
         ${t.info.owner ? `<div class="lv-towner">${esc(t.info.owner)}</div>` : ''}

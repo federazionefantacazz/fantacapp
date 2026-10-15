@@ -10,7 +10,9 @@ export { COLLAR_SHAPES };
  * {
  *   collarShape,                                            // forma del colletto: 'v' (scollo a V) o 'polo' (vedi kitShapes.js)
  *   collar, cuffs, sleeveDeco,                              // stile di colletto, polsini, decorazioni maniche
- *   colors: { base, sleeves, collar, cuffs, trim },
+ *   colors: { base, sleeves, sleevesR, shoulders, collar, cuffs, trim },  // sleevesR: manica destra se diversa ('' = come sleeves)
+ *   shoulders: { shape: 'none'|'raglan'|'yoke', size, match },  // spalle colorate; match: colore delle maniche
+ *   sleeveDecoShoulder,                                     // strisce delle maniche che partono dal colletto (spalla + manica)
  *   layers: [{ type, color, opacity, scale, flipX, flipY, x, y, rot, zone }],  // type: disegno integrato o 'png:<id>'; zone: body | all | sleeves
  *                                                           // x, y: spostamento in % del pezzo (+ = destra/su), rot: gradi
  *                                                           // wrap: whole (davanti e dietro come un unico pezzo) | repeat | mirror
@@ -274,6 +276,13 @@ export const CUFFS = [
   { id: 'thin',   label: 'Profilo sottile' }
 ];
 
+// Spalle colorate sul busto (davanti e dietro)
+export const SHOULDER_SHAPES = [
+  { id: 'none',   label: 'Nessuna' },
+  { id: 'raglan', label: 'Raglan (diagonale)' },
+  { id: 'yoke',   label: 'Sella (fascia alta)' }
+];
+
 export const SLEEVE_DECO = [
   { id: 'none',     label: 'Nessuna' },
   { id: 'stripes3', label: 'Tre strisce' },
@@ -286,9 +295,10 @@ export const SLEEVE_DECO = [
 
 export function defaultKit() {
   return {
-    collarShape: 'v', collar: 'plain', cuffs: 'band', sleeveDeco: 'none',
+    collarShape: 'v', collar: 'plain', cuffs: 'band', sleeveDeco: 'none', sleeveDecoShoulder: false,
     sleeveTf: { x: 0, y: 0, scale: 100, rot: 0 },
-    colors: { base: '#1e5bb8', sleeves: '#1e5bb8', collar: '#ffffff', cuffs: '#ffffff', trim: '#ffffff' },
+    colors: { base: '#1e5bb8', sleeves: '#1e5bb8', sleevesR: '', shoulders: '#ffffff', collar: '#ffffff', cuffs: '#ffffff', trim: '#ffffff' },
+    shoulders: { shape: 'none', size: 100, match: true },
     layers: [],
     brand: { id: 'nike', color: '#ffffff', url: '', mono: false },
     crest: { show: true, size: 100, swap: false },
@@ -309,8 +319,10 @@ export function normalizeKit(raw) {
     collar: COLLARS.some(c => c.id === k.collar) ? k.collar : d.collar,
     cuffs: CUFFS.some(c => c.id === k.cuffs) ? k.cuffs : d.cuffs,
     sleeveDeco: SLEEVE_DECO.some(c => c.id === k.sleeveDeco) ? k.sleeveDeco : d.sleeveDeco,
+    sleeveDecoShoulder: !!k.sleeveDecoShoulder,
     sleeveTf: { ...d.sleeveTf, ...(k.sleeveTf || {}) },
     colors: { ...d.colors, ...(k.colors || {}) },
+    shoulders: { ...d.shoulders, ...(k.shoulders || {}), shape: SHOULDER_SHAPES.some(x => x.id === (k.shoulders || {}).shape) ? k.shoulders.shape : 'none' },
     brand: { ...d.brand, ...(k.brand || {}) },
     crest: { ...d.crest, ...(k.crest || {}) },
     sponsor: { ...d.sponsor, ...(k.sponsor || {}) },
@@ -531,7 +543,7 @@ function loadMask() {
     x.drawImage(img, 0, 0);
     const d = x.getImageData(0, 0, c.width, c.height).data;
     // per davanti e dietro: bordo superiore della sagoma tra le due "spalle" più alte = scollo
-    const neck = {};
+    const neck = {}, shoulder = {};
     ['front', 'back'].forEach(part => {
       const r = UV[part];
       const x0 = Math.round(r.x * c.width), x1 = Math.round((r.x + r.w) * c.width);
@@ -546,8 +558,12 @@ function loadMask() {
       const minIn = (a, b) => { let best = a; for (let i = a; i < b; i++) if (top[i] >= 0 && top[i] < top[best]) best = i; return best; };
       const l = minIn(Math.round(n * .15), Math.round(n * .5)), rr = minIn(Math.round(n * .5), Math.round(n * .85));
       neck[part] = top.slice(l, rr + 1).map((ty, i) => [(x0 + l + i) / c.width, ty / c.height]);
+      // spalle: bordo superiore dall'attaccatura della manica (esterno) all'angolo del colletto
+      const first = top.findIndex(t => t >= 0), last = n - 1 - [...top].reverse().findIndex(t => t >= 0);
+      const pts = (a, b) => top.slice(a, b + 1).map((ty, i) => [(x0 + a + i) / c.width, ty / c.height]).filter(p => p[1] >= 0);
+      shoulder[part] = { left: pts(first, l), right: pts(rr, last), neckL: l / n, neckR: rr / n };
     });
-    return { img, neck };
+    return { img, neck, shoulder };
   });
   return maskJob;
 }
@@ -590,7 +606,8 @@ export async function paintKitTexture(rawKit, opts = {}) {
   // 1. colori di base
   ctx.fillStyle = safeColor(c.base); ctx.fillRect(0, 0, S, S); // anche l'etichetta interna e i margini
   ['front', 'back'].forEach(p => inPart(p, fill(c.base)));
-  ['sleeveL', 'sleeveR'].forEach(p => inPart(p, fill(c.sleeves)));
+  const sleeveColor = (p) => safeColor(p === 'sleeveR' && c.sleevesR ? c.sleevesR : c.sleeves);
+  ['sleeveL', 'sleeveR'].forEach(p => inPart(p, fill(sleeveColor(p))));
 
   // 2. disegni (livelli)
   const pngPatterns = getPngPatterns();
@@ -655,8 +672,65 @@ export async function paintKitTexture(rawKit, opts = {}) {
     }
   }
 
+  // 2b. spalle colorate (sopra il disegno del busto)
+  // lato del pezzo → manica vicina: davanti sinistra = manica L, dietro sinistra = manica R (visto da dietro)
+  const sideSleeve = (part, side) => (part === 'front') === (side === 'left') ? 'sleeveL' : 'sleeveR';
+  const sh = k.shoulders;
+  if (sh.shape !== 'none' && mask && mask.shoulder) {
+    const f = clamp(sh.size, 50, 160) / 100;
+    ['front', 'back'].forEach(p => ['left', 'right'].forEach(side => inPart(p, (x, r) => {
+      const m = mask.shoulder[p];
+      if (!m) return;
+      x.fillStyle = sh.match ? sleeveColor(sideSleeve(p, side)) : safeColor(c.shoulders);
+      const dir = side === 'left' ? 1 : -1;                   // verso il centro del pezzo
+      const ox = side === 'left' ? r.x - 4 : r.x + r.w + 4;   // bordo esterno
+      const neckX = r.x + (side === 'left' ? m.neckL : m.neckR) * r.w;
+      x.beginPath();
+      if (sh.shape === 'raglan') {
+        // dall'angolo del colletto scende in diagonale fino all'ascella
+        const armY = r.y + r.h * .37 * f;
+        x.moveTo(ox, r.y - 4);
+        x.lineTo(neckX + dir * 2, r.y - 4);
+        x.quadraticCurveTo(neckX - dir * (neckX - ox) * .15, r.y + (armY - r.y) * .55, ox, armY);
+      } else {
+        // sella: fascia alta che segue la spalla, dal colletto all'attaccatura della manica
+        const pts = m[side];
+        const hgt = r.h * .07 * f;
+        x.moveTo(ox, r.y - 4);
+        x.lineTo(neckX + dir * 2, r.y - 4);
+        x.lineTo(neckX + dir * 2, r.y + hgt);
+        [...pts].sort((a, b) => dir * (b[0] - a[0])).forEach(([u, v]) => x.lineTo(u * S, v * S + hgt));
+        x.lineTo(ox, (pts.length ? Math.max(...pts.map(q => q[1])) * S : r.y) + hgt);
+      }
+      x.closePath();
+      x.fill();
+    })));
+  }
+
   // 3. decorazioni delle maniche e polsini
   const trim = safeColor(c.trim);
+  // strisce che partono dal colletto: proseguono sulla spalla (cucitura tra davanti e dietro) fino alla manica
+  if ((k.sleeveDeco === 'stripes3' || k.sleeveDeco === 'stripes2') && k.sleeveDecoShoulder && mask && mask.shoulder) {
+    const n = k.sleeveDeco === 'stripes3' ? 3 : 2;
+    const sl = R('sleeveL'), lw = sl.w * .022 * k.sleeveTf.scale / 100, gap = sl.w * .05 * k.sleeveTf.scale / 100;
+    // distanze dal bordo (cucitura): la striscia centrale (dispari) è a cavallo tra davanti e dietro
+    const offs = [];
+    for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * gap; if (o >= 0) offs.push(o); }
+    ['front', 'back'].forEach(p => inPart(p, (x) => {
+      const m = mask.shoulder[p];
+      if (!m) return;
+      x.strokeStyle = trim; x.lineWidth = lw; x.lineCap = 'butt';
+      ['left', 'right'].forEach(side => {
+        const pts = m[side];
+        if (pts.length < 2) return;
+        offs.forEach(o => {
+          x.beginPath();
+          pts.forEach(([u, v], i) => (i ? x.lineTo(u * S, v * S + o) : x.moveTo(u * S, v * S + o)));
+          x.stroke();
+        });
+      });
+    }));
+  }
   ['sleeveL', 'sleeveR'].forEach(p => inPart(p, (x, r) => {
     x.fillStyle = trim;
     const cuffTop = r.y + r.h * .84;
@@ -690,7 +764,7 @@ export async function paintKitTexture(rawKit, opts = {}) {
     if (k.cuffs === 'band') { x.fillStyle = cuff; x.fillRect(r.x - 2, cuffTop, r.w + 4, r.y + r.h - cuffTop + 2); }
     if (k.cuffs === 'double') {
       x.fillStyle = cuff; x.fillRect(r.x - 2, cuffTop, r.w + 4, r.y + r.h - cuffTop + 2);
-      x.fillStyle = safeColor(c.sleeves); x.fillRect(r.x - 2, cuffTop + r.h * .06, r.w + 4, r.h * .03);
+      x.fillStyle = sleeveColor(p); x.fillRect(r.x - 2, cuffTop + r.h * .06, r.w + 4, r.h * .03);
     }
     if (k.cuffs === 'thin') { x.fillStyle = cuff; x.fillRect(r.x - 2, cuffTop, r.w + 4, r.h * .035); }
   }));
