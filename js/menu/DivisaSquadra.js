@@ -75,6 +75,14 @@ function injectStyle() {
       background-color: var(--bg); background-image: linear-gradient(var(--menu-bg, var(--bg)), var(--menu-bg, var(--bg))); border-bottom: 1px solid var(--border); }
     .kit-preview { position: relative; height: 34vh; max-height: 320px; min-height: 200px; }
     .kit-preview > #kit-3d { position: absolute; inset: 0; }
+    .kit-zoom-btn { position: absolute; top: .4rem; right: 0; z-index: 2; width: 36px; height: 36px; border-radius: 10px; cursor: pointer;
+      background: color-mix(in srgb, var(--bg2) 85%, transparent); color: var(--text); border: 1px solid var(--border); font-size: 1.15rem; display: flex; align-items: center; justify-content: center; }
+    .kit-zoom { position: fixed; inset: 0; z-index: 4000; background: var(--bg, #111); display: flex; flex-direction: column; }
+    .kit-zoom-head { display: flex; align-items: center; justify-content: space-between; padding: calc(.6rem + env(safe-area-inset-top, 0px)) .8rem .4rem; color: var(--text); font-weight: 700; }
+    .kit-zoom-stage { flex: 1; min-height: 0; position: relative; }
+    .kit-zoom-stage > div { position: absolute; inset: 0; }
+    .kit-zoom-bar { display: flex; gap: .4rem; justify-content: center; flex-wrap: wrap; padding: .5rem .8rem calc(.8rem + env(safe-area-inset-bottom, 0px)); }
+    .kit-zoom-bar button, .kit-zoom-head button { background: var(--bg2); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: .45rem .8rem; font-weight: 700; cursor: pointer; font-size: .85rem; }
     .kit-view-btns { position: absolute; right: 0; bottom: 0; display: flex; gap: .3rem; z-index: 2; }
     .kit-view-btns button { background: color-mix(in srgb, var(--bg2) 85%, transparent); color: var(--text2); border: 1px solid var(--border);
       border-radius: 999px; padding: .2rem .6rem; font-family: inherit; font-size: .7rem; font-weight: 600; cursor: pointer; }
@@ -215,6 +223,7 @@ export const DivisaSquadra = {
   },
 
   unmount() {
+    if (this._zoom) this._zoom.close();
     if (this._unwatch) this._unwatch();
     this._unwatch = null;
     if (this._viewer) this._viewer.dispose();
@@ -247,6 +256,7 @@ export const DivisaSquadra = {
           <div id="kit-3d"></div>
           <div class="kit-hint"><i class="ri-drag-move-line"></i> Trascina per ruotare</div>
           <div class="kit-view-btns"><button data-act="view" data-v="front">Davanti</button><button data-act="view" data-v="back">Retro</button></div>
+          <button class="kit-zoom-btn" data-act="zoom-open" title="Ingrandisci la maglia" aria-label="Ingrandisci la maglia"><i class="ri-zoom-in-line"></i></button>
         </div>
         <div class="kit-dirty" id="kit-dirty"></div>
         <div class="kit-actions">
@@ -560,6 +570,35 @@ export const DivisaSquadra = {
     o[parts[parts.length - 1]] = value;
   },
 
+  /** Finestra a tutto schermo con la maglia: ruota in ogni direzione, zoom (due dita, rotella o + / −) e spostamento. */
+  _openZoom() {
+    if (this._zoom) return;
+    const el = document.createElement('div');
+    el.className = 'kit-zoom';
+    el.innerHTML = `
+      <div class="kit-zoom-head"><span>Anteprima maglia</span><button data-z="close" aria-label="Chiudi"><i class="ri-close-line"></i> Chiudi</button></div>
+      <div class="kit-zoom-stage"><div></div></div>
+      <div class="kit-zoom-bar">
+        <button data-z="front">Davanti</button><button data-z="back">Retro</button>
+        <button data-z="in" aria-label="Avvicina">＋ Zoom</button>
+        <button data-z="out" aria-label="Allontana">− Zoom</button>
+      </div>`;
+    document.body.appendChild(el);
+    const viewer = createKitViewer(el.querySelector('.kit-zoom-stage > div'), { zoom: true });
+    viewer.update(this._kit, { crestUrl: this._crest() }).catch(err => console.error('Divisa:', err));
+    const close = () => { viewer.dispose(); el.remove(); this._zoom = null; };
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-z]');
+      if (!b) return;
+      const z = b.dataset.z;
+      if (z === 'close') close();
+      else if (z === 'in') viewer.zoomBy(.75);
+      else if (z === 'out') viewer.zoomBy(1 / .75);
+      else viewer.setView(z);
+    });
+    this._zoom = { close };
+  },
+
   _onClick(e) {
     const btn = e.target.closest('[data-act]');
     if (!btn || !this._root || !this._root.contains(btn) || btn.disabled) return;
@@ -584,6 +623,7 @@ export const DivisaSquadra = {
         this._layer = 0;
         this._renderPreview(); this._renderSection();
         return;
+      case 'zoom-open': this._openZoom(); return;
       case 'view':
         if (this._viewer) this._viewer.setView(v);
         return;
