@@ -733,6 +733,17 @@ export async function paintKitTexture(rawKit, opts = {}) {
         const pts = m[side];
         if (pts.length < 2) return;
         offs.forEach(o => {
+          if (o === 0) {
+            // striscia centrale a cavallo della cucitura: riempio dal bordo vero della spalla (oltre la linea,
+            // la maschera ritaglia) fino a metà spessore, così si vede sempre intera tra davanti e dietro
+            x.fillStyle = trim;
+            x.beginPath();
+            pts.forEach(([u, v], i) => (i ? x.lineTo(u * S, v * S + lw / 2) : x.moveTo(u * S, v * S + lw / 2)));
+            [...pts].reverse().forEach(([u, v]) => x.lineTo(u * S, v * S - lw * 4));
+            x.closePath();
+            x.fill();
+            return;
+          }
           x.beginPath();
           pts.forEach(([u, v], i) => (i ? x.lineTo(u * S, v * S + o) : x.moveTo(u * S, v * S + o)));
           x.stroke();
