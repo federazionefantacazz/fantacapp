@@ -560,7 +560,16 @@ function loadMask() {
       neck[part] = top.slice(l, rr + 1).map((ty, i) => [(x0 + l + i) / c.width, ty / c.height]);
       // spalle: bordo superiore dall'attaccatura della manica (esterno) all'angolo del colletto
       const first = top.findIndex(t => t >= 0), last = n - 1 - [...top].reverse().findIndex(t => t >= 0);
-      const pts = (a, b) => top.slice(a, b + 1).map((ty, i) => [(x0 + a + i) / c.width, ty / c.height]).filter(p => p[1] >= 0);
+      // cucitura della spalla: retta che approssima il bordo superiore (minimi quadrati sulla parte centrale,
+      // escluse la curva del colletto e quella della manica), dall'esterno fino all'angolo del colletto
+      const pts = (a, b) => {
+        const lo = a + Math.round((b - a) * .12), hi = b - Math.round((b - a) * .12);
+        let n0 = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
+        for (let i = lo; i <= hi; i++) if (top[i] >= 0) { n0++; sx += i; sy += top[i]; sxx += i * i; sxy += i * top[i]; }
+        if (n0 < 2) return [];
+        const m = (n0 * sxy - sx * sy) / (n0 * sxx - sx * sx || 1), q = (sy - m * sx) / n0;
+        return [a, b].map(i => [(x0 + i + .5) / c.width, (m * i + q) / c.height]);
+      };
       shoulder[part] = { left: pts(first, l), right: pts(rr, last), neckL: l / n, neckR: rr / n };
     });
     return { img, neck, shoulder };
@@ -712,14 +721,14 @@ export async function paintKitTexture(rawKit, opts = {}) {
   // strisce che partono dal colletto: proseguono sulla spalla (cucitura tra davanti e dietro) fino alla manica
   if ((k.sleeveDeco === 'stripes3' || k.sleeveDeco === 'stripes2') && k.sleeveDecoShoulder && mask && mask.shoulder) {
     const n = k.sleeveDeco === 'stripes3' ? 3 : 2;
-    const sl = R('sleeveL'), lw = sl.w * .022 * k.sleeveTf.scale / 100, gap = sl.w * .05 * k.sleeveTf.scale / 100;
+    const f = clamp(k.sleeveTf.scale, 40, 200) / 100, sl = R('sleeveL'), lw = sl.w * .022 * f, gap = sl.w * .05 * f;
     // distanze dal bordo (cucitura): la striscia centrale (dispari) è a cavallo tra davanti e dietro
     const offs = [];
     for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * gap; if (o >= 0) offs.push(o); }
     ['front', 'back'].forEach(p => inPart(p, (x) => {
       const m = mask.shoulder[p];
       if (!m) return;
-      x.strokeStyle = trim; x.lineWidth = lw; x.lineCap = 'butt';
+      x.strokeStyle = trim; x.lineWidth = lw; x.lineCap = 'butt'; x.lineJoin = 'round';
       ['left', 'right'].forEach(side => {
         const pts = m[side];
         if (pts.length < 2) return;
@@ -743,7 +752,16 @@ export async function paintKitTexture(rawKit, opts = {}) {
     x.translate(-(r.x + r.w / 2), -(r.y + r.h / 2));
     switch (k.sleeveDeco) {
       case 'stripes3': case 'stripes2': {
-        const n = k.sleeveDeco === 'stripes3' ? 3 : 2, lw = r.w * .022, gap = r.w * .05;
+        const n = k.sleeveDeco === 'stripes3' ? 3 : 2;
+        if (k.sleeveDecoShoulder) {
+          // dal colletto al polsino: strisce intere al centro della manica, allineate a quelle sulla spalla
+          // (solo la dimensione cambia spessore e distanza; spostamento e rotazione non si applicano)
+          x.restore(); x.save();
+          const f = clamp(st.scale, 40, 200) / 100, lw = r.w * .022 * f, gap = r.w * .05 * f;
+          for (let i = 0; i < n; i++) x.fillRect(r.x + r.w / 2 + (i - (n - 1) / 2) * gap - lw / 2, r.y - 2, lw, cuffTop - r.y + 2);
+          break;
+        }
+        const lw = r.w * .022, gap = r.w * .05;
         for (let i = 0; i < n; i++) x.fillRect(r.x + r.w / 2 + (i - (n - 1) / 2) * gap - lw / 2, r.y, lw, cuffTop - r.y);
         break;
       }
