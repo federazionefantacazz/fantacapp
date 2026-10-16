@@ -453,7 +453,10 @@ export const DivisaSquadra = {
         ${this._chip('stripes-reach', '0', 'Solo sulla manica', !k.sleeveDecoShoulder)}
         ${this._chip('stripes-reach', '1', 'Dal colletto al polsino', k.sleeveDecoShoulder)}
       </div>` : ''}
-      ${k.sleeveDeco !== 'none' ? `
+      ${k.sleeveDeco !== 'none' && (k.sleeveDeco === 'stripes3' || k.sleeveDeco === 'stripes2') && k.sleeveDecoShoulder ? `
+      ${this._range('sleeveTf.scale', 'Spessore', k.sleeveTf.scale, 40, 200, '%')}
+      <div class="mp-muted">Le strisce corrono dal colletto al polsino come un'unica linea: si regola solo lo spessore.</div>` : ''}
+      ${k.sleeveDeco !== 'none' && !((k.sleeveDeco === 'stripes3' || k.sleeveDeco === 'stripes2') && k.sleeveDecoShoulder) ? `
       ${this._range('sleeveTf.scale', 'Dimensione', k.sleeveTf.scale, 40, 200, '%')}
       ${this._range('sleeveTf.x', 'Sposta ↔', k.sleeveTf.x, -50, 50)}
       ${this._range('sleeveTf.y', 'Sposta ↕', k.sleeveTf.y, -50, 50)}
