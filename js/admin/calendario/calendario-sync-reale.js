@@ -4,6 +4,7 @@
  * (accoppiamenti + giornata di Serie A associata) e, per la Space Iks Cup, la composizione dei gironi.
  *
  * Copre solo le giornate fino alla 7ª di Serie A: le giornate successive non vengono toccate.
+ * Per le giornate già giocate (4ª–6ª di Serie A) inserisce anche le formazioni reali.
  * I risultati non vengono considerati: un incontro già presente con la stessa coppia casa/trasferta
  * viene mantenuto così com'è, gli altri vengono ricreati vuoti.
  */
@@ -57,6 +58,57 @@ const CALENDARIO_REALE = [
     ]
   }
 ];
+
+/*
+ * Formazioni schierate nel fantacalcio reale, per giornata di Serie A e squadra:
+ * [modulo, titolari (ID in ordine), panchina (ID in ordine di sostituzione)].
+ * Valgono per tutte le competizioni che giocano quella giornata di Serie A.
+ * Gli ID sono quelli del nodo players, indipendentemente dalla squadra attuale del giocatore.
+ */
+const FORMAZIONI_REALI = {
+  4: {
+    '1': ['3-4-3', '4431,7329,5833,4409,4856,2077,6190,1870,309,6646,5995', '7626,4,7621,4137,256,7070,6010,4777,6831,2832,6434'],
+    'MDF': ['4-3-3', '4964,1852,7469,6989,6867,7223,1850,2194,6060,4923,7023', '7603,7332,7220,5678,5010,7060,6398,2423,6530,7120,7620'],
+    'AL': ['5-4-1', '6966,2816,4976,6869,5022,4502,2517,4179,2606,7625,2764', '6344,2809,7131,6664,4210,5507,5878,5844,2061,7561,7612'],
+    'OM': ['4-3-3', '6248,6727,2296,254,6320,6684,2848,1933,7252,6967,5436', '6534,133,6202,6485,4263,6151,7551,4973,4463,2155,7351'],
+    'BS': ['4-4-2', '5841,7181,2514,2788,5877,536,5559,5792,795,6572,5951', '2134,610,6632,6495,6896,5589,4287,6015,6669,5882,7623'],
+    'OV': ['3-4-3', '4360,4705,5641,4159,5800,6252,6294,6884,7600,7017,7071', '4236,572,7410,7069,6672,6677,2765,7311,4371,7347,7554'],
+    'QG': ['3-4-3', '4312,4317,6042,7414,4436,632,7078,7126,5637,6435,5694', '2815,6813,6660,4734,7235,7129,5858,6680,6145,7001,7161'],
+    'PSP': ['3-4-3', '6462,6631,4177,7599,6844,6875,779,6274,4871,2137,6752', '543,7611,5739,554,5701,6678,7535,5301,7547,6519,7622'],
+    'AST': ['3-5-2', '4485,5365,4998,5620,6506,5119,6618,7556,6827,6204,6397', '6415,7301,4657,6496,4952,5823,7472,5888,5734,6904,7484'],
+    'SD': ['4-4-2', '2521,5514,2120,4807,6531,4465,2379,7412,5172,4359,2097', '6403,6662,5555,5862,5675,4911,5680,5791,6675,7374,7449'],
+    'MR': ['4-3-3', '6482,7485,5750,7219,5885,5687,184,7436,531,5585,7523', '7337,7534,5578,4994,7268,6372,7618,4892,6229,608,7272'],
+    'FE': ['4-3-3', '5116,4887,5526,6217,4378,6908,152,4220,2038,6052,4896', '2814,2170,7580,4664,4751,7314,4479,5036,6164,6215,2012']
+  },
+  5: {
+    'PSP': ['3-4-3', '6462,5701,5739,7599,6844,6875,7036,6274,6752,2137,4871', '7611,543,6631,554,4177,6678,5301,779,7547,6519,7622'],
+    '1': ['4-4-2', '4431,4137,4409,5833,7621,6190,4364,1870,4856,309,5995', '7626,4,7329,256,6956,7070,6010,2077,6831,2832,6434'],
+    'FE': ['3-4-3', '2170,7580,6217,4887,7314,152,6908,5500,6052,4896,2038', '5116,2814,5526,4378,4664,6666,4220,4479,6164,6215,2012'],
+    'QG': ['3-4-3', '4312,4317,4734,7414,4436,632,7078,7126,6435,5694,5637', '2815,6813,6047,7212,7235,7129,2528,5858,7001,7161,6145'],
+    'SD': ['4-3-3', '6662,2120,5675,5862,5555,2167,5172,2379,7374,2097,4359', '2521,6403,4807,6531,7253,7412,4465,4911,6675,7342,7449'],
+    'BS': ['4-4-2', '5841,7181,6495,2788,5877,536,4287,5792,5559,5951,6572', '2134,610,6632,6642,6896,5589,795,5674,6669,7623,5882'],
+    'OM': ['4-4-2', '133,2296,254,6727,6320,1933,2848,6684,4973,4463,6967', '6534,6248,6766,4263,6202,6151,6020,7551,5436,7252,2155'],
+    'MR': ['3-4-3', '6482,7485,5750,4994,6372,5687,7436,2766,7523,5585,531', '7337,7534,7268,5578,7219,184,7618,4892,6229,7272,608'],
+    'OV': ['3-4-3', '4236,4159,6021,5641,5800,6677,2765,6884,4371,7017,7554', '4360,572,4705,7069,7410,7311,6294,6252,7071,7600,7347'],
+    'AL': ['4-4-2', '6966,2816,6869,5022,7131,7223,2517,4179,2606,2764,2061', '6344,2809,6664,4976,4502,5844,5878,6783,6530,7612,7561'],
+    'MDF': ['4-3-3', '7332,5678,7220,6989,6867,1850,2423,7625,6060,4923,7023', '4964,7603,1852,7469,5010,7060,6398,22,7620,7120,7349'],
+    'AST': ['4-3-3', '6415,6496,5620,4998,7563,6618,6827,5823,6204,6397,5734', '7301,4485,4657,5365,4952,7556,7472,5119,6904,7484,5029']
+  },
+  6: {
+    '1': ['4-3-3', '4431,6956,4409,5833,7621,4777,4856,1870,309,6831,5995', '7626,4,7329,256,4137,2077,7070,6010,6646,6434,2832'],
+    'FE': ['4-3-3', '2170,7580,6217,4887,5526,7314,152,4479,6052,2038,4896', '5116,2814,4378,4664,4751,5500,5036,6666,6164,6215,2012'],
+    'AL': ['4-3-3', '6344,7131,4976,5022,2816,2517,2606,4179,2061,2764,6530', '6966,2809,4502,4210,6869,5844,6783,5878,7612,7561,4387'],
+    'BS': ['4-4-2', '2134,7181,6632,2788,5877,795,5559,5589,5792,7623,6669', '5841,610,6495,6642,6896,5674,4287,536,5951,6572,5882'],
+    'AST': ['3-4-3', '6415,5620,4998,7294,7556,7472,6618,5119,5734,6397,6204', '7301,4485,5365,6496,4657,6827,5823,5888,7484,6904,5029'],
+    'PSP': ['3-4-3', '6462,5739,5982,4177,7036,6844,6875,6274,6752,4871,2137', '7611,543,7599,5701,554,7535,5301,6678,6519,7547,7622'],
+    'MR': ['3-4-3', '6482,7219,7485,5520,7436,184,5687,6372,7523,5585,531', '7337,7534,5750,4994,7268,7618,2766,4892,608,6229,7272'],
+    'OV': ['4-3-3', '572,4159,5641,4705,4433,6677,6294,6884,7600,7071,7017', '4360,4236,6021,7410,6672,7311,5422,6252,7347,7554,4371'],
+    'MDF': ['4-4-2', '4964,1852,7220,6989,6867,2423,2194,7625,6398,6060,7023', '7332,7603,7469,5010,2724,1850,7060,22,7349,7120,7620'],
+    'SD': ['4-4-2', '2521,6531,5555,5675,2120,4465,4911,2379,2167,7374,4359', '6403,6662,5514,4807,5862,5680,5791,7412,6675,7449,7342'],
+    'QG': ['3-4-3', '4312,7414,4317,4734,4436,632,7078,7126,5637,5694,6435', '2815,6813,6042,7212,6047,7129,6680,5858,7001,7161,6145'],
+    'OM': ['4-4-2', '133,2296,254,6320,6727,1933,6684,4973,2848,6967,4463', '6534,6248,6485,6202,4263,7551,6020,6151,5436,2155,7351']
+  }
+};
 
 const toArr = (n) => (!n ? [] : (Array.isArray(n) ? n : Object.values(n))).filter(v => v !== null && v !== undefined).map(String);
 const isBye = (id) => /BYE|RIPOSO/i.test(String(id ?? ''));
@@ -174,10 +226,30 @@ function pianificaCompetizione(def, comp) {
     const realiNonBye = vecchie.filter(c => !isBye(c.homeId) && !isBye(c.awayId));
     if (realiNonBye.length !== coppie.length) cambiati++;
 
+    // Formazioni reali delle squadre in campo (giornate già giocate)
+    const formazioni = FORMAZIONI_REALI[serieA] || {};
+    const lineupsVecchie = matches[gwKey]?.lineups || {};
+    const formazioniDaScrivere = [];
+    coppie.flatMap(([h, a]) => [h, a]).forEach(teamId => {
+      const f = formazioni[teamId];
+      if (!f) return;
+      const [modulo, tit, pan] = f;
+      const titolari = tit.split(',');
+      const panchina = pan.split(',');
+      const old = lineupsVecchie[teamId];
+      if (old && old.modulo === modulo && toArr(old.titolari).join() === tit && toArr(old.panchina).join() === pan) return;
+      payload[`matches/${gwKey}/lineups/${teamId}`] = {
+        teamId, modulo, titolari, panchina,
+        kit: old?.kit === 2 ? 2 : 1,
+        timestamp: old?.timestamp || Date.now()
+      };
+      formazioniDaScrivere.push(teamId);
+    });
+
     const titolo = `${idx + 1}ª di Lega (${gwKey}) → ${serieA}ª Serie A`;
     const mappaOk = precedente === gwKey && !Object.entries(mappaVecchia).some(([r, g]) => g === gwKey && r !== String(serieA));
 
-    if (!cambiati && mappaOk) {
+    if (!cambiati && mappaOk && !formazioniDaScrivere.length) {
       log.push(`<div class="sync-ok"><i class="ri-check-line"></i> ${esc(titolo)}: già corretta.</div>`);
       return;
     }
@@ -193,6 +265,9 @@ function pianificaCompetizione(def, comp) {
       const dopo = coppie.map(([h, a, g]) => `${g ? `[${g}] ` : ''}${teamName(h)} - ${teamName(a)}`).map(esc).join(' · ');
       log.push(`<div class="sync-row"><span style="color:var(--text3)">Prima:</span> <s>${prima}</s></div>`);
       log.push(`<div class="sync-row"><span style="color:var(--text3)">Dopo:</span> <b>${dopo}</b></div>`);
+    }
+    if (formazioniDaScrivere.length) {
+      log.push(`<div class="sync-row">Formazioni reali da inserire: <b>${formazioniDaScrivere.map(teamName).map(esc).join(', ')}</b></div>`);
     }
   });
 
@@ -228,7 +303,7 @@ export const CalendarioSyncReale = {
           #syncRealeCard s { opacity: .6; }
         </style>
         <div class="label" style="color: var(--accent); font-weight: 600; border-bottom: 1px solid var(--border); padding-bottom: .5rem; margin-bottom: .75rem;"><i class="ri-git-merge-line"></i> Allinea al calendario reale (fino alla 7ª di Serie A)</div>
-        <div style="font-size: .75rem; color: var(--text3); margin-bottom: .75rem;">Imposta accoppiamenti, giornata di Serie A associata e (Space Iks Cup) composizione dei gironi come nel calendario ufficiale della lega. Le giornate successive non vengono toccate.</div>
+        <div style="font-size: .75rem; color: var(--text3); margin-bottom: .75rem;">Imposta accoppiamenti, giornata di Serie A associata e (Space Iks Cup) composizione dei gironi come nel calendario ufficiale della lega, e inserisce le formazioni reali della 4ª, 5ª e 6ª di Serie A. Le giornate successive non vengono toccate. Dopo l'applicazione, ricalcola quelle giornate dalla Dashboard.</div>
         <div id="syncRealeSelects" style="display:flex; flex-direction:column; gap:.5rem;"></div>
         <button class="btn btn-blue" style="width:100%; margin-top:.75rem;" onclick="window.anteprimaSyncReale()"><i class="ri-eye-line"></i> Anteprima modifiche</button>
         <div id="syncRealePreview" style="margin-top:.75rem;"></div>
