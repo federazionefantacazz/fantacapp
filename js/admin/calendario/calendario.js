@@ -11,10 +11,12 @@
  *   calendario-gironi.js       ← sorteggio + modifica manuale gironi
  *   calendario-regular-season.js ← generazione calendario regular season
  *   calendario-tabellone.js    ← generazione tabellone fase finale
+ *   calendario-sync-reale.js   ← allineamento al calendario reale della lega
  */
 
 import { CalendarioState } from './calendario-state.js';
 import { CalendarioUI } from './calendario-ui.js';
+import { CalendarioSyncReale } from './calendario-sync-reale.js';
 
 // Side-effect imports: registrano le funzioni window.* necessarie
 import './calendario-gironi.js';
@@ -34,12 +36,16 @@ export const CalendarioSection = {
   },
 
   renderHTML() {
-    return CalendarioUI.renderHTML();
+    return CalendarioUI.renderHTML().replace(
+      '<div class="card" id="gwMappingCard">',
+      `${CalendarioSyncReale.renderHTML()}<div class="card" id="gwMappingCard">`
+    );
   },
 
   render(state) {
     CalendarioState.setData(state);
     CalendarioUI.renderSelectCompetizioni(CalendarioState.getCompetizioniList());
+    CalendarioSyncReale.render();
     if (window.CURRENT_COMPETITION) {
       window.caricaGwMapping(window.CURRENT_COMPETITION);
     }
