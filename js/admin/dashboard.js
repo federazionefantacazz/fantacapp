@@ -19,7 +19,11 @@ export const DashboardSection = {
       };
       this._syncOnFireInputs();
     });
-    onValue(ref(this.db, 'statsMeta/giornate'), snap => { this._statsGiornate = snap.val() || {}; this._renderStatsStatus(); });
+    onValue(ref(this.db, 'statsMeta/giornate'), snap => {
+      this._statsGiornate = snap.val() || {};
+      this._renderStatsStatus();
+      this._autoSyncVotes(); // giornate appena importate: voti ufficiali in votes
+    });
     onValue(ref(this.db, 'settings/statsStatus'), snap => { this._statsStatus = snap.val(); this._renderStatsStatus(); });
     onValue(ref(this.db, 'probabili/meta'), snap => { this._probMeta = snap.val(); this._renderProbabiliStatus(); });
     onValue(ref(this.db, 'settings/probabiliStatus'), snap => { this._probStatus = snap.val(); this._renderProbabiliStatus(); });
@@ -270,7 +274,8 @@ export const DashboardSection = {
     const out = {};
     Object.entries(playerStats || {}).forEach(([id, giornate]) => {
       const e = giornate?.[`g${gw}`];
-      if (!e || (e.s !== 't' && e.s !== 's')) return; // infortunato/squalificato/non a referto
+      if (!e || e.s === 'i' || e.s === 'q') return;                    // infortunato / squalificato
+      if (typeof e.v !== 'number' && !e.sv && e.s !== 't' && e.s !== 's') return; // non ha giocato
       const sv = !!e.sv || typeof e.v !== 'number';
       const row = { voto: sv ? 0 : e.v, uff: 1 };
       if (sv) row.sv = 1;
@@ -300,8 +305,45 @@ export const DashboardSection = {
       const votes = this._votesDaStatistiche(playerStats, g);
       if (Object.keys(votes).length >= 100) updates[`votes/gw${g}`] = votes; // giornata vera, non un residuo
     });
+    const scartate = importate.filter(g => !updates[`votes/gw${g}`]);
+    if (scartate.length) console.warn(`Statistiche insufficienti per riscrivere i voti delle giornate ${scartate.join(', ')}`);
     if (Object.keys(updates).length) await update(ref(this.db), updates);
     return Object.keys(updates).map(k => Number(k.replace(/\D/g, '')));
+  },
+
+  /**
+   * Allineamento automatico: per ogni giornata con le statistiche ufficiali importate
+   * (statsMeta) che è nuova o è stata reimportata, oppure i cui voti non sono ancora
+   * quelli ufficiali (nessun "uff"), riscrive votes/gw{n} dalle statistiche.
+   * Così non dipende dai tempi della Cloud Function né dalla sua versione.
+   */
+  async _autoSyncVotes() {
+    if (!this.db || this._autoSyncRunning) { this._autoSyncAgain = true; return; }
+    this._autoSyncRunning = true;
+    try {
+      const meta = this._statsGiornate || {};
+      this._syncedAt = this._syncedAt || {};
+      const daFare = [];
+      for (const g of Object.keys(meta).map(Number).filter(n => n >= 1)) {
+        const at = Number(meta[g]?.at) || 0;
+        if (this._syncedAt[g] === at) continue; // già allineata con questo import
+        const votes = (await get(ref(this.db, `votes/gw${g}`))).val() || {};
+        const ufficiali = Object.values(votes).some(v => v && v.uff);
+        if (!ufficiali || (this._syncedAt[g] !== undefined && this._syncedAt[g] !== at)) daFare.push(g);
+        else this._syncedAt[g] = at;
+      }
+      for (const g of daFare) {
+        const fatte = await this._sincronizzaVotes(g, g);
+        this._syncedAt[g] = Number(meta[g]?.at) || 0;
+        if (fatte.length) console.info(`Voti ufficiali della ${g}ª giornata riscritti dalle statistiche`);
+      }
+      if (daFare.length) window.toast?.(`Voti ufficiali aggiornati: giornate ${daFare.join(', ')}`, "ok");
+    } catch (err) {
+      console.error('Allineamento voti ufficiali:', err);
+    } finally {
+      this._autoSyncRunning = false;
+      if (this._autoSyncAgain) { this._autoSyncAgain = false; this._autoSyncVotes(); }
+    }
   },
 
   /** Elenco delle competizioni che verranno calcolate per la giornata di Serie A scelta */
