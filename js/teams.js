@@ -42,8 +42,8 @@ export const TeamsPage = {
           <div id="team-roster-container"></div>
         </div>
 
-        <div id="club-info-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(10,15,30,0.85); backdrop-filter:blur(8px); z-index:2000; padding:2rem 1.5rem; box-sizing:border-box; align-items:center; justify-content:center;">
-          <div class="card" style="width:100%; max-width:450px; max-height:85vh; overflow-y:auto; position:relative; background:var(--card); border:1px solid rgba(255,255,255,0.1); animation: fadeIn 0.2s ease-out;">
+        <div id="club-info-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--overlay-bg, rgba(10,15,30,0.85)); backdrop-filter:blur(8px); z-index:2000; padding:2rem 1.5rem; box-sizing:border-box; align-items:center; justify-content:center;">
+          <div class="card" style="width:100%; max-width:450px; max-height:85vh; overflow-y:auto; position:relative; background:var(--card); border:1px solid var(--border); animation: fadeIn 0.2s ease-out;">
             <button class="btn btn-outline" id="close-info-modal" style="position:absolute; top:1rem; right:1rem; width:auto; padding:.4rem .6rem; font-size:.75rem;">Chiudi</button>
             <div id="club-info-content" style="margin-top:1.5rem;"></div>
           </div>
@@ -203,7 +203,7 @@ export const TeamsPage = {
               : `<i class="ri-trophy-fill" style="font-size:1.5rem;color:var(--gold)"></i>`;
 
             return `
-              <div style="background:var(--bg3); border:1px solid rgba(255,255,255,0.06); padding:.6rem .8rem; border-radius:10px; display:flex; align-items:center; gap:.8rem;">
+              <div style="background:var(--bg3); border:1px solid var(--border); padding:.6rem .8rem; border-radius:10px; display:flex; align-items:center; gap:.8rem;">
                 <div style="width:50px; height:50px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                   ${imgHtml}
                 </div>

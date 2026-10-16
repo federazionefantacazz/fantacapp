@@ -72,6 +72,17 @@ const SHEET_BG = { key: 'bg', css: '--bg', kind: 'color', def: '#1a1e24', label:
 
 const withGroup = (group, fields) => fields.map(f => ({ ...f, group }));
 
+/* Card dei giocatori: On Fire in Home, rosa in Squadre, righe del Live, scelta giocatore in Formazione */
+const PCARD_FIELDS = [
+  { key: 'pcardBg',     css: '--pcard-bg',     kind: 'text', def: '#333a46', label: 'Card giocatori · sfondo',
+    hint: 'Card dei giocatori: On Fire, rosa in Squadre, Live, scelta giocatore (vuoto = come Righe dentro le schede)' },
+  { key: 'pcardBorder', css: '--pcard-border', kind: 'text', def: 'rgba(255,255,255,0.05)', label: 'Card giocatori · bordo',
+    hint: 'Bordo delle card dei giocatori (vuoto = come prima)' }
+];
+/* Velo scuro dietro le finestre che si aprono sopra le pagine */
+const OVERLAY_BG = { key: 'overlay', css: '--overlay-bg', kind: 'text', def: 'rgba(5,8,15,0.65)', label: 'Velo dietro',
+  hint: 'Colore sopra la pagina dietro la finestra (vuoto = come prima)' };
+
 /* Solo in "general": superfici, evidenze, ruoli, pulsanti secondari */
 const GENERAL_ONLY_FIELDS = [
   ...withGroup('Sfondi e superfici', [
@@ -81,8 +92,10 @@ const GENERAL_ONLY_FIELDS = [
     { key: 'card',    css: '--card',       kind: 'color', def: '#282e37',                hint: 'Schede' },
     { key: 'card2',   css: '--card2',      kind: 'color', def: '#333a46',                hint: 'Righe e sub-box dentro le schede' },
     { key: 'subbox',  css: '--subbox-bg',  kind: 'text',  def: 'rgba(0,0,0,0.25)',       hint: 'Pannelli trasparenti (home e classifica)' },
-    { key: 'border',  css: '--border',     kind: 'text',  def: 'rgba(255,255,255,0.08)', hint: 'Bordi, righe e separatori' }
+    { key: 'border',  css: '--border',     kind: 'text',  def: 'rgba(255,255,255,0.08)', hint: 'Bordi, righe e separatori' },
+    { ...OVERLAY_BG, label: undefined, hint: 'Velo scuro dietro menu laterale e finestre (scheda giocatore, scelta giocatore, popup)' }
   ]),
+  ...withGroup('Card giocatori', PCARD_FIELDS),
   ...withGroup('Altri testi e pulsanti', [
     { key: 'btnSecondary',     css: '--btn-secondary',      kind: 'color', def: '#3a4352', hint: 'Pulsante secondario' },
     { key: 'btnSecondaryText', css: '--btn-secondary-text', kind: 'color', def: '#e2e8f0', hint: 'Testo sul pulsante secondario' },
@@ -223,6 +236,7 @@ export const THEME_PAGES = [
   { key: 'home',        label: 'Home',         selector: '#page-home',        desc: 'Schermata principale.',
     fields: [
       ...CONTENT_TYPES,
+      ...PCARD_FIELDS,
       { key: 'teamName',  css: '--team-name',  kind: 'color', def: '#e2e8f0', label: 'Nome squadra', hint: 'Nome della tua squadra in alto (vuoto = come Testi)',
         font: { key: 'teamNameFont', css: '--font-team-name', def: "'Bebas Neue', sans-serif", defLabel: 'Bebas Neue' } },
       { key: 'teamOwner', css: '--team-owner', kind: 'color', def: '#94a3b8', label: 'Allenatore',   hint: 'Nome dell\'allenatore sotto il nome della squadra (vuoto = come Sottotesti)',
@@ -244,8 +258,8 @@ export const THEME_PAGES = [
   { key: 'classifica',  label: 'Classifica',   selector: '#page-classifica',  desc: 'Classifica e tabellone.',     fields: CONTENT_TYPES },
   { key: 'formazione',  label: 'Formazione',   selector: '#page-formazione',  desc: 'Schieramento formazione.',    fields: CONTENT_TYPES },
   { key: 'mercato',     label: 'Mercato',      selector: '#page-mercato',     desc: 'Scambi e prestiti.',          fields: CONTENT_TYPES },
-  { key: 'teams',       label: 'Squadre',      selector: '#page-teams',       desc: 'Elenco squadre e scheda club.', fields: CONTENT_TYPES },
-  { key: 'live',        label: 'Live',         selector: '#page-live',        desc: 'Partita in diretta.',         fields: CONTENT_TYPES },
+  { key: 'teams',       label: 'Squadre',      selector: '#page-teams',       desc: 'Elenco squadre e scheda club.', fields: [...CONTENT_TYPES, ...PCARD_FIELDS] },
+  { key: 'live',        label: 'Live',         selector: '#page-live',        desc: 'Partita in diretta.',         fields: [...CONTENT_TYPES, ...PCARD_FIELDS] },
   { key: 'kitZoom', label: 'Zoom maglia', selector: '.kit-zoom',
     desc: 'Finestra a tutto schermo con la maglia ingrandita (pulsante lente nell\'editor della divisa).',
     fields: [
@@ -266,14 +280,14 @@ export const THEME_PAGES = [
       { key: 'accent',  css: '--accent',     kind: 'color', def: '#50e3c2', label: 'Selezione', hint: 'Bordo e spunta della scelta attiva (vuoto = Evidenza principale)' }
     ] },
   { key: 'liveEditor',  label: 'Modifica voto (Live)', selector: '#lv-editor',
-    desc: 'Finestra per simulare voto e bonus di un giocatore nel Live.', fields: [SHEET_BG, ...CONTENT_TYPES] },
+    desc: 'Finestra per simulare voto e bonus di un giocatore nel Live.', fields: [SHEET_BG, OVERLAY_BG, ...CONTENT_TYPES] },
   { key: 'matchViewer', label: 'Partita (replay)',     selector: '#match-viewer',
     desc: 'Replay delle giornate passate e formazioni schierate (aperto da Home e Calendario).', fields: [SHEET_BG, ...CONTENT_TYPES] },
   { key: 'formPicker',  label: 'Scelta giocatore',     selector: '.fp-overlay',
-    desc: 'Finestra di scelta del giocatore in Formazione (con le probabili formazioni).', fields: [SHEET_BG, ...CONTENT_TYPES] },
+    desc: 'Finestra di scelta del giocatore in Formazione (con le probabili formazioni).', fields: [SHEET_BG, OVERLAY_BG, ...CONTENT_TYPES, ...PCARD_FIELDS] },
   { key: 'playerCard',  label: 'Scheda giocatore',     selector: '#pc-overlay',
     desc: 'Scheda con statistiche e voti del giocatore (si apre toccando un giocatore).',
-    fields: [SHEET_BG, ...CONTENT_TYPES, { key: 'accent', css: '--accent', kind: 'color', def: '#50e3c2', label: 'Evidenze', hint: 'Media, selezione giornata, alone della foto (vuoto = come Generale)' }] },
+    fields: [SHEET_BG, OVERLAY_BG, ...CONTENT_TYPES, { key: 'accent', css: '--accent', kind: 'color', def: '#50e3c2', label: 'Evidenze', hint: 'Media, selezione giornata, alone della foto (vuoto = come Generale)' }] },
   { key: 'patron',      label: 'Patron',       selector: 'body.page-patron',  desc: 'Pannello Patron (admin.html).', fields: CONTENT_TYPES }
 ];
 

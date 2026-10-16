@@ -174,13 +174,13 @@ export const FormazionePage = {
 
         /* ===== Box scelta giocatore ===== */
         .fp-overlay {
-          position: fixed; inset: 0; z-index: 9999; background: rgba(5,8,15,.65);
+          position: fixed; inset: 0; z-index: 9999; background: var(--overlay-bg, rgba(5,8,15,.65));
           backdrop-filter: blur(3px); display: none; align-items: flex-end; justify-content: center;
         }
         .fp-overlay.open { display: flex; }
         .fp-sheet {
           width: 100%; max-width: 560px; max-height: 85vh; display: flex; flex-direction: column;
-          background: var(--bg, #181c22); border: 1px solid rgba(255,255,255,.08);
+          background: var(--bg, #181c22); border: 1px solid var(--border);
           border-radius: 18px 18px 0 0; box-shadow: 0 -10px 40px rgba(0,0,0,.5);
           padding-bottom: env(safe-area-inset-bottom, 0px); animation: fpUp .18s ease-out;
         }
@@ -189,7 +189,7 @@ export const FormazionePage = {
           .fp-sheet { border-radius: 18px; }
         }
         @keyframes fpUp { from { transform: translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
-        .fp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; padding: 1rem 1rem .6rem; border-bottom: 1px solid rgba(255,255,255,.06); }
+        .fp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; padding: 1rem 1rem .6rem; border-bottom: 1px solid var(--border); }
         .fp-title { font-weight: 700; font-size: .95rem; color: var(--text); display: flex; align-items: center; }
         .fp-sub { font-size: .72rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-top: 3px; }
         .fp-close { background: var(--bg2); border: none; color: var(--text); width: 32px; height: 32px; border-radius: 50%; font-size: 1.1rem; cursor: pointer; flex-shrink: 0; }
@@ -199,7 +199,7 @@ export const FormazionePage = {
         .fp-empty { text-align: center; color: var(--text3); font-family: var(--font-text3, inherit); padding: 2rem 1rem; font-size: .85rem; }
         .fp-row {
           display: flex; align-items: center; gap: .65rem; padding: .55rem .65rem;
-          background: var(--bg2); border: 1px solid rgba(255,255,255,.05); border-radius: 12px;
+          background: var(--pcard-bg, var(--bg2)); border: 1px solid var(--pcard-border, rgba(255,255,255,.05)); border-radius: 12px;
           cursor: pointer; transition: background .12s, transform .08s;
         }
         .fp-row:hover { background: var(--bg3); }
