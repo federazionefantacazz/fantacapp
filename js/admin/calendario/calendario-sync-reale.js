@@ -152,6 +152,59 @@ function abbinaGironi(gironiReali, strutturaEsistente) {
   return res;
 }
 
+/**
+ * Aggiunge a `payload` le formazioni reali della giornata di Serie A `serieA` per le squadre indicate,
+ * saltando quelle già identiche. Ritorna gli ID delle squadre la cui formazione va scritta.
+ */
+function pianificaFormazioni(gwNode, gwKey, serieA, teamIds, payload) {
+  const formazioni = FORMAZIONI_REALI[serieA] || {};
+  const lineupsVecchie = gwNode?.lineups || {};
+  const scritte = [];
+  [...new Set(teamIds.map(String))].forEach(teamId => {
+    const f = formazioni[teamId];
+    if (!f) return;
+    const [modulo, tit, pan] = f;
+    const old = lineupsVecchie[teamId];
+    if (old && old.modulo === modulo && toArr(old.titolari).join() === tit && toArr(old.panchina).join() === pan) return;
+    payload[`matches/${gwKey}/lineups/${teamId}`] = {
+      teamId, modulo,
+      titolari: tit.split(','),
+      panchina: pan.split(','),
+      kit: old?.kit === 2 ? 2 : 1,
+      timestamp: old?.timestamp || Date.now()
+    };
+    scritte.push(teamId);
+  });
+  return scritte;
+}
+
+/**
+ * Competizioni non gestite sopra: inserisce le formazioni reali in ogni giornata associata
+ * a una giornata di Serie A già giocata, per le squadre che vi hanno un incontro.
+ */
+function pianificaAltraCompetizione(comp) {
+  const log = [];
+  const payload = {};
+  const mappa = normalizzaMappa(comp.associazioniGwReali || comp.associazioniGwRealiMap);
+  Object.keys(FORMAZIONI_REALI).forEach(serieA => {
+    const gwKey = mappa[String(serieA)];
+    const gwNode = gwKey ? comp.matches?.[gwKey] : null;
+    if (!gwNode) return;
+    const teamIds = Object.values(gwNode.couples || {}).filter(Boolean)
+      .flatMap(c => [c.homeId, c.awayId])
+      .filter(id => id && !isBye(id) && !String(id).startsWith('VINCENTE_'));
+    const scritte = pianificaFormazioni(gwNode, gwKey, serieA, teamIds, payload);
+    const titolo = `${gwKey} → ${serieA}ª Serie A`;
+    if (scritte.length) {
+      log.push(`<div class="sync-chg"><i class="ri-edit-line"></i> ${esc(titolo)}</div>`);
+      log.push(`<div class="sync-row">Formazioni reali da inserire: <b>${scritte.map(teamName).map(esc).join(', ')}</b></div>`);
+    } else if (teamIds.length) {
+      log.push(`<div class="sync-ok"><i class="ri-check-line"></i> ${esc(titolo)}: formazioni già inserite.</div>`);
+    }
+  });
+  return { payload, log, avvisi: [] };
+}
+
 /** Calcola tutte le scritture per una competizione + un riepilogo leggibile delle differenze. */
 function pianificaCompetizione(def, comp) {
   const log = [];
@@ -227,24 +280,7 @@ function pianificaCompetizione(def, comp) {
     if (realiNonBye.length !== coppie.length) cambiati++;
 
     // Formazioni reali delle squadre in campo (giornate già giocate)
-    const formazioni = FORMAZIONI_REALI[serieA] || {};
-    const lineupsVecchie = matches[gwKey]?.lineups || {};
-    const formazioniDaScrivere = [];
-    coppie.flatMap(([h, a]) => [h, a]).forEach(teamId => {
-      const f = formazioni[teamId];
-      if (!f) return;
-      const [modulo, tit, pan] = f;
-      const titolari = tit.split(',');
-      const panchina = pan.split(',');
-      const old = lineupsVecchie[teamId];
-      if (old && old.modulo === modulo && toArr(old.titolari).join() === tit && toArr(old.panchina).join() === pan) return;
-      payload[`matches/${gwKey}/lineups/${teamId}`] = {
-        teamId, modulo, titolari, panchina,
-        kit: old?.kit === 2 ? 2 : 1,
-        timestamp: old?.timestamp || Date.now()
-      };
-      formazioniDaScrivere.push(teamId);
-    });
+    const formazioniDaScrivere = pianificaFormazioni(matches[gwKey], gwKey, serieA, coppie.flatMap(([h, a]) => [h, a]), payload);
 
     const titolo = `${idx + 1}ª di Lega (${gwKey}) → ${serieA}ª Serie A`;
     const mappaOk = precedente === gwKey && !Object.entries(mappaVecchia).some(([r, g]) => g === gwKey && r !== String(serieA));
@@ -303,7 +339,7 @@ export const CalendarioSyncReale = {
           #syncRealeCard s { opacity: .6; }
         </style>
         <div class="label" style="color: var(--accent); font-weight: 600; border-bottom: 1px solid var(--border); padding-bottom: .5rem; margin-bottom: .75rem;"><i class="ri-git-merge-line"></i> Allinea al calendario reale (fino alla 7ª di Serie A)</div>
-        <div style="font-size: .75rem; color: var(--text3); margin-bottom: .75rem;">Imposta accoppiamenti, giornata di Serie A associata e (Space Iks Cup) composizione dei gironi come nel calendario ufficiale della lega, e inserisce le formazioni reali della 4ª, 5ª e 6ª di Serie A. Le giornate successive non vengono toccate. Dopo l'applicazione, ricalcola quelle giornate dalla Dashboard.</div>
+        <div style="font-size: .75rem; color: var(--text3); margin-bottom: .75rem;">Imposta accoppiamenti, giornata di Serie A associata e (Space Iks Cup) composizione dei gironi come nel calendario ufficiale della lega, e inserisce le formazioni reali della 4ª, 5ª e 6ª di Serie A in tutte le competizioni che giocano quelle giornate. Le giornate successive non vengono toccate. Dopo l'applicazione, ricalcola quelle giornate dalla Dashboard.</div>
         <div id="syncRealeSelects" style="display:flex; flex-direction:column; gap:.5rem;"></div>
         <button class="btn btn-blue" style="width:100%; margin-top:.75rem;" onclick="window.anteprimaSyncReale()"><i class="ri-eye-line"></i> Anteprima modifiche</button>
         <div id="syncRealePreview" style="margin-top:.75rem;"></div>
@@ -351,6 +387,15 @@ async function calcolaPiano() {
     const comp = { id: compId, ...snap.val() };
     piano.push({ def, compId, comp, ...pianificaCompetizione(def, comp) });
   }
+
+  // Tutte le altre competizioni: stesse formazioni nelle giornate di Serie A già giocate
+  const tutte = (await get(ref(database, 'competitions'))).val() || {};
+  Object.entries(tutte).forEach(([compId, data]) => {
+    if (ids.includes(compId) || !data) return;
+    const comp = { id: compId, ...data };
+    const p = pianificaAltraCompetizione(comp);
+    if (p.log.length) piano.push({ def: { label: 'solo formazioni' }, compId, comp, ...p });
+  });
   return piano;
 }
 
