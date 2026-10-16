@@ -36,7 +36,7 @@ export const FormazionePage = {
           <div id="titolari-field-slots"></div>
         </div>
 
-        <div class="label" style="margin-bottom: .5rem; color: var(--gold); margin-top: 1.5rem; display: flex; align-items: center; gap: 0.4rem;"><i class="ri-user-shared-line"></i> PANCHINA (1 P | 2 D | 2 C | 2 A)</div>
+        <div class="label" style="margin-bottom: .5rem; color: var(--gold); margin-top: 1.5rem; display: flex; align-items: center; gap: 0.4rem;"><i class="ri-user-shared-line"></i> PANCHINA (2 P | 3 D | 3 C | 3 A)</div>
         <div id="panchina-slots" style="display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1rem;"></div>
 
         <div id="f-kit-pick"></div>
@@ -402,7 +402,7 @@ export const FormazionePage = {
     }
 
     this.drawFieldTitolari(def, mid, att, miaRosa, savedTitolariIds);
-    const schemaPan = [{role:'P', count:1}, {role:'D', count:2}, {role:'C', count:2}, {role:'A', count:2}];
+    const schemaPan = [{role:'P', count:2}, {role:'D', count:3}, {role:'C', count:3}, {role:'A', count:3}];
     this.drawSchemaPanchina('panchina-slots', schemaPan, 'pan', miaRosa, savedPanchinaIds);
 
     this.refreshAllDropdowns(miaRosa);
@@ -893,7 +893,7 @@ export const FormazionePage = {
     titS.forEach(s => { if(s.value) titIds.push(s.value); });
     panS.forEach(s => { if(s.value) panIds.push(s.value); });
 
-    if (titIds.length < 11 || panIds.length < 7) { 
+    if (titIds.length < 11 || panIds.length < 11) { 
       window.showToast(`Completa tutta la formazione (titolari e panchina) prima di salvare!`, 'err'); 
       return; 
     }
