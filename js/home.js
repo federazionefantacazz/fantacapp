@@ -272,7 +272,7 @@ export const HomePage = {
       if (tn) { tn.textContent = "Spettatore"; watchTeamName(tn); }
       if (to) to.textContent = STATE.user.email;
       if (onFireTitle) onFireTitle.textContent = `Giocatori On Fire`;
-      if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:52px; height:52px; background:var(--bg3); border:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-eye-line" style="font-size:1.5rem; color:var(--text2);font-family:var(--font-sub,inherit)"></i></div>`;
+      if (teamLogoContainer) teamLogoContainer.innerHTML = `<div style="width:52px; height:52px; background:var(--bg3); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; border-radius:8px;"><i class="ri-eye-line" style="font-size:1.5rem; color:var(--text2);font-family:var(--font-sub,inherit)"></i></div>`;
       if (trophiesContainer) trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3); font-family: var(--font-text3, inherit);">--</span>`;
       if (miniClassificaBox) miniClassificaBox.innerHTML = `<div style="font-size: 0.7rem; color: var(--text3); font-family: var(--font-text3, inherit);">Non associato a una squadra.</div>`;
       if (kitBox) { kitBox.dataset.key = ''; kitBox.innerHTML = ''; }
@@ -389,7 +389,7 @@ export const HomePage = {
             : badge;
 
           return `
-            <div class="pcard" style="background:var(--card2); border: 1px solid rgba(255,255,255,0.05); margin-bottom: 0.4rem;">
+            <div class="pcard" style="border-color: var(--pcard-border, rgba(255,255,255,0.05)); margin-bottom: 0.4rem;">
               <div style="font-family:'DM Mono',monospace; font-size:.7rem; color:var(--text3); width:14px; text-align:center;">${i + 1}</div>
               ${photoHtml}
               <div class="pi" style="flex:1; min-width:0;">

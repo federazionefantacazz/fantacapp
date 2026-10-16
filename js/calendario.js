@@ -45,7 +45,7 @@ export const CalendarioPage = {
     document.getElementById('cal-popup')?.remove();
     const el = document.createElement('div');
     el.id = 'cal-popup';
-    el.style.cssText = 'position:fixed;inset:0;z-index:6000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:1.5rem;';
+    el.style.cssText = 'position:fixed;inset:0;z-index:6000;background:var(--overlay-bg, rgba(0,0,0,.6));display:flex;align-items:center;justify-content:center;padding:1.5rem;';
     el.innerHTML = `
       <div class="card" style="max-width:340px;width:100%;text-align:center;padding:1.5rem;">
         <div style="font-size:2rem;color:var(--text2);font-family:var(--font-sub,inherit);margin-bottom:.5rem;"><i class="ri-lock-line"></i></div>

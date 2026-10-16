@@ -298,9 +298,9 @@ export const PlayerCard = {
 
   _css() {
     return `
-#pc-overlay{position:fixed;inset:0;z-index:10050;background:rgba(5,8,15,.7);backdrop-filter:blur(3px);display:none;align-items:flex-end;justify-content:center}
+#pc-overlay{position:fixed;inset:0;z-index:10050;background:var(--overlay-bg, rgba(5,8,15,.7));backdrop-filter:blur(3px);display:none;align-items:flex-end;justify-content:center}
 #pc-overlay.open{display:flex}
-#pc-overlay .pc-sheet{width:100%;max-width:560px;max-height:92vh;overflow-y:auto;background:var(--bg,#1a1e24);border:1px solid rgba(255,255,255,.08);border-radius:20px 20px 0 0;padding-bottom:calc(1rem + env(safe-area-inset-bottom,0px));animation:pcUp .2s ease-out;outline:none}
+#pc-overlay .pc-sheet{width:100%;max-width:560px;max-height:92vh;overflow-y:auto;background:var(--bg,#1a1e24);border:1px solid var(--border);border-radius:20px 20px 0 0;padding-bottom:calc(1rem + env(safe-area-inset-bottom,0px));animation:pcUp .2s ease-out;outline:none}
 @media (min-width:700px){#pc-overlay{align-items:center}#pc-overlay .pc-sheet{border-radius:20px}}
 @media (prefers-reduced-motion:reduce){#pc-overlay .pc-sheet{animation:none}}
 @keyframes pcUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
@@ -316,7 +316,7 @@ export const PlayerCard = {
 .pc-name{font-family:'Bebas Neue',sans-serif;font-size:2.3rem;line-height:1;letter-spacing:.5px;margin:.25rem 0;color:var(--text);word-break:break-word}
 .pc-club{font-size:.82rem;color:var(--text2);font-family:var(--font-sub,inherit)}
 .pc-owner{display:inline-block;margin-left:.35rem;padding:1px 8px;border-radius:10px;background:var(--bg2);color:var(--gold);font-size:.72rem}
-.pc-next{padding:.6rem 1.2rem;font-size:.78rem;color:var(--text2);font-family:var(--font-sub,inherit);border-bottom:1px solid rgba(255,255,255,.05)}
+.pc-next{padding:.6rem 1.2rem;font-size:.78rem;color:var(--text2);font-family:var(--font-sub,inherit);border-bottom:1px solid var(--border)}
 .pc-next b{color:var(--text)}
 .pc-chip{display:inline-block;margin-left:.3rem;padding:0 7px;border-radius:9px;font-size:.66rem;font-weight:700;color:var(--c);border:1px solid var(--c);background:color-mix(in srgb,var(--c) 14%,transparent)}
 .pc-loading,.pc-empty{padding:2rem 1.2rem;text-align:center;color:var(--text2);font-family:var(--font-sub,inherit);font-size:.85rem}
@@ -330,7 +330,7 @@ export const PlayerCard = {
 .pc-avg{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:.9rem 0 .6rem}
 .pc-avg>div{display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;padding:.55rem .8rem;border-radius:12px;background:var(--bg2)}
 .pc-extra{display:grid;grid-template-columns:1fr 1fr;column-gap:1.2rem}
-.pc-extra>div{display:flex;align-items:center;gap:.45rem;padding:.45rem 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.pc-extra>div{display:flex;align-items:center;gap:.45rem;padding:.45rem 0;border-bottom:1px solid var(--border)}
 .pc-extra .pc-lab{flex:1}
 .pc-extra b{font-weight:700;color:var(--text);font-size:.9rem}
 .pc-card{width:10px;height:14px;border-radius:2px;display:inline-block}
