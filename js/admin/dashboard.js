@@ -164,13 +164,18 @@ export const DashboardSection = {
             Voto, gol, assist, cartellini, rigori, gol subiti, titolare/subentrato di ogni giornata. I voti ufficiali
             <strong>sostituiscono i voti live</strong> della giornata (votes) e sono quelli usati dal calcolo qui sotto.
             L'import parte da solo quando il live vede finite tutte le partite e riprova finché fantacalcio.it non pubblica la giornata completa.
-            Con il pulsante lo forzi (es. ricalcoli o partite rinviate): poi rilancia il calcolo della giornata.
+            Il pulsante importa le giornate <strong>concluse</strong> (di default fino a quella prima della giornata attiva) e
+            riscrive subito i voti di tutte le giornate già importate partendo dalle statistiche salvate (senza nuove richieste a fantacalcio.it).
           </p>
           <div id="dashboard-stats-status" style="font-size: .8rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-bottom: .8rem;">Caricamento...</div>
           <div style="display:flex; gap:.5rem; align-items:center;">
             <input type="number" id="statsGwInput" class="input-login" min="1" max="38" placeholder="Giornata" style="margin:0; padding:.6rem; max-width:110px;">
             <button class="btn btn-blue" style="flex:1;" onclick="window.importaStatisticheOra()"><i class="ri-download-line"></i> Importa voti ufficiali fino a questa giornata</button>
           </div>
+          <label style="display:flex; gap:.45rem; align-items:center; margin-top:.6rem; font-size:.75rem; color: var(--text2); cursor:pointer;">
+            <input type="checkbox" id="statsForza" style="width:16px; height:16px; accent-color: var(--accent);">
+            Importa anche se l'ultima giornata è incompleta (partita rinviata)
+          </label>
         </div>
 
         <div class="card" style="max-width: 500px;">
@@ -198,6 +203,7 @@ export const DashboardSection = {
 
   render(state) {
     this._competitions = state.competitions || [];
+    this._currentRealGw = Number(state.CURRENT_REAL_GW) || 0;
 
     const selectEl = document.getElementById('realGwSelect');
     if (selectEl && selectEl.options.length === 0) {
@@ -242,6 +248,60 @@ export const DashboardSection = {
       if (!calcSel.dataset.userEdited && cur >= 1) calcSel.value = String(cur);
       this._renderCalcPreview();
     }
+
+    // Import voti ufficiali: di default l'ultima giornata conclusa (quella prima della giornata attiva)
+    const statsInput = document.getElementById('statsGwInput');
+    if (statsInput && !statsInput.dataset.userEdited) {
+      const cur = Number(state.CURRENT_REAL_GW) || 0;
+      if (cur > 1) statsInput.value = String(cur - 1);
+    }
+  },
+
+  /**
+   * Voti ufficiali di una giornata (formato di votes/gw{n}) a partire dalle statistiche
+   * playerStats/{id}/g{n} già importate: nessuna richiesta a fantacalcio.it.
+   * Stessi campi scritti dalla Cloud Function (stats.js -> buildVotes).
+   */
+  _votesDaStatistiche(playerStats, gw) {
+    const CAMPI = {
+      gf: 'gol', rf: 'rigore_segnato', ass: 'assist', amm: 'ammonizione', esp: 'espulsione',
+      au: 'autogol', rp: 'rigore_parato', rs: 'rigore_sbagliato', gs: 'gol_subito'
+    };
+    const out = {};
+    Object.entries(playerStats || {}).forEach(([id, giornate]) => {
+      const e = giornate?.[`g${gw}`];
+      if (!e || (e.s !== 't' && e.s !== 's')) return; // infortunato/squalificato/non a referto
+      const sv = !!e.sv || typeof e.v !== 'number';
+      const row = { voto: sv ? 0 : e.v, uff: 1 };
+      if (sv) row.sv = 1;
+      Object.entries(CAMPI).forEach(([k, campo]) => { if (e[k]) row[campo] = e[k]; });
+      if (e.s === 's') row.in = 1;
+      if (e.out) row.out = 1;
+      out[id] = row;
+    });
+    return out;
+  },
+
+  /**
+   * Riscrive votes/gw{n} con i voti ufficiali per tutte le giornate già importate (statsMeta)
+   * fino a upTo (o solo per `solo`). Ritorna l'elenco delle giornate riscritte.
+   */
+  async _sincronizzaVotes(upTo, solo = null) {
+    const [metaSnap, statsSnap] = await Promise.all([
+      get(ref(this.db, 'statsMeta/giornate')),
+      get(ref(this.db, 'playerStats'))
+    ]);
+    const importate = Object.keys(metaSnap.val() || {}).map(Number)
+      .filter(g => g >= 1 && (solo ? g === solo : g <= upTo))
+      .sort((a, b) => a - b);
+    const playerStats = statsSnap.val() || {};
+    const updates = {};
+    importate.forEach(g => {
+      const votes = this._votesDaStatistiche(playerStats, g);
+      if (Object.keys(votes).length >= 100) updates[`votes/gw${g}`] = votes; // giornata vera, non un residuo
+    });
+    if (Object.keys(updates).length) await update(ref(this.db), updates);
+    return Object.keys(updates).map(k => Number(k.replace(/\D/g, '')));
   },
 
   /** Elenco delle competizioni che verranno calcolate per la giornata di Serie A scelta */
@@ -507,14 +567,28 @@ export const DashboardSection = {
       if (!this.db) return console.error("Database non inizializzato");
       const gw = parseInt(document.getElementById('statsGwInput')?.value, 10);
       if (!(gw >= 1 && gw <= 38)) return window.toast("Indica una giornata di Serie A tra 1 e 38", "err");
+      const forza = !!document.getElementById('statsForza')?.checked;
+      const attiva = this._currentRealGw || 0;
+      if (attiva && gw >= attiva && !forza && !confirm(
+        `La ${gw}ª giornata non risulta conclusa (la giornata attiva è la ${attiva}ª).\n` +
+        `Se i voti non sono ancora tutti pubblicati l'import di quella giornata verrà riprovato più tardi. Continuare?`)) return;
       try {
-        await this._richiediStatistiche(gw, true);
-        window.toast(`Richiesta inviata: voti ufficiali e statistiche fino alla ${gw}ª giornata`, "ok");
+        // 1. Voti delle giornate già importate: riscritti subito dalle statistiche salvate
+        const riscritte = await this._sincronizzaVotes(gw);
+        // 2. Giornate mancanti (e l'ultima, se richiesta di nuovo): le scarica la Cloud Function
+        await this._richiediStatistiche(gw, forza);
+        window.toast(riscritte.length
+          ? `Voti ufficiali riscritti (giornate ${riscritte.join(', ')}); import fino alla ${gw}ª richiesto`
+          : `Richiesto import dei voti ufficiali fino alla ${gw}ª giornata`, "ok");
       } catch (err) {
         console.error(err);
-        window.toast("Errore nell'invio della richiesta", "err");
+        window.toast("Errore durante l'aggiornamento dei voti ufficiali", "err");
       }
     };
+
+    document.addEventListener('input', (e) => {
+      if (e.target.id === 'statsGwInput') e.target.dataset.userEdited = "true";
+    });
 
     window.aggiornaProbabiliOra = async () => {
       if (!this.db) return console.error("Database non inizializzato");
@@ -564,16 +638,23 @@ export const DashboardSection = {
       if (!(gwSerieA >= 1 && gwSerieA <= 38)) return window.toast("Scegli la giornata di Serie A da calcolare", "err");
 
       try {
-        // 1. Voti della giornata di Serie A (unici per tutte le competizioni)
+        // 1. Voti della giornata di Serie A (unici per tutte le competizioni).
+        //    Se la giornata ha le statistiche ufficiali ma i voti sono ancora quelli live
+        //    (o inseriti a mano), prima li riscrivo con i voti ufficiali.
         const votesPath = `votes/gw${gwSerieA}`;
-        const votesSnap = await get(ref(this.db, votesPath));
+        let votesSnap = await get(ref(this.db, votesPath));
+        const haUfficiali = (await get(ref(this.db, `statsMeta/giornate/${gwSerieA}`))).exists();
+        const giaUfficiali = Object.values(votesSnap.val() || {}).some(v => v && v.uff);
+        if (haUfficiali && !giaUfficiali) {
+          await this._sincronizzaVotes(gwSerieA, gwSerieA);
+          votesSnap = await get(ref(this.db, votesPath));
+        }
         if (!votesSnap.exists()) {
           return window.toast(`Nessun voto per la ${gwSerieA}ª giornata di Serie A!`, "err");
         }
 
         // Voti ufficiali non ancora importati: si calcolerebbe con i voti live
-        const ufficialiSnap = await get(ref(this.db, `statsMeta/giornate/${gwSerieA}`));
-        if (!ufficialiSnap.exists() && !confirm(
+        if (!haUfficiali && !confirm(
           `I voti ufficiali della ${gwSerieA}ª giornata di Serie A non sono ancora stati importati.\n` +
           `Vuoi calcolare lo stesso con i voti attuali (live o inseriti a mano)?`)) {
           return window.toast("Calcolo annullato: importa prima i voti ufficiali.", "info");
