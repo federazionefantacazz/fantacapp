@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.3.34'; // Incrementa ad ogni modifica dei file statici
+const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.3.35'; // Incrementa ad ogni modifica dei file statici
 const IMAGE_CACHE = 'fantacapp-images-v1'; // riempita da js/services/assetPreloader.js: non va cancellata agli aggiornamenti
 // Librerie e font esterni (Firebase SDK, icone, Google Fonts): URL con versione fissa, restano tra un aggiornamento e l'altro
 const RUNTIME_CACHE = 'fantacapp-runtime-v1';
@@ -116,7 +116,8 @@ const ASSETS_TO_CACHE = [
   './js/admin/calendario/calendario-gironi.js',
   './js/admin/calendario/calendario-gw-mapping.js',
   './js/admin/calendario/calendario-regular-season.js',
-  './js/admin/calendario/calendario-tabellone.js'
+  './js/admin/calendario/calendario-tabellone.js',
+  './js/admin/calendario/calendario-sync-reale.js'
 ];
 
 // Installazione: salva i file statici nella cache locale
