@@ -370,16 +370,6 @@ export const ANCHORS = {
   sleeveR: { part: 'sleeveR', x: .50, y: .42, s: .24 }
 };
 
-// Giro manica (cucitura manica-busto, parte alta) misurato sul modello 3D: [pezzo (0 davanti, 1 dietro), u, v sul busto, u sulla manica].
-// Serve ad allineare le strisce della spalla a quelle della manica (sulla manica la cucitura della spalla non cade al centro).
-const ARMHOLE = {
-  sleeveL: [[0,.1763,.4044,.2308],[0,.1778,.4017,.2334],[0,.1790,.3988,.2361],[0,.1800,.3958,.2386],[0,.1807,.3927,.2413],[0,.1814,.3895,.2439],[0,.1819,.3863,.2464],[0,.1822,.3800,.2513],[0,.1822,.3736,.2562],[0,.1814,.3673,.2608],[0,.1807,.3612,.2654],[0,.1792,.3551,.2703],[0,.1780,.3490,.2752],[0,.1739,.3338,.2879],[0,.1722,.3280,.2935],[0,.1712,.3250,.2962],[0,.1692,.3189,.3018],[0,.1682,.3160,.3048],[0,.1673,.3131,.3077],[0,.1651,.3072,.3136],[0,.1617,.2986,.3228],[1,.8625,.2784,.3258],[1,.8615,.2816,.3289],[1,.8581,.2906,.3382],[1,.8562,.2967,.3443],[1,.8537,.3057,.3536],[1,.8520,.3121,.3595],[1,.8498,.3214,.3685],[1,.8491,.3245,.3712],[1,.8476,.3306,.3768],[1,.8469,.3338,.3797],[1,.8459,.3402,.3851],[1,.8454,.3433,.3878],[1,.8449,.3465,.3902],[1,.8440,.3529,.3954],[1,.8432,.3624,.4027],[1,.8430,.3653,.4049],[1,.8427,.3685,.4073],[1,.8425,.3748,.4122],[1,.8425,.3778,.4146],[1,.8427,.3810,.4171],[1,.8430,.3841,.4198],[1,.8432,.3873,.4222],[1,.8437,.3905,.4247],[1,.8442,.3934,.4271],[1,.8447,.3966,.4298],[1,.8454,.3998,.4322],[1,.8464,.4027,.4349],[1,.8474,.4056,.4376],[1,.8488,.4085,.4403],[1,.8501,.4112,.4427]],
-  sleeveR: [[0,.4545,.4044,.5670],[0,.4530,.4017,.5697],[0,.4518,.3988,.5724],[0,.4508,.3958,.5749],[0,.4498,.3927,.5775],[0,.4493,.3895,.5800],[0,.4486,.3832,.5851],[0,.4484,.3800,.5875],[0,.4486,.3736,.5924],[0,.4491,.3673,.5971],[0,.4501,.3612,.6017],[0,.4535,.3458,.6139],[0,.4559,.3368,.6217],[0,.4586,.3280,.6296],[0,.4596,.3250,.6325],[0,.4606,.3221,.6352],[0,.4625,.3160,.6410],[0,.4635,.3131,.6440],[0,.4645,.3101,.6469],[0,.4667,.3043,.6530],[0,.4703,.2957,.6620],[1,.5429,.2816,.6652],[1,.5460,.2906,.6745],[1,.5480,.2967,.6806],[1,.5497,.3028,.6867],[1,.5521,.3121,.6957],[1,.5538,.3182,.7016],[1,.5553,.3245,.7075],[1,.5568,.3306,.7131],[1,.5577,.3370,.7187],[1,.5590,.3433,.7238],[1,.5597,.3497,.7292],[1,.5602,.3529,.7316],[1,.5612,.3624,.7387],[1,.5614,.3653,.7411],[1,.5614,.3685,.7436],[1,.5617,.3717,.7460],[1,.5617,.3748,.7485],[1,.5617,.3778,.7509],[1,.5617,.3810,.7534],[1,.5614,.3841,.7561],[1,.5612,.3873,.7585],[1,.5607,.3905,.7609],[1,.5602,.3934,.7634],[1,.5595,.3966,.7661],[1,.5587,.3998,.7685],[1,.5577,.4027,.7712],[1,.5568,.4056,.7739],[1,.5556,.4085,.7763],[1,.5541,.4112,.7790]]
-};
-
-// Col colletto alto le strisce della spalla arrivano fino a questa frazione della cucitura (oltre, la stoffa è deformata)
-const POLO_STRIPE_REACH = .82;
-
 const ASSET_BASE = 'icons/kit3d/';
 export const KIT3D_FILES = { model: ASSET_BASE + 'shirt.glb', collarPolo: ASSET_BASE + 'collar-polo.glb', neckPolo: ASSET_BASE + 'neck-polo.bin', mask: ASSET_BASE + 'mask.png', seams: ASSET_BASE + 'seams.jpg' };
 
@@ -580,14 +570,7 @@ function loadMask() {
         const m = (n0 * sxy - sx * sy) / (n0 * sxx - sx * sx || 1), q = (sy - m * sx) / n0;
         return [a, b].map(i => [(x0 + i + .5) / c.width, (m * i + q) / c.height]);
       };
-      // profilo vero del bordo superiore, ammorbidito (media mobile), per seguire la spalla da vicino
-      const prof = [];
-      for (let i = first; i <= last; i++) {
-        let sum = 0, cnt = 0;
-        for (let j = Math.max(first, i - 5); j <= Math.min(last, i + 5); j++) if (top[j] >= 0) { sum += top[j]; cnt++; }
-        if (cnt) prof.push([(x0 + i + .5) / c.width, sum / cnt / c.height]);
-      }
-      shoulder[part] = { left: pts(first, l), right: pts(rr, last), neckL: l / n, neckR: rr / n, prof };
+      shoulder[part] = { left: pts(first, l), right: pts(rr, last), neckL: l / n, neckR: rr / n };
     });
     return { img, neck, shoulder };
   });
@@ -735,64 +718,24 @@ export async function paintKitTexture(rawKit, opts = {}) {
 
   // 3. decorazioni delle maniche e polsini
   const trim = safeColor(c.trim);
-  // strisce che partono dal colletto: proseguono sulla spalla (cucitura tra davanti e dietro) fino alla manica.
-  // Per ogni striscia sulla spalla calcolo dove tocca il giro manica e sulla manica la faccio partire esattamente lì.
-  const sleeveStripes = { sleeveL: [], sleeveR: [] }; // posizioni u (0..1 della texture) delle strisce sulle maniche
-  const stripesOnShoulder = (k.sleeveDeco === 'stripes3' || k.sleeveDeco === 'stripes2') && k.sleeveDecoShoulder && mask && mask.shoulder;
-  const fStr = clamp(k.sleeveTf.scale, 40, 200) / 100, lwStr = R('sleeveL').w * .022 * fStr, gapStr = R('sleeveL').w * .05 * fStr;
-  if (stripesOnShoulder) {
+  // strisce che partono dal colletto: proseguono sulla spalla (cucitura tra davanti e dietro) fino alla manica
+  if ((k.sleeveDeco === 'stripes3' || k.sleeveDeco === 'stripes2') && k.sleeveDecoShoulder && mask && mask.shoulder) {
     const n = k.sleeveDeco === 'stripes3' ? 3 : 2;
-    const offs = []; // distanze dalla cucitura (in px): 0 = a cavallo della cucitura
-    for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * gapStr; if (o >= 0) offs.push(o); }
-    // punto della cucitura della spalla sulla manica: dove il giro manica passa dal davanti al dietro
-    const seamU = (sp) => { const t = ARMHOLE[sp], i = t.findIndex(q => q[0] === 1); return (t[i - 1][3] + t[i][3]) / 2; };
-    if (offs[0] === 0) ['sleeveL', 'sleeveR'].forEach(sp => sleeveStripes[sp].push(seamU(sp)));
+    const f = clamp(k.sleeveTf.scale, 40, 200) / 100, sl = R('sleeveL'), lw = sl.w * .022 * f, gap = sl.w * .05 * f;
+    // distanze dal bordo (cucitura): la striscia centrale (dispari) è a cavallo tra davanti e dietro
+    const offs = [];
+    for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * gap; if (o >= 0) offs.push(o); }
     ['front', 'back'].forEach(p => inPart(p, (x) => {
       const m = mask.shoulder[p];
       if (!m) return;
-      x.strokeStyle = trim; x.fillStyle = trim; x.lineWidth = lwStr; x.lineCap = 'butt'; x.lineJoin = 'round';
+      x.strokeStyle = trim; x.lineWidth = lw; x.lineCap = 'butt'; x.lineJoin = 'round';
       ['left', 'right'].forEach(side => {
         const pts = m[side];
         if (pts.length < 2) return;
-        const sp = sideSleeve(p, side);
-        // estremo esterno (verso la manica) e interno (colletto) della cucitura, in px
-        // estremo esterno: il punto esatto in cui la cucitura della spalla incontra la manica (misurato sul modello);
-        // estremo interno: l'angolo del colletto
-        const B = side === 'left' ? pts[pts.length - 1] : pts[0];
-        const t0 = ARMHOLE[sp], sw = t0.findIndex(q => q[0] === 1), A = p === 'front' ? t0[sw - 1] : t0[sw];
-        const ax = A[1] * S, ay = A[2] * S, bx = B[0] * S, by = B[1] * S;
-        const len = Math.hypot(bx - ax, by - ay) || 1;
-        let dx = (bx - ax) / len, dy = (by - ay) / len;
-        let nx = -dy, ny = dx; if (ny < 0) { nx = -nx; ny = -ny; } // normale verso l'interno del pezzo (in basso)
-        const ext = len * .25; // oltre l'estremo esterno: la maschera ritaglia sul giro manica
-        // cucitura: retta dal punto misurato sulla manica (A) all'angolo del colletto (B); le strisce le sono parallele.
-        // Col colletto alto la stoffa vicino al collo è deformata (e non in modo simmetrico): lì le strisce si fermano
-        const reach = k.collarShape === 'polo' ? POLO_STRIPE_REACH : 1;
-        const ex = ax + (bx - ax) * reach, ey = ay + (by - ay) * reach;
-        const path = (o) => [[ax - dx * ext + nx * o, ay - dy * ext + ny * o], [ex + nx * o, ey + ny * o]];
         offs.forEach(o => {
-          if (o === 0) {
-            // striscia centrale a cavallo della cucitura: dal bordo vero della spalla fino a metà spessore
-            const lower = path(lwStr / 2), upper = path(-lwStr / 2).reverse();
-            x.beginPath();
-            [...lower, ...upper].forEach(([u, v], i) => (i ? x.lineTo(u, v) : x.moveTo(u, v)));
-            x.closePath(); x.fill();
-            return;
-          }
-          const sx = ax + nx * o, sy = ay + ny * o;
-          x.beginPath(); path(o).forEach(([u, v], i) => (i ? x.lineTo(u, v) : x.moveTo(u, v))); x.stroke();
-          // dove questa striscia incontra il giro manica (sul pezzo p) → posizione sulla manica
-          const rows = ARMHOLE[sp].filter(q => q[0] === (p === 'front' ? 0 : 1));
-          let best = null;
-          for (let i = 0; i + 1 < rows.length; i++) {
-            const [, u1, v1, s1] = rows[i], [, u2, v2, s2] = rows[i + 1];
-            const p1x = u1 * S, p1y = v1 * S, p2x = u2 * S, p2y = v2 * S;
-            const ex = p2x - p1x, ey = p2y - p1y, den = dx * ey - dy * ex;
-            if (Math.abs(den) < 1e-9) continue;
-            const t = ((p1x - sx) * ey - (p1y - sy) * ex) / den, w = ((p1x - sx) * dy - (p1y - sy) * dx) / den;
-            if (w >= 0 && w <= 1 && (!best || Math.abs(t) < Math.abs(best.t))) best = { t, su: s1 + (s2 - s1) * w };
-          }
-          if (best) sleeveStripes[sp].push(best.su);
+          x.beginPath();
+          pts.forEach(([u, v], i) => (i ? x.lineTo(u * S, v * S + o) : x.moveTo(u * S, v * S + o)));
+          x.stroke();
         });
       });
     }));
@@ -810,11 +753,12 @@ export async function paintKitTexture(rawKit, opts = {}) {
     switch (k.sleeveDeco) {
       case 'stripes3': case 'stripes2': {
         const n = k.sleeveDeco === 'stripes3' ? 3 : 2;
-        if (stripesOnShoulder) {
-          // dal colletto al polsino: ogni striscia parte dal punto del giro manica in cui arriva quella della spalla
-          // (il cursore cambia solo spessore e distanza; spostamento e rotazione non si applicano)
+        if (k.sleeveDecoShoulder) {
+          // dal colletto al polsino: strisce intere al centro della manica, allineate a quelle sulla spalla
+          // (solo la dimensione cambia spessore e distanza; spostamento e rotazione non si applicano)
           x.restore(); x.save();
-          sleeveStripes[p].forEach(u => x.fillRect(u * S - lwStr / 2, r.y - 2, lwStr, cuffTop - r.y + 2));
+          const f = clamp(st.scale, 40, 200) / 100, lw = r.w * .022 * f, gap = r.w * .05 * f;
+          for (let i = 0; i < n; i++) x.fillRect(r.x + r.w / 2 + (i - (n - 1) / 2) * gap - lw / 2, r.y - 2, lw, cuffTop - r.y + 2);
           break;
         }
         const lw = r.w * .022, gap = r.w * .05;
