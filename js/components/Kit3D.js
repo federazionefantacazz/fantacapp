@@ -35,6 +35,12 @@ function loadModel() {
   return modelJob;
 }
 
+let raglanJob = null;
+function loadRaglan() {
+  if (!raglanJob) raglanJob = loadLib().then(async L => (await new L.GLTFLoader().loadAsync(KIT3D_FILES.raglan)).scene);
+  return raglanJob;
+}
+
 /** Copia della geometria con posizioni decimali (quelle compresse non si possono spostare liberamente). */
 function floatGeometry(THREE, geometry) {
   const g = geometry.clone();
@@ -50,21 +56,22 @@ function floatGeometry(THREE, geometry) {
 
 /**
  * Maglia con le cuciture e la forma di colletto richieste (una volta per variante).
- * 'raglan': maniche raglan e girocollo (icons/kit3d/shirt-raglan.glb), un modello a sé.
- * 'polo': bordo del collo portato sulla cucitura del colletto (icons/kit3d/neck-polo.bin), costina nascosta
- *         e colletto alto di icons/kit3d/collar-polo.glb, già posizionato sulla maglia.
+ * Cuciture: 'setin' maglia classica (icons/kit3d/shirt.glb), 'raglan' cucitura più bassa e girocollo (icons/kit3d/shirt-raglan.glb).
+ * 'polo': colletto alto di icons/kit3d/collar-polo.glb, già posizionato sulla maglia. Classica: bordo del collo portato
+ *         sulla cucitura del colletto (icons/kit3d/neck-polo.bin) e costina nascosta. Raglan: maglia invariata, colletto
+ *         adattato (icons/kit3d/collar-polo-raglan.glb) sopra la costina del girocollo.
  */
 const variants = new Map();
 const COLLAR_TOP = 1.675; // punto più alto del colletto alto (collar-polo.glb), con un po' di margine
 function loadVariant(kit) {
-  const key = kit.sleeveCut === 'raglan' ? 'raglan' : isDeformed(kit.collarShape) ? kit.collarShape : 'v';
+  const raglan = kit.sleeveCut === 'raglan', shape = isDeformed(kit.collarShape) ? kit.collarShape : 'v';
+  const key = (raglan ? 'raglan:' : 'setin:') + shape;
   if (!variants.has(key)) {
-    variants.set(key, Promise.all([loadLib(), loadModel()]).then(async ([L, base]) => {
-      if (key === 'v') return base;
-      if (key === 'raglan') return (await new L.GLTFLoader().loadAsync(KIT3D_FILES.raglan)).scene;
+    variants.set(key, Promise.all([loadLib(), raglan ? loadRaglan() : loadModel()]).then(async ([L, base]) => {
+      if (shape === 'v') return base;
       const { THREE } = L;
       const model = base.clone(true);
-      if (key === 'polo') {
+      if (shape === 'polo' && !raglan) {
         // bordo della stoffa sulla cucitura del colletto: spostamenti precalcolati per ogni vertice vicino al collo
         // (neck-polo.bin: 'NKP1', n. mesh, poi per mesh n, indici uint32, spostamenti int16 x3 in unità di 0,05 mm)
         const data = await fetch(KIT3D_FILES.neckPolo).then(r => r.arrayBuffer());
@@ -94,8 +101,12 @@ function loadVariant(kit) {
         }
         // la costina dello scollo a V non serve: il colletto è cucito direttamente alla stoffa
         model.traverse(o => { if (o.isMesh && /Pattern2D_3805002/.test(`${o.name}|${o.parent ? o.parent.name : ''}`)) o.visible = false; });
+      }
+      if (shape === 'polo') {
+        // raglan: la maglia resta com'è e la costina del girocollo fa da base al colletto (l'attaccatura coincide);
+        // il colletto è adattato alla raglan (ala appoggiata sulla stoffa, strisce della V stese sul petto)
         const loader = new L.GLTFLoader();
-        const collar = (await loader.loadAsync(KIT3D_FILES.collarPolo)).scene;
+        const collar = (await loader.loadAsync(raglan ? KIT3D_FILES.collarPoloRaglan : KIT3D_FILES.collarPolo)).scene;
         collar.traverse(o => { if (o.isMesh) o.geometry.computeVertexNormals(); });
         model.add(collar);
       }
