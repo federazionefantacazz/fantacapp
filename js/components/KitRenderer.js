@@ -9,7 +9,7 @@ export { COLLAR_SHAPES };
  * La divisa è salvata in teams/{id}/kit:
  * {
  *   collarShape,                                            // forma del colletto: 'v' (scollo a V) o 'polo' (vedi kitShapes.js)
- *   sleeveCut,                                              // cuciture delle maniche: 'setin' (giro manica) o 'raglan' (dal colletto all'ascella)
+ *   sleeveCut,                                              // cucitura delle maniche: 'setin' (sulle spalle) o 'raglan' (più bassa, dal colletto all'ascella)
  *   collar, cuffs, sleeveDeco,                              // stile di colletto, polsini, decorazioni maniche
  *   colors: { base, sleeves, sleevesR, shoulders, collar, cuffs, trim },  // sleevesR: manica destra se diversa ('' = come sleeves)
  *   shoulders: { shape: 'none'|'raglan'|'yoke', size, match },  // spalle colorate; match: colore delle maniche
@@ -286,8 +286,8 @@ export const SHOULDER_SHAPES = [
 
 // Cuciture delle maniche: due modelli 3D diversi (vedi MODELS)
 export const SLEEVE_CUTS = [
-  { id: 'setin',  label: 'Classiche (giro manica)' },
-  { id: 'raglan', label: 'Raglan (dal colletto)' }
+  { id: 'setin',  label: 'Cucitura spalle' },
+  { id: 'raglan', label: 'Cucitura più bassa' }
 ];
 
 export const SLEEVE_DECO = [
@@ -391,7 +391,8 @@ const POLO_STRIPE_REACH = .82;
 const ASSET_BASE = 'icons/kit3d/';
 export const KIT3D_FILES = {
   model: ASSET_BASE + 'shirt.glb', collarPolo: ASSET_BASE + 'collar-polo.glb', neckPolo: ASSET_BASE + 'neck-polo.bin', mask: ASSET_BASE + 'mask.png', seams: ASSET_BASE + 'seams.jpg',
-  raglan: ASSET_BASE + 'shirt-raglan.glb', raglanMask: ASSET_BASE + 'mask-raglan.png', raglanSeams: ASSET_BASE + 'seams-raglan.jpg'
+  raglan: ASSET_BASE + 'shirt-raglan.glb', raglanMask: ASSET_BASE + 'mask-raglan.png', raglanSeams: ASSET_BASE + 'seams-raglan.jpg',
+  neckPoloRaglan: ASSET_BASE + 'neck-polo-raglan.bin'
 };
 
 // Maglia raglan (icons/kit3d/shirt-raglan.glb, dal progetto CLO "adidas orjinal" di akifdesign): le maniche arrivano
@@ -642,7 +643,6 @@ export async function paintKitTexture(rawKit, opts = {}) {
   if (k.collarShape === 'polo') k.collar = 'plain'; // il colletto alto è in tinta unita: niente rifiniture sotto
   const S = Math.round(opts.size || 2048);
   const model = kitModel(k), raglan = model === MODELS.raglan;
-  if (raglan) k.collarShape = 'v'; // la maglia raglan ha il suo girocollo a costine
   const R = (part) => { const r = model.uv[part]; return { x: r.x * S, y: r.y * S, w: r.w * S, h: r.h * S }; };
   const mask = await loadMask(model);
   const seams = await loadCleanImage(model.seams);
