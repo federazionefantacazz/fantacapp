@@ -49,17 +49,19 @@ function floatGeometry(THREE, geometry) {
 }
 
 /**
- * Maglia con la forma di colletto richiesta (una volta per forma).
+ * Maglia con le cuciture e la forma di colletto richieste (una volta per variante).
+ * 'raglan': maniche raglan e girocollo (icons/kit3d/shirt-raglan.glb), un modello a sé.
  * 'polo': bordo del collo portato sulla cucitura del colletto (icons/kit3d/neck-polo.bin), costina nascosta
  *         e colletto alto di icons/kit3d/collar-polo.glb, già posizionato sulla maglia.
  */
 const variants = new Map();
 const COLLAR_TOP = 1.675; // punto più alto del colletto alto (collar-polo.glb), con un po' di margine
-function loadVariant(shape) {
-  const key = isDeformed(shape) ? shape : 'v';
+function loadVariant(kit) {
+  const key = kit.sleeveCut === 'raglan' ? 'raglan' : isDeformed(kit.collarShape) ? kit.collarShape : 'v';
   if (!variants.has(key)) {
     variants.set(key, Promise.all([loadLib(), loadModel()]).then(async ([L, base]) => {
       if (key === 'v') return base;
+      if (key === 'raglan') return (await new L.GLTFLoader().loadAsync(KIT3D_FILES.raglan)).scene;
       const { THREE } = L;
       const model = base.clone(true);
       if (key === 'polo') {
@@ -190,6 +192,8 @@ class Stage {
       o.material.metalness = 0;
       if (name === 'shirt_outer') { o.material.map = this.texture; o.material.needsUpdate = true; }
       if (name === 'shirt_inner') (this.innerMats ||= []).push(o.material);
+      // maglia raglan: l'interno è il rovescio della stessa superficie
+      if (name === 'shirt_inner_flip') { o.material.side = this.L.THREE.BackSide; this.innerMats.push(o.material); }
       if (/^polo_/.test(name)) (this.collarMats[name] ||= []).push(o.material);
     });
     this.scene.add(this.model);
@@ -284,7 +288,7 @@ export function createKitViewer(container, { zoom = false } = {}) {
     async update(kit, opts = {}) {
       const my = ++token;
       const k = normalizeKit(kit);
-      const [st, tex, model] = await Promise.all([ready, paintKitTexture(k, { ...opts, size: opts.size || editorTextureSize() }), loadVariant(k.collarShape)]);
+      const [st, tex, model] = await Promise.all([ready, paintKitTexture(k, { ...opts, size: opts.size || editorTextureSize() }), loadVariant(k)]);
       if (!st || disposed || my !== token) return;
       st.setModel(model);
       st.applyKit(k, tex);
@@ -326,7 +330,7 @@ export function renderKitImage(kit, opts = {}) {
     const k = normalizeKit(kit);
     const [tex, variant] = await Promise.all([
       paintKitTexture(k, { crestUrl: opts.crestUrl, size: opts.textureSize || 2048, plain: opts.plain }),
-      loadVariant(k.collarShape)
+      loadVariant(k)
     ]);
     shot.setModel(variant);
     shot.applyKit(k, tex);
