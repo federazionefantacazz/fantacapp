@@ -392,7 +392,7 @@ const ASSET_BASE = 'icons/kit3d/';
 export const KIT3D_FILES = {
   model: ASSET_BASE + 'shirt.glb', collarPolo: ASSET_BASE + 'collar-polo.glb', neckPolo: ASSET_BASE + 'neck-polo.bin', mask: ASSET_BASE + 'mask.png', seams: ASSET_BASE + 'seams.jpg',
   raglan: ASSET_BASE + 'shirt-raglan.glb', raglanMask: ASSET_BASE + 'mask-raglan.png', raglanSeams: ASSET_BASE + 'seams-raglan.jpg',
-  neckPoloRaglan: ASSET_BASE + 'neck-polo-raglan.bin'
+  collarPoloRaglan: ASSET_BASE + 'collar-polo-raglan.glb'
 };
 
 // Maglia raglan (icons/kit3d/shirt-raglan.glb, dal progetto CLO "adidas orjinal" di akifdesign): le maniche arrivano

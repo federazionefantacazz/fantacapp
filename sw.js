@@ -37,7 +37,7 @@ const ASSETS_TO_CACHE = [
   './icons/kit3d/shirt-raglan.glb',
   './icons/kit3d/mask-raglan.png',
   './icons/kit3d/seams-raglan.jpg',
-  './icons/kit3d/neck-polo-raglan.bin',
+  './icons/kit3d/collar-polo-raglan.glb',
   './icons/kit3d/uv-template.png',
   './vendor/three/three.module.min.js',
   './vendor/three/GLTFLoader.js',

@@ -13,6 +13,6 @@ shirt-raglan.glb Maglia con maniche raglan e girocollo, convertita dal progetto 
                  senza loghi né texture. Mappa UV ridisegnata per l'app; normal map delle cuciture generata.
 mask-raglan.png, seams-raglan.jpg
                  Maschera dei pezzi e impunture della maglia raglan, generate dai cartamodelli dello stesso progetto.
-neck-polo-raglan.bin
-                 Spostamenti del collo della maglia raglan per il colletto alto: il bordo va sulla cucitura del
-                 colletto e la stoffa che resterebbe sopra ali e strisce della V passa sotto (calcolati una volta).
+collar-polo-raglan.glb
+                 Lo stesso colletto alto per la maglia raglan: la maglia non si deforma, il colletto calza sulla
+                 costina del girocollo e le strisce della V sono stese sul petto della raglan.
