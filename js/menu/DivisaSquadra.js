@@ -6,7 +6,7 @@ import { getPngPatterns, getPngBrands, getPngPatches, onKitAssetsChange } from '
 import { esc } from './menuUtils.js';
 import {
   normalizeKit, defaultKit, patternLabel,
-  PRESETS, PATTERNS, BRANDS, SPONSOR_FONTS, NUMBER_FONTS, PATCH_POSITIONS, ZONES, COLLARS, COLLAR_SHAPES, CUFFS, SLEEVE_DECO, SHOULDER_SHAPES
+  PRESETS, PATTERNS, BRANDS, SPONSOR_FONTS, NUMBER_FONTS, PATCH_POSITIONS, ZONES, COLLARS, COLLAR_SHAPES, CUFFS, SLEEVE_DECO, SHOULDER_SHAPES, SLEEVE_CUTS
 } from '../components/KitRenderer.js';
 
 /**
@@ -429,15 +429,20 @@ export const DivisaSquadra = {
   _secModel() {
     const k = this._kit;
     const base = { ...k, sponsor: { mode: 'none' }, patches: [], crest: { show: false } };
+    const raglan = k.sleeveCut === 'raglan';
+    const stripes = k.sleeveDeco === 'stripes3' || k.sleeveDeco === 'stripes2';
     return `
+      <div class="kit-sub">Cuciture delle maniche</div>
+      <div class="kit-grid wide">${SLEEVE_CUTS.map(c => this._opt('sleeveCut', c.id, this._thumb({ ...base, sleeveCut: c.id }), c.label, k.sleeveCut === c.id)).join('')}</div>
+      ${raglan ? `<div class="mp-muted">Maniche raglan: la cucitura scende in diagonale dal colletto all'ascella e la manica copre anche la spalla. Girocollo a costine.</div>` : `
       <div class="kit-sub">Forma del colletto</div>
-      <div class="kit-grid wide">${COLLAR_SHAPES.map(c => this._opt('collarShape', c.id, this._thumb({ ...base, collarShape: c.id }), c.label, k.collarShape === c.id)).join('')}</div>
-      ${k.collarShape === 'polo' ? '' : `
+      <div class="kit-grid wide">${COLLAR_SHAPES.map(c => this._opt('collarShape', c.id, this._thumb({ ...base, collarShape: c.id }), c.label, k.collarShape === c.id)).join('')}</div>`}
+      ${k.collarShape === 'polo' && !raglan ? '' : `
       <div class="kit-sub">Rifinitura del colletto</div>
       <div class="kit-grid">${COLLARS.map(c => this._opt('collar', c.id, this._thumb({ ...base, collar: c.id }), c.label, k.collar === c.id)).join('')}</div>`}
       <div class="kit-sub">Polsini</div>
       <div class="kit-grid">${CUFFS.map(c => this._opt('cuffs', c.id, this._thumb({ ...base, cuffs: c.id }), c.label, k.cuffs === c.id)).join('')}</div>
-      <div class="kit-sub">Spalle</div>
+      ${raglan ? '' : `<div class="kit-sub">Spalle</div>
       <div class="kit-grid">${SHOULDER_SHAPES.map(sh => this._opt('shoulderShape', sh.id, this._thumb({ ...base, shoulders: { ...k.shoulders, shape: sh.id } }), sh.label, k.shoulders.shape === sh.id)).join('')}</div>
       ${k.shoulders.shape !== 'none' ? `
       ${this._range('shoulders.size', 'Dimensione', k.shoulders.size, 50, 160, '%')}
@@ -445,18 +450,18 @@ export const DivisaSquadra = {
         ${this._chip('shoulder-match', '1', 'Colore delle maniche', k.shoulders.match)}
         ${this._chip('shoulder-match', '0', 'Colore a scelta', !k.shoulders.match)}
       </div>
-      ${k.shoulders.match ? '' : `<div class="kit-color-row" style="margin-top:.4rem;">${this._colorPicker('colors.shoulders', k.colors.shoulders)}</div>`}` : ''}
+      ${k.shoulders.match ? '' : `<div class="kit-color-row" style="margin-top:.4rem;">${this._colorPicker('colors.shoulders', k.colors.shoulders)}</div>`}` : ''}`}
       <div class="kit-sub">Decorazioni maniche</div>
       <div class="kit-grid">${SLEEVE_DECO.map(d => this._opt('sleeveDeco', d.id, this._thumb({ ...base, sleeveDeco: d.id }), d.label, k.sleeveDeco === d.id)).join('')}</div>
-      ${k.sleeveDeco === 'stripes3' || k.sleeveDeco === 'stripes2' ? `
+      ${stripes && !raglan ? `
       <div class="kit-chips" style="margin-top:.5rem;">
         ${this._chip('stripes-reach', '0', 'Solo sulla manica', !k.sleeveDecoShoulder)}
         ${this._chip('stripes-reach', '1', 'Dal colletto al polsino', k.sleeveDecoShoulder)}
       </div>` : ''}
-      ${k.sleeveDeco !== 'none' && (k.sleeveDeco === 'stripes3' || k.sleeveDeco === 'stripes2') && k.sleeveDecoShoulder ? `
+      ${stripes && k.sleeveDecoShoulder && !raglan ? `
       ${this._range('sleeveTf.scale', 'Spessore', k.sleeveTf.scale, 40, 200, '%')}
       <div class="mp-muted">Le strisce corrono dal colletto al polsino come un'unica linea: si regola solo lo spessore.</div>` : ''}
-      ${k.sleeveDeco !== 'none' && !((k.sleeveDeco === 'stripes3' || k.sleeveDeco === 'stripes2') && k.sleeveDecoShoulder) ? `
+      ${k.sleeveDeco !== 'none' && !(stripes && k.sleeveDecoShoulder && !raglan) ? `
       ${this._range('sleeveTf.scale', 'Dimensione', k.sleeveTf.scale, 40, 200, '%')}
       ${this._range('sleeveTf.x', 'Sposta ↔', k.sleeveTf.x, -50, 50)}
       ${this._range('sleeveTf.y', 'Sposta ↕', k.sleeveTf.y, -50, 50)}
@@ -536,7 +541,7 @@ export const DivisaSquadra = {
     const split = !!k.colors.sleevesR;
     const fields = COLOR_FIELDS.flatMap(f => f.key !== 'sleeves' ? [f] : split
       ? [{ key: 'sleeves', label: 'Manica sinistra' }, { key: 'sleevesR', label: 'Manica destra' }] : [f]);
-    if (k.shoulders.shape !== 'none' && !k.shoulders.match) fields.splice(fields.findIndex(f => f.key === 'collar'), 0, { key: 'shoulders', label: 'Spalle' });
+    if (k.shoulders.shape !== 'none' && !k.shoulders.match && k.sleeveCut !== 'raglan') fields.splice(fields.findIndex(f => f.key === 'collar'), 0, { key: 'shoulders', label: 'Spalle' });
     return `
       <div class="kit-chips" style="margin-bottom:.4rem;">
         ${this._chip('sleeves-split', '0', 'Maniche uguali', !split)}
@@ -759,7 +764,7 @@ export const DivisaSquadra = {
       case 'sleeve-reset':
         this._update(kit => { kit.sleeveTf = { x: 0, y: 0, scale: 100, rot: 0 }; });
         return;
-      case 'collarShape': case 'collar': case 'cuffs': case 'sleeveDeco':
+      case 'collarShape': case 'sleeveCut': case 'collar': case 'cuffs': case 'sleeveDeco':
         this._update(kit => { kit[act] = v; });
         return;
       case 'preset': {

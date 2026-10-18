@@ -8,3 +8,8 @@ collar-polo.glb  Colletto e strisce della V presi da "Adidas Retro Jersey Mold" 
                  (senza loghi né texture).
 neck-polo.bin    Spostamenti del bordo del collo della maglia per il colletto alto: portano la stoffa sulla
                  cucitura del colletto della stessa maglia retrò (calcolati una volta, non è un modello).
+shirt-raglan.glb Maglia con maniche raglan e girocollo, convertita dal progetto CLO "adidas orjinal" di akifdesign
+                 (stesso autore della maglia retrò): solo i pezzi cuciti (davanti, dietro, maniche, colletto),
+                 senza loghi né texture. Mappa UV ridisegnata per l'app; normal map delle cuciture generata.
+mask-raglan.png, seams-raglan.jpg
+                 Maschera dei pezzi e impunture della maglia raglan, generate dai cartamodelli dello stesso progetto.

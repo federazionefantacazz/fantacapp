@@ -9,6 +9,7 @@ export { COLLAR_SHAPES };
  * La divisa è salvata in teams/{id}/kit:
  * {
  *   collarShape,                                            // forma del colletto: 'v' (scollo a V) o 'polo' (vedi kitShapes.js)
+ *   sleeveCut,                                              // cuciture delle maniche: 'setin' (giro manica) o 'raglan' (dal colletto all'ascella)
  *   collar, cuffs, sleeveDeco,                              // stile di colletto, polsini, decorazioni maniche
  *   colors: { base, sleeves, sleevesR, shoulders, collar, cuffs, trim },  // sleevesR: manica destra se diversa ('' = come sleeves)
  *   shoulders: { shape: 'none'|'raglan'|'yoke', size, match },  // spalle colorate; match: colore delle maniche
@@ -283,6 +284,12 @@ export const SHOULDER_SHAPES = [
   { id: 'yoke',   label: 'Sella (fascia alta)' }
 ];
 
+// Cuciture delle maniche: due modelli 3D diversi (vedi MODELS)
+export const SLEEVE_CUTS = [
+  { id: 'setin',  label: 'Classiche (giro manica)' },
+  { id: 'raglan', label: 'Raglan (dal colletto)' }
+];
+
 export const SLEEVE_DECO = [
   { id: 'none',     label: 'Nessuna' },
   { id: 'stripes3', label: 'Tre strisce' },
@@ -295,7 +302,7 @@ export const SLEEVE_DECO = [
 
 export function defaultKit() {
   return {
-    collarShape: 'v', collar: 'plain', cuffs: 'band', sleeveDeco: 'none', sleeveDecoShoulder: false,
+    collarShape: 'v', sleeveCut: 'setin', collar: 'plain', cuffs: 'band', sleeveDeco: 'none', sleeveDecoShoulder: false,
     sleeveTf: { x: 0, y: 0, scale: 100, rot: 0 },
     colors: { base: '#1e5bb8', sleeves: '#1e5bb8', sleevesR: '', shoulders: '#ffffff', collar: '#ffffff', cuffs: '#ffffff', trim: '#ffffff' },
     shoulders: { shape: 'none', size: 100, match: true },
@@ -316,6 +323,7 @@ export function normalizeKit(raw) {
   const toArr = (v) => Array.isArray(v) ? v.filter(Boolean) : (v && typeof v === 'object' ? Object.values(v).filter(Boolean) : []);
   return {
     collarShape: COLLAR_SHAPES.some(c => c.id === k.collarShape) ? k.collarShape : d.collarShape,
+    sleeveCut: SLEEVE_CUTS.some(c => c.id === k.sleeveCut) ? k.sleeveCut : d.sleeveCut,
     collar: COLLARS.some(c => c.id === k.collar) ? k.collar : d.collar,
     cuffs: CUFFS.some(c => c.id === k.cuffs) ? k.cuffs : d.cuffs,
     sleeveDeco: SLEEVE_DECO.some(c => c.id === k.sleeveDeco) ? k.sleeveDeco : d.sleeveDeco,
@@ -381,7 +389,35 @@ const ARMHOLE = {
 const POLO_STRIPE_REACH = .82;
 
 const ASSET_BASE = 'icons/kit3d/';
-export const KIT3D_FILES = { model: ASSET_BASE + 'shirt.glb', collarPolo: ASSET_BASE + 'collar-polo.glb', neckPolo: ASSET_BASE + 'neck-polo.bin', mask: ASSET_BASE + 'mask.png', seams: ASSET_BASE + 'seams.jpg' };
+export const KIT3D_FILES = {
+  model: ASSET_BASE + 'shirt.glb', collarPolo: ASSET_BASE + 'collar-polo.glb', neckPolo: ASSET_BASE + 'neck-polo.bin', mask: ASSET_BASE + 'mask.png', seams: ASSET_BASE + 'seams.jpg',
+  raglan: ASSET_BASE + 'shirt-raglan.glb', raglanMask: ASSET_BASE + 'mask-raglan.png', raglanSeams: ASSET_BASE + 'seams-raglan.jpg'
+};
+
+// Maglia raglan (icons/kit3d/shirt-raglan.glb, dal progetto CLO "adidas orjinal" di akifdesign): le maniche arrivano
+// fino al colletto, davanti e dietro non hanno le spalle. Pezzi nella texture alla stessa scala (0,84 px ogni mm a 1000 px),
+// cartamodelli visti dal dritto: il davanti come lo si guarda, il dietro visto da dietro, le maniche con il polsino in basso.
+export const UV_RAGLAN = {
+  front:   { x: .0600, y: .0600, w: .3878, h: .5541 },
+  back:    { x: .5300, y: .0600, w: .3881, h: .5850 },
+  sleeveL: { x: .0800, y: .6700, w: .3435, h: .3054 },
+  sleeveR: { x: .5300, y: .6700, w: .3435, h: .3054 },
+  collar:  { x: .3320, y: .0200, w: .3361, h: .0155 }
+};
+
+// Modelli della maglia: mappa UV, maschera dei pezzi, cuciture e altezza del polsino (frazione della manica dove inizia)
+export const MODELS = {
+  setin:  { uv: UV, mask: KIT3D_FILES.mask, seams: KIT3D_FILES.seams, cuffTop: .84 },
+  raglan: {
+    uv: UV_RAGLAN, mask: KIT3D_FILES.raglanMask, seams: KIT3D_FILES.raglanSeams, cuffTop: .91,
+    // il riquadro del davanti parte più in alto (angoli del colletto) e la manica comprende la spalla
+    anchors: {
+      crest: { ...ANCHORS.crest, y: .27 }, brand: { ...ANCHORS.brand, y: .27 }, chest: { ...ANCHORS.chest, y: .27 },
+      sleeveL: { ...ANCHORS.sleeveL, y: .62 }, sleeveR: { ...ANCHORS.sleeveR, y: .62 }
+    }
+  }
+};
+export const kitModel = (k) => MODELS[k && k.sleeveCut] || MODELS.setin;
 
 /* ------------------------------------------------------------ utilità */
 const svgUrl = (svg) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
@@ -542,11 +578,12 @@ async function drawBackPrint(ctx, bp, r) {
 }
 
 /* --------------------------------------------- maschera e scollo del modello */
-let maskJob = null;
-/** Maschera dei pezzi + profilo superiore di davanti/dietro (per il bordino del colletto). */
-function loadMask() {
-  if (maskJob) return maskJob;
-  maskJob = loadCleanImage(KIT3D_FILES.mask).then(img => {
+const maskJobs = new Map();
+/** Maschera dei pezzi + profilo superiore di davanti/dietro (per il bordino del colletto), per ogni modello. */
+function loadMask(model) {
+  if (maskJobs.has(model)) return maskJobs.get(model);
+  const UV = model.uv;
+  const maskJob = loadCleanImage(model.mask).then(img => {
     if (!img) return null;
     const c = canvasOf(img.naturalWidth, img.naturalHeight);
     const x = c.getContext('2d', { willReadFrequently: true });
@@ -591,6 +628,7 @@ function loadMask() {
     });
     return { img, neck, shoulder };
   });
+  maskJobs.set(model, maskJob);
   return maskJob;
 }
 
@@ -603,9 +641,11 @@ export async function paintKitTexture(rawKit, opts = {}) {
   const k = normalizeKit(rawKit);
   if (k.collarShape === 'polo') k.collar = 'plain'; // il colletto alto è in tinta unita: niente rifiniture sotto
   const S = Math.round(opts.size || 2048);
-  const R = (part) => { const r = UV[part]; return { x: r.x * S, y: r.y * S, w: r.w * S, h: r.h * S }; };
-  const mask = await loadMask();
-  const seams = await loadCleanImage(KIT3D_FILES.seams);
+  const model = kitModel(k), raglan = model === MODELS.raglan;
+  if (raglan) k.collarShape = 'v'; // la maglia raglan ha il suo girocollo a costine
+  const R = (part) => { const r = model.uv[part]; return { x: r.x * S, y: r.y * S, w: r.w * S, h: r.h * S }; };
+  const mask = await loadMask(model);
+  const seams = await loadCleanImage(model.seams);
 
   const out = canvasOf(S, S);
   const ctx = out.getContext('2d');
@@ -662,7 +702,14 @@ export async function paintKitTexture(rawKit, opts = {}) {
       if (pp.mode === 'uv') {
         // grafica disegnata sulla mappa UV completa: la applico così com'è (o colorata) sui pezzi scelti
         const src = pp.colors === 'original' ? img : tint(img, safeColor(l.color), S, S);
-        parts.forEach(p => inPart(p, (x) => { x.globalAlpha = alpha; x.drawImage(src, 0, 0, S, S); }));
+        // disegnata sulla mappa della maglia classica: sulla raglan ogni pezzo si porta nel suo riquadro
+        const sw = (src.naturalWidth || src.width) / S, shh = (src.naturalHeight || src.height) / S;
+        parts.forEach(p => inPart(p, (x, r) => {
+          x.globalAlpha = alpha;
+          if (!raglan) { x.drawImage(src, 0, 0, S, S); return; }
+          const o = UV[p];
+          x.drawImage(src, o.x * S * sw, o.y * S * shh, o.w * S * sw, o.h * S * shh, r.x, r.y, r.w, r.h);
+        }));
       } else {
         const s = clamp(l.scale, 30, 250) / 100;
         // PNG disegnato (spostato, ruotato, ingrandito) su una tela w×h
@@ -702,7 +749,8 @@ export async function paintKitTexture(rawKit, opts = {}) {
   // lato del pezzo → manica vicina: davanti sinistra = manica L, dietro sinistra = manica R (visto da dietro)
   const sideSleeve = (part, side) => (part === 'front') === (side === 'left') ? 'sleeveL' : 'sleeveR';
   const sh = k.shoulders;
-  if (sh.shape !== 'none' && mask && mask.shoulder) {
+  // sulla raglan le spalle sono già parte delle maniche (colore delle maniche)
+  if (sh.shape !== 'none' && !raglan && mask && mask.shoulder) {
     const f = clamp(sh.size, 50, 160) / 100;
     ['front', 'back'].forEach(p => ['left', 'right'].forEach(side => inPart(p, (x, r) => {
       const m = mask.shoulder[p];
@@ -738,7 +786,8 @@ export async function paintKitTexture(rawKit, opts = {}) {
   // strisce che partono dal colletto: proseguono sulla spalla (cucitura tra davanti e dietro) fino alla manica.
   // Per ogni striscia sulla spalla calcolo dove tocca il giro manica e sulla manica la faccio partire esattamente lì.
   const sleeveStripes = { sleeveL: [], sleeveR: [] }; // posizioni u (0..1 della texture) delle strisce sulle maniche
-  const stripesOnShoulder = (k.sleeveDeco === 'stripes3' || k.sleeveDeco === 'stripes2') && k.sleeveDecoShoulder && mask && mask.shoulder;
+  // sulla raglan le strisce della manica partono già dal colletto: niente strisce sulla spalla del busto
+  const stripesOnShoulder = (k.sleeveDeco === 'stripes3' || k.sleeveDeco === 'stripes2') && k.sleeveDecoShoulder && !raglan && mask && mask.shoulder;
   const fStr = clamp(k.sleeveTf.scale, 40, 200) / 100, lwStr = R('sleeveL').w * .022 * fStr, gapStr = R('sleeveL').w * .05 * fStr;
   if (stripesOnShoulder) {
     const n = k.sleeveDeco === 'stripes3' ? 3 : 2;
@@ -799,7 +848,7 @@ export async function paintKitTexture(rawKit, opts = {}) {
   }
   ['sleeveL', 'sleeveR'].forEach(p => inPart(p, (x, r) => {
     x.fillStyle = trim;
-    const cuffTop = r.y + r.h * .84;
+    const cuffTop = r.y + r.h * model.cuffTop, cb = r.y + r.h - cuffTop; // inizio e altezza del polsino
     // dimensione, posizione e rotazione della decorazione (attorno al centro della manica)
     const st = k.sleeveTf;
     x.save();
@@ -838,9 +887,9 @@ export async function paintKitTexture(rawKit, opts = {}) {
     if (k.cuffs === 'band') { x.fillStyle = cuff; x.fillRect(r.x - 2, cuffTop, r.w + 4, r.y + r.h - cuffTop + 2); }
     if (k.cuffs === 'double') {
       x.fillStyle = cuff; x.fillRect(r.x - 2, cuffTop, r.w + 4, r.y + r.h - cuffTop + 2);
-      x.fillStyle = sleeveColor(p); x.fillRect(r.x - 2, cuffTop + r.h * .06, r.w + 4, r.h * .03);
+      x.fillStyle = sleeveColor(p); x.fillRect(r.x - 2, cuffTop + cb * .375, r.w + 4, cb * .19);
     }
-    if (k.cuffs === 'thin') { x.fillStyle = cuff; x.fillRect(r.x - 2, cuffTop, r.w + 4, r.h * .035); }
+    if (k.cuffs === 'thin') { x.fillStyle = cuff; x.fillRect(r.x - 2, cuffTop, r.w + 4, cb * .22); }
   }));
   if (k.sleeveDeco === 'side') ['front', 'back'].forEach(p => inPart(p, (x, r) => {
     x.fillStyle = trim; x.fillRect(r.x, r.y, r.w * .045, r.h); x.fillRect(r.x + r.w * .955, r.y, r.w * .045, r.h);
@@ -867,10 +916,11 @@ export async function paintKitTexture(rawKit, opts = {}) {
 
   // 5. loghi, sponsor e patch sul davanti / maniche
   if (!opts.plain) {
+    const A0 = { ...ANCHORS, ...model.anchors };
     const at = (a) => { const r = R(a.part); return { x: r.x + a.x * r.w, y: r.y + a.y * r.h, s: (a.s || .1) * r.w, r }; };
     if (k.crest.show && opts.crestUrl) {
       const img = await loadCut(opts.crestUrl);
-      const a = at({ ...ANCHORS.crest, x: k.crest.swap ? ANCHORS.brand.x : ANCHORS.crest.x }), s = a.s * clamp(k.crest.size, 60, 150) / 100;
+      const a = at({ ...A0.crest, x: k.crest.swap ? A0.brand.x : A0.crest.x }), s = a.s * clamp(k.crest.size, 60, 150) / 100;
       drawContain(ctx, img, a.x, a.y, s, s);
     }
     const b = k.brand;
@@ -884,16 +934,16 @@ export async function paintKitTexture(rawKit, opts = {}) {
       if (bb && bb.id !== 'none' && bb.id !== 'custom') brandImg = await brandSvgImage(bb, b.color, c.base);
     }
     if (brandImg) {
-      const a = at({ ...ANCHORS.brand, x: k.crest.swap ? ANCHORS.crest.x : ANCHORS.brand.x }); // crest.swap: stemma e marchio invertiti
+      const a = at({ ...A0.brand, x: k.crest.swap ? A0.crest.x : A0.brand.x }); // crest.swap: stemma e marchio invertiti
       const img = (b.id === 'custom' || String(b.id).startsWith('png:')) && b.mono
         ? tint(brandImg, safeColor(b.color), brandImg.naturalWidth || brandImg.width, brandImg.naturalHeight || brandImg.height) : brandImg;
       drawContain(ctx, img, a.x, a.y, a.s, a.s * .75);
     }
-    await drawSponsor(ctx, k.sponsor, ANCHORS.sponsor, R('front'));
-    await drawSponsor(ctx, k.backSponsor, ANCHORS.backSponsor, R('back'));
+    await drawSponsor(ctx, k.sponsor, A0.sponsor, R('front'));
+    await drawSponsor(ctx, k.backSponsor, A0.backSponsor, R('back'));
     await drawBackPrint(ctx, k.backPrint, R('back'));
     for (const p of k.patches) {
-      const A = ANCHORS[p.pos];
+      const A = A0[p.pos];
       if (!A || !p.src) continue;
       const img = await loadCut(p.src);
       const a = at(A);
