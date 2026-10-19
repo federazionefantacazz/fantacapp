@@ -666,6 +666,8 @@ export const LiveMatchModule = {
     const raw = ctx.votes[id] ?? ctx.votes[String(id)];
     const entry = raw !== undefined && raw !== null && typeof raw !== 'object' ? { voto: raw } : raw;
     const ev = this._events(entry);
+    // portiere a voto senza gol subiti: porta inviolata (se non già indicata nel voto)
+    if (ev.porta_inviolata === undefined && CalcoloMatchService.haPortaInviolata(entry, base.role)) ev.porta_inviolata = 1;
     base.ev = ev;
     base.subIn = !!(entry && (entry.in || entry.entrato || entry.subentrato || entry.s === 's'));
     base.subOut = !!(entry && (entry.out || entry.uscito || entry.sostituito));
@@ -1186,6 +1188,8 @@ export const LiveMatchModule = {
         const k = b.dataset.k;
         const n = Math.max(0, Math.min(9, (state.ev[k] || 0) + (a === 'e+' ? 1 : -1)));
         if (n) state.ev[k] = n; else delete state.ev[k];
+        // portiere: la porta inviolata segue i gol subiti
+        if (k === 'gol_subito' && pl.role === 'P') { if (n) delete state.ev.porta_inviolata; else state.ev.porta_inviolata = 1; }
       }
       if (a === 'reset') { delete this._sim.overrides[pid]; this._closeEditor(); rerender(); return; }
       if (a === 'sv') { this._sim.overrides[pid] = null; this._closeEditor(); rerender(); return; }

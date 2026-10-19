@@ -345,7 +345,7 @@ export const HomePage = {
         .slice(0, weeks);
 
       // Fantavoto di un giocatore in una giornata: se non ancora salvato lo calcola da voto + bonus/malus
-      const getFantavoto = (entry) => {
+      const getFantavoto = (entry, ruolo) => {
         if (entry === undefined || entry === null) return null;
         if (typeof entry !== 'object') {
           const n = Number(entry);
@@ -354,7 +354,7 @@ export const HomePage = {
         if (entry.voto === undefined || entry.voto === null || Number(entry.voto) <= 0) return null; // s.v. / non sceso in campo
         const fv = entry.fantavoto !== undefined && entry.fantavoto !== null
           ? Number(entry.fantavoto)
-          : CalcoloMatchService.calcolaFantavoto(entry);
+          : CalcoloMatchService.calcolaFantavoto(entry, ruolo);
         return isNaN(fv) ? null : fv;
       };
 
@@ -362,7 +362,7 @@ export const HomePage = {
         let sum = 0;
         let count = 0;
         targetGwKeys.forEach(gwKey => {
-          const fv = getFantavoto(allVotes[gwKey][p.id]);
+          const fv = getFantavoto(allVotes[gwKey][p.id], p.role);
           if (fv !== null) { sum += fv; count++; }
         });
         return { player: p, avg: count > 0 ? sum / count : 0, count };

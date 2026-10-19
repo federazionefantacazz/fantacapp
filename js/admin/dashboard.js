@@ -738,7 +738,7 @@ export const DashboardSection = {
         Object.keys(votiGiocatori).forEach(playerId => {
           const datiVoto = votiGiocatori[playerId];
           if (CalcoloMatchService.hasVoto(datiVoto)) {
-            const fantavotoFinale = CalcoloMatchService.calcolaFantavoto(datiVoto);
+            const fantavotoFinale = CalcoloMatchService.calcolaFantavoto(datiVoto, ruoliGiocatori[playerId]);
             updates[`${votesPath}/${playerId}/fantavoto`] = fantavotoFinale;
             mappaFantavotiLocali[playerId] = fantavotoFinale;
             votiBase[playerId] = CalcoloMatchService.normalizzaVoto(datiVoto.voto);
