@@ -26,13 +26,13 @@ export const PlayerStatsService = {
   },
 
   // Stessa regola della home ("Giocatori On Fire"): fantavoto salvato, altrimenti voto + bonus/malus
-  _fantavoto(entry) {
+  _fantavoto(entry, ruolo) {
     const voto = this._voto(entry);
     if (voto === null) return null;
     if (typeof entry !== 'object') return voto;
     const fv = entry.fantavoto !== undefined && entry.fantavoto !== null
       ? Number(entry.fantavoto)
-      : CalcoloMatchService.calcolaFantavoto(entry);
+      : CalcoloMatchService.calcolaFantavoto(entry, ruolo);
     return Number.isFinite(fv) ? fv : null;
   },
 
@@ -46,13 +46,17 @@ export const PlayerStatsService = {
       .filter(k => /^gw\d+$/i.test(k) && votes[k] && typeof votes[k] === 'object')
       .filter(k => realGw > 0 ? gwNum(k) <= realGw : true);
 
+    // ruoli per la porta inviolata del portiere
+    const ruoli = new Map((Array.isArray(STATE.players) ? STATE.players : Object.values(STATE.players || {}))
+      .filter(p => p && p.id !== undefined).map(p => [String(p.id), p.role]));
+
     const acc = new Map();
     gwKeys.forEach(k => {
       const gw = votes[k];
       Object.keys(gw).forEach(pid => {
         const v = this._voto(gw[pid]);
         if (v === null) return;
-        const fv = this._fantavoto(gw[pid]);
+        const fv = this._fantavoto(gw[pid], ruoli.get(String(pid)));
         const a = acc.get(pid) || { sumV: 0, sumF: 0, nF: 0, pres: 0 };
         a.sumV += v;
         a.pres += 1;

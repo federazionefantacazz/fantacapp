@@ -34,9 +34,10 @@ const CELL = {
 /**
  * Fantavoto: voto + bonus/malus con i valori del regolamento della lega
  * (RULE_MATCH in calcoloMatch.js). Su fantacalcio.it i gol su azione (gf)
- * e i rigori segnati (rf) sono conteggiati separatamente.
+ * e i rigori segnati (rf) sono conteggiati separatamente. Il portiere senza
+ * gol subiti prende anche il bonus porta inviolata.
  */
-function fantavoto(e) {
+function fantavoto(e, ruolo) {
   if (!e || typeof e.v !== 'number') return null;
   return e.v
     + (e.gf || 0) * RULE_MATCH.gol
@@ -47,7 +48,8 @@ function fantavoto(e) {
     + (e.au || 0) * RULE_MATCH.autogol
     + (e.rp || 0) * RULE_MATCH.rigore_parato
     + (e.rs || 0) * RULE_MATCH.rigore_sbagliato
-    + (e.gs || 0) * RULE_MATCH.gol_subito;
+    + (e.gs || 0) * RULE_MATCH.gol_subito
+    + (ruolo === 'P' && !e.gs ? RULE_MATCH.porta_inviolata : 0);
 }
 
 export const PlayerCard = {
@@ -146,7 +148,7 @@ export const PlayerCard = {
       else if (e && (e.s === 'i' || e.s === 'q')) st = e.s;
       else if (importedSet.has(g)) st = 'n';
       else st = 'f';
-      const fv = st === 't' || st === 's' ? fantavoto(e) : null;
+      const fv = st === 't' || st === 's' ? fantavoto(e, p.role) : null;
       days.push({ g, st, e, fv });
 
       if (st === 't' || st === 's') {

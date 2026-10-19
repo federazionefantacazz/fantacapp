@@ -32,6 +32,9 @@ export const MOD_DIFESA_DEFAULT_FASCE = Object.freeze([
   { da: 7, a: null, punti: 3 }
 ]);
 
+// Fasce gol predefinite: 1° gol da 66, poi un gol ogni 6 punti
+export const FASCE_GOL_DEFAULT = Object.freeze({ soglie: Object.freeze([66, 72, 78, 84, 90]), incremento: 6 });
+
 /**
  * Regole correnti della lega. Sono oggetti condivisi: applicaRegole() li aggiorna
  * sul posto con quanto salvato dal Patron in status/regole, così chi li importa
@@ -39,6 +42,8 @@ export const MOD_DIFESA_DEFAULT_FASCE = Object.freeze([
  */
 export const RULE_MATCH = { ...RULE_DEFAULTS };
 export const MOD_DIFESA = { attivo: false, fasce: MOD_DIFESA_DEFAULT_FASCE.map(f => ({ ...f })) };
+// soglie[i] = punteggio minimo per l'(i+1)° gol; oltre l'ultima un gol in più ogni `incremento` punti (0 = nessuno)
+export const FASCE_GOL = { soglie: [...FASCE_GOL_DEFAULT.soglie], incremento: FASCE_GOL_DEFAULT.incremento };
 
 const num = (v) => {
   const n = parseFloat(String(v ?? '').replace(',', '.'));
@@ -54,8 +59,15 @@ export function normalizzaFasce(fasce) {
     .sort((x, y) => x.da - y.da);
 }
 
+/** Soglie gol valide, crescenti e senza doppioni. */
+export function normalizzaSoglieGol(soglie) {
+  const list = (Array.isArray(soglie) ? soglie : Object.values(soglie || {})).map(num).filter(v => v !== null);
+  return [...new Set(list)].sort((a, b) => a - b);
+}
+
 /**
- * Applica le regole salvate (status/regole): { bonus: {gol: 3, ...}, modDifesa: { attivo, fasce: [...] } }.
+ * Applica le regole salvate (status/regole):
+ * { bonus: {gol: 3, ...}, modDifesa: { attivo, fasce: [...] }, fasceGol: { soglie: [66, 72, ...], incremento: 6 } }.
  * Valori mancanti = predefiniti.
  */
 export function applicaRegole(cfg) {
@@ -67,6 +79,11 @@ export function applicaRegole(cfg) {
   const md = cfg?.modDifesa || {};
   MOD_DIFESA.attivo = md.attivo === true;
   MOD_DIFESA.fasce = md.fasce ? normalizzaFasce(md.fasce) : MOD_DIFESA_DEFAULT_FASCE.map(f => ({ ...f }));
+  const fg = cfg?.fasceGol || {};
+  const soglie = fg.soglie ? normalizzaSoglieGol(fg.soglie) : [];
+  FASCE_GOL.soglie = soglie.length ? soglie : [...FASCE_GOL_DEFAULT.soglie];
+  const incr = num(fg.incremento);
+  FASCE_GOL.incremento = incr === null || incr < 0 ? FASCE_GOL_DEFAULT.incremento : incr;
 }
 
 export const CalcoloMatchService = {
@@ -82,11 +99,22 @@ export const CalcoloMatchService = {
   },
 
   /**
+   * Porta inviolata: il portiere che ha preso voto e non ha subito gol.
+   * Se il voto ha già il campo porta_inviolata (inserito a mano) vale quello.
+   */
+  haPortaInviolata(datiVoto, ruolo) {
+    if (!datiVoto || typeof datiVoto !== 'object') return false;
+    if (datiVoto.porta_inviolata !== undefined && datiVoto.porta_inviolata !== null) return Number(datiVoto.porta_inviolata) > 0;
+    return ruolo === 'P' && this.normalizzaVoto(datiVoto.voto) > 0 && !(parseInt(datiVoto.gol_subito ?? datiVoto.gs) > 0);
+  },
+
+  /**
    * Calcola dinamicamente il Fantavoto di un singolo giocatore.
    * @param {Object} datiVoto - L'oggetto contenente il voto base e i vari eventi (es: {voto: 6, gol: 1, ammonizione: 1})
+   * @param {String} [ruolo] - 'P'|'D'|'C'|'A': serve per la porta inviolata del portiere
    * @returns {Number} Il fantavoto totale calcolato comprensivo di bonus/malus
    */
-  calcolaFantavoto(datiVoto) {
+  calcolaFantavoto(datiVoto, ruolo = null) {
     if (!datiVoto || datiVoto.voto === undefined || datiVoto.voto === null) {
       return 0;
     }
@@ -96,6 +124,7 @@ export const CalcoloMatchService = {
 
     // Scansiona i modificatori dall'oggetto RULE_MATCH
     Object.keys(RULE_MATCH).forEach(evento => {
+      if (evento === 'porta_inviolata') return; // calcolata a parte
       if (datiVoto[evento]) {
         const quantitaEvento = parseInt(datiVoto[evento]) || 0;
         const valoreMoltiplicatore = parseFloat(RULE_MATCH[evento]) || 0;
@@ -103,18 +132,26 @@ export const CalcoloMatchService = {
       }
     });
 
+    if (this.haPortaInviolata(datiVoto, ruolo)) totaleBonusMalus += parseFloat(RULE_MATCH.porta_inviolata) || 0;
+
     // Ritorna la somma algebrica finale
     return votoBase + totaleBonusMalus;
   },
 
   /**
-   * Calcola i gol totali basandosi sulle soglie (66 = 1 gol, +6 per ogni gol successivo)
+   * Calcola i gol totali con le fasce gol della lega (FASCE_GOL): un gol per ogni soglia
+   * raggiunta, poi oltre l'ultima un gol in più ogni `incremento` punti.
    * @param {Number} punteggio - Il totale della fantasquadra
    * @returns {Number} Numero di gol segnati
    */
   calcolaGol(punteggio) {
-    if (!punteggio || punteggio < 66) return 0;
-    return Math.floor((punteggio - 66) / 6) + 1;
+    const p = Number(punteggio);
+    const { soglie, incremento } = FASCE_GOL;
+    if (!Number.isFinite(p) || !soglie.length) return 0;
+    let gol = soglie.filter(s => p >= s).length;
+    const ultima = soglie[soglie.length - 1];
+    if (p >= ultima && incremento > 0) gol += Math.floor((p - ultima) / incremento + 1e-9);
+    return gol;
   },
 
   /**
