@@ -629,6 +629,7 @@ import { isPatron } from './js/services/roleService.js';
 import { patronExists, registerAccount, getAccessStatus, watchAccessStatus, watchAccountRequests, ensurePatronFlag, notifyNewRequest, STATUS_APPROVED, STATUS_REJECTED } from './js/services/accountService.js';
 import { applyThemeVars, applyThemeCss, applyBackground, cacheUserTheme, getCachedUserTheme, syncStatusBarColor, LAST_UID_KEY } from './js/services/themeService.js';
 import { SettingsService } from './js/services/settingsService.js';
+import { applicaRegole } from './js/services/calcoloMatch.js';
 import { MenuPanel } from './js/components/MenuPanel.js';
 import { ImpostazioniApp } from './js/menu/ImpostazioniApp.js';
 import { ConfigurazioneSquadra } from './js/menu/ConfigurazioneSquadra.js';
@@ -807,6 +808,12 @@ watch('status/onFire', snap => {
     players: Math.max(1, parseInt(v.players, 10) || 5)
   };
   refreshUI();
+});
+
+// REGOLE DI CALCOLO DELLA LEGA (bonus/malus e modificatore difesa, gestite dal Patron)
+watch('status/regole', snap => {
+  applicaRegole(snap.val());
+  if (window.STATE.booted) refreshUI();
 });
 
 watch('status/currentRealGW', snap => { 

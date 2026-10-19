@@ -214,6 +214,9 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
   <button class="snav active" data-sec="dashboard">
     <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Dashboard
   </button>
+  <button class="snav" data-sec="regole">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M5 21h14"/><path d="M3 7h18"/><path d="M6 7l-3 7a3 3 0 0 0 6 0z"/><path d="M18 7l-3 7a3 3 0 0 0 6 0z"/></svg>Regole calcolo
+  </button>
   <button class="snav" data-sec="teams">
     <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 010 7.75"/></svg>Squadre
   </button>
@@ -262,6 +265,7 @@ import { AccountRequestsSection } from './js/admin/accounts.js';
   
 // Importazione di tutti i sottomoduli amministrativi
 import { DashboardSection }     from './js/admin/dashboard.js';
+import { RegoleSection }        from './js/admin/regole.js';
 import { TeamsSection }         from './js/admin/teams.js';
 import { TrofeiSection }        from './js/admin/trofei.js';
 import { PalmaresSection }      from './js/admin/palmares.js';
@@ -362,6 +366,7 @@ window.patronSwitchAccount = function() {
 function initAdminApp() {
   // Inizializzazione sicura di ogni modulo passando il db centralizzato
   if (DashboardSection && typeof DashboardSection.init === 'function') DashboardSection.init(db);
+  if (RegoleSection && typeof RegoleSection.init === 'function') RegoleSection.init(db);
   if (TeamsSection && typeof TeamsSection.init === 'function') TeamsSection.init(db);
   if (TrofeiSection && typeof TrofeiSection.init === 'function') TrofeiSection.init(db);
   if (PalmaresSection && typeof PalmaresSection.init === 'function') PalmaresSection.init(db);
@@ -383,6 +388,7 @@ function initAdminApp() {
   if (container) {
     container.innerHTML = `
       ${typeof DashboardSection.renderHTML === 'function' ? DashboardSection.renderHTML() : ''}
+      ${typeof RegoleSection.renderHTML === 'function' ? RegoleSection.renderHTML() : ''}
       ${typeof TeamsSection.renderHTML === 'function' ? TeamsSection.renderHTML() : ''}
       ${typeof TrofeiSection.renderHTML === 'function' ? TrofeiSection.renderHTML() : ''}
       ${typeof PalmaresSection.renderHTML === 'function' ? PalmaresSection.renderHTML() : ''}
@@ -426,6 +432,7 @@ function refreshAll() {
 
   // Renderizzazione sicura e condizionale elemento per elemento
   if (DashboardSection && typeof DashboardSection.render === 'function') DashboardSection.render(state);
+  if (RegoleSection && typeof RegoleSection.render === 'function') RegoleSection.render(state);
   if (TeamsSection && typeof TeamsSection.render === 'function') TeamsSection.render(state);
   if (TrofeiSection && typeof TrofeiSection.render === 'function') TrofeiSection.render(state);
   if (PalmaresSection && typeof PalmaresSection.render === 'function') PalmaresSection.render(state);
