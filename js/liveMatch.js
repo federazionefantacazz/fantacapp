@@ -786,7 +786,12 @@ export const LiveMatchModule = {
     );
     let voti = 0, n = 0;
     res.slots.forEach(sl => { if (sl.score !== null) { voti += score(sl.id)?.voto || 0; n++; } });
-    return { voti, fv: res.totale, n, subs: res.sostituzioni };
+    const mod = CalcoloMatchService.calcolaModificatoreDifesa(
+      res.slots, team.tit.map(p => p.id),
+      (id) => all.get(String(id))?.role,
+      (id) => score(id)?.voto
+    );
+    return { voti, fv: res.totale + mod.valore, n, subs: res.sostituzioni, mod };
   },
 
   // ------------------------------------------------------------------
@@ -1073,11 +1078,15 @@ export const LiveMatchModule = {
       const ts = Number(t.lineup.timestamp);
       return ts ? `Formazione inviata<br>${new Date(ts).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Formazione inviata';
     };
+    // Modificatore difesa: punti (con segno) e, al tocco/hover, la media o il motivo per cui non vale
+    const modTxt = (t) => !t?.mod?.attivo ? '-' : `${t.mod.valore > 0 ? '+' : ''}${fmt(t.mod.valore)}`;
+    const modTitle = (t) => !t?.mod?.attivo ? '' : (t.mod.media !== undefined ? `Media portiere + 3 difensori: ${fmt(t.mod.media)}` : `Non applicato: ${t.mod.motivo}`);
     const totals = mode === 'next' ? '' : `
       <div class="lv-tot"><span class="n">${tH ? fmt(tH.voti) : '-'}</span><span class="l">solo voti</span><span class="n">${tA ? fmt(tA.voti) : '-'}</span></div>
       <div class="lv-tot"><span class="n b">${tH ? fmt(tH.fv) : '-'}</span><span class="l">con bonus/malus</span><span class="n b">${tA ? fmt(tA.fv) : '-'}</span></div>
       ${mode === 'live' ? `<div class="lv-tot"><span class="n" style="font-size:.85rem;">${tH ? tH.n : 0}/11</span><span class="l">a referto</span><span class="n" style="font-size:.85rem;">${tA ? tA.n : 0}/11</span></div>` : ''}
-      ${mode === 'past' ? `<div style="text-align:center;font-size:.66rem;color:var(--text3);font-family:var(--font-text3,inherit);margin-top:.3rem;">Totali con le sostituzioni dalla panchina</div>` : ''}`;
+      ${mode === 'past' && (tH?.mod?.attivo || tA?.mod?.attivo) ? `<div class="lv-tot"><span class="n" style="font-size:.85rem;" title="${esc(modTitle(tH))}">${modTxt(tH)}</span><span class="l">mod. difesa</span><span class="n" style="font-size:.85rem;" title="${esc(modTitle(tA))}">${modTxt(tA)}</span></div>` : ''}
+      ${mode === 'past' ? `<div style="text-align:center;font-size:.66rem;color:var(--text3);font-family:var(--font-text3,inherit);margin-top:.3rem;">Totali con le sostituzioni dalla panchina${tH?.mod?.attivo || tA?.mod?.attivo ? ' e il modificatore difesa' : ''}</div>` : ''}`;
     return `
       <div class="lv-foot" style="margin-top:1.6rem;">
         <span class="lv-foot-title">${title}</span>

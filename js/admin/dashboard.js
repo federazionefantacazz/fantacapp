@@ -1,6 +1,6 @@
 import { ref, get, update, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 // Importazione del servizio live condiviso
-import { CalcoloMatchService } from "../services/calcoloMatch.js";
+import { CalcoloMatchService, applicaRegole } from "../services/calcoloMatch.js";
 import { GwService } from "../services/gwService.js";
 import { esc } from '../utils.js';
 
@@ -380,7 +380,7 @@ export const DashboardSection = {
    * classifica (se non è a eliminazione diretta pura) e avanzamento nel tabellone.
    * Non scrive nulla: aggiunge i percorsi da aggiornare in `updates`.
    */
-  _calcolaCompetizione({ compId, compData, gwId, mappaFantavotiLocali, ruoliGiocatori, updates }) {
+  _calcolaCompetizione({ compId, compData, gwId, mappaFantavotiLocali, ruoliGiocatori, votiBase, updates }) {
     const couples = compData.matches?.[gwId]?.couples || {};
     const allLineups = compData.matches?.[gwId]?.lineups || {};
 
@@ -390,8 +390,10 @@ export const DashboardSection = {
       const homeTeamId = match.homeId || match.home || match.idHome;
       const awayTeamId = match.awayId || match.away || match.idAway;
 
-      const ptHome = CalcoloMatchService.calcolaTotaleSquadra(allLineups, homeTeamId, mappaFantavotiLocali, ruoliGiocatori);
-      const ptAway = CalcoloMatchService.calcolaTotaleSquadra(allLineups, awayTeamId, mappaFantavotiLocali, ruoliGiocatori);
+      const detHome = CalcoloMatchService.calcolaDettaglioSquadra(allLineups, homeTeamId, mappaFantavotiLocali, ruoliGiocatori, votiBase);
+      const detAway = CalcoloMatchService.calcolaDettaglioSquadra(allLineups, awayTeamId, mappaFantavotiLocali, ruoliGiocatori, votiBase);
+      const ptHome = detHome.totale;
+      const ptAway = detAway.totale;
 
       const gHome = CalcoloMatchService.calcolaGol(ptHome);
       const gAway = CalcoloMatchService.calcolaGol(ptAway);
@@ -401,6 +403,9 @@ export const DashboardSection = {
       updates[`${basePath}/punteggioFinaleAway`] = ptAway;
       updates[`${basePath}/goalHome`] = gHome;
       updates[`${basePath}/goalAway`] = gAway;
+      // Punti del modificatore difesa già compresi nel punteggio finale (0 se non attivo/non applicabile)
+      updates[`${basePath}/modDifesaHome`] = detHome.modDifesa.valore;
+      updates[`${basePath}/modDifesaAway`] = detAway.modDifesa.valore;
       updates[`${basePath}/finished`] = true;
 
       // Aggiornamento Classifica Standard (se NON è a eliminazione diretta pura)
@@ -457,8 +462,8 @@ export const DashboardSection = {
         const homeTeamId = match.homeId || match.home || match.idHome;
         const awayTeamId = match.awayId || match.away || match.idAway;
         
-        const ptHome = CalcoloMatchService.calcolaTotaleSquadra(allLineups, homeTeamId, mappaFantavotiLocali, ruoliGiocatori);
-        const ptAway = CalcoloMatchService.calcolaTotaleSquadra(allLineups, awayTeamId, mappaFantavotiLocali, ruoliGiocatori);
+        const ptHome = CalcoloMatchService.calcolaTotaleSquadra(allLineups, homeTeamId, mappaFantavotiLocali, ruoliGiocatori, votiBase);
+        const ptAway = CalcoloMatchService.calcolaTotaleSquadra(allLineups, awayTeamId, mappaFantavotiLocali, ruoliGiocatori, votiBase);
 
         allMatches[gwId].couples[matchKey] = {
           ...match,
@@ -714,8 +719,12 @@ export const DashboardSection = {
 
         window.toast(`Calcolo della ${gwSerieA}ª giornata di Serie A in corso...`, "info");
 
+        // Regole della lega (bonus/malus e modificatore difesa) appena lette dal DB
+        applicaRegole((await get(ref(this.db, 'status/regole'))).val());
+
         const updates = {};
         const mappaFantavotiLocali = {};
+        const votiBase = {};
 
         // 3. Ruoli dei giocatori (servono per far entrare il panchinaro giusto al posto di un s.v.)
         const playersSnap = await get(ref(this.db, 'players'));
@@ -732,12 +741,13 @@ export const DashboardSection = {
             const fantavotoFinale = CalcoloMatchService.calcolaFantavoto(datiVoto);
             updates[`${votesPath}/${playerId}/fantavoto`] = fantavotoFinale;
             mappaFantavotiLocali[playerId] = fantavotoFinale;
+            votiBase[playerId] = CalcoloMatchService.normalizzaVoto(datiVoto.voto);
           }
         });
 
         // 5. Risultati, classifica e tabellone di ogni competizione
         daCalcolare.forEach(({ compId, compData, gwId }) => {
-          this._calcolaCompetizione({ compId, compData, gwId, mappaFantavotiLocali, ruoliGiocatori, updates });
+          this._calcolaCompetizione({ compId, compData, gwId, mappaFantavotiLocali, ruoliGiocatori, votiBase, updates });
         });
 
         // 6. Applicazione atomica: tutte le competizioni insieme

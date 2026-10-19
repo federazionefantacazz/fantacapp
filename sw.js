@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.3.39'; // Incrementa ad ogni modifica dei file statici
+const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.3.40'; // Incrementa ad ogni modifica dei file statici
 const IMAGE_CACHE = 'fantacapp-images-v1'; // riempita da js/services/assetPreloader.js: non va cancellata agli aggiornamenti
 // Librerie e font esterni (Firebase SDK, icone, Google Fonts): URL con versione fissa, restano tra un aggiornamento e l'altro
 const RUNTIME_CACHE = 'fantacapp-runtime-v1';
@@ -102,6 +102,7 @@ const ASSETS_TO_CACHE = [
   // Area Patron (admin.html + moduli): stessa cache versionata dell'app, così
   // admin e servizi condivisi (themeService, calcoloMatch...) sono sempre della stessa versione
   './js/admin/dashboard.js',
+  './js/admin/regole.js',
   './js/admin/teams.js',
   './js/admin/trofei.js',
   './js/admin/palmares.js',

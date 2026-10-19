@@ -3,8 +3,8 @@
  * Può essere importato sia lato Admin che lato Index (User).
  */
 
-// Regole di calcolo centralizzate nel codice JavaScript
-export const RULE_MATCH = {
+// Valori predefiniti dei bonus/malus (usati finché il Patron non salva i suoi)
+export const RULE_DEFAULTS = Object.freeze({
   gol: 3,
   assist: 1,
   ammonizione: -0.5,
@@ -15,7 +15,59 @@ export const RULE_MATCH = {
   rigore_segnato: 2,
   gol_subito: -1,
   porta_inviolata: 1
+});
+
+export const RULE_LABELS = {
+  gol: 'Gol', rigore_segnato: 'Rigore segnato', assist: 'Assist', ammonizione: 'Ammonizione',
+  espulsione: 'Espulsione', autogol: 'Autogol', rigore_parato: 'Rigore parato',
+  rigore_sbagliato: 'Rigore sbagliato', gol_subito: 'Gol subito', porta_inviolata: 'Porta inviolata'
 };
+
+// Fasce predefinite del modificatore difesa: media in [da, a) -> punti (a = null: "da in su")
+export const MOD_DIFESA_DEFAULT_FASCE = Object.freeze([
+  { da: 6, a: 6.25, punti: 0.5 },
+  { da: 6.25, a: 6.5, punti: 1 },
+  { da: 6.5, a: 6.75, punti: 1.5 },
+  { da: 6.75, a: 7, punti: 2 },
+  { da: 7, a: null, punti: 3 }
+]);
+
+/**
+ * Regole correnti della lega. Sono oggetti condivisi: applicaRegole() li aggiorna
+ * sul posto con quanto salvato dal Patron in status/regole, così chi li importa
+ * (PlayerCard, live, calcolo giornata) usa sempre i valori aggiornati.
+ */
+export const RULE_MATCH = { ...RULE_DEFAULTS };
+export const MOD_DIFESA = { attivo: false, fasce: MOD_DIFESA_DEFAULT_FASCE.map(f => ({ ...f })) };
+
+const num = (v) => {
+  const n = parseFloat(String(v ?? '').replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+};
+
+/** Fasce valide e ordinate per "da" (scarta righe incomplete). */
+export function normalizzaFasce(fasce) {
+  const list = Array.isArray(fasce) ? fasce : Object.values(fasce || {});
+  return list
+    .map(f => ({ da: num(f?.da), a: num(f?.a), punti: num(f?.punti) }))
+    .filter(f => f.da !== null && f.punti !== null && (f.a === null || f.a > f.da))
+    .sort((x, y) => x.da - y.da);
+}
+
+/**
+ * Applica le regole salvate (status/regole): { bonus: {gol: 3, ...}, modDifesa: { attivo, fasce: [...] } }.
+ * Valori mancanti = predefiniti.
+ */
+export function applicaRegole(cfg) {
+  const bonus = cfg?.bonus || {};
+  Object.keys(RULE_DEFAULTS).forEach(k => {
+    const v = num(bonus[k]);
+    RULE_MATCH[k] = v === null ? RULE_DEFAULTS[k] : v;
+  });
+  const md = cfg?.modDifesa || {};
+  MOD_DIFESA.attivo = md.attivo === true;
+  MOD_DIFESA.fasce = md.fasce ? normalizzaFasce(md.fasce) : MOD_DIFESA_DEFAULT_FASCE.map(f => ({ ...f }));
+}
 
 export const CalcoloMatchService = {
   /**
@@ -128,13 +180,50 @@ export const CalcoloMatchService = {
    * @param {Object} [ruoliGiocatori] - { playerId: 'P'|'D'|'C'|'A' }. Se omesso non ci sono sostituzioni.
    * @returns {Number} Somma totale dei fantavoti
    */
-  calcolaTotaleSquadra(allLineups, targetTeamId, mappaFantavotiLocali, ruoliGiocatori = null) {
-    return this.calcolaDettaglioSquadra(allLineups, targetTeamId, mappaFantavotiLocali, ruoliGiocatori).totale;
+  calcolaTotaleSquadra(allLineups, targetTeamId, mappaFantavotiLocali, ruoliGiocatori = null, votiBase = null) {
+    return this.calcolaDettaglioSquadra(allLineups, targetTeamId, mappaFantavotiLocali, ruoliGiocatori, votiBase).totale;
   },
 
-  /** Come calcolaTotaleSquadra ma restituisce anche slot e sostituzioni. */
-  calcolaDettaglioSquadra(allLineups, targetTeamId, mappaFantavotiLocali, ruoliGiocatori = null) {
-    const vuoto = { totale: 0, slots: [], sostituzioni: [] };
+  /**
+   * Modificatore difesa (se attivo nelle regole della lega).
+   * Vale solo se tra i titolari schierati ci sono almeno 4 difensori. Si prendono il
+   * portiere e i 3 difensori con il voto base più alto tra quelli scesi in campo
+   * (dopo le sostituzioni): la media dei 4 voti base cade in una fascia, che dà i punti.
+   * Senza voto del portiere o con meno di 3 difensori a voto il modificatore non si applica.
+   *
+   * @param {Array} slots     slot finali di applicaSostituzioni
+   * @param {Array} titolari  id dei titolari schierati
+   * @param {Function} getRole id -> 'P'|'D'|'C'|'A'
+   * @param {Function} getVoto id -> voto base (0 / null = s.v.)
+   * @returns {{ valore: number, attivo: boolean, media?: number, ids?: Array, motivo?: string }}
+   */
+  calcolaModificatoreDifesa(slots, titolari, getRole, getVoto) {
+    if (!MOD_DIFESA.attivo) return { valore: 0, attivo: false };
+    const difSchierati = (titolari || []).filter(id => getRole(id) === 'D').length;
+    if (difSchierati < 4) return { valore: 0, attivo: true, motivo: 'meno di 4 difensori schierati' };
+
+    const inCampo = (slots || [])
+      .filter(sl => sl.score !== null && sl.score !== undefined)
+      .map(sl => ({ id: sl.id, role: getRole(sl.id), voto: this.normalizzaVoto(getVoto(sl.id)) }))
+      .filter(p => p.voto > 0)
+      .sort((x, y) => y.voto - x.voto);
+    const portiere = inCampo.find(p => p.role === 'P');
+    const difensori = inCampo.filter(p => p.role === 'D').slice(0, 3);
+    if (!portiere) return { valore: 0, attivo: true, motivo: 'portiere senza voto' };
+    if (difensori.length < 3) return { valore: 0, attivo: true, motivo: 'meno di 3 difensori a voto' };
+
+    const scelti = [portiere, ...difensori];
+    const media = Math.round(scelti.reduce((a, p) => a + p.voto, 0) / 4 * 10000) / 10000;
+    const fascia = MOD_DIFESA.fasce.find(f => media >= f.da && (f.a === null || media < f.a));
+    return { valore: fascia ? fascia.punti : 0, attivo: true, media, ids: scelti.map(p => p.id) };
+  },
+
+  /**
+   * Come calcolaTotaleSquadra ma restituisce anche slot, sostituzioni e modificatore difesa.
+   * votiBase: { playerId: voto base } per il modificatore difesa (senza, non si applica).
+   */
+  calcolaDettaglioSquadra(allLineups, targetTeamId, mappaFantavotiLocali, ruoliGiocatori = null, votiBase = null) {
+    const vuoto = { totale: 0, slots: [], sostituzioni: [], modDifesa: { valore: 0, attivo: MOD_DIFESA.attivo } };
     if (!allLineups) return vuoto;
 
     // 1. Cerchiamo il nodo della squadra controllando sia la chiave diretta sia la proprietà teamId interna
@@ -157,6 +246,8 @@ export const CalcoloMatchService = {
     const panchina = Array.isArray(squadData.panchina) && squadData.titolari ? squadData.panchina : [];
     const getRole = (id) => (ruoliGiocatori ? ruoliGiocatori[id] : undefined);
 
-    return this.applicaSostituzioni(titolari, ruoliGiocatori ? panchina : [], getRole, getScore);
+    const res = this.applicaSostituzioni(titolari, ruoliGiocatori ? panchina : [], getRole, getScore);
+    const modDifesa = this.calcolaModificatoreDifesa(res.slots, titolari, getRole, (id) => (votiBase ? votiBase[id] : null));
+    return { ...res, modDifesa, totale: res.totale + modDifesa.valore };
   }
 };
