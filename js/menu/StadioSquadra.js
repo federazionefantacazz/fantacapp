@@ -2,8 +2,8 @@ import { db, ref, update } from '../firebase-config.js';
 import { uploadPngToImgBB } from '../services/integrationImgBB.js';
 import { dataUrlToBlob } from '../components/Kit3D.js';
 import {
-  createStadiumViewer, renderStadiumImage, stadiumCapacity, normalizeStadium, defaultStadium,
-  RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, MAX_NAME
+  createStadiumViewer, renderStadiumImage, stadiumCapacity, normalizeStadium, defaultStadium, applyPreset,
+  RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME
 } from '../components/Stadium3D.js';
 import { injectStyle, parseColor, SWATCHES } from './DivisaSquadra.js';
 import { esc } from './menuUtils.js';
@@ -26,8 +26,15 @@ function injectStadiumStyle() {
   style.id = STYLE_ID;
   style.textContent = `
     .kit-preview > #std-3d { position: absolute; inset: 0; }
+    .kit-hint.std-hint { top: .4rem; bottom: auto; } /* in basso ci sono i pulsanti delle viste */
+    .std-views { flex-wrap: wrap; justify-content: flex-end; }
     .std-cap { text-align: center; font-size: .75rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-top: .35rem; }
     .std-cap b { color: var(--text); font-variant-numeric: tabular-nums; }
+    .std-preset { width: 100%; text-align: left; background: var(--bg3); border: 2px solid transparent; border-radius: 12px; padding: .6rem .75rem;
+      margin-bottom: .45rem; cursor: pointer; color: var(--text); font-family: inherit; }
+    .std-preset b { display: block; font-size: .85rem; }
+    .std-preset span { display: block; font-size: .72rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-top: .15rem; line-height: 1.35; }
+    .std-preset:active { border-color: var(--accent); }
   `;
   document.head.appendChild(style);
 }
@@ -42,12 +49,13 @@ function seatFields(st) {
   }
 }
 
-const VIEWS = [['aerial', 'Aerea'], ['top', "Dall'alto"], ['stand', 'Tribuna']];
+const VIEWS = [['aerial', 'Aerea'], ['top', "Dall'alto"], ['stand', 'Tribuna'], ['outside', 'Esterno']];
 
 export const StadioSquadra = {
   title: 'Stadio',
-  _open: 'structure',
+  _open: 'styles',
   _busy: false,
+  _night: false,
 
   mount(body, STATE) {
     injectStadiumStyle();
@@ -62,7 +70,8 @@ export const StadioSquadra = {
     this._teamId = team.id;
     this._st = normalizeStadium(team.stadium || defaultStadium());
     this._saved = sig(this._st);
-    this._open = 'structure';
+    this._open = 'styles';
+    this._night = false;
     this._renderAll();
 
     root.addEventListener('click', (e) => this._onClick(e));
@@ -84,19 +93,21 @@ export const StadioSquadra = {
 
   _renderAll() {
     const sections = [
-      ['structure', 'FASE 1: Anelli, curve e pista'],
-      ['pitch',     'FASE 2: Campo'],
-      ['seats',     'FASE 3: Colore dei seggiolini'],
-      ['walls',     'FASE 4: Parapetti e cemento'],
-      ['name',      'FASE 5: Nome dello stadio']
+      ['styles',    'FASE 1: Stili rapidi'],
+      ['structure', 'FASE 2: Anelli, curve e pista'],
+      ['exterior',  'FASE 3: Copertura, fari ed esterno'],
+      ['pitch',     'FASE 4: Campo'],
+      ['seats',     'FASE 5: Colore dei seggiolini'],
+      ['walls',     'FASE 6: Parapetti e cemento'],
+      ['name',      'FASE 7: Nome dello stadio']
     ];
     this._root.innerHTML = `
       <div class="kit-stage">
         <div class="kit-preview">
           <div class="kit-loading" id="std-loading">Costruzione dello stadio…</div>
           <div id="std-3d"></div>
-          <div class="kit-hint"><i class="ri-drag-move-line"></i> Trascina per ruotare</div>
-          <div class="kit-view-btns">${VIEWS.map(([v, l]) => `<button data-act="view" data-v="${v}">${l}</button>`).join('')}</div>
+          <div class="kit-hint std-hint"><i class="ri-drag-move-line"></i> Trascina per ruotare</div>
+          <div class="kit-view-btns std-views">${VIEWS.map(([v, l]) => `<button data-act="view" data-v="${v}">${l}</button>`).join('')}<button data-act="night">${this._night ? 'Giorno' : 'Notte'}</button></div>
           <button class="kit-zoom-btn" data-act="zoom-open" title="Ingrandisci lo stadio" aria-label="Ingrandisci lo stadio"><i class="ri-zoom-in-line"></i></button>
         </div>
         <div class="std-cap" id="std-cap"></div>
@@ -125,6 +136,7 @@ export const StadioSquadra = {
     const box = this._root.querySelector('#std-3d');
     if (box && !this._viewer) {
       this._viewer = createStadiumViewer(box);
+      if (this._night) this._viewer.setNight(true);
       this._viewer.ready.then(() => { const l = this._root && this._root.querySelector('#std-loading'); if (l) l.remove(); })
         .catch(e => { console.error(e); const l = this._root && this._root.querySelector('#std-loading'); if (l) l.textContent = 'Il 3D non è supportato su questo dispositivo'; });
     }
@@ -148,7 +160,10 @@ export const StadioSquadra = {
     const key = this._open;
     const box = key && this._root.querySelector(`#std-sec-${key}`);
     if (!box) return;
-    const fn = { structure: this._secStructure, pitch: this._secPitch, seats: this._secSeats, walls: this._secWalls, name: this._secName }[key];
+    const fn = {
+      styles: this._secStyles, structure: this._secStructure, exterior: this._secExterior, pitch: this._secPitch,
+      seats: this._secSeats, walls: this._secWalls, name: this._secName
+    }[key];
     box.innerHTML = fn.call(this);
   },
 
@@ -183,6 +198,12 @@ export const StadioSquadra = {
   },
 
   /* ------------------------------------------------------------ sezioni */
+  _secStyles() {
+    return `
+      <div class="mp-muted" style="margin-bottom:.6rem;">Parti da uno stadio già pronto: poi puoi cambiare tutto nelle altre fasi. Il nome resta quello che hai scelto.</div>
+      ${PRESETS.map(p => `<button class="std-preset" data-act="preset" data-v="${p.id}"><b>${esc(p.label)}</b><span>${esc(p.desc)}</span></button>`).join('')}`;
+  },
+
   _secStructure() {
     const s = this._st;
     return `
@@ -196,6 +217,25 @@ export const StadioSquadra = {
       <div class="kit-sub">Curve e tribune</div>
       <div class="kit-chips">${CORNERS.map(o => this._chip('corners', o.id, o.label, s.corners === o.id)).join('')}</div>
       <div class="mp-muted" style="margin-top:.3rem;">${s.corners === 'open' ? 'Quattro settori separati, con gli angoli aperti.' : 'Un unico anello di spalti tutto intorno al campo.'}</div>`;
+  },
+
+  _secExterior() {
+    const s = this._st;
+    const roofLights = s.lights === 'roof' && s.roof === 'none';
+    return `
+      <div class="kit-sub">Copertura</div>
+      <div class="kit-chips">${ROOFS.map(o => this._chip('roof', o.id, o.label, s.roof === o.id)).join('')}</div>
+      <div class="mp-muted" style="margin-top:.3rem;">${s.roof === 'truss' ? 'Tetto in lamiera sopra l\'anello più alto, con tralicci sotto e piloni in acciaio fuori che reggono una trave tutto intorno.' : s.roof === 'membrane' ? 'Tetto chiaro e liscio, con le costole sotto.' : 'Spalti scoperti.'}</div>
+      <div class="kit-sub">Fari</div>
+      <div class="kit-chips">${LIGHTS.map(o => this._chip('lights', o.id, o.label, s.lights === o.id)).join('')}</div>
+      ${roofLights ? `<div class="mp-muted" style="margin-top:.3rem;">Senza copertura i fari vanno sulle quattro torri.</div>` : ''}
+      <div class="kit-sub">Muro esterno</div>
+      <div class="kit-chips">${FACADES.map(o => this._chip('facade', o.id, o.label, s.facade === o.id)).join('')}</div>
+      <div class="kit-sub">Colori</div>
+      ${s.roof !== 'none' ? this._colorRow('Tetto', 'colors.roof', s.colors.roof) : ''}
+      ${s.roof !== 'none' || s.lights !== 'none' ? this._colorRow('Acciaio (tralicci, pilastri, torri)', 'colors.steel', s.colors.steel) : ''}
+      ${s.facade === 'struts' ? this._colorRow('Fasce del basamento', 'colors.accent', s.colors.accent) : ''}
+      <div class="mp-muted" style="margin-top:.6rem;">Prova il pulsante Notte sull'anteprima per vedere i fari accesi.</div>`;
   },
 
   _secPitch() {
@@ -252,12 +292,14 @@ export const StadioSquadra = {
       <div class="kit-zoom-stage"><div></div></div>
       <div class="kit-zoom-bar">
         ${VIEWS.map(([v, l]) => `<button data-z="${v}">${l}</button>`).join('')}
+        <button data-z="night">${this._night ? 'Giorno' : 'Notte'}</button>
         <button data-z="in" aria-label="Avvicina">＋ Zoom</button>
         <button data-z="out" aria-label="Allontana">− Zoom</button>
       </div>`;
     document.body.appendChild(el);
     const viewer = createStadiumViewer(el.querySelector('.kit-zoom-stage > div'), { zoom: true });
-    viewer.update(this._st).catch(err => console.error('Stadio:', err));
+    let night = this._night;
+    viewer.update(this._st).then(() => viewer.setNight(night)).catch(err => console.error('Stadio:', err));
     const close = () => { viewer.dispose(); el.remove(); this._zoom = null; };
     el.addEventListener('click', (e) => {
       const b = e.target.closest('[data-z]');
@@ -266,6 +308,7 @@ export const StadioSquadra = {
       if (z === 'close') close();
       else if (z === 'in') viewer.zoomBy(.75);
       else if (z === 'out') viewer.zoomBy(1 / .75);
+      else if (z === 'night') { night = !night; b.textContent = night ? 'Giorno' : 'Notte'; viewer.setNight(night); }
       else viewer.setView(z);
     });
     this._zoom = { close };
@@ -294,6 +337,15 @@ export const StadioSquadra = {
       case 'zoom-open': this._openZoom(); return;
       case 'view':
         if (this._viewer) this._viewer.setView(v);
+        return;
+      case 'night':
+        this._night = !this._night;
+        btn.textContent = this._night ? 'Giorno' : 'Notte';
+        if (this._viewer) this._viewer.setNight(this._night);
+        return;
+      case 'preset':
+        this._update(() => { this._st = applyPreset(this._st, v); });
+        window.showToast('Stile applicato: modificalo come vuoi e ricorda di salvare', 'ok');
         return;
       case 'set': {
         const k = btn.dataset.k;
@@ -354,7 +406,7 @@ export const StadioSquadra = {
       team.stadium = null; // aggiornamento immediato; il listener del DB lo riconferma
       this._st = normalizeStadium(defaultStadium());
       this._saved = sig(this._st);
-      this._open = 'structure';
+      this._open = 'styles';
       this._root.querySelectorAll('.kit-acc').forEach(a => a.classList.toggle('open', a.dataset.sec === this._open));
       this._renderPreview(); this._renderSection();
       window.showToast('Stadio eliminato: puoi ricostruirlo da zero', 'ok');
