@@ -139,7 +139,7 @@ export const HomePage = {
 
         <!-- LIVE: durante il live prende il posto del prossimo avversario; tocco -> pagina Live -->
         <div id="homeLiveMatchWrap" style="display:none; margin-bottom:1.5rem;">
-          <div class="sec" style="margin-bottom:.6rem;">Live Match <span style="margin-left:auto; font-family:var(--font-text); font-size:.7rem; letter-spacing:0; color:var(--text3);">simulato con il 6</span></div>
+          <div class="sec" style="margin-bottom:.6rem;">Live Match</div>
           <div id="homeLiveMatch" class="row-link" style="border-radius:16px;"></div>
         </div>
 
@@ -239,7 +239,10 @@ export const HomePage = {
           kitBox.innerHTML = hasKit
             ? kitPairHTML(myTeam.kit, myTeam.kit2, { crestUrl: myTeam.logo || '', width: 360 },
                 `style="width:100%; max-width:${myTeam.kit && myTeam.kit2 ? 190 : 150}px; margin:0 auto;"`)
-            : `<i class="ri-shirt-line" style="font-size: 3rem; color: var(--text3); font-family: var(--font-text3, inherit);"></i>`;
+            : `<div style="display: flex; flex-direction: column; align-items: center; gap: 0.2rem; text-align: center;">
+                <i class="ri-t-shirt-2-line" style="font-size: 3.45rem; line-height: 1; color: var(--text3); font-family: var(--font-text3, inherit);"></i>
+                <div style="font-size: 0.7rem; font-weight: 600; color: var(--text2); font-family: var(--font-sub, inherit);">Crea kit squadra</div>
+              </div>`;
           if (kitAction) kitAction.innerHTML = `${hasKit ? 'Modifica' : 'Crea'} <i class="ri-arrow-right-s-line"></i>`;
         }
       }
