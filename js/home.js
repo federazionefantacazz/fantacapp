@@ -131,22 +131,24 @@ export const HomePage = {
         
         <div id="home-status-banner" style="margin-bottom: 1.2rem;"></div>
 
-        <!-- LIVE (solo durante il live, se la mia squadra gioca nella giornata in corso): tocco -> pagina Live -->
-        <div id="homeLiveMatchWrap" style="display:none; margin-bottom:1.5rem;">
-          <div class="sec" style="margin-bottom:.6rem;">Live Match <span style="margin-left:auto; font-family:var(--font-text); font-size:.7rem; letter-spacing:0; color:var(--text3);">simulato con il 6</span></div>
-          <div id="homeLiveMatch" class="row-link" style="border-radius:16px;"></div>
-        </div>
-
         <!-- ULTIMA PARTITA (visibile solo se in questa competizione ne è già stata giocata una) -->
         <div id="homeLastMatchWrap" style="display:none; margin-bottom:1.5rem;">
           <div class="sec" style="margin-bottom:.6rem;">Ultima Partita</div>
           <div id="homeLastMatch" class="row-link" style="border-radius:16px;"></div>
         </div>
 
-        <!-- PROSSIMO AVVERSARIO -->
-        <div class="sec" style="margin-bottom:.6rem;">Prossimo Avversario</div>
-        <div id="homeNextMatch" style="margin-bottom:1.5rem;">
-          <div style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1rem; font-size:.85rem;">Nessun match programmato.</div>
+        <!-- LIVE: durante il live prende il posto del prossimo avversario; tocco -> pagina Live -->
+        <div id="homeLiveMatchWrap" style="display:none; margin-bottom:1.5rem;">
+          <div class="sec" style="margin-bottom:.6rem;">Live Match <span style="margin-left:auto; font-family:var(--font-text); font-size:.7rem; letter-spacing:0; color:var(--text3);">simulato con il 6</span></div>
+          <div id="homeLiveMatch" class="row-link" style="border-radius:16px;"></div>
+        </div>
+
+        <!-- PROSSIMO AVVERSARIO (nascosto durante il live) -->
+        <div id="homeNextMatchWrap">
+          <div class="sec" style="margin-bottom:.6rem;">Prossimo Avversario</div>
+          <div id="homeNextMatch" style="margin-bottom:1.5rem;">
+            <div style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1rem; font-size:.85rem;">Nessun match programmato.</div>
+          </div>
         </div>
 
         <div class="sec" id="onFireTitle" style="margin-bottom:.6rem;">Giocatori On Fire <i class="ri-fire-fill" style="color: #ff4757;"></i></div>
@@ -312,11 +314,20 @@ export const HomePage = {
       if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1rem; font-size:.85rem;">Seleziona una competizione dal menu in alto.</div>`;
     }
 
-    // --- LIVE: risultato simulato con il 6 a chi deve ancora giocare (come "Simula partita") ---
+    // --- LIVE: al posto del prossimo avversario, risultato simulato con il 6 a chi deve ancora giocare (come "Simula partita") ---
     const liveWrap = document.getElementById('homeLiveMatchWrap');
     const liveBox = document.getElementById('homeLiveMatch');
+    const nextWrap = document.getElementById('homeNextMatchWrap');
     if (liveWrap && liveBox) {
       const status = STATE.live && comp && myTeam && realGw ? GwService.getTeamStatus(comp, realGw, myTeam.id) : null;
+      if (nextWrap) nextWrap.style.display = status ? 'none' : '';
+      if (!liveBox.dataset.bound) {
+        liveBox.dataset.bound = '1';
+        liveBox.addEventListener('click', () => {
+          LiveMatchModule._pendingKey = HomePage._liveKey;
+          window.goPage('live');
+        });
+      }
       if (status && status.canPlay) {
         const couple = status.couple;
         const res = LiveMatchModule.liveSummary({ comp, gwKey: status.gwKey, couple, gwReale: realGw });
@@ -329,14 +340,19 @@ export const HomePage = {
         });
         liveWrap.style.display = 'block';
         HomePage._liveKey = couple.key;
-
-        if (!liveBox.dataset.bound) {
-          liveBox.dataset.bound = '1';
-          liveBox.addEventListener('click', () => {
-            LiveMatchModule._pendingKey = HomePage._liveKey;
-            window.goPage('live');
-          });
-        }
+      } else if (status) {
+        // live, ma la mia squadra non gioca questa giornata (riposo, eliminata...): si possono seguire gli altri incontri
+        liveBox.innerHTML = `
+          <div class="card card-sm card-mini" style="background:var(--mini-bg,var(--card)); border:1px solid var(--border); padding:1rem; margin-bottom:0; display:flex; align-items:center; gap:.7rem;">
+            <span class="status-chip live" style="--chip-color:var(--accent3);"><span class="dot"></span>LIVE</span>
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:.85rem; font-weight:600; color:var(--text);">Non giochi in questa giornata</div>
+              <div style="font-size:.75rem; color:var(--text2); font-family:var(--font-sub,inherit); margin-top:1px;">${esc(status.reason || '')} Tocca per seguire gli altri incontri.</div>
+            </div>
+            <i class="ri-arrow-right-s-line" style="color:var(--text3); font-size:1.1rem;"></i>
+          </div>`;
+        liveWrap.style.display = 'block';
+        HomePage._liveKey = null;
       } else {
         liveWrap.style.display = 'none';
         liveBox.innerHTML = '';
