@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.3.48'; // Incrementa ad ogni modifica dei file statici
+const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.3.49'; // Incrementa ad ogni modifica dei file statici
 const IMAGE_CACHE = 'fantacapp-images-v1'; // riempita da js/services/assetPreloader.js: non va cancellata agli aggiornamenti
 // Librerie e font esterni (Firebase SDK, icone, Google Fonts): URL con versione fissa, restano tra un aggiornamento e l'altro
 const RUNTIME_CACHE = 'fantacapp-runtime-v1';
@@ -135,10 +135,12 @@ self.addEventListener('install', event => {
       .then(cache => {
         console.log('Inizializzazione cache PWA avanzata...');
         
-        // Scarica i file uno ad uno: un eventuale 404 non blocca l'installazione
+        // Scarica i file uno ad uno: un eventuale 404 non blocca l'installazione.
+        // Sempre dalla rete ('reload'): GitHub Pages fa tenere i file al browser per 10 minuti e, con due
+        // versioni pubblicate a pochi minuti di distanza, la nuova cache si riempirebbe dei file vecchi.
         return Promise.all(
           ASSETS_TO_CACHE.map(url => {
-            return cache.add(url).catch(err => {
+            return cache.add(new Request(url, { cache: 'reload' })).catch(err => {
               console.error(`Impossibile inserire in cache (File mancante o errato): ${url}`, err);
             });
           })
