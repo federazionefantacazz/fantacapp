@@ -56,10 +56,11 @@ function floatGeometry(THREE, geometry) {
 
 /**
  * Maglia con le cuciture e la forma di colletto richieste (una volta per variante).
- * Cuciture: 'setin' maglia classica (icons/kit3d/shirt.glb), 'raglan' cucitura più bassa e girocollo (icons/kit3d/shirt-raglan.glb).
+ * Cuciture: 'setin' maglia classica (icons/kit3d/shirt.glb), 'raglan' cucitura raglan e girocollo (icons/kit3d/shirt-raglan.glb).
  * 'polo': colletto alto di icons/kit3d/collar-polo.glb, già posizionato sulla maglia. Classica: bordo del collo portato
- *         sulla cucitura del colletto (icons/kit3d/neck-polo.bin) e costina nascosta. Raglan: maglia invariata, colletto
- *         adattato (icons/kit3d/collar-polo-raglan.glb) sopra la costina del girocollo.
+ *         sulla cucitura del colletto (icons/kit3d/neck-polo.bin) e costina nascosta. Raglan: colletto adattato
+ *         (icons/kit3d/collar-polo-raglan.glb) sopra la costina del girocollo e maglia tagliata a V sotto le strisce
+ *         (icons/kit3d/neck-cut-raglan.bin).
  */
 const variants = new Map();
 const COLLAR_TOP = 1.675; // punto più alto del colletto alto (collar-polo.glb), con un po' di margine
@@ -102,9 +103,28 @@ function loadVariant(kit) {
         // la costina dello scollo a V non serve: il colletto è cucito direttamente alla stoffa
         model.traverse(o => { if (o.isMesh && /Pattern2D_3805002/.test(`${o.name}|${o.parent ? o.parent.name : ''}`)) o.visible = false; });
       }
+      if (shape === 'polo' && raglan) {
+        // la costina del girocollo fa da base al colletto (l'attaccatura coincide); davanti la maglia si apre a V come la
+        // classica: stoffa e costina dentro l'apertura si tolgono, il bordo del taglio resta sotto le strisce
+        // (neck-cut-raglan.bin: 'NKC1', n. mesh, poi per mesh n e gli indici uint32 dei triangoli da togliere)
+        const dv = new DataView(await fetch(KIT3D_FILES.neckCutRaglan).then(r => r.arrayBuffer()));
+        const meshes = [];
+        model.traverse(m => { if (m.isMesh) meshes.push(m); });
+        let o = 6;
+        for (let k = 0; k < dv.getUint16(4, true); k++) {
+          const n = dv.getUint32(o, true);
+          const cut = new Set();
+          for (let j = 0; j < n; j++) cut.add(dv.getUint32(o + 4 + 4 * j, true));
+          o += 4 + 4 * n;
+          if (!n) continue;
+          const m = meshes[k], g = m.geometry.clone(), idx = g.index.array, keep = [];
+          for (let t = 0; t < idx.length / 3; t++) if (!cut.has(t)) keep.push(idx[3 * t], idx[3 * t + 1], idx[3 * t + 2]);
+          g.setIndex(keep);
+          m.geometry = g;
+        }
+      }
       if (shape === 'polo') {
-        // raglan: la maglia resta com'è e la costina del girocollo fa da base al colletto (l'attaccatura coincide);
-        // il colletto è adattato alla raglan (ala appoggiata sulla stoffa, strisce della V stese sul petto)
+        // raglan: colletto adattato (strisce della V stese sul petto della raglan)
         const loader = new L.GLTFLoader();
         const collar = (await loader.loadAsync(raglan ? KIT3D_FILES.collarPoloRaglan : KIT3D_FILES.collarPolo)).scene;
         collar.traverse(o => { if (o.isMesh) o.geometry.computeVertexNormals(); });

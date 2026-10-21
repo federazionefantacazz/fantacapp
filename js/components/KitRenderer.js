@@ -9,7 +9,7 @@ export { COLLAR_SHAPES };
  * La divisa è salvata in teams/{id}/kit:
  * {
  *   collarShape,                                            // forma del colletto: 'v' (scollo a V) o 'polo' (vedi kitShapes.js)
- *   sleeveCut,                                              // cucitura delle maniche: 'setin' (sulle spalle) o 'raglan' (più bassa, dal colletto all'ascella)
+ *   sleeveCut,                                              // cucitura delle maniche: 'setin' (sulle spalle) o 'raglan' (dal colletto all'ascella)
  *   collar, cuffs, sleeveDeco,                              // stile di colletto, polsini, decorazioni maniche
  *   colors: { base, sleeves, sleevesR, shoulders, collar, cuffs, trim },  // sleevesR: manica destra se diversa ('' = come sleeves)
  *   shoulders: { shape: 'none'|'raglan'|'yoke', size, match },  // spalle colorate; match: colore delle maniche
@@ -287,7 +287,7 @@ export const SHOULDER_SHAPES = [
 // Cuciture delle maniche: due modelli 3D diversi (vedi MODELS)
 export const SLEEVE_CUTS = [
   { id: 'setin',  label: 'Cucitura spalle' },
-  { id: 'raglan', label: 'Cucitura più bassa' }
+  { id: 'raglan', label: 'Cucitura raglan' }
 ];
 
 export const SLEEVE_DECO = [
@@ -392,7 +392,7 @@ const ASSET_BASE = 'icons/kit3d/';
 export const KIT3D_FILES = {
   model: ASSET_BASE + 'shirt.glb', collarPolo: ASSET_BASE + 'collar-polo.glb', neckPolo: ASSET_BASE + 'neck-polo.bin', mask: ASSET_BASE + 'mask.png', seams: ASSET_BASE + 'seams.jpg',
   raglan: ASSET_BASE + 'shirt-raglan.glb', raglanMask: ASSET_BASE + 'mask-raglan.png', raglanSeams: ASSET_BASE + 'seams-raglan.jpg',
-  collarPoloRaglan: ASSET_BASE + 'collar-polo-raglan.glb'
+  collarPoloRaglan: ASSET_BASE + 'collar-polo-raglan.glb', neckCutRaglan: ASSET_BASE + 'neck-cut-raglan.bin'
 };
 
 // Maglia raglan (icons/kit3d/shirt-raglan.glb, dal progetto CLO "adidas orjinal" di akifdesign): le maniche arrivano

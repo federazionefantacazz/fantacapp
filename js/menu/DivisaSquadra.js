@@ -435,7 +435,7 @@ export const DivisaSquadra = {
     return `
       <div class="kit-sub">Cucitura delle maniche</div>
       <div class="kit-grid wide">${SLEEVE_CUTS.map(c => this._opt('sleeveCut', c.id, this._thumb({ ...base, sleeveCut: c.id }), c.label, k.sleeveCut === c.id)).join('')}</div>
-      ${raglan ? `<div class="mp-muted">Cucitura più bassa: scende in diagonale dal colletto all'ascella e la manica copre anche la spalla.</div>` : ''}
+      ${raglan ? `<div class="mp-muted">Cucitura raglan: scende in diagonale dal colletto all'ascella e la manica copre anche la spalla.</div>` : ''}
       <div class="kit-sub">Forma del colletto</div>
       <div class="kit-grid wide">${COLLAR_SHAPES.map(c => this._opt('collarShape', c.id, this._thumb({ ...base, collarShape: c.id }), raglan && c.id === 'v' ? 'Girocollo' : c.label, k.collarShape === c.id)).join('')}</div>
       ${k.collarShape === 'polo' ? '' : `

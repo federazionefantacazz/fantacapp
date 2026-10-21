@@ -16,3 +16,6 @@ mask-raglan.png, seams-raglan.jpg
 collar-polo-raglan.glb
                  Lo stesso colletto alto per la maglia raglan: la maglia non si deforma, il colletto calza sulla
                  costina del girocollo e le strisce della V sono stese sul petto della raglan.
+neck-cut-raglan.bin
+                 Taglio a V della maglia raglan per il colletto alto (come lo scollo della classica): triangoli di
+                 stoffa e costina da togliere dentro l'apertura, con il bordo nascosto sotto le strisce.
