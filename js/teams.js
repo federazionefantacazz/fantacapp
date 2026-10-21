@@ -234,6 +234,14 @@ export const TeamsPage = {
         <div style="font-size:.68rem; color:var(--text3); font-family:var(--font-text3, inherit); text-align:center; margin-top:.3rem;"><i class="ri-drag-move-line"></i> Trascina per ruotare, due dita per lo zoom</div>
       </div>` : ''}
 
+      ${team.stadium && team.stadium.image ? `
+      <div class="card" style="margin-bottom:1rem; background:var(--card); text-align:left;">
+        <div class="label">Stadio</div>
+        <img src="${esc(team.stadium.image)}" alt="Stadio" loading="lazy" decoding="async" style="width:100%; display:block; margin-top:.4rem;">
+        <div style="text-align:center; font-size:.85rem; color:var(--text); font-weight:600;">${esc(team.stadium.name || '')}</div>
+        ${team.stadium.capacity ? `<div style="text-align:center; font-size:.72rem; color:var(--text2); font-family:var(--font-sub, inherit);">${Number(team.stadium.capacity).toLocaleString('it-IT')} posti</div>` : ''}
+      </div>` : ''}
+
       <div class="card" style="margin-bottom:1rem; background:var(--card); text-align:left;">
         <div class="label">Storia del club</div>
         <p style="font-size:.85rem; color:var(--text); line-height:1.4; margin-top:.4rem; white-space:pre-line;">

@@ -19,7 +19,7 @@ import {
 const MAX_LAYERS = 6;
 
 /** Colore scritto o incollato: #rgb, #rrggbb (anche senza #) oppure rgb(r, g, b) / "r, g, b". Restituisce #rrggbb o null. */
-function parseColor(str) {
+export function parseColor(str) {
   const t = String(str || '').trim().toLowerCase();
   const m = t.match(/^(?:rgba?\s*\(\s*)?(\d{1,3})\s*[,\s]\s*(\d{1,3})\s*[,\s]\s*(\d{1,3})/);
   if (m) {
@@ -56,7 +56,7 @@ const SLOTS = { 1: { field: 'kit', label: 'Prima maglia' }, 2: { field: 'kit2', 
 const MAX_FILE_MB = 8;
 const FEDERAZIONE_LOGO = 'icons/logo-federazione.jpg';
 
-const SWATCHES = ['#ffffff', '#000000', '#c62828', '#7a1f1f', '#e65100', '#ffd400', '#f5a623', '#2e7d32',
+export const SWATCHES = ['#ffffff', '#000000', '#c62828', '#7a1f1f', '#e65100', '#ffd400', '#f5a623', '#2e7d32',
   '#0b5d3b', '#00bcd4', '#1e88e5', '#1e5bb8', '#0d1b4c', '#6a1b9a', '#ec407a', '#9e9e9e'];
 
 const COLOR_FIELDS = [
@@ -68,7 +68,8 @@ const COLOR_FIELDS = [
 ];
 
 const STYLE_ID = 'kit-editor-style';
-function injectStyle() {
+/** Stile dell'editor (usato anche dall'editor dello stadio). */
+export function injectStyle() {
   if (document.getElementById(STYLE_ID)) return;
   const style = document.createElement('style');
   style.id = STYLE_ID;

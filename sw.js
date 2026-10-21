@@ -78,6 +78,7 @@ const ASSETS_TO_CACHE = [
   './js/components/MenuPanel.js',
   './js/components/PlayerCard.js',
   './js/components/Kit3D.js',
+  './js/components/Stadium3D.js',
   './js/components/kitShapes.js',
   './js/components/KitRenderer.js',
 
@@ -86,6 +87,7 @@ const ASSETS_TO_CACHE = [
   './js/menu/ImpostazioniApp.js',
   './js/menu/ConfigurazioneSquadra.js',
   './js/menu/DivisaSquadra.js',
+  './js/menu/StadioSquadra.js',
   './js/menu/ListoneView.js',
   './js/menu/NotificheView.js',
   
