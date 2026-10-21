@@ -14,12 +14,13 @@ export { COLLAR_SHAPES };
  *   colors: { base, sleeves, sleevesR, shoulders, collar, cuffs, trim },  // sleevesR: manica destra se diversa ('' = come sleeves)
  *   shoulders: { shape: 'none'|'raglan'|'yoke', size, match },  // spalle colorate; match: colore delle maniche
  *   sleeveDecoShoulder,                                     // strisce delle maniche che partono dal colletto (spalla + manica)
- *   layers: [{ type, color, opacity, scale, flipX, flipY, x, y, rot, zone }],  // type: disegno integrato o 'png:<id>'; zone: body | all | sleeves
+ *   layers: [{ type, color, opacity, scale, flipX, flipY, x, y, rot, zone }],  // type: disegno integrato, 'png:<id>' (dal Patron)
+ *                                                           // o 'img' (PNG caricato dal giocatore: url, mono = tinta unica); zone: body | all | sleeves
  *                                                           // x, y: spostamento in % del pezzo (+ = destra/su), rot: gradi
  *                                                           // wrap: whole (davanti e dietro come un unico pezzo) | repeat | mirror
  *   sleeveTf: { x, y, scale, rot },                         // posizione, dimensione e rotazione delle decorazioni delle maniche
- *   brand: { id, color, url, mono },                        // id: marchio integrato, 'png:<id>' (dal Patron) o 'custom'
- *   crest: { show, size, swap },                           // swap: stemma al posto del marchio tecnico e viceversa
+ *   brand: { id, color, url, mono, size, x, y },            // id: 'nike', 'png:<id>' (dal Patron) o 'custom'; x, y: spostamento in % del davanti
+ *   crest: { show, size, swap, x, y },                     // swap: stemma al posto del marchio tecnico e viceversa
  *   sponsor: { mode: 'none'|'image'|'text', url, text, font, color, mono, scale, y },
  *   backSponsor: { ...come sponsor },                       // sponsor sul retro (sotto il numero)
  *   backPrint: { show, name, number, font, color, outline, nameSize, numSize, y },  // nome e numero sul retro
@@ -202,25 +203,10 @@ export const PATTERNS = [
 ];
 
 /* ---------------------------------------------------------- marchi tecnici */
-// Marchi stilizzati disegnati in un riquadro 60×40
+// Marchi disegnati in un riquadro 60×40 (solo Nike: gli altri li aggiunge il Patron in PNG o li carica il giocatore)
 export const BRANDS = [
   { id: 'none', label: 'Nessuno', draw: () => '' },
   { id: 'nike', label: 'Nike', draw: (c) => `<path d="M2,27 C1,33 6,35 14,32 L58,13 L17,25 C9,27 6,25 9,19 C3,22 2,25 2,27 Z" fill="${c}"/>` },
-  { id: 'adidas', label: 'Adidas', draw: (c) => `<g fill="${c}"><polygon points="6,34 12,24 20,29 16,34"/><polygon points="18,34 27,17 35,22 29,34"/><polygon points="31,34 42,10 50,15 43,34"/></g>` },
-  { id: 'adidas-trefoil', label: 'Adidas Originals', draw: (c, base) => `<g fill="${c}"><ellipse cx="30" cy="13" rx="6" ry="11"/><ellipse cx="18" cy="21" rx="6" ry="11" transform="rotate(-55 18 21)"/><ellipse cx="42" cy="21" rx="6" ry="11" transform="rotate(55 42 21)"/><rect x="10" y="26" width="40" height="2.5" fill="${base}"/><rect x="10" y="30" width="40" height="2.5" fill="${base}"/></g>` },
-  { id: 'puma', label: 'Puma', draw: (c) => `<text x="30" y="30" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-style="italic" font-size="17" fill="${c}">PUMA</text>` },
-  { id: 'umbro', label: 'Umbro', draw: (c) => `<g fill="none" stroke="${c}" stroke-width="3.5"><polygon points="30,4 54,20 30,36 6,20"/><polygon points="30,12 42,20 30,28 18,20"/></g>` },
-  { id: 'kappa', label: 'Kappa', draw: (c) => `<text x="30" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700" font-size="17" fill="${c}">Kappa</text>` },
-  { id: 'macron', label: 'Macron', draw: (c) => `<text x="30" y="27" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="14" fill="${c}">macron</text>` },
-  { id: 'joma', label: 'Joma', draw: (c) => `<text x="30" y="31" text-anchor="middle" font-family="Georgia, serif" font-weight="900" font-style="italic" font-size="30" fill="${c}">J</text>` },
-  { id: 'errea', label: 'Erreà', draw: (c) => `<text x="30" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-weight="800" font-size="17" fill="${c}">erreà</text>` },
-  { id: 'lotto', label: 'Lotto', draw: (c) => `<g fill="none" stroke="${c}" stroke-width="3.5"><polygon points="22,6 36,20 22,34 8,20"/><polygon points="38,6 52,20 38,34 24,20"/></g>` },
-  { id: 'diadora', label: 'Diadora', draw: (c) => `<text x="30" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700" font-style="italic" font-size="15" fill="${c}">diadora</text>` },
-  { id: 'hummel', label: 'Hummel', draw: (c) => `<g fill="${c}"><polygon points="6,14 30,26 54,14 54,20 30,32 6,20"/><polygon points="6,4 30,16 54,4 54,10 30,22 6,10" opacity=".85"/></g>` },
-  { id: 'newbalance', label: 'New Balance', draw: (c) => `<text x="30" y="31" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-style="italic" font-size="24" fill="${c}">NB</text>` },
-  { id: 'underarmour', label: 'Under Armour', draw: (c) => `<g fill="none" stroke="${c}" stroke-width="4.5" stroke-linecap="round"><path d="M14,8 C24,16 36,16 46,8"/><path d="M14,32 C24,24 36,24 46,32"/><path d="M17,10 C23,18 23,22 17,30"/><path d="M43,10 C37,18 37,22 43,30"/></g>` },
-  { id: 'kelme', label: 'Kelme', draw: (c) => `<g fill="${c}"><path d="M10,30 C20,8 40,8 50,22 C40,16 28,16 22,30 Z"/><circle cx="46" cy="12" r="3.5"/></g>` },
-  { id: 'legea', label: 'Legea', draw: (c) => `<text x="30" y="28" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="15" fill="${c}">LEGEA</text>` },
   { id: 'custom', label: 'Personalizzato', draw: () => '' }
 ];
 
@@ -307,8 +293,8 @@ export function defaultKit() {
     colors: { base: '#1e5bb8', sleeves: '#1e5bb8', sleevesR: '', shoulders: '#ffffff', collar: '#ffffff', cuffs: '#ffffff', trim: '#ffffff' },
     shoulders: { shape: 'none', size: 100, match: true },
     layers: [],
-    brand: { id: 'nike', color: '#ffffff', url: '', mono: false },
-    crest: { show: true, size: 100, swap: false },
+    brand: { id: 'nike', color: '#ffffff', url: '', mono: false, size: 100, x: 0, y: 0 },
+    crest: { show: true, size: 100, swap: false, x: 0, y: 0 },
     sponsor: { mode: 'none', url: '', text: '', font: 'bebas', color: '#ffffff', mono: false, scale: 100, y: 0 },
     backSponsor: { mode: 'none', url: '', text: '', font: 'bebas', color: '#ffffff', mono: false, scale: 100, y: 0 },
     backPrint: { show: false, name: '', number: '10', font: 'seriea', color: '#ffffff', outline: '', nameSize: 100, numSize: 100, y: 0 },
@@ -331,7 +317,8 @@ export function normalizeKit(raw) {
     sleeveTf: { ...d.sleeveTf, ...(k.sleeveTf || {}) },
     colors: { ...d.colors, ...(k.colors || {}) },
     shoulders: { ...d.shoulders, ...(k.shoulders || {}), shape: SHOULDER_SHAPES.some(x => x.id === (k.shoulders || {}).shape) ? k.shoulders.shape : 'none' },
-    brand: { ...d.brand, ...(k.brand || {}) },
+    // marchi integrati tolti (adidas, puma, ...): diventano Nike
+    brand: (b => ({ ...b, id: BRANDS.some(x => x.id === b.id) || String(b.id).startsWith('png:') ? b.id : 'nike' }))({ ...d.brand, ...(k.brand || {}) }),
     crest: { ...d.crest, ...(k.crest || {}) },
     sponsor: { ...d.sponsor, ...(k.sponsor || {}) },
     backSponsor: { ...d.backSponsor, ...(k.backSponsor || {}) },
@@ -348,6 +335,7 @@ export function normalizeKit(raw) {
 /** Etichetta di un disegno (integrato o PNG del Patron). */
 export function patternLabel(type) {
   if (String(type).startsWith('png:')) return (getPngPatterns().find(p => 'png:' + p.id === type) || {}).name || 'Disegno';
+  if (type === 'img') return 'La tua immagine';
   return (PATTERNS.find(p => p.id === type) || {}).label || type;
 }
 
@@ -695,8 +683,9 @@ export async function paintKitTexture(rawKit, opts = {}) {
       else x.drawImage(img, sx, 0, sw, sh, r.x, r.y, r.w, r.h);
       x.restore();
     };
-    if (String(l.type).startsWith('png:')) {
-      const pp = pngPatterns.find(x => 'png:' + x.id === l.type);
+    const own = l.type === 'img'; // PNG caricato dal giocatore
+    if (String(l.type).startsWith('png:') || own) {
+      const pp = own ? { url: l.url, mode: 'panel' } : pngPatterns.find(x => 'png:' + x.id === l.type);
       const img = await loadCleanImage(pp && pp.url);
       if (!img) continue;
       if (pp.mode === 'uv') {
@@ -715,11 +704,15 @@ export async function paintKitTexture(rawKit, opts = {}) {
         // PNG disegnato (spostato, ruotato, ingrandito) su una tela w×h
         const panel = (w, h) => {
           const c2 = document.createElement('canvas'); c2.width = Math.max(1, Math.round(w)); c2.height = Math.max(1, Math.round(h));
-          const x = c2.getContext('2d'), t = tint(img, safeColor(l.color), w, h);
+          const x = c2.getContext('2d');
           x.translate(w / 2 + clamp(l.x || 0, -50, 50) / 100 * w, h / 2 - clamp(l.y || 0, -50, 50) / 100 * h);
           x.rotate(clamp(l.rot || 0, -180, 180) * Math.PI / 180);
           x.scale((l.flipX ? -1 : 1) * s, (l.flipY ? -1 : 1) * s);
-          x.drawImage(t, -w / 2, -h / 2, w, h);
+          if (own) {
+            // la tua immagine: riempie il pezzo senza deformarsi (colori originali o tinta unica)
+            const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height, f = Math.max(w / iw, h / ih);
+            x.drawImage(l.mono ? tint(img, safeColor(l.color), iw, ih) : img, -iw * f / 2, -ih * f / 2, iw * f, ih * f);
+          } else x.drawImage(tint(img, safeColor(l.color), w, h), -w / 2, -h / 2, w, h);
           return c2;
         };
         const whole = wrap === 'whole' && parts.some(isBody) ? panel(wW, wH) : null;
@@ -918,9 +911,10 @@ export async function paintKitTexture(rawKit, opts = {}) {
   if (!opts.plain) {
     const A0 = { ...ANCHORS, ...model.anchors };
     const at = (a) => { const r = R(a.part); return { x: r.x + a.x * r.w, y: r.y + a.y * r.h, s: (a.s || .1) * r.w, r }; };
+    const moved = (a, o) => ({ ...a, x: a.x + clamp(o.x || 0, -40, 40) / 100, y: a.y - clamp(o.y || 0, -30, 30) / 100 });
     if (k.crest.show && opts.crestUrl) {
       const img = await loadCut(opts.crestUrl);
-      const a = at({ ...A0.crest, x: k.crest.swap ? A0.brand.x : A0.crest.x }), s = a.s * clamp(k.crest.size, 60, 150) / 100;
+      const a = at(moved({ ...A0.crest, x: k.crest.swap ? A0.brand.x : A0.crest.x }, k.crest)), s = a.s * clamp(k.crest.size, 60, 150) / 100;
       drawContain(ctx, img, a.x, a.y, s, s);
     }
     const b = k.brand;
@@ -934,10 +928,11 @@ export async function paintKitTexture(rawKit, opts = {}) {
       if (bb && bb.id !== 'none' && bb.id !== 'custom') brandImg = await brandSvgImage(bb, b.color, c.base);
     }
     if (brandImg) {
-      const a = at({ ...A0.brand, x: k.crest.swap ? A0.crest.x : A0.brand.x }); // crest.swap: stemma e marchio invertiti
+      const a = at(moved({ ...A0.brand, x: k.crest.swap ? A0.crest.x : A0.brand.x }, b)); // crest.swap: stemma e marchio invertiti
       const img = (b.id === 'custom' || String(b.id).startsWith('png:')) && b.mono
         ? tint(brandImg, safeColor(b.color), brandImg.naturalWidth || brandImg.width, brandImg.naturalHeight || brandImg.height) : brandImg;
-      drawContain(ctx, img, a.x, a.y, a.s, a.s * .75);
+      const bs = a.s * clamp(b.size || 100, 60, 150) / 100;
+      drawContain(ctx, img, a.x, a.y, bs, bs * .75);
     }
     await drawSponsor(ctx, k.sponsor, A0.sponsor, R('front'));
     await drawSponsor(ctx, k.backSponsor, A0.backSponsor, R('back'));
