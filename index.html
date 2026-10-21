@@ -1157,11 +1157,12 @@ window.setUserSetting = async function(key, value) {
 };
 
 
-// Apre la scheda di una squadra (usato dalla classifica); da lì si può tornare alla classifica
-window.openTeamPage = function(teamId, from) {
+// Apre la scheda di una squadra (classifica, palmarès della home); da lì si torna alla pagina di partenza.
+// opts.info: apre subito l'Info Club
+window.openTeamPage = function(teamId, from, opts = {}) {
   if (!teamId) return;
   window.goPage('teams');
-  TeamsPage.openTeamDetail(String(teamId), window.STATE, { from });
+  TeamsPage.openTeamDetail(String(teamId), window.STATE, { from, info: !!opts.info });
 };
 
 window.goToPatron = function() {

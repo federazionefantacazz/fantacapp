@@ -79,6 +79,13 @@ window.openKitEditor = () => {
   MenuPanel.open(DivisaSquadra, 'kit');
 };
 
+// Palmarès: apre l'Info Club della mia squadra nella pagina Squadre
+window.openMyClubInfo = () => {
+  const team = window.STATE && window.STATE.user;
+  const mine = team && toArray(window.STATE.teams).find(t => sameId(t.id, team.id));
+  if (mine && window.openTeamPage) window.openTeamPage(mine.id, 'home', { info: true });
+};
+
 export const HomePage = {
   renderHTML(STATE = {}) {
     return `
@@ -109,8 +116,11 @@ export const HomePage = {
             <div id="homeMiniClassifica" style="${BOX} min-width: 0;">
               <div style="font-size: 0.7rem; font-weight: 600; color: var(--text2); font-family: var(--font-sub, inherit);">Caricamento...</div>
             </div>
-            <div style="${BOX} grid-column: 1 / -1;">
-              <div class="label" style="margin-bottom: 0.4rem; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase;"><i class="ri-trophy-line"></i> Palmarès</div>
+            <div id="homePalmares" onclick="window.openMyClubInfo && window.openMyClubInfo()" style="${BOX} grid-column: 1 / -1; cursor: pointer;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.3rem; margin-bottom: 0.4rem;">
+                <div class="label" style="margin: 0; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase;"><i class="ri-trophy-line"></i> Palmarès</div>
+                <div id="homePalmaresAction" style="font-size: 0.65rem; color: var(--accent); display: flex; align-items: center; flex-shrink: 0;">Info club <i class="ri-arrow-right-s-line"></i></div>
+              </div>
               <div id="homeTeamTrophies" style="display: flex; align-items: flex-end; justify-content: flex-start; gap: 0.6rem; flex-wrap: wrap;">
                 <span style="font-size: 0.75rem; color: var(--text3); font-family: var(--font-text3, inherit); font-style: italic;">Nessun trofeo</span>
               </div>
@@ -161,6 +171,7 @@ export const HomePage = {
     const kitWrap = document.getElementById('homeKitBox');
     const kitAction = document.getElementById('homeKitAction');
     const boxes = document.getElementById('homeBoxes');
+    const palmaresAction = document.getElementById('homePalmaresAction');
 
     const competitionsList = toArray(STATE.competitions);
     const comp = competitionsList.find(c => sameId(c.id, STATE.currentCompetition));
@@ -232,6 +243,7 @@ export const HomePage = {
       }
       if (kitWrap) kitWrap.style.display = '';
       if (boxes) boxes.style.gridTemplateColumns = '1fr 1fr';
+      if (palmaresAction) palmaresAction.style.display = '';
 
       if (miniClassificaBox && comp) {
         miniClassificaBox.innerHTML = renderAnteprimaClassifica(comp, teamsList, myTeam.id, { compact: true });
@@ -284,6 +296,7 @@ export const HomePage = {
       if (kitBox) { kitBox.dataset.key = ''; kitBox.innerHTML = ''; }
       if (kitWrap) kitWrap.style.display = 'none';
       if (boxes) boxes.style.gridTemplateColumns = '1fr';
+      if (palmaresAction) palmaresAction.style.display = 'none';
     }
 
     if (comp) {
@@ -427,7 +440,7 @@ export const HomePage = {
             : badge;
 
           return `
-            <div class="pcard" style="border-color: var(--pcard-border, rgba(255,255,255,0.05)); margin-bottom: 0.4rem;">
+            <div class="pcard row-link" data-player-id="${esc(p.id)}" style="border-color: var(--pcard-border, rgba(255,255,255,0.05)); margin-bottom: 0.4rem;">
               <div style="font-family:'DM Mono',monospace; font-size:.7rem; color:var(--text3); width:14px; text-align:center;">${i + 1}</div>
               ${photoHtml}
               <div class="pi" style="flex:1; min-width:0;">

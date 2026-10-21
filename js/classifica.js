@@ -170,8 +170,8 @@ export const ClassificaPage = {
       const isLastRow = idx === teamsList.length - 1;
 
       const logoHTML = t.logo
-        ? `<img src="${esc(t.logo)}" alt="Logo ${esc(t.name)}" style="width:26px; height:26px; object-fit:contain; border-radius:4px; flex-shrink:0;">`
-        : `<div style="width:26px; height:26px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:0.85rem; color:var(--text3);font-family:var(--font-text3,inherit); flex-shrink:0;"><i class="ri-shield-line"></i></div>`;
+        ? `<img src="${esc(t.logo)}" alt="Logo ${esc(t.name)}" style="width:32.5px; height:32.5px; object-fit:contain; border-radius:5px; flex-shrink:0;">`
+        : `<div style="width:32.5px; height:32.5px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:5px; font-size:1.05rem; color:var(--text3);font-family:var(--font-text3,inherit); flex-shrink:0;"><i class="ri-shield-line"></i></div>`;
 
       const isLast = isLastRow && teamsList.length > 5;
       const fantaPtsColor = isLast ? 'var(--accent3)' : (idx === 0 ? 'var(--accent)' : 'var(--text2)');
@@ -288,8 +288,8 @@ export const ClassificaPage = {
         const nameAway = esc(teamName(teamAway, awayIdActual, isAwayPending));
 
         const logoHTML = (team, pending) => !pending && team?.logo
-          ? `<img src="${esc(team.logo)}" alt="" style="width:20px; height:20px; object-fit:contain; border-radius:2px; flex-shrink:0;">`
-          : `<span style="font-size:1rem; flex-shrink:0; width:20px; text-align:center;"><i class="ri-shield-line"></i></span>`;
+          ? `<img src="${esc(team.logo)}" alt="" style="width:25px; height:25px; object-fit:contain; border-radius:3px; flex-shrink:0;">`
+          : `<span style="font-size:1.25rem; flex-shrink:0; width:25px; text-align:center;"><i class="ri-shield-line"></i></span>`;
         const logoHomeHTML = logoHTML(teamHome, isHomePending);
         const logoAwayHTML = logoHTML(teamAway, isAwayPending);
 

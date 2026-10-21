@@ -50,8 +50,8 @@ export const TeamsPage = {
     window.teamDetailBack = () => {
       const from = this.returnTo;
       this.backToTeamsList();
-      if (from === 'classifica') {
-        window.goPage('classifica');
+      if (from === 'classifica' || from === 'home') {
+        window.goPage(from);
       }
     };
 
@@ -94,7 +94,7 @@ export const TeamsPage = {
     this.activeTeamId = teamId;
     this.returnTo = opts.from || null;
     const backLabel = document.getElementById('team-detail-back-label');
-    if (backLabel) backLabel.textContent = this.returnTo === 'classifica' ? 'Classifica' : 'Lista';
+    if (backLabel) backLabel.textContent = { classifica: 'Classifica', home: 'Home' }[this.returnTo] || 'Lista';
     const listView = document.getElementById('teams-list-view');
     const detailView = document.getElementById('team-detail-view');
     const titleView = document.getElementById('team-detail-title');
@@ -120,6 +120,8 @@ export const TeamsPage = {
 
     const pageContainer = document.getElementById('dynamic-pages-container');
     if (pageContainer) pageContainer.scrollTop = 0;
+
+    if (opts.info) this.openInfoModal(team, STATE);
   },
 
   drawRosa(teamId, STATE) {
