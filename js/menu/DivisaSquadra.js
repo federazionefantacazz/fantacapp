@@ -435,7 +435,7 @@ export const DivisaSquadra = {
     return `
       <div class="kit-sub">Cucitura delle maniche</div>
       <div class="kit-grid wide">${SLEEVE_CUTS.map(c => this._opt('sleeveCut', c.id, this._thumb({ ...base, sleeveCut: c.id }), c.label, k.sleeveCut === c.id)).join('')}</div>
-      ${raglan ? `<div class="mp-muted">Cucitura più bassa: scende in diagonale dal colletto all'ascella e la manica copre anche la spalla.</div>` : ''}
+      ${raglan ? `<div class="mp-muted">Cucitura raglan: scende in diagonale dal colletto all'ascella e la manica copre anche la spalla.</div>` : ''}
       <div class="kit-sub">Forma del colletto</div>
       <div class="kit-grid wide">${COLLAR_SHAPES.map(c => this._opt('collarShape', c.id, this._thumb({ ...base, collarShape: c.id }), raglan && c.id === 'v' ? 'Girocollo' : c.label, k.collarShape === c.id)).join('')}</div>
       ${k.collarShape === 'polo' ? '' : `
@@ -498,12 +498,20 @@ export const DivisaSquadra = {
       const l = k.layers[sel];
       const p = `layers.${sel}`;
       const png = getPngPatterns();
-      const cell = (type, src, label) => this._opt('layer-type', type, `<div class="kit-brand" style="height:auto; aspect-ratio:400/420; background:#2b323c;"><img src="${esc(src)}" alt="" style="width:100%; height:100%; max-width:none; max-height:none; object-fit:cover;"></div>`, label, l.type === type);
+      const own = l.type === 'img';
+      const box = (inner) => `<div class="kit-brand" style="height:auto; aspect-ratio:400/420; background:#2b323c;">${inner}</div>`;
+      const pic = (src) => `<img src="${esc(src)}" alt="" style="width:100%; height:100%; max-width:none; max-height:none; object-fit:cover;">`;
+      const cell = (type, src, label) => this._opt('layer-type', type, box(pic(src)), label, l.type === type);
+      // il tuo PNG: si sceglie caricandolo (anche per cambiarlo)
+      const ownCell = `<label class="kit-opt ${own ? 'on' : ''}" title="Carica il tuo PNG">
+          ${box(own && l.url ? pic(l.url) : '<i class="ri-upload-2-line" style="font-size:1.4rem; color:var(--text2);"></i>')}<span class="lb">Il tuo PNG</span>
+          <input type="file" accept="image/png" data-upload="layer:${sel}" style="display:none;"></label>`;
       editor = `
         <div class="kit-layer-edit">
           <div class="kit-sub">Disegno del livello ${sel + 1}</div>
-          ${this._pickBtn('layer', (png.find(pp => 'png:' + pp.id === l.type) || {}).url || patternThumbUrl(PATTERNS.find(pt => pt.id === l.type) || PATTERNS[0]), patternLabel(l.type), 'Cambia')}
+          ${this._pickBtn('layer', own ? l.url : (png.find(pp => 'png:' + pp.id === l.type) || {}).url || patternThumbUrl(PATTERNS.find(pt => pt.id === l.type) || PATTERNS[0]), patternLabel(l.type), 'Cambia')}
           ${this._picker === 'layer' ? this._modal(`Disegno del livello ${sel + 1}`, `<div class="kit-grid">
+            ${ownCell}
             ${png.map(pp => cell('png:' + pp.id, pp.url, pp.name)).join('')}
             ${PATTERNS.map(pt => cell(pt.id, patternThumbUrl(pt), pt.label)).join('')}
           </div>`) : ''}
@@ -515,8 +523,15 @@ export const DivisaSquadra = {
           <div class="mp-muted" style="margin-top:.3rem;">Su un solo pezzo il disegno si stende semplicemente su quel pezzo.</div>` : `
           <div class="kit-chips">${LAYER_WRAPS.map(w => this._chip('layer-wrap', w.id, w.label, (l.wrap || 'repeat') === w.id)).join('')}</div>
           <div class="mp-muted" style="margin-top:.3rem;">${esc((LAYER_WRAPS.find(w => w.id === (l.wrap || 'repeat')) || {}).desc || '')}</div>`}
-          <div class="kit-sub">Colore del livello</div>
-          <div class="kit-color-row">${this._colorPicker(`${p}.color`, l.color)}</div>
+          ${own ? `
+          <div class="kit-field">${this._uploadBtn(`layer:${sel}`, true, 'immagine')}</div>
+          <div class="kit-chips" style="margin:.5rem 0;">
+            ${this._chip('layer-mono', '0', 'Colori originali', !l.mono)}
+            ${this._chip('layer-mono', '1', 'Tinta unica', !!l.mono)}
+          </div>
+          <div class="mp-muted">Solo immagini <b>PNG</b> (meglio con sfondo trasparente): riempie il pezzo senza deformarsi; regola dimensione e posizione qui sotto.</div>` : ''}
+          ${!own || l.mono ? `<div class="kit-sub">Colore del livello</div>
+          <div class="kit-color-row">${this._colorPicker(`${p}.color`, l.color)}</div>` : ''}
           ${this._range(`${p}.opacity`, 'Opacità', l.opacity, 5, 100, '%')}
           ${this._range(`${p}.scale`, 'Dimensione', l.scale, 30, 250, '%')}
           ${this._range(`${p}.x`, 'Sposta ↔', l.x || 0, -50, 50)}
@@ -531,7 +546,7 @@ export const DivisaSquadra = {
     }
 
     return `
-      <div class="mp-muted" style="margin-bottom:.6rem;">Sovrapponi fino a ${MAX_LAYERS} livelli: ognuno ha il suo disegno, colore, opacità, dimensione, posizione e rotazione. Il primo livello è quello più in basso.</div>
+      <div class="mp-muted" style="margin-bottom:.6rem;">Sovrapponi fino a ${MAX_LAYERS} livelli: ognuno ha il suo disegno (anche un tuo PNG), colore, opacità, dimensione, posizione e rotazione. Il primo livello è quello più in basso.</div>
       ${layers || '<div class="mp-muted" style="text-align:center; padding:.6rem 0;">Nessun livello: maglia in tinta unita.</div>'}
       ${editor}
       <button class="mp-btn" data-act="layer-add" ${k.layers.length >= MAX_LAYERS ? 'disabled' : ''} style="width:100%;"><i class="ri-add-line"></i> Aggiungi livello</button>`;
@@ -650,7 +665,11 @@ export const DivisaSquadra = {
           ${this._chip('crest-show', '1', 'Mostra stemma', k.crest.show)}
           ${this._chip('crest-show', '0', 'Nascondi', !k.crest.show)}
         </div>
-        ${k.crest.show ? this._range('crest.size', 'Dimensione', k.crest.size, 60, 150, '%') : ''}
+        ${k.crest.show ? `
+        ${this._range('crest.size', 'Dimensione', k.crest.size, 60, 150, '%')}
+        ${this._range('crest.x', 'Sposta ↔', k.crest.x || 0, -40, 40)}
+        ${this._range('crest.y', 'Sposta ↕', k.crest.y || 0, -30, 30)}
+        <div class="kit-chips" style="margin-top:.4rem;">${this._chip('crest-reset', '1', 'Ripristina posizione', false)}</div>` : ''}
         <div class="mp-muted">Lo stemma viene scontornato automaticamente.</div>`
         : `<div class="mp-muted">Non hai ancora un logo: caricalo da <b>Configurazione squadra</b> e comparirà sulla maglia.</div>`}
       <div class="kit-chips" style="margin-top:.6rem;">${this._chip('crest-swap', '1', '⇄ Inverti stemma e marchio tecnico', !!k.crest.swap)}</div>
@@ -663,7 +682,13 @@ export const DivisaSquadra = {
           ${this._chip('brand-mono', '0', 'Colori originali', !k.brand.mono)}
           ${this._chip('brand-mono', '1', 'Tinta unica', k.brand.mono)}
         </div>` : ''}
-      ${k.brand.id !== 'none' && (!isPng || k.brand.mono) ? `<div class="kit-sub">Colore del marchio</div><div class="kit-color-row">${this._colorPicker('brand.color', k.brand.color)}</div>` : ''}`;
+      ${k.brand.id !== 'none' && (!isPng || k.brand.mono) ? `<div class="kit-sub">Colore del marchio</div><div class="kit-color-row">${this._colorPicker('brand.color', k.brand.color)}</div>` : ''}
+      ${k.brand.id !== 'none' ? `
+      <div class="kit-sub">Posizione del marchio</div>
+      ${this._range('brand.size', 'Dimensione', k.brand.size || 100, 60, 150, '%')}
+      ${this._range('brand.x', 'Sposta ↔', k.brand.x || 0, -40, 40)}
+      ${this._range('brand.y', 'Sposta ↕', k.brand.y || 0, -30, 30)}
+      <div class="kit-chips" style="margin-top:.4rem;">${this._chip('brand-reset', '1', 'Ripristina posizione', false)}</div>` : ''}`;
   },
 
   _secPatches() {
@@ -855,6 +880,9 @@ export const DivisaSquadra = {
       case 'layer-flag':
         this._update(kit => { const l = kit.layers[this._layer]; l[v] = !l[v]; });
         return;
+      case 'layer-mono':
+        this._update(kit => { kit.layers[this._layer].mono = v === '1'; });
+        return;
 
       // sponsor
       case 'sponsor-mode': this._update(kit => { kit[btn.dataset.key].mode = v; }); return;
@@ -871,6 +899,8 @@ export const DivisaSquadra = {
       case 'crest-swap': this._update(kit => { kit.crest.swap = !kit.crest.swap; }); return;
       case 'brand': this._update(kit => { kit.brand.id = v; }); return;
       case 'brand-mono': this._update(kit => { kit.brand.mono = v === '1'; }); return;
+      case 'crest-reset': this._update(kit => { Object.assign(kit.crest, { size: 100, x: 0, y: 0 }); }); return;
+      case 'brand-reset': this._update(kit => { Object.assign(kit.brand, { size: 100, x: 0, y: 0 }); }); return;
 
       // patch
       case 'patch-add': {
@@ -939,10 +969,14 @@ export const DivisaSquadra = {
     this._busy = true;
     window.showToast('Caricamento in corso...', 'ok');
     try {
-      const url = await uploadPngToImgBB(file);
+      const li = kind.startsWith('layer:') ? Number(kind.slice(6)) : -1;
+      // un livello copre tutto il pezzo: serve più risoluzione di marchi e sponsor
+      const url = await uploadPngToImgBB(file, li >= 0 ? 1600 : undefined);
       if (!this._kit) return;
+      if (li >= 0) this._picker = null;
       this._update(kit => {
-        if (kind === 'sponsor' || kind === 'backSponsor') kit[kind].url = url;
+        if (li >= 0) { const l = kit.layers[li]; if (l) Object.assign(l, { type: 'img', url, mono: !!l.mono && l.type === 'img' }); }
+        else if (kind === 'sponsor' || kind === 'backSponsor') kit[kind].url = url;
         else kit.brand.url = url;
       });
       window.showToast('Immagine caricata: ricorda di salvare la divisa', 'ok');
