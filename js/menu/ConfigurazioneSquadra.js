@@ -5,6 +5,7 @@ import { esc, sid, playerThumb } from './menuUtils.js';
 import { MenuPanel } from '../components/MenuPanel.js';
 import { kitPairHTML } from '../components/Kit3D.js';
 import { DivisaSquadra } from './DivisaSquadra.js';
+import { StadioSquadra } from './StadioSquadra.js';
 
 const MAX_FILE_MB = 8;
 const ROLE_ORDER = { P: 0, D: 1, C: 2, A: 3 };
@@ -43,6 +44,7 @@ export const ConfigurazioneSquadra = {
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
       if (btn.dataset.action === 'open-kit') MenuPanel.open(DivisaSquadra, 'kit');
+      else if (btn.dataset.action === 'open-stadium') MenuPanel.open(StadioSquadra, 'stadium');
       else if (btn.dataset.action === 'remove-logo') this._removeLogo();
       else if (btn.dataset.action === 'reset-photo') this._resetPlayerPhoto(btn.dataset.pid);
     });
@@ -52,6 +54,7 @@ export const ConfigurazioneSquadra = {
     if (!this._root || this._busy) return;
     this._renderLogo(STATE);
     this._renderKit(STATE);
+    this._renderStadium(STATE);
     this._renderPlayers(STATE);
   },
 
@@ -62,6 +65,7 @@ export const ConfigurazioneSquadra = {
     this._root.innerHTML = `
       <div class="mp-card" id="cfg-logo-card"></div>
       <div class="mp-card" id="cfg-kit-card"></div>
+      <div class="mp-card" id="cfg-stadium-card"></div>
       <div class="mp-card">
         <div class="mp-card-title">Immagini dei giocatori</div>
         <div class="mp-muted" style="margin-bottom:.6rem;">Carica una foto personalizzata per i giocatori della tua rosa. Se la rimuovi torna l'immagine standard.</div>
@@ -70,6 +74,7 @@ export const ConfigurazioneSquadra = {
     `;
     this._renderLogo(STATE);
     this._renderKit(STATE);
+    this._renderStadium(STATE);
     this._renderPlayers(STATE);
   },
 
@@ -88,6 +93,26 @@ export const ConfigurazioneSquadra = {
         <div style="min-width:0;">
           <div class="mp-muted">${team.kit || team.kit2 ? 'Modifica colletto, maniche, disegno, colori, sponsor e patch della prima e della seconda maglia.' : 'Non hai ancora creato la tua maglia: personalizzala ora!'}</div>
           <button class="mp-btn" data-action="open-kit" style="margin-top:.6rem;"><i class="ri-shirt-line"></i> ${team.kit || team.kit2 ? 'Modifica divise' : 'Crea divisa'}</button>
+        </div>
+      </div>
+    `;
+  },
+
+  _renderStadium(STATE) {
+    const card = this._root.querySelector('#cfg-stadium-card');
+    if (!card) return;
+    const st = (STATE.user || {}).stadium;
+    const key = JSON.stringify(st ? [st.image || '', st.name || '', st.capacity || 0] : null);
+    if (card.dataset.key === key) return;
+    card.dataset.key = key;
+    card.innerHTML = `
+      <div class="mp-card-title">Stadio</div>
+      <div style="display:flex; align-items:center; gap:1rem;">
+        ${st && st.image ? `<img src="${esc(st.image)}" alt="Stadio" style="width:120px; flex-shrink:0; object-fit:contain;">` : '<div style="width:100px; flex-shrink:0; text-align:center; font-size:2.6rem; color:var(--text3);font-family:var(--font-text3,inherit);"><i class="ri-building-2-line"></i></div>'}
+        <div style="min-width:0;">
+          ${st ? `<div style="font-size:.9rem; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(st.name || 'Stadio senza nome')}</div>
+          <div class="mp-muted">${st.capacity ? `${Number(st.capacity).toLocaleString('it-IT')} posti` : ''}</div>` : '<div class="mp-muted">Non hai ancora costruito il tuo stadio: scegli anelli, curve, pista e colori!</div>'}
+          <button class="mp-btn" data-action="open-stadium" style="margin-top:.6rem;"><i class="ri-building-2-line"></i> ${st ? 'Modifica stadio' : 'Crea stadio'}</button>
         </div>
       </div>
     `;
