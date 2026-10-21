@@ -429,11 +429,7 @@ export const LiveMatchModule = {
     const scroller = document.getElementById('dynamic-pages-container');
     const scrollTop = scroller ? scroller.scrollTop : 0;
     container.innerHTML = `
-      <div class="lv-wrap" style="margin-top:.5rem;">
-        <div class="sec" style="justify-content:space-between; align-items:center; margin-bottom:.7rem;">
-          <span style="display:flex; align-items:center; gap:.5rem;"><span class="lv-livechip" style="margin:0;"><i></i>LIVE</span> Live Match</span>
-          <span style="font-family:var(--font-text); font-size:.78rem; background:var(--bg3); padding:.2rem .6rem; border-radius:20px; color:var(--accent); font-weight:500; letter-spacing:0;">${esc(GwService.label(d.gwKey))}</span>
-        </div>
+      <div class="lv-wrap">
         ${notice}
         <div class="lv-toolbar">
           <select id="live-match-select" class="select-rose">${options}</select>
@@ -451,6 +447,30 @@ export const LiveMatchModule = {
         this.render();
       });
     }
+  },
+
+  /**
+   * Risultato live di un incontro per la card della Home: simulato con il 6 a chi deve
+   * ancora giocare e con le sostituzioni dalla panchina (come "Simula partita", senza modifiche a mano).
+   * Ritorna { goalHome, goalAway, ptsHome, ptsAway } (punti già formattati; null dove manca la formazione).
+   */
+  liveSummary({ comp, gwKey, couple, gwReale }) {
+    const STATE = window.STATE || {};
+    const n = String(gwReale ?? '').replace(/\D/g, '');
+    const playersById = new Map(this._playersList(STATE.players).filter(p => p.id !== undefined).map(p => [String(p.id), p]));
+    // orari delle partite di Serie A: solo se la pagina Live li ha già scaricati per questa giornata
+    const liveMatches = this._data && String(this._data.gwReale) === n ? this._data.liveMatches : null;
+    const ctx = this._ctx({ mode: 'live', votes: STATE.votes?.[`gw${n}`] || {}, playersById, gwReale: Number(n) || null, liveMatches });
+    const lineups = STATE.matches?.[gwKey]?.lineups || comp?.matches?.[gwKey]?.lineups || {};
+    const simState = { six: true, overrides: {} };
+    const tot = (id) => this._totals(this._team(id, lineups, playersById, ctx), { sim: true, withSubs: true, simState });
+    const tH = tot(couple.homeId), tA = tot(couple.awayId);
+    return {
+      goalHome: tH ? CalcoloMatchService.calcolaGol(tH.fv) : null,
+      goalAway: tA ? CalcoloMatchService.calcolaGol(tA.fv) : null,
+      ptsHome: tH ? fmt(tH.fv) : null,
+      ptsAway: tA ? fmt(tA.fv) : null
+    };
   },
 
   // ------------------------------------------------------------------
@@ -751,13 +771,13 @@ export const LiveMatchModule = {
     };
   },
 
-  /** Punteggio "effettivo" di un giocatore: reale oppure simulato. null = senza voto. */
-  _score(pl, sim) {
+  /** Punteggio "effettivo" di un giocatore: reale oppure simulato (simState: di default la simulazione della pagina Live). null = senza voto. */
+  _score(pl, sim, simState = this._sim) {
     if (sim) {
-      const o = this._sim.overrides[pl.id];
+      const o = simState.overrides[pl.id];
       if (o !== undefined) return o; // null = s.v. simulato
       if (pl.kind === 'voto') return { voto: pl.voto, fv: pl.fv };
-      if (this._sim.six && (pl.kind === 'todo' || pl.kind === 'playing' || pl.kind === 'wait') && pl.st !== 'squal' && pl.st !== 'inf') {
+      if (simState.six && (pl.kind === 'todo' || pl.kind === 'playing' || pl.kind === 'wait') && pl.st !== 'squal' && pl.st !== 'inf') {
         return { voto: 6, fv: 6, six: true };
       }
       return null;
@@ -770,14 +790,14 @@ export const LiveMatchModule = {
    * withSubs: applica le sostituzioni dalla panchina (risultato finale / simulato),
    * altrimenti somma solo i titolari (parziale).
    */
-  _totals(team, { sim = false, withSubs = false } = {}) {
+  _totals(team, { sim = false, withSubs = false, simState = this._sim } = {}) {
     if (!team.lineup) return null;
     const all = new Map([...team.tit, ...team.pan].map(p => [p.id, p]));
-    const score = (id) => { const p = all.get(String(id)); return p ? this._score(p, sim) : null; };
+    const score = (id) => { const p = all.get(String(id)); return p ? this._score(p, sim, simState) : null; };
 
     if (!withSubs) {
       let voti = 0, fv = 0, n = 0;
-      team.tit.forEach(p => { const s = this._score(p, sim); if (s) { voti += s.voto; fv += s.fv; n++; } });
+      team.tit.forEach(p => { const s = this._score(p, sim, simState); if (s) { voti += s.voto; fv += s.fv; n++; } });
       return { voti, fv, n, subs: [] };
     }
 

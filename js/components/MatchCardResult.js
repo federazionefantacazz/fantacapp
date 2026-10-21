@@ -6,6 +6,7 @@ import { esc, sameId, fitName } from '../utils.js';
  *             (nel flusso, accanto all'etichetta girone: non si sovrappone mai al contenuto)
  * opts.matchNumber = numero progressivo, mostrato a sinistra come "Match N"
  * opts.label = testo che sostituisce l'etichetta girone/playoff
+ * opts.points = testo dei punti da mostrare anche se l'incontro non è concluso (es. live)
  */
 export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
   if (!match) {
@@ -34,7 +35,7 @@ export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
   const scoreAway = (isFinished || match.goalAway != null) ? match.goalAway : '-';
   
   const hasPoints = isFinished && (match.punteggioFinaleHome != null || match.punteggioFinaleAway != null);
-  const pointsText = hasPoints ? `${match.punteggioFinaleHome ?? 0} - ${match.punteggioFinaleAway ?? 0} pt` : '';
+  const pointsText = opts.points || (hasPoints ? `${match.punteggioFinaleHome ?? 0} - ${match.punteggioFinaleAway ?? 0} pt` : '');
 
   // Intestazione: "Match N" (+ etichetta girone/playoff) a sinistra, stato a destra
   const labelText = opts.label || match.label || match.girone;

@@ -9,7 +9,6 @@ export const FormazionePage = {
   renderHTML() {
     return `
       <div class="page" id="page-formazione">
-        <div class="sec" style="margin-top:1.2rem">Schiera Formazione</div>
         <div id="f-lock-banner"></div>
         <div id="f-editor">
         

@@ -82,7 +82,7 @@ window.openKitEditor = () => {
 export const HomePage = {
   renderHTML(STATE = {}) {
     return `
-      <div class="page" id="page-home" style="padding-top: 0.5rem;">
+      <div class="page" id="page-home">
 
         <!-- CARD SQUADRA -->
         <div class="card" style="margin-bottom: 1.2rem; background: var(--subbox-bg); border: 1px solid var(--border); padding: 1.25rem;">
@@ -120,6 +120,12 @@ export const HomePage = {
         </div>
         
         <div id="home-status-banner" style="margin-bottom: 1.2rem;"></div>
+
+        <!-- LIVE (solo durante il live, se la mia squadra gioca nella giornata in corso): tocco -> pagina Live -->
+        <div id="homeLiveMatchWrap" style="display:none; margin-bottom:1.5rem;">
+          <div class="sec" style="margin-bottom:.6rem;">Live Match <span style="margin-left:auto; font-family:var(--font-text); font-size:.7rem; letter-spacing:0; color:var(--text3);">simulato con il 6</span></div>
+          <div id="homeLiveMatch" class="row-link" style="border-radius:16px;"></div>
+        </div>
 
         <!-- ULTIMA PARTITA (visibile solo se in questa competizione ne è già stata giocata una) -->
         <div id="homeLastMatchWrap" style="display:none; margin-bottom:1.5rem;">
@@ -291,6 +297,38 @@ export const HomePage = {
       }
     } else {
       if (nm) nm.innerHTML = `<div style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1rem; font-size:.85rem;">Seleziona una competizione dal menu in alto.</div>`;
+    }
+
+    // --- LIVE: risultato simulato con il 6 a chi deve ancora giocare (come "Simula partita") ---
+    const liveWrap = document.getElementById('homeLiveMatchWrap');
+    const liveBox = document.getElementById('homeLiveMatch');
+    if (liveWrap && liveBox) {
+      const status = STATE.live && comp && myTeam && realGw ? GwService.getTeamStatus(comp, realGw, myTeam.id) : null;
+      if (status && status.canPlay) {
+        const couple = status.couple;
+        const res = LiveMatchModule.liveSummary({ comp, gwKey: status.gwKey, couple, gwReale: realGw });
+        const extra = couple.label || couple.girone;
+        const hasPts = res.ptsHome !== null || res.ptsAway !== null;
+        liveBox.innerHTML = createMatchCardResult({ ...couple, goalHome: res.goalHome, goalAway: res.goalAway }, teamsList, {
+          label: `${GwService.label(status.gwKey)}${extra ? ' · ' + extra : ''}`,
+          chip: { live: true, text: 'LIVE', color: 'var(--accent3)' },
+          points: hasPts ? `${res.ptsHome ?? '-'} - ${res.ptsAway ?? '-'} pt` : ''
+        });
+        liveWrap.style.display = 'block';
+        HomePage._liveKey = couple.key;
+
+        if (!liveBox.dataset.bound) {
+          liveBox.dataset.bound = '1';
+          liveBox.addEventListener('click', () => {
+            LiveMatchModule._pendingKey = HomePage._liveKey;
+            window.goPage('live');
+          });
+        }
+      } else {
+        liveWrap.style.display = 'none';
+        liveBox.innerHTML = '';
+        HomePage._liveKey = null;
+      }
     }
 
     // --- ULTIMA PARTITA GIOCATA nella competizione selezionata ---
