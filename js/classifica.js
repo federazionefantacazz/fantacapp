@@ -11,11 +11,6 @@ export const ClassificaPage = {
   renderHTML() {
     return `
       <div id="page-classifica" class="page">
-        <div class="sec">
-          <i class="ri-bar-chart-2-line" style="font-size: 24px;"></i>
-          <span id="classifica-title">Classifica</span>
-        </div>
-        
         <div id="classifica-actions" style="margin-bottom: 1rem; display:none; gap:0.5rem;"></div>
 
         <div id="classifica-content"></div>
@@ -26,7 +21,6 @@ export const ClassificaPage = {
   render(state) {
     const contentDiv = document.getElementById('classifica-content');
     const actionsDiv = document.getElementById('classifica-actions');
-    const titleSpan = document.getElementById('classifica-title');
     if (!contentDiv) return;
 
     const compId = state.currentCompetition;
@@ -41,8 +35,6 @@ export const ClassificaPage = {
     }
 
     const compType = compData.type || 'campionato';
-    titleSpan.textContent = `Classifica — ${sid(compData.name || compId).toUpperCase()}`;
-    
     if (actionsDiv) {
       actionsDiv.innerHTML = '';
       actionsDiv.style.display = 'none';

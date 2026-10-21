@@ -262,7 +262,7 @@ body {
   overflow-y: scroll !important;
   -webkit-overflow-scrolling: touch !important;
   width: 100% !important;
-  padding: 0.5rem 1rem calc(80px + env(safe-area-inset-bottom, 16px)) 1rem !important;
+  padding: 1rem 1rem calc(80px + env(safe-area-inset-bottom, 16px)) 1rem !important;
   box-sizing: border-box;
 }
 
@@ -356,13 +356,24 @@ body {
   flex-direction: column;
   align-items: center;
   gap: .2rem;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 84px;
   font-family: var(--font-text);
-  font-size: .65rem !important;
+  /* sugli schermi stretti l'etichetta si rimpicciolisce: "Squadre" non esce più dallo schermo */
+  font-size: clamp(.52rem, 2.7vw, .65rem) !important;
   font-weight: 500;
   cursor: pointer;
-  padding: .4rem .55rem;
+  padding: .4rem .1rem;
   border-radius: 14px;
   transition: color .25s ease, background .25s ease, transform .25s cubic-bezier(.4,0,.2,1), box-shadow .25s ease;
+}
+
+.nav-btn span {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .nav-btn svg {
@@ -574,24 +585,24 @@ html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75re
   <main id="dynamic-pages-container" style="display: none;"></main>
 </div>
 
-<nav id="nav" aria-label="Navigazione principale" style="display:none;padding-left: 5px;padding-right: 5px;">
+<nav id="nav" aria-label="Navigazione principale" style="display:none;padding-left: 4px;padding-right: 4px;">
   <button class="nav-btn active" data-page="home" onclick="goPage('home',this)">
-    <i class="ri-home-4-line" style="font-size: 20px;"></i>Home
+    <i class="ri-home-4-line" style="font-size: 20px;"></i><span>Home</span>
   </button>
   <button class="nav-btn" data-page="calendario" onclick="goPage('calendario',this)">
-    <i class="ri-calendar-line" style="font-size: 20px;"></i>Calendario
+    <i class="ri-calendar-line" style="font-size: 20px;"></i><span>Calendario</span>
   </button>
   <button class="nav-btn" data-page="classifica" onclick="goPage('classifica',this)">
-    <i class="ri-bar-chart-2-line" style="font-size: 20px;"></i>Classifica
+    <i class="ri-bar-chart-2-line" style="font-size: 20px;"></i><span>Classifica</span>
   </button>
   <button id="btn-nav-formazione" class="nav-btn" data-page="formazione" onclick="goPage('formazione',this)">
     <i class="ri-shield-user-line" style="font-size: 20px;"></i><span>Formazione</span>
   </button>
   <button class="nav-btn" data-page="mercato" onclick="goPage('mercato',this)">
-    <i class="ri-shopping-cart-line" style="font-size: 20px;"></i>Mercato
+    <i class="ri-shopping-cart-line" style="font-size: 20px;"></i><span>Mercato</span>
   </button>
   <button class="nav-btn" data-page="teams" onclick="goPage('teams',this)">
-    <i class="ri-team-line" style="font-size: 20px;"></i>Squadre
+    <i class="ri-team-line" style="font-size: 20px;"></i><span>Squadre</span>
   </button>
 </nav>
 

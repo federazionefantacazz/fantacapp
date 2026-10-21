@@ -48,8 +48,6 @@ export const MercatoPage = {
   renderHTML() {
     return `
       <div class="page" id="page-mercato">
-        <div class="sec" style="margin-top:1.2rem">Mercato</div>
-
         <div class="mk-tabs">
           <button class="btn tab-btn btn-green" data-act="tab" data-tab="nuova"><i class="ri-exchange-line"></i> Nuova</button>
           <button class="btn tab-btn btn-outline" data-act="tab" data-tab="trattative"><i class="ri-history-line"></i> Trattative<span class="mk-dot" id="mk-dot" style="display:none"></span></button>
