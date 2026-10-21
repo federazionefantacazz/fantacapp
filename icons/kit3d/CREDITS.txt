@@ -11,6 +11,8 @@ neck-polo.bin    Spostamenti del bordo del collo della maglia per il colletto al
 shirt-raglan.glb Maglia con maniche raglan e girocollo, convertita dal progetto CLO "adidas orjinal" di akifdesign
                  (stesso autore della maglia retrò): solo i pezzi cuciti (davanti, dietro, maniche, colletto),
                  senza loghi né texture. Mappa UV ridisegnata per l'app; normal map delle cuciture generata.
+                 Cucitura raglan resa più curva (verso la spalla, fino a 22 mm sul cartamodello della manica):
+                 la mezzaluna tolta alla manica passa a davanti e dietro.
 mask-raglan.png, seams-raglan.jpg
                  Maschera dei pezzi e impunture della maglia raglan, generate dai cartamodelli dello stesso progetto.
 collar-polo-raglan.glb
