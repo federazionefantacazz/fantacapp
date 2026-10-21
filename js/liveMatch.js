@@ -57,6 +57,21 @@ const EV_LABEL = {
   rigore_sbagliato: 'Rigore sbagliato', gol_subito: 'Gol subito', porta_inviolata: 'Porta inviolata'
 };
 
+// Icone degli eventi (SVG: le icone remixicon non hanno porta, scarpino e simili).
+// Colore = currentColor; "cut" è il ritaglio sul colore della riga del giocatore.
+const evIcon = (inner, title) => `<svg class="lv-ico" viewBox="0 0 24 24" role="img" aria-label="${title}"><title>${title}</title>${inner}</svg>`;
+const GOAL_SVG = '<path d="M3 20.5V5h18v15.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M1 20.5h22" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M3 9.5h18M3 14h18M8 5v15.5M12 5v15.5M16 5v15.5" stroke="currentColor" stroke-width=".9" opacity=".4"/>';
+const EV_ICONS = {
+  // scarpino con i tacchetti
+  assist: evIcon('<path d="M2.5 9.2c0-1.1.9-1.9 2-1.9h3.6l2.3 2.6c2.4 1.4 5.3 2.1 8.4 2.6 2 .3 3.2 1.6 3.2 3.4v1.6H2.5z" fill="currentColor"/><path d="M4.5 19.6v1.6M9 19.6v1.6M14.5 19.6v1.6M19 19.6v1.6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="cut" d="M11.6 11.6l1.2-1.6M14 12.4l1.2-1.6" stroke-width="1.2" stroke-linecap="round"/>', 'Assist'),
+  // porta con lo scudo
+  porta_inviolata: evIcon(GOAL_SVG + '<path class="cut" d="M12 8.6l5 1.9v3.3c0 3-2.1 5-5 6-2.9-1-5-3-5-6v-3.3z" fill="currentColor" stroke-width="1.2"/>', 'Porta inviolata'),
+  // porta con la palla dentro
+  gol_subito: evIcon(GOAL_SVG + '<circle class="cut" cx="12" cy="15" r="4.4" fill="currentColor" stroke-width="1.2"/>', 'Gol subito'),
+  // palla con la freccia che torna indietro
+  autogol: evIcon('<circle cx="14" cy="14" r="6.6" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="14" cy="14" r="2.3" fill="currentColor"/><path d="M10.5 3.3A10 10 0 0 0 3.6 10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M1.2 7.2l2.4 3.4 3.4-2.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>', 'Autogol')
+};
+
 const LIVE_STYLES = `
 .lv-wrap{--lv-ok:#5ec82b;--lv-warn:#f5a623;--lv-bad:#ff4757}
 .lv-toolbar{display:flex;gap:.5rem;align-items:center;margin-bottom:.8rem;flex-wrap:wrap}
@@ -118,6 +133,9 @@ const LIVE_STYLES = `
 .lv-evs{display:flex;gap:3px;align-items:center;margin-top:3px;min-height:12px;flex-wrap:wrap}
 .lv-half.away .lv-evs{justify-content:flex-end}
 .lv-ev{font-size:.8rem;color:var(--text);line-height:1;display:inline-flex;align-items:center}
+.lv-ico{width:15px;height:15px;flex-shrink:0;display:inline-block}
+.lv-ico .cut{stroke:var(--pcard-bg, var(--card2))}
+.lv-ico.ok{color:var(--lv-ok)}.lv-ico.bad{color:var(--lv-bad)}.lv-ico.as{color:var(--accent2)}
 .lv-card{width:8px;height:11px;border-radius:2px;display:inline-block}
 .lv-card.y{background:#f5d90a}.lv-card.r{background:#e53935}
 .lv-chip{font-size:.52rem;font-weight:700;padding:1px 3px;border-radius:3px;background:var(--bg3);color:var(--text2);font-family:var(--font-sub,inherit)}
@@ -160,6 +178,7 @@ const LIVE_STYLES = `
 .lv-legend{display:flex;flex-wrap:wrap;gap:.35rem .8rem;margin-top:.9rem;font-size:.66rem;color:var(--text2);font-family:var(--font-sub,inherit);justify-content:center}
 .lv-legend span{display:inline-flex;align-items:center;gap:.3rem}
 .lv-legend .lv-box{width:22px;height:22px;font-size:.5rem;border-radius:5px}
+.lv-legend .lv-ico .cut{stroke:var(--bg)}
 .lv-legend .lv-box i{font-size:.7rem}
 
 .lv-nolineup{grid-column:1/-1;text-align:center;font-size:.75rem;color:var(--text3);font-family:var(--font-text3,inherit);padding:.4rem}
@@ -401,7 +420,7 @@ export const LiveMatchModule = {
       const h = this._teamInfo(c.homeId).name;
       const a = this._teamInfo(c.awayId).name;
       const label = c.label ? `${c.label}: ` : '';
-      return `<option value="${esc(c.key)}" ${c.key === selKey ? 'selected' : ''}>${esc(label)}${esc(h)} vs ${esc(a)}${isMyKey(c) ? ' (la tua)' : ''}</option>`;
+      return `<option value="${esc(c.key)}" ${c.key === selKey ? 'selected' : ''}>${esc(label)}${esc(h)} vs ${esc(a)}${isMyKey(c) ? ' ★' : ''}</option>`;
     }).join('');
 
     const notice = d.status.canPlay ? '' : `
@@ -996,11 +1015,11 @@ export const LiveMatchModule = {
     let h = '';
     if (ev.gol) h += rep(ev.gol, `<i class="lv-ev ri-football-fill" title="Gol"></i>`);
     if (ev.rigore_segnato) h += rep(ev.rigore_segnato, `<span class="lv-chip ok" title="Rigore segnato">R</span>`);
-    if (ev.assist) h += rep(ev.assist, `<span class="lv-chip ok" title="Assist">A</span>`);
+    if (ev.assist) h += rep(ev.assist, EV_ICONS.assist.replace('lv-ico', 'lv-ico as'));
     if (ev.rigore_parato) h += rep(ev.rigore_parato, `<i class="lv-ev ri-shield-check-fill" title="Rigore parato"></i>`);
-    if (ev.porta_inviolata) h += `<span class="lv-chip ok" title="Porta inviolata">PI</span>`;
-    if (ev.gol_subito) h += `<span class="lv-chip bad" title="Gol subiti">-${ev.gol_subito}</span>`;
-    if (ev.autogol) h += rep(ev.autogol, `<span class="lv-chip bad" title="Autogol">AG</span>`);
+    if (ev.porta_inviolata) h += EV_ICONS.porta_inviolata.replace('lv-ico', 'lv-ico ok');
+    if (ev.gol_subito) h += rep(ev.gol_subito, EV_ICONS.gol_subito.replace('lv-ico', 'lv-ico bad'));
+    if (ev.autogol) h += rep(ev.autogol, EV_ICONS.autogol.replace('lv-ico', 'lv-ico bad'));
     if (ev.rigore_sbagliato) h += rep(ev.rigore_sbagliato, `<span class="lv-chip bad" title="Rigore sbagliato">RS</span>`);
     if (ev.ammonizione) h += `<span class="lv-card y" title="Ammonizione"></span>`;
     if (ev.espulsione) h += `<span class="lv-card r" title="Espulsione"></span>`;
@@ -1131,6 +1150,13 @@ export const LiveMatchModule = {
     items.push(`<span><span class="lv-box todo-pan"><i class="ri-arrow-up-s-fill"></i>%</span> parte dalla panchina</span>`);
     items.push(`<span><span class="lv-box todo-inf"><i class="ri-first-aid-kit-fill"></i></span> infortunato</span>`);
     items.push(`<span><span class="lv-box todo-out"><i class="ri-forbid-line"></i></span> squalificato / non convocato</span>`);
+    if (mode !== 'next') {
+      items.push(`<span><i class="lv-ev ri-football-fill"></i> gol</span>`);
+      items.push(`<span>${EV_ICONS.assist.replace('lv-ico', 'lv-ico as')} assist</span>`);
+      items.push(`<span>${EV_ICONS.porta_inviolata.replace('lv-ico', 'lv-ico ok')} porta inviolata</span>`);
+      items.push(`<span>${EV_ICONS.gol_subito.replace('lv-ico', 'lv-ico bad')} gol subito</span>`);
+      items.push(`<span>${EV_ICONS.autogol.replace('lv-ico', 'lv-ico bad')} autogol</span>`);
+    }
     return `<div class="lv-legend">${items.join('')}</div>`;
   },
 
