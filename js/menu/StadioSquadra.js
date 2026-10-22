@@ -2,8 +2,8 @@ import { db, ref, update } from '../firebase-config.js';
 import { uploadPngToImgBB } from '../services/integrationImgBB.js';
 import { dataUrlToBlob } from '../components/Kit3D.js';
 import {
-  createStadiumViewer, renderStadiumImage, stadiumCapacity, normalizeStadium, defaultStadium, applyPreset,
-  RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME
+  createStadiumViewer, renderStadiumImage, stadiumCapacity, shownCapacity, normalizeStadium, defaultStadium, applyPreset,
+  RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY
 } from '../components/Stadium3D.js';
 import { injectStyle, parseColor, SWATCHES } from './DivisaSquadra.js';
 import { esc } from './menuUtils.js';
@@ -54,7 +54,7 @@ const VIEWS = [['aerial', 'Aerea'], ['top', "Dall'alto"], ['stand', 'Tribuna'], 
 
 export const StadioSquadra = {
   title: 'Stadio',
-  _open: 'styles',
+  _open: 'name',
   _busy: false,
   _night: false,
 
@@ -71,14 +71,14 @@ export const StadioSquadra = {
     this._teamId = team.id;
     this._st = normalizeStadium(team.stadium || defaultStadium());
     this._saved = sig(this._st);
-    this._open = 'styles';
+    this._open = 'name';
     this._night = false;
     this._renderAll();
 
     root.addEventListener('click', (e) => this._onClick(e));
     root.addEventListener('input', (e) => this._onInput(e));
     root.addEventListener('change', (e) => this._onChange(e));
-    root.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.dataset && (e.target.dataset.hex || e.target.dataset.text)) e.target.blur(); });
+    root.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.dataset && (e.target.dataset.hex || e.target.dataset.text || e.target.dataset.num)) e.target.blur(); });
   },
 
   unmount() {
@@ -94,13 +94,13 @@ export const StadioSquadra = {
 
   _renderAll() {
     const sections = [
-      ['styles',    'FASE 1: Stili rapidi'],
-      ['structure', 'FASE 2: Anelli, curve e pista'],
-      ['exterior',  'FASE 3: Copertura, fari ed esterno'],
-      ['pitch',     'FASE 4: Campo'],
-      ['seats',     'FASE 5: Colore dei seggiolini'],
-      ['walls',     'FASE 6: Parapetti e cemento'],
-      ['name',      'FASE 7: Nome dello stadio']
+      ['name',      'FASE 1: Nome e capienza'],
+      ['styles',    'FASE 2: Stili rapidi'],
+      ['structure', 'FASE 3: Anelli, curve e pista'],
+      ['exterior',  'FASE 4: Copertura, fari ed esterno'],
+      ['pitch',     'FASE 5: Campo'],
+      ['seats',     'FASE 6: Colore dei seggiolini'],
+      ['walls',     'FASE 7: Parapetti e cemento']
     ];
     this._root.innerHTML = `
       <div class="kit-stage">
@@ -143,7 +143,7 @@ export const StadioSquadra = {
     }
     if (this._viewer) this._viewer.update(this._st).catch(e => console.error('Stadio:', e));
     const cap = this._root.querySelector('#std-cap');
-    if (cap) cap.innerHTML = `Capienza: <b>${fmt(stadiumCapacity(this._st))}</b> posti`;
+    if (cap) cap.innerHTML = `${this._st.name.trim() ? `<b>${esc(this._st.name.trim())}</b> · ` : ''}Capienza: <b>${fmt(shownCapacity(this._st))}</b> posti`;
     const dirty = this._root.querySelector('#std-dirty');
     if (dirty) dirty.textContent = this._dirty() ? 'Modifiche non salvate' : '';
   },
@@ -278,10 +278,19 @@ export const StadioSquadra = {
   },
 
   _secName() {
-    const s = this._st;
+    const s = this._st, auto = stadiumCapacity(s);
     return `
       <label class="kit-field"><span>Nome</span><input type="text" data-text="name" value="${esc(s.name)}" maxlength="${MAX_NAME}" placeholder="Es. Stadio Comunale"></label>
-      <div class="mp-muted">Compare nella scheda del tuo club insieme alla capienza.</div>`;
+      <div class="kit-sub">Capienza</div>
+      <div class="kit-chips">
+        ${this._chip('capMode', 'auto', `Calcolata (${fmt(auto)} posti)`, !s.capacityCustom)}
+        ${this._chip('capMode', 'custom', 'Scelta da me', !!s.capacityCustom)}
+      </div>
+      ${s.capacityCustom ? `
+      <label class="kit-field"><span>Posti</span><input type="text" inputmode="numeric" data-num="capacityCustom" value="${s.capacityCustom}" maxlength="7" autocomplete="off"></label>` : ''}
+      <div class="mp-muted">${s.capacityCustom
+        ? `Scrivi il numero di posti che vuoi (fino a ${fmt(MAX_CAPACITY)}).`
+        : 'Contata dai seggiolini dello stadio: cambia con anelli, curve e pista.'} Nome e capienza compaiono in Home e nella scheda del tuo club.</div>`;
   },
 
   /* ------------------------------------------------------------- eventi */
@@ -359,6 +368,12 @@ export const StadioSquadra = {
         return;
       case 'set': {
         const k = btn.dataset.k;
+        if (k === 'capMode') {
+          this._update(st => { st.capacityCustom = v === 'custom' ? (st.capacityCustom || stadiumCapacity(st)) : 0; });
+          const inp = v === 'custom' && this._root.querySelector('[data-num="capacityCustom"]');
+          if (inp) { inp.focus(); inp.select(); }
+          return;
+        }
         const value = k === 'rings' ? Number(v) : k === 'track' || k === 'ramps' ? v === '1' : v;
         this._update(st => { st[k] = value; });
         return;
@@ -385,6 +400,10 @@ export const StadioSquadra = {
     } else if (t.dataset.text) {
       this._set(t.dataset.text, t.value.slice(0, MAX_NAME));
       this._schedulePreview();
+    } else if (t.dataset.num) {
+      // capienza: solo cifre (anche scritta con i punti delle migliaia)
+      const n = Math.min(MAX_CAPACITY, Number(t.value.replace(/\D/g, '')) || 0);
+      if (n) { this._set(t.dataset.num, n); this._schedulePreview(); }
     }
   },
 
@@ -401,6 +420,11 @@ export const StadioSquadra = {
     } else if (t.dataset.text) {
       this._set(t.dataset.text, t.value.trim().slice(0, MAX_NAME));
       this._renderPreview();
+    } else if (t.dataset.num) {
+      const n = Math.min(MAX_CAPACITY, Number(t.value.replace(/\D/g, '')) || 0);
+      if (n < 100) window.showToast('Capienza troppo bassa: almeno 100 posti', 'err');
+      this._set(t.dataset.num, Math.max(100, n || this._st.capacityCustom || 100));
+      this._renderPreview(); this._renderSection();
     }
   },
 
@@ -416,7 +440,7 @@ export const StadioSquadra = {
       team.stadium = null; // aggiornamento immediato; il listener del DB lo riconferma
       this._st = normalizeStadium(defaultStadium());
       this._saved = sig(this._st);
-      this._open = 'styles';
+      this._open = 'name';
       this._root.querySelectorAll('.kit-acc').forEach(a => a.classList.toggle('open', a.dataset.sec === this._open));
       this._renderPreview(); this._renderSection();
       window.showToast('Stadio eliminato: puoi ricostruirlo da zero', 'ok');
@@ -439,7 +463,7 @@ export const StadioSquadra = {
     const st = clone(this._st);
     delete st.image;
     st.name = st.name.trim();
-    st.capacity = stadiumCapacity(st);
+    st.capacity = shownCapacity(st);
     try {
       // foto dello stadio per il resto dell'app (configurazione squadra, scheda club)
       try {
