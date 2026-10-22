@@ -147,7 +147,7 @@ export const TEXT_PLACES = [
 ];
 
 const DEFAULT = {
-  name: '', rings: 2, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single',
+  name: '', rings: 2, ringsEnds: 0, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single',
   roof: 'none', lights: 'towers', facade: 'wall', ramps: false, boxes: false, shellPattern: 'rhombus', screen: 'none',
   seatMosaic: 'none', standText: '', standTextSide: 'far', standTextRing: 1, standTextFont: 'black',
   outerText: '', outerTextFont: 'black', outerTextStyle: 'outline', outerTextSize: 'M', outerTextPlace: 'facade',
@@ -222,7 +222,7 @@ export const PRESETS = [
     id: 'english', label: 'Stile inglese (Stamford Bridge)',
     desc: 'Quattro tribune squadrate vicine al campo, palchi vetrati tra gli anelli, ogni tribuna col suo tetto (pannelli traslucidi in una griglia di travi blu, trave reticolare davanti con le luci), piloni blu, scalette gialle.',
     st: {
-      rings: 2, track: false, shape: 'rect', corners: 'closed', mowing: 'stripes', seatMode: 'single', seatMosaic: 'none', roof: 'stands', lights: 'roof', facade: 'panels', ramps: false, boxes: true,
+      rings: 3, ringsEnds: 2, track: false, shape: 'rect', corners: 'closed', mowing: 'stripes', seatMode: 'single', seatMosaic: 'none', roof: 'stands', lights: 'roof', facade: 'panels', ramps: false, boxes: true,
       colors: {
         grass: '#3d9a43', seatA: '#1d4fb8', parapet: '#1c3f94', structure: '#a4abb5', roof: '#8cc4ee', steel: '#1f5fc4', accent: '#1b2f6b', aisle: '#f2c200'
       }
@@ -278,6 +278,7 @@ export function normalizeStadium(s) {
   const out = {
     name: String(src.name || '').slice(0, MAX_NAME),
     rings: oneOf(RINGS, Number(src.rings), DEFAULT.rings),
+    ringsEnds: [1, 2, 3].includes(Number(src.ringsEnds)) ? Number(src.ringsEnds) : 0, // 0 = come le tribune
     track: !!src.track,
     shape: oneOf(SHAPES, src.shape, DEFAULT.shape),
     corners: oneOf(CORNERS, src.corners, DEFAULT.corners),
@@ -326,8 +327,11 @@ const AISLE_HALF = 0.55;
 const GAP = 0.18;         // curve staccate: apertura intorno agli angoli (radianti, in coordinate normalizzate)
 const M_PARAPET = 0, M_STEPS = 1, M_STRUCT = 2, M_BOX = 3;
 
-const seatKey = (st) => [st.rings, st.track ? 1 : 0, st.shape, st.corners].join('|');
+const seatKey = (st) => [st.rings, st.ringsEnds, st.track ? 1 : 0, st.shape, st.corners].join('|');
 const geomKey = (st) => [seatKey(st), st.roof, st.lights, st.facade, st.ramps ? 1 : 0, st.shellPattern, st.screen, st.boxes ? 1 : 0].join('|');
+
+/** Punto del bordo su un lato lungo (tribune), non sulle curve. */
+const onLongSide = (p) => Math.abs(p.mz) > 0.995;
 
 /**
  * Bordo interno degli spalti: rettangolo con angoli arrotondati (r = 0 squadrato, r = b curve a semicerchio),
@@ -394,7 +398,9 @@ function shapeOf(st) {
   const r = st.shape === 'oval' ? b : st.shape === 'rounded' ? b * 0.42 : 0;
   const tiers = [];
   let D = 0, H = 1.2;
-  ROWS[st.rings].forEach((rows, i) => {
+  // anelli delle tribune (lati lunghi) e delle curve: gli anelli in comune sono identici, quelli in più salgono sopra
+  const ringsEnds = st.ringsEnds || st.rings, maxRings = Math.max(st.rings, ringsEnds);
+  ROWS[maxRings].forEach((rows, i) => {
     const R = RISERS[i], depth = rows * TREAD;
     const t = { i, rows, R, D, H, back: D + depth, top: H + (rows - 1) * R };
     t.soffit = (d) => t.H - 1.6 + (d - t.D) / TREAD * t.R; // sotto dell'anello (parallelo ai gradoni)
@@ -406,7 +412,20 @@ function shapeOf(st) {
   });
   const last = tiers[tiers.length - 1];
   const path = buildPath(a, b, r);
-  return { a, b, r, tiers, path, runs: buildRuns(path, a, b, st.corners), outer: Math.max(...tiers.map(t => t.back)) + WALL, height: last.top + 2.2 };
+  let runs = buildRuns(path, a, b, st.corners);
+  if (ringsEnds !== st.rings) {
+    // tratti separati per tribune e curve; le tribune arrivano fino al primo punto della curva (niente buchi)
+    const split = [];
+    for (const run of runs) {
+      const P = run.pts, n = P.length, isLong = P.map(onLongSide);
+      const grow = P.map((p, i) => isLong[i] || isLong[(i + 1) % n] && (run.closed || i + 1 < n) || isLong[(i - 1 + n) % n] && (run.closed || i > 0));
+      const longPts = new Set(P.filter((p, i) => grow[i]));
+      for (const sub of subRuns(run, p => longPts.has(p))) split.push({ ...sub, tiers: tiers.slice(0, st.rings), long: true });
+      for (const sub of subRuns(run, p => !isLong[P.indexOf(p)])) split.push({ ...sub, tiers: tiers.slice(0, ringsEnds), long: false });
+    }
+    runs = split;
+  } else runs.forEach(run => { run.tiers = tiers; });
+  return { a, b, r, tiers, path, runs, outer: Math.max(...tiers.map(t => t.back)) + WALL, height: last.top + 2.2 };
 }
 
 /** Profilo di un anello (d = distanza dal bordo, h = altezza): parapetto, gradoni, muro dietro, sotto. */
@@ -480,8 +499,8 @@ function extrude(THREE, run, profile, pos, idx) {
 function standsGeometry(THREE, shape, exposed, boxes) {
   const pos = [], idx = [[], [], [], []];
   for (const run of shape.runs) {
-    shape.tiers.forEach((t, i) => {
-      extrude(THREE, run, tierProfile(t, shape.tiers[i + 1], exposed, boxes), pos, idx);
+    run.tiers.forEach((t, i) => {
+      extrude(THREE, run, tierProfile(t, run.tiers[i + 1], exposed, boxes), pos, idx);
       if (i > 0 && !exposed) extrude(THREE, run, supportProfile(t), pos, idx);
     });
   }
@@ -517,7 +536,7 @@ function seatsOf(st) {
     const count = Math.max(1, Math.round(total / AISLE_EVERY));
     // tratti aperti: scalette anche alle due estremità
     const aisles = Array.from({ length: run.closed ? count : count + 1 }, (_, k) => k * total / count);
-    for (const t of shape.tiers) {
+    for (const t of run.tiers) {
       for (let row = 0; row < t.rows; row++) {
         const d = t.D + row * TREAD + 0.55, h = t.H + row * t.R;
         let carry = 0.25;
@@ -1299,8 +1318,6 @@ function subRuns(run, pred) {
   return out;
 }
 
-/** Punto del bordo su un lato lungo (tribune), non sulle curve. */
-const onLongSide = (p) => Math.abs(p.mz) > 0.995;
 
 /**
  * Disegno dell'involucro (quasi bianco: il colore scelto lo tinge, di notte si accende). Restituisce la tela e quante
@@ -1758,7 +1775,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
         }
       }
       const cum = runLengths(run);
-      for (const t of tiers) {
+      for (const t of run.tiers) {
         const d0 = t.i === 0 ? t.D + 6 : t.D, d1 = t.back + WALL;
         const prevBack = t.i === 0 ? t.D + 6 : tiers[t.i - 1].back + WALL;
         for (const u of stations(run, cum, PILASTER_EVERY)) {
@@ -1798,6 +1815,10 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     const straight = (p) => (Math.abs(p.mz) > 0.995 && Math.abs(p.x) < gapA) || (Math.abs(p.mx) > 0.995 && Math.abs(p.z) < gapB);
     const TH = 2.4; // altezza della trave reticolare davanti
     for (const run of shape.runs) {
+      // ogni tratto ha il suo tetto alla sua altezza (tribune e curve possono avere anelli diversi)
+      const Rs = roofOf({ ...shape, tiers: run.tiers }, 'stands');
+      const slabProf = [[Rs.dIn, Rs.h(Rs.dIn) - 0.25, 2], [Rs.dOut, Rs.h(Rs.dOut) - 0.25, 2], [Rs.dOut, Rs.h(Rs.dOut), 0], [Rs.dIn, Rs.h(Rs.dIn), 2]]
+        .map(([d, h, m]) => ({ d, h, m }));
       for (const side of subRuns(run, straight)) {
         extrude(THREE, side, slabProf, pos, idx);
         // travi lungo la tribuna sotto il tetto (correnti della trave davanti e due arcarecci)
@@ -2240,7 +2261,7 @@ function buildStadium(L, st) {
   for (const run of shape.runs) {
     const cum = runLengths(run), total = cum[cum.length - 1], count = Math.max(1, Math.round(total / AISLE_EVERY));
     const at = Array.from({ length: run.closed ? count : count + 1 }, (_, k) => k * total / count);
-    for (const t of shape.tiers) {
+    for (const t of run.tiers) {
       for (const u of at) {
         const uu = Math.min(u, total - 0.01), [x0, z0] = pointAt(run, cum, uu, t.D + 0.4), [x1, z1] = pointAt(run, cum, uu, t.back - 0.1);
         const [tx, tz] = tangentAt(run, cum, uu, t.D);

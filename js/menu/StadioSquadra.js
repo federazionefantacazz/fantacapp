@@ -213,8 +213,11 @@ export const StadioSquadra = {
   _secStructure() {
     const s = this._st;
     return `
-      <div class="kit-sub">Anelli di spalti</div>
+      <div class="kit-sub">Anelli delle tribune (lati lunghi)</div>
       <div class="kit-chips">${RINGS.map(r => this._chip('rings', r.id, r.label, s.rings === r.id)).join('')}</div>
+      <div class="kit-sub">Anelli delle curve</div>
+      <div class="kit-chips">${this._chip('ringsEnds', 0, 'Come le tribune', !s.ringsEnds)}${RINGS.map(r => this._chip('ringsEnds', r.id, r.label, s.ringsEnds === r.id)).join('')}</div>
+      <div class="mp-muted" style="margin-top:.3rem;">Con un numero diverso di anelli tribune e curve hanno altezze diverse: quella più alta sale sopra l'altra.</div>
       <div class="kit-sub">Pista d'atletica</div>
       <div class="kit-chips">${this._chip('track', '1', 'Sì', s.track)}${this._chip('track', '0', 'No', !s.track)}</div>
       ${s.track ? `${this._colorRow('Colore della pista', 'colors.track', s.colors.track)}${this._colorRow('Linee delle corsie', 'colors.trackLines', s.colors.trackLines)}` : ''}
@@ -446,7 +449,7 @@ export const StadioSquadra = {
           if (inp) { inp.focus(); inp.select(); }
           return;
         }
-        const value = k === 'rings' || k === 'standTextRing' ? Number(v) : k === 'track' || k === 'ramps' || k === 'boxes' ? v === '1' : v;
+        const value = k === 'rings' || k === 'ringsEnds' || k === 'standTextRing' ? Number(v) : k === 'track' || k === 'ramps' || k === 'boxes' ? v === '1' : v;
         // "Ogni settore e anello": si parte dai colori che lo stadio ha adesso
         if (k === 'seatMode' && v === 'grid' && this._st.seatMode !== 'grid') this._update(st => { st.seatGrid = seatGridFrom(st); st.seatMode = 'grid'; });
         else this._update(st => { st[k] = value; });
