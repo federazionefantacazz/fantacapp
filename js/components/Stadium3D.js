@@ -33,6 +33,7 @@ export const RINGS = [
 ];
 export const SHAPES = [
   { id: 'rect',    label: 'Squadrate' },
+  { id: 'soft',    label: 'Squadrate smussate' },
   { id: 'rounded', label: 'Angoli arrotondati' },
   { id: 'oval',    label: 'Curve a semicerchio' }
 ];
@@ -270,9 +271,9 @@ export const PRESETS = [
   },
   {
     id: 'english', label: 'Stile inglese (Stamford Bridge)',
-    desc: 'Quattro tribune squadrate vicine al campo con gli angoli chiusi e palchi vetrati tra gli anelli; ogni tribuna ha il suo tetto scuro con le travi bianche sopra e la fascia chiara davanti, piloni blu agli angoli con i tiranti, facciata bianca a fasce sopra un basamento color sabbia con manifesti, tornelli, torri d\'angolo e l\'ingresso principale vetrato, luci blu di notte.',
+    desc: 'Quattro tribune squadrate vicine al campo con gli angoli chiusi e smussati e palchi vetrati tra gli anelli; ogni tribuna ha il suo tetto scuro con le travi bianche sopra e la fascia chiara davanti, piloni blu agli angoli con i tiranti, facciata bianca a fasce sopra un basamento color sabbia con manifesti, tornelli, torri d\'angolo e l\'ingresso principale vetrato, luci blu di notte.',
     st: {
-      rings: 3, ringsEnds: 2, track: false, shape: 'rect', corners: 'closed', mowing: 'stripes', seatMode: 'single', seatMosaic: 'none', roof: 'stands', roofCover: 'all', roofReach: 'normal', lights: 'roof', facade: 'cladding', ramps: false, boxes: true, screen: 'none',
+      rings: 3, ringsEnds: 2, track: false, shape: 'soft', corners: 'closed', mowing: 'stripes', seatMode: 'single', seatMosaic: 'none', roof: 'stands', roofCover: 'all', roofReach: 'normal', lights: 'roof', facade: 'cladding', ramps: false, boxes: true, screen: 'none',
       colors: {
         grass: '#3d9a43', seatA: '#1d4fb8', parapet: '#1c3f94', structure: '#a4abb5', roof: '#4f565f', girder: '#eef1f4', steel: '#1f5fc4',
         accent: '#1d4fb8', cladding: '#e9ecef', podium: '#d8c7a0', glow: '#2b6bff', aisle: '#f2c200'
@@ -396,26 +397,29 @@ const WALL = 0.4;         // spessore dei muri
 const SEAT_W = 0.5;       // larghezza di un posto
 const AISLE_EVERY = 14;   // una scaletta ogni ~14 m di fronte del primo anello
 const AISLE_HALF = 0.55;
+const SOFT_R = 3, SOFT_N = 4; // angoli smussati: raggio vicino al campo ed esponente della superellisse verso fuori
 const GAP = 0.18;         // curve staccate: apertura intorno agli angoli (radianti, in coordinate normalizzate)
 const M_PARAPET = 0, M_STEPS = 1, M_STRUCT = 2, M_BOX = 3;
 
 const seatKey = (st) => [ringsBySide(st).join(','), st.track ? 1 : 0, st.shape, st.corners, st.horseshoe ? 1 : 0].join('|');
 const geomKey = (st) => [seatKey(st), st.roof, st.roofCover, st.roofCover === 'pick' ? st.roofSectors.map(Number).join('') : '', st.roofReach, st.lights, st.facade, st.ramps ? 1 : 0, st.shellPattern, st.screen, st.boxes ? 1 : 0].join('|');
 
-/** Punto del bordo su un lato lungo (tribune), non sulle curve. */
-const onLongSide = (p) => Math.abs(p.mz) > 0.995;
+/** Punto del bordo su un lato lungo (tribune), non sulle curve: gli angoli smussati vanno con le tribune (come quelli squadrati). */
+const onLongSide = (p) => !!p.corner || Math.abs(p.mz) > 0.995;
 
 /**
  * Bordo interno degli spalti: rettangolo con angoli arrotondati (r = 0 squadrato, r = b curve a semicerchio),
  * percorso in senso antiorario. Ogni punto ha il vettore (mx, mz) per allontanarsi dal campo:
  * p + m * d è il punto a distanza d (sugli angoli vivi m è lungo la diagonale, così i lati restano dritti).
+ * soft > 0 (angoli smussati): sugli archi m segue una superellisse di esponente soft, così l'angolo resta quasi vivo
+ * vicino al campo e si arrotonda poco a poco verso fuori (muro e tetto); i punti dell'arco hanno corner = true.
  */
-function buildPath(a, b, r) {
+function buildPath(a, b, r, soft = 0) {
   const pts = [];
-  const push = (x, z, mx, mz) => {
+  const push = (x, z, mx, mz, corner = false) => {
     const p = pts[pts.length - 1];
     if (p && Math.abs(p.x - x) < 1e-6 && Math.abs(p.z - z) < 1e-6) return;
-    pts.push({ x, z, mx, mz });
+    pts.push(corner ? { x, z, mx, mz, corner } : { x, z, mx, mz });
   };
   const CORNER = [[1, 1], [-1, 1], [-1, -1], [1, -1]];
   const ARC = 32, STEP = 2.5;
@@ -424,8 +428,9 @@ function buildPath(a, b, r) {
     const cx = sx * (a - r), cz = sz * (b - r);
     if (r > 0) {
       for (let k = 0; k <= ARC; k++) {
-        const th = (q + k / ARC) * Math.PI / 2;
-        push(cx + Math.cos(th) * r, cz + Math.sin(th) * r, Math.cos(th), Math.sin(th));
+        const th = (q + k / ARC) * Math.PI / 2, c = Math.cos(th), s = Math.sin(th);
+        const f = soft ? (Math.abs(c) ** soft + Math.abs(s) ** soft) ** (-1 / soft) : 1;
+        push(cx + c * r, cz + s * r, c * f, s * f, soft > 0 && k > 0 && k < ARC);
       }
     } else push(cx, cz, sx, sz);
     // lato dritto fino all'angolo successivo
@@ -467,7 +472,7 @@ function shapeOf(st) {
   } else {
     a = PITCH.l / 2 + 9; b = PITCH.w / 2 + 7;
   }
-  const r = st.shape === 'oval' ? b : st.shape === 'rounded' ? b * 0.42 : 0;
+  const r = st.shape === 'oval' ? b : st.shape === 'rounded' ? b * 0.42 : st.shape === 'soft' ? SOFT_R : 0;
   const tiers = [];
   let D = 0, H = 1.2;
   // anelli delle tribune (lati lunghi) e delle curve: gli anelli in comune sono identici, quelli in più salgono sopra
@@ -483,7 +488,7 @@ function shapeOf(st) {
     H = t.top + R + 4.5;
   });
   const last = tiers[tiers.length - 1];
-  const path = buildPath(a, b, r);
+  const path = buildPath(a, b, r, st.shape === 'soft' ? SOFT_N : 0);
   let runs = buildRuns(path, a, b, st.corners);
   if (new Set(counts).size > 1) {
     // tratti separati dove cambia il numero di anelli (tribune, curve o un solo settore): quello con più anelli
@@ -2708,7 +2713,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     // tribuna vicina
     const rect = (d0, d1, h0, h1, m) => [[d0, h0], [d1, h0], [d1, h1], [d0, h1]].map(([d, h]) => ({ d, h, m }));
     const pos = [], idx = [[], [], []], winPos = [], winIdx = [[], [], []], poster = { pos: [], uv: [], idx: [] };
-    const accentBoxes = [], whiteBoxes = [], winBoxes = [], paveBoxes = [], flatLamps = [], drumBody = [], drumWin = [], drumTop = [];
+    const accentBoxes = [], whiteBoxes = [], winBoxes = [], paveBoxes = [], flatLamps = [], drumBody = [], drumWin = [], drumTop = [], cladEnds = [];
     // ingresso principale: centro del lato lungo verso z+ (davanti al basamento)
     const mid = shape.runs.flatMap(run => run.pts.filter(p => onLongSide(p) && p.z > 0 && Math.abs(p.x) < 3).map(() => run))[0];
     const eo = mid ? runOuter(mid) : 0, eH = mid ? runTop(mid).top + 2.2 : 0, ePH = cladPodium(eH), z0 = shape.b + eo + CLAD_PODIUM_W;
@@ -2761,6 +2766,23 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
           boxAt(accentBoxes, x + nx * 0.2, 1.55, z + nz * 0.2, [tx * 4.4, 0, tz * 4.4], [0, 3.1, 0], [-nx * 0.4, 0, -nz * 0.4]);
           boxAt(flatLamps, x + nx * 0.25, 3.35, z + nz * 0.25, [tx * 3.2, 0, tz * 3.2], [0, 0.4, 0], [-nx * 0.3, 0, -nz * 0.3]);
         }
+      }
+    }
+    // dove una tribuna più alta finisce su un settore più basso il gradino non resta a spigolo vivo: un mezzo cilindro
+    // chiude la parete (con il cornicione) e uno il basamento
+    for (const run of shape.runs) {
+      if (run.closed) continue;
+      const o = runOuter(run), H = runTop(run).top + 2.2, PH = cladPodium(H), CH = cladCornice(H);
+      for (const p of [run.pts[0], run.pts[run.pts.length - 1]]) {
+        const low = shape.runs.filter(r => r !== run && r.pts.includes(p) && runOuter(r) < o - 0.5);
+        if (!low.length) continue;
+        const o2 = Math.max(...low.map(runOuter)), cyl = (list, d0, d1, h0, h1) => {
+          const d = (d0 + d1) / 2, R = (d1 - d0) / 2;
+          boxAt(list, p.x + p.mx * d, (h0 + h1) / 2, p.z + p.mz * d, [R, 0, 0], [0, h1 - h0, 0], [0, 0, R]);
+        };
+        cyl(cladEnds, o2 - 0.1, o + 0.3, PH, H - CH);
+        cyl(drumTop, o2 + 0.2, o + 0.6, H - CH, H);
+        cyl(drumBody, o2 + CLAD_PODIUM_W - 0.1, o + CLAD_PODIUM_W + 0.05, 0, PH);
       }
     }
     // torri cilindriche agli angoli (scale e ingressi): sabbia, due nastri di vetrate e l'anello colorato in cima
@@ -2858,6 +2880,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     inst(podiumMat, drumBody, cylinder);
     inst(winMat, drumWin, cylinder);
     inst(accent, drumTop, cylinder);
+    inst(cladMat, cladEnds, cylinder);
   }
 
   if (st.facade === 'panels') {
