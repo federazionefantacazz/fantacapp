@@ -1017,7 +1017,10 @@ const pylonDist = (R) => R.dOut + 1.5;
 const pylonHeight = (R) => R.h(R.dOut) + 7;
 
 /** Distanza dal bordo occupata dal muro esterno (con basamento o fasce). */
-const footOf = (shape, st) => shape.outer + ({ struts: PLATFORM_OUT + 0.2, bands: 1.8, columns: 0.8, esplanade: ESPLANADE_W + 0.2 }[st.facade] || 0);
+const footOf = (shape, st) => shape.outer + ({ struts: PLATFORM_OUT + 0.2, bands: 1.8, columns: 0.8, esplanade: esplanadeW(st) + 0.2 }[st.facade] || 0);
+
+/** Larghezza della spianata: sotto l'involucro a cuscini (molto gonfio verso fuori) è più larga. */
+const esplanadeW = (st) => (st.roof === 'shell' ? ESPLANADE_W + 12 : ESPLANADE_W);
 
 /** Muro esterno e altezza di un tratto: i settori possono avere anelli diversi, la facciata segue ognuno. */
 const runOuter = (run) => Math.max(...run.tiers.map(t => t.back)) + WALL;
@@ -1031,12 +1034,18 @@ const runTop = (run) => run.tiers[run.tiers.length - 1];
 function shellOf(shape, st) {
   const T = shape.tiers[shape.tiers.length - 1], o = shape.outer;
   const base = st.facade === 'esplanade' ? ESPLANADE_H : 0, h0 = base + 3, crest = T.top + 9;
-  const drop = Math.min(12, (crest - h0) * 0.32), dIn = Math.min(o - 16, Math.max(-14, 2 - reachOf_(st))); // il tetto scende verso l'apertura
+  // involucro a cuscini (Allianz Arena): molto gonfio verso fuori e tetto largo e quasi piano che arriva fin sopra il
+  // bordo del campo (dall'alto l'apertura è poco più grande del campo); tenda e petali più raccolti
+  const shell = st.roof === 'shell';
+  const drop = Math.min(shell ? 7 : 12, (crest - h0) * (shell ? 0.2 : 0.32));
+  const dIn = Math.min(o - 16, Math.max(-14, (shell ? -5 : 2) - reachOf_(st))); // il tetto scende verso l'apertura
   const k = (f) => h0 + (crest - h0) * f;
   // muro gonfio verso fuori e cresta larga e arrotondata
-  const key = [[o + 0.6, h0], [o + 5.2, k(0.22)], [o + 7, k(0.48)], [o + 5.6, k(0.74)], [o + 2.2, k(0.92)], [o - 3, crest], [o - 10, crest - 0.8]];
+  const key = shell
+    ? [[o + 0.6, h0], [o + 11, k(0.18)], [o + 18, k(0.42)], [o + 18.5, k(0.64)], [o + 14, k(0.85)], [o + 6, crest - 0.4], [o - 3, crest]]
+    : [[o + 0.6, h0], [o + 5.2, k(0.22)], [o + 7, k(0.48)], [o + 5.6, k(0.74)], [o + 2.2, k(0.92)], [o - 3, crest], [o - 10, crest - 0.8]];
   // poi il tetto scende curvo (convesso) fino all'apertura e si arrotonda verso il basso sul bordo
-  const d0 = o - 10, n = Math.max(3, Math.round((d0 - dIn) / 4));
+  const d0 = key[key.length - 1][0], n = Math.max(3, Math.round((d0 - dIn) / 4));
   for (let i = 1; i <= n; i++) { const f = i / n; key.push([d0 + (dIn - d0) * f, crest - 0.8 - (drop - 0.8) * Math.pow(f, 1.5)]); }
   key.push([dIn - 1.2, crest - drop - 1.6]);
   const P = [key[0], ...key, key[key.length - 1]], pts = [];
@@ -1049,9 +1058,11 @@ function shellOf(shape, st) {
     }
   }
   pts.push({ d: key[key.length - 1][0], h: key[key.length - 1][1] });
-  // la parte verso l'apertura (gli ultimi due terzi del tetto) è di cuscini trasparenti, un po' più grigi
-  const dSplit = d0 - (d0 - dIn) * 0.35, split = Math.max(1, pts.findIndex(p => p.d < dSplit));
-  const rows = new Map(), rowAt = (d) => { const key = d.toFixed(3); if (!rows.has(key)) rows.set(key, shellOutline(shape, d)); return rows.get(key); };
+  // la parte verso l'apertura è di cuscini trasparenti, più grigi (gli ultimi due terzi del tetto; sull'Allianz una fascia)
+  const dSplit = d0 - (d0 - dIn) * (shell ? 0.7 : 0.35), split = Math.max(1, pts.findIndex(p => p.d < dSplit));
+  // sull'involucro a cuscini la pianta è ripresa a passi uguali: i rombi restano dritti tutto intorno
+  const outline = (d) => (shell ? evenOutline(shellOutline(shape, d, 960), 240) : shellOutline(shape, d));
+  const rows = new Map(), rowAt = (d) => { const key = d.toFixed(3); if (!rows.has(key)) rows.set(key, outline(d)); return rows.get(key); };
   // tenda: la membrana è tirata su dai pennoni; petali: quattro lobi separati da valli sulle diagonali
   let yFn = null, masts = [], extra = 0;
   if (st.roof === 'tent') {
@@ -1071,7 +1082,7 @@ function shellOf(shape, st) {
     };
     extra = P + 16;
   }
-  return { pts, split, base, dIn, hIn: crest - drop, top: crest + extra, out: o + 12, rowAt, yFn, masts };
+  return { pts, split, base, dIn, hIn: crest - drop, top: crest + extra, out: Math.max(o + 12, ...pts.map(p => p.d + 1)), rowAt, yFn, masts };
 }
 
 /**
@@ -1142,6 +1153,21 @@ function domeOf(shape, st) {
  * e finiscono sul bordo verso il campo più indietro e più in basso (i denti). Da fuori le vele sono triangoli con la
  * punta in giù sulle colonne. Linee (d, h) dall'esterno verso il campo; rowAt(d) dà la pianta (superellisse).
  */
+/** Pianta chiusa (punti [x, z], l'ultimo uguale al primo) ripresa in N tratti uguali lungo il giro. */
+function evenOutline(dense, N) {
+  const cum = [0];
+  for (let i = 1; i < dense.length; i++) cum.push(cum[i - 1] + Math.hypot(dense[i][0] - dense[i - 1][0], dense[i][1] - dense[i - 1][1]));
+  const out = [], total = cum[cum.length - 1];
+  let j = 1;
+  for (let i = 0; i <= N; i++) {
+    const L = i / N * total;
+    while (j < dense.length - 1 && cum[j] < L) j++;
+    const f = (L - cum[j - 1]) / ((cum[j] - cum[j - 1]) || 1), a = dense[j - 1], b = dense[j];
+    out.push([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
+  }
+  return out;
+}
+
 const CROWN_FOLDS = 40, CROWN_ROW = 240; // pieghe e punti della pianta: sei punti per piega
 function crownOf(shape, st) {
   const T = shape.tiers[shape.tiers.length - 1], o = shape.outer;
@@ -1170,20 +1196,7 @@ function crownOf(shape, st) {
     return line[line.length - 1].h;
   };
   // pianta ripresa a passi uguali lungo il giro: tutte le vele larghe uguali (anche sui lati lunghi)
-  const even = (d) => {
-    const dense = shellOutline(shape, d, CROWN_ROW * 8), cum = [0];
-    for (let i = 1; i < dense.length; i++) cum.push(cum[i - 1] + Math.hypot(dense[i][0] - dense[i - 1][0], dense[i][1] - dense[i - 1][1]));
-    const out = [], total = cum[cum.length - 1];
-    let j = 1;
-    for (let i = 0; i <= CROWN_ROW; i++) {
-      const L = i / CROWN_ROW * total;
-      while (j < dense.length - 1 && cum[j] < L) j++;
-      const f = (L - cum[j - 1]) / ((cum[j] - cum[j - 1]) || 1), a = dense[j - 1], b = dense[j];
-      out.push([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
-    }
-    return out;
-  };
-  const rows = new Map(), rowAt = (d) => { const key = d.toFixed(3); if (!rows.has(key)) rows.set(key, even(d)); return rows.get(key); };
+  const rows = new Map(), rowAt = (d) => { const key = d.toFixed(3); if (!rows.has(key)) rows.set(key, evenOutline(shellOutline(shape, d, CROWN_ROW * 8), CROWN_ROW)); return rows.get(key); };
   return { ridge, valley, at, hAt, rowAt, o, base, dFoot, dV, hV, dR, hR, dIn, hIn, out: dR + 2 };
 }
 
@@ -1723,43 +1736,11 @@ function subRuns(run, pred) {
 
 
 /**
- * Disegno dell'involucro (quasi bianco: il colore scelto lo tinge, di notte si accende). Restituisce la tela e quante
- * volte ripeterla per ogni cella da SHELL_CELL_U x SHELL_CELL_V metri (rx intero: niente cuciture sul giro).
+ * Disegni dell'involucro senza cuscini (quasi bianchi: il colore scelto li tinge, di notte si accendono): costole dei
+ * petali o tinta unita. Restituisce la tela e quante volte ripeterla per ogni cella da SHELL_CELL_U x SHELL_CELL_V metri.
  */
 function shellPatternCanvas(kind) {
   const make = (W, H) => { const c = document.createElement('canvas'); c.width = W; c.height = H; return [c, c.getContext('2d')]; };
-  // cuscino gonfio: chiaro in alto al centro, più scuro verso le giunture
-  const cushion = (ctx, cx, cy, r, path) => {
-    const g = ctx.createRadialGradient(cx - r * 0.12, cy - r * 0.25, 2, cx, cy, r * 1.05);
-    g.addColorStop(0, '#ffffff'); g.addColorStop(0.45, '#eef0f3'); g.addColorStop(1, '#bcc3cb');
-    ctx.fillStyle = g; ctx.beginPath(); path(); ctx.closePath(); ctx.fill();
-  };
-  const JOINT = '#868e97';
-  if (kind === 'hex') {
-    // esagoni a punta in su: vicini a (±W, 0) e (±W/2, ±H/2), con H = W·√3
-    const W = 148, H = 256, r = H / 3, [c, ctx] = make(W, H);
-    ctx.fillStyle = JOINT; ctx.fillRect(0, 0, W, H);
-    for (const [cx, cy] of [[0, 0], [W, 0], [W / 2, H / 2], [0, H], [W, H]]) {
-      cushion(ctx, cx, cy, r, () => { for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + k * Math.PI / 3; ctx.lineTo(cx + Math.cos(a) * (r - 4), cy + Math.sin(a) * (r - 4)); } });
-    }
-    return { canvas: c, rx: 2, ry: SHELL_CELL_V / (SHELL_CELL_U / 2 * Math.sqrt(3)) };
-  }
-  if (kind === 'scales') {
-    // squame: file di semicerchi sfalsati, quelle più in basso sopra le altre
-    const W = 256, H = 128, R = W / 4, [c, ctx] = make(W, H);
-    ctx.fillStyle = JOINT; ctx.fillRect(0, 0, W, H);
-    for (const [y, xs] of [[0, [0, W / 2, W]], [H / 2, [W / 4, 3 * W / 4]], [H, [0, W / 2, W]], [H * 1.5, [W / 4, 3 * W / 4]]]) {
-      for (const x of xs) cushion(ctx, x, y, R, () => ctx.arc(x, y, R - 3, 0, Math.PI * 2));
-    }
-    return { canvas: c, rx: 2, ry: SHELL_CELL_V / (SHELL_CELL_U / 4) };
-  }
-  if (kind === 'stripes') {
-    // fasce orizzontali gonfie
-    const [c, ctx] = make(64, 64), g = ctx.createLinearGradient(0, 0, 0, 64);
-    g.addColorStop(0, '#bcc3cb'); g.addColorStop(0.3, '#ffffff'); g.addColorStop(0.7, '#eef0f3'); g.addColorStop(0.94, '#bcc3cb'); g.addColorStop(1, JOINT);
-    ctx.fillStyle = g; ctx.fillRect(0, 0, 64, 64);
-    return { canvas: c, rx: 1, ry: 1.6 };
-  }
   if (kind === 'ribs') {
     // costole bianche che corrono lungo il profilo (petali)
     const [c, ctx] = make(64, 8), g = ctx.createLinearGradient(0, 0, 64, 0);
@@ -1767,34 +1748,122 @@ function shellPatternCanvas(kind) {
     ctx.fillStyle = g; ctx.fillRect(0, 0, 64, 8);
     return { canvas: c, rx: 1, ry: 1 };
   }
-  if (kind === 'plain') {
-    const [c, ctx] = make(8, 8);
-    ctx.fillStyle = '#f2f4f6'; ctx.fillRect(0, 0, 8, 8);
-    return { canvas: c, rx: 1, ry: 1 };
-  }
-  // rombi (come l'Allianz Arena)
-  const W = 256, H = 164, [c, ctx] = make(W, H);
-  ctx.fillStyle = JOINT; ctx.fillRect(0, 0, W, H);
-  for (const [cx, cy] of [[W / 2, H / 2], [0, 0], [W, 0], [0, H], [W, H]]) {
-    cushion(ctx, cx, cy, W * 0.4, () => { ctx.moveTo(cx, cy - H / 2 + 3); ctx.lineTo(cx + W / 2 - 4, cy); ctx.lineTo(cx, cy + H / 2 - 3); ctx.lineTo(cx - W / 2 + 4, cy); });
-  }
+  // tinta unita (tenda)
+  const [c, ctx] = make(8, 8);
+  ctx.fillStyle = '#f2f4f6'; ctx.fillRect(0, 0, 8, 8);
   return { canvas: c, rx: 1, ry: 1 };
 }
+
+/** Disegni dei cuscini fatti come texture vera (colore + rilievo): dimensione di una ripetizione in metri. */
+const CUSHIONS = {
+  rhombus: { W: 1024, H: 472, tileU: 10, tileV: 4.6, bulge: 0.9 },  // rombi larghi il doppio che alti (Allianz Arena)
+  hex:     { W: 296, H: 512, tileU: 3.8, tileV: 6.6, bulge: 0.5 },
+  scales:  { W: 512, H: 256, tileU: 6, tileV: 3, bulge: 0.45 },   // squame tonde a file sfalsate
+  stripes: { W: 8, H: 256, tileU: 2, tileV: 2.8, bulge: 0.35 }
+};
+
+/**
+ * Cuscini dell'involucro come texture vera: per ogni pixel quanto è gonfio il cuscino (1 al centro, 0 sulle giunture),
+ * da cui il colore (bianco, un po' più scuro verso le giunture, giunture argento) e la mappa del rilievo, così la
+ * luce li fa sembrare gonfi da qualsiasi parte li guardi. Senza cuciture: si ripete in tutte e due le direzioni.
+ */
+const cushionCache = new Map(); // le tele si calcolano una volta sola (le texture si rifanno a ogni ricostruzione)
+function cushionTexture(kind) {
+  if (cushionCache.has(kind)) return cushionCache.get(kind);
+  const C = CUSHIONS[kind], { W, H } = C;
+  // per il cuscino in cui cade il pixel: r = 0 al centro e 1 sulla giuntura, h = quanto è gonfio (liscio, senza
+  // pieghe al centro: prodotto delle distanze dai lati opposti)
+  const cushionAt = {
+    rhombus: (x, y) => {
+      // centro della tela o angolo più vicino; il rombo ruotato di 45° è un quadrato |p|, |q| <= 1
+      const one = (dx, dy) => { const s = dx / (W / 2), t = dy / (H / 2), p = s + t, q = s - t; return [Math.abs(s) + Math.abs(t), Math.max(0, (1 - p * p) * (1 - q * q))]; };
+      const a = one(x - W / 2, y - H / 2), b = one(Math.min(x, W - x), Math.min(y, H - y));
+      return a[0] < b[0] ? a : b;
+    },
+    hex: (x, y) => {
+      const A = W / 2; // esagoni a punta in su: centri al centro e negli angoli della tela
+      const one = (dx, dy) => {
+        const e = [dx / A, (0.5 * dx + 0.866 * dy) / A, (0.5 * dx - 0.866 * dy) / A];
+        return [Math.max(...e.map(Math.abs)), Math.max(0, e.reduce((m, v) => m * (1 - v * v), 1))];
+      };
+      const a = one(x - W / 2, y - H / 2), b = one(Math.min(x, W - x), Math.min(y, H - y));
+      return a[0] < b[0] ? a : b;
+    },
+    stripes: (x, y) => { const t = 2 * y / H - 1; return [Math.abs(t), 1 - t * t]; },
+    scales: (x, y) => {
+      // file sfalsate di cerchi: ogni fila copre quella prima (sopra c'è il cerchio più in basso che contiene il pixel)
+      const R = W / 4;
+      for (const [cy, xs] of [[1.5 * H, [W / 4, 3 * W / 4]], [H, [0, W / 2, W]], [H / 2, [W / 4, 3 * W / 4]], [0, [0, W / 2, W]], [-H / 2, [W / 4, 3 * W / 4]]]) {
+        for (const cx of xs) {
+          const r = Math.hypot(x - cx, y - cy) / R;
+          if (r < 1) return [r, 1 - r * r];
+        }
+      }
+      return [1, 0];
+    }
+  }[kind];
+  const hgt = new Float32Array(W * H), rr = new Float32Array(W * H);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const [r, f] = cushionAt(x + 0.5, y + 0.5);
+      rr[y * W + x] = Math.min(1, r);
+      hgt[y * W + x] = Math.pow(f, 0.45);
+    }
+  }
+  const make = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
+  const map = make(), nrm = make();
+  const mctx = map.getContext('2d'), nctx = nrm.getContext('2d');
+  const mi = mctx.createImageData(W, H), ni = nctx.createImageData(W, H);
+  const su = C.bulge / (2 * C.tileU / W), sv = C.bulge / (2 * C.tileV / H); // pendenza in metri per metro
+  const smooth = (a, b, t) => { const k = Math.min(1, Math.max(0, (t - a) / (b - a))); return k * k * (3 - 2 * k); };
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x, r = rr[i], h = hgt[i];
+      // colore: bianco, più scuro verso le giunture (ombra tra un cuscino e l'altro), giunture argento
+      const ao = 0.8 + 0.2 * Math.sqrt(h), j = smooth(0.95, 0.985, r);
+      const base = 246 * ao;
+      mi.data[i * 4] = base * (1 - j) + 138 * j;
+      mi.data[i * 4 + 1] = (base + 1) * (1 - j) + 146 * j;
+      mi.data[i * 4 + 2] = (base + 3) * (1 - j) + 156 * j;
+      mi.data[i * 4 + 3] = 255;
+      // rilievo: la tela va verso il basso, la texture verso l'alto (v)
+      const gx = (hgt[y * W + (x + 1) % W] - hgt[y * W + (x - 1 + W) % W]) * su;
+      const gy = (hgt[((y + 1) % H) * W + x] - hgt[((y - 1 + H) % H) * W + x]) * sv;
+      const nx = -gx, ny = gy, l = Math.hypot(nx, ny, 1);
+      ni.data[i * 4] = (nx / l * 0.5 + 0.5) * 255;
+      ni.data[i * 4 + 1] = (ny / l * 0.5 + 0.5) * 255;
+      ni.data[i * 4 + 2] = (1 / l * 0.5 + 0.5) * 255;
+      ni.data[i * 4 + 3] = 255;
+    }
+  }
+  mctx.putImageData(mi, 0, 0);
+  nctx.putImageData(ni, 0, 0);
+  const out = { canvas: map, normal: nrm, tileU: C.tileU, tileV: C.tileV };
+  cushionCache.set(kind, out);
+  return out;
+}
+
+/** Lunghezza di una pianta (punti [x, z]). */
+const outlineLength = (row) => row.reduce((l, p, i) => (i ? l + Math.hypot(p[0] - row[i - 1][0], p[1] - row[i - 1][1]) : 0), 0);
 
 /**
  * Superficie che gira tutto intorno allo stadio con il profilo `prof` (punti d, h), dalla riga j0 alla j1;
  * rowAt(d) dà la pianta chiusa a quella distanza. Coordinate per la texture lungo la pianta (numero intero di
  * cuscini per giro, niente cuciture) e lungo il profilo. yFn(x, z, j) aggiunge una quota per punto (copertura ondulata).
  */
-function sweepAround(THREE, rowAt, prof, j0, j1, yFn = null) {
+function sweepAround(THREE, rowAt, prof, j0, j1, yFn = null, cells = 0) {
   const pos = [], uv = [], idx = [];
   let v = 0, cols = 0;
+  // v misurata dall'inizio del profilo: due pezzi dello stesso profilo continuano il disegno senza scalini
+  for (let j = 1; j <= j0; j++) v += Math.hypot(prof[j].d - prof[j - 1].d, prof[j].h - prof[j - 1].h) / SHELL_CELL_V;
+  // stesso numero di cuscini su ogni riga (altrimenti da una riga all'altra il disegno si storce)
+  if (!cells) cells = Math.max(1, Math.round(outlineLength(rowAt(prof[j0].d)) / SHELL_CELL_U));
   for (let j = j0; j <= j1; j++) {
     if (j > j0) v += Math.hypot(prof[j].d - prof[j - 1].d, prof[j].h - prof[j - 1].h) / SHELL_CELL_V;
     const { d, h } = prof[j], row = rowAt(d), us = [0];
     cols = row.length;
     for (let i = 1; i < cols; i++) us.push(us[i - 1] + Math.hypot(row[i][0] - row[i - 1][0], row[i][1] - row[i - 1][1]));
-    const len = us[cols - 1] || 1, cells = Math.max(1, Math.round(len / SHELL_CELL_U));
+    const len = us[cols - 1] || 1;
     for (let i = 0; i < cols; i++) { pos.push(row[i][0], h + (yFn ? yFn(row[i][0], row[i][1], j) : 0), row[i][1]); uv.push(us[i] / len * cells, v); }
   }
   for (let j = 0; j < j1 - j0; j++) {
@@ -2193,24 +2262,33 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     // involucro a cuscini: parte bianca (fuori e sopra) e tetto trasparente fino all'apertura; gira tutto intorno
     // anche con le curve staccate. Di notte i cuscini si accendono del colore scelto.
     const S = shellOf(shape, st);
-    const pat = shellPatternCanvas(st.roof === 'shell' ? st.shellPattern : st.roof === 'petals' ? 'ribs' : 'plain');
-    const tex = new THREE.CanvasTexture(pat.canvas);
-    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(pat.rx, pat.ry);
+    const kind = st.roof === 'shell' ? st.shellPattern : st.roof === 'petals' ? 'ribs' : 'plain';
+    // cuscini (rombi, esagoni, fasce): texture vera con il rilievo, un numero intero di ripetizioni sul giro alla cresta
+    const cush = CUSHIONS[kind] ? cushionTexture(kind) : null, pat = cush || shellPatternCanvas(kind);
+    const tex = new THREE.CanvasTexture(pat.canvas), bump = cush ? new THREE.CanvasTexture(cush.normal) : null;
+    const crestLen = outlineLength(S.rowAt(S.pts.reduce((m, p) => (p.h > m.h ? p : m), S.pts[0]).d));
+    const cells = cush ? Math.max(1, Math.round(crestLen / cush.tileU)) : Math.max(1, Math.round(crestLen / SHELL_CELL_U));
+    for (const t of bump ? [tex, bump] : [tex]) {
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(cush ? 1 : pat.rx, cush ? SHELL_CELL_V / cush.tileV : pat.ry);
+      t.anisotropy = 8;
+    }
     tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = 4;
-    shellMat = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissiveIntensity: 0, roughness: 0.38, side: THREE.DoubleSide });
-    // la parte verso l'apertura è di cuscini trasparenti: un po' più grigia e non fa ombra
-    const clearMat = new THREE.MeshStandardMaterial({ map: tex, color: 0xe3e6ea, roughness: 0.25, side: THREE.DoubleSide });
+    shellMat = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissiveIntensity: 0, roughness: cush ? 0.3 : 0.38, side: THREE.DoubleSide });
+    if (bump) shellMat.normalMap = bump;
+    // la parte verso l'apertura è di cuscini trasparenti: più grigia (si vede il buio sotto) e non fa ombra
+    const clearMat = new THREE.MeshStandardMaterial({ map: tex, color: 0xc9ced4, roughness: 0.2, side: THREE.DoubleSide });
+    if (bump) clearMat.normalMap = bump;
     const petals = st.roof === 'petals';
-    const outer = new THREE.Mesh(petals ? petalsGeometry(THREE, S, beams, seams) : sweepAround(THREE, S.rowAt, S.pts, 0, S.split, S.yFn), shellMat);
-    const clear = new THREE.Mesh(petals ? new THREE.BufferGeometry() : sweepAround(THREE, S.rowAt, S.pts, S.split, S.pts.length - 1, S.yFn ? (x, z, j) => S.yFn(x, z, j + S.split) : null), clearMat);
+    const outer = new THREE.Mesh(petals ? petalsGeometry(THREE, S, beams, seams) : sweepAround(THREE, S.rowAt, S.pts, 0, S.split, S.yFn, cells), shellMat);
+    const clear = new THREE.Mesh(petals ? new THREE.BufferGeometry() : sweepAround(THREE, S.rowAt, S.pts, S.split, S.pts.length - 1, S.yFn ? (x, z, j) => S.yFn(x, z, j + S.split) : null, cells), clearMat);
     // pennoni della tenda: dalla base fino sopra la punta della membrana
     for (const [mx, mz] of S.masts) beam(beams, mx, 0, mz, mx, S.top + 4, mz, 0.6);
     outer.castShadow = outer.receiveShadow = true;
     clear.receiveShadow = true;
     group.add(outer, clear);
     own.push(tex, shellMat, clearMat, outer.geometry, clear.geometry);
+    if (bump) own.push(bump);
     // fascia scura (vetrate e pilastri) tra la base e l'inizio dei cuscini, con la stessa pianta ovale
     const o = shape.outer, bandG = sweepAround(THREE, S.rowAt, [{ d: o + 1.2, h: S.base }, { d: o + 1.2, h: S.base + 3.4 }], 0, 1);
     const base = new THREE.Mesh(bandG, dark);
@@ -2555,7 +2633,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     // spianata rialzata tutto intorno (anche con le curve staccate): piano grigio, bordo chiaro,
     // pilastri sotto il bordo e il fondo scuro dei parcheggi sotto
     // dal muro del settore più basso (sotto i settori più alti resta nascosta dentro gli spalti)
-    const o0 = Math.min(...shape.runs.map(runOuter)), o = shape.outer, H = ESPLANADE_H, W = ESPLANADE_W, ring = { pts: shape.path, closed: true };
+    const o0 = Math.min(...shape.runs.map(runOuter)), o = shape.outer, H = ESPLANADE_H, W = esplanadeW(st), ring = { pts: shape.path, closed: true };
     const rect = (d0, d1, h0, h1, m) => [[d0, h0], [d1, h0], [d1, h1], [d0, h1]].map(([d, h]) => ({ d, h, m }));
     const pos = [], idx = [[], [], []];
     extrude(THREE, ring, rect(o0 - 0.1, o + W, H - 0.8, H, 0), pos, idx);          // piano
