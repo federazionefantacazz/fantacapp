@@ -5,7 +5,7 @@ import {
   createStadiumViewer, renderStadiumImage, stadiumCapacity, shownCapacity, normalizeStadium, defaultStadium, applyPreset,
   RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY,
   SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom,
-  ringsBySide, maxRingsOf
+  ringsBySide, maxRingsOf, LOGO_PLACES, logoPlacesFor
 } from '../components/Stadium3D.js';
 import { injectStyle, parseColor, SWATCHES } from './DivisaSquadra.js';
 import { esc } from './menuUtils.js';
@@ -97,6 +97,12 @@ export const StadioSquadra = {
     this._st = null;
   },
 
+  /** Logo della squadra (per metterlo sullo stadio nei posti scelti). */
+  _logo() {
+    const team = window.STATE && window.STATE.user;
+    return team && String(team.id) === String(this._teamId) ? team.logo || '' : '';
+  },
+
   /* -------------------------------------------------------------- render */
   _dirty() { return sig(this._st) !== this._saved; },
 
@@ -108,7 +114,7 @@ export const StadioSquadra = {
       ['exterior',  'FASE 4: Copertura, fari ed esterno'],
       ['pitch',     'FASE 5: Campo'],
       ['seats',     'FASE 6: Colore dei seggiolini'],
-      ['texts',     'FASE 7: Scritte'],
+      ['texts',     'FASE 7: Scritte e logo'],
       ['walls',     'FASE 8: Parapetti e cemento']
     ];
     this._root.innerHTML = `
@@ -150,7 +156,7 @@ export const StadioSquadra = {
       this._viewer.ready.then(() => { const l = this._root && this._root.querySelector('#std-loading'); if (l) l.remove(); })
         .catch(e => { console.error(e); const l = this._root && this._root.querySelector('#std-loading'); if (l) l.textContent = 'Il 3D non è supportato su questo dispositivo'; });
     }
-    if (this._viewer) this._viewer.update(this._st).catch(e => console.error('Stadio:', e));
+    if (this._viewer) this._viewer.update(this._st, { logo: this._logo() }).catch(e => console.error('Stadio:', e));
     const cap = this._root.querySelector('#std-cap');
     if (cap) cap.innerHTML = `${this._st.name.trim() ? `<b>${esc(this._st.name.trim())}</b> · ` : ''}Capienza: <b>${fmt(shownCapacity(this._st))}</b> posti`;
     const dirty = this._root.querySelector('#std-dirty');
@@ -258,7 +264,7 @@ export const StadioSquadra = {
         truss: 'Tetto in lamiera sopra l\'anello più alto, con tralicci sotto e piloni in acciaio fuori che reggono una trave tutto intorno.',
         membrane: 'Tetto chiaro e liscio, con le costole sotto.',
         girders: 'Tetto chiaro a botti con la struttura scura sotto, appeso a quattro grandi travi reticolari che poggiano su quattro torri agli angoli.',
-        stands: 'Ogni tribuna ha il suo tetto piatto: sotto pannelli traslucidi e travi, davanti la fascia con le luci; dietro la tribuna di fronte due piloni con i tiranti. Gli angoli restano scoperti.',
+        stands: 'Ogni tribuna ha il suo tetto alla sua altezza, come a Stamford Bridge: sopra lamiera con le travi reticolari a vista, davanti la fascia chiara con la riga colorata e le luci, agli angoli i piloni con i tiranti.',
         wave: 'Copertura bianca quasi tonda a cuscini radiali, alta sopra le curve e più bassa sui lati lunghi, con le travi d\'acciaio sotto. Fuori una fascia bianca che sulle curve scende quasi a terra; sui lati sotto la fascia si vedono i piani in cemento e al centro della tribuna vicina c\'è l\'ingresso principale con la vetrata a lamelle e gli schermi.',
         dome: 'Cupola bianca a raggiera che sale dal basso fino all\'apertura, con i denti a punta tutto attorno alla base.',
         tent: 'Membrana tesa da sei pennoni altissimi, con le punte sopra lo stadio. Di notte si illumina.',
@@ -294,11 +300,14 @@ export const StadioSquadra = {
         ? 'Senza copertura lo schermo sta in cima agli spalti.'
         : 'Appeso sotto il bordo del tetto.'} Mostra il nome dello stadio, il risultato e il minuto.</div>` : ''}
       <div class="kit-sub">Colori</div>
-      ${s.roof !== 'none' ? this._colorRow(['shell', 'tent', 'petals'].includes(s.roof) ? 'Involucro' : s.roof === 'stands' ? 'Pannelli sotto il tetto' : s.roof === 'dragon' ? 'Pannelli solari' : s.roof === 'crown' ? 'Vele' : 'Tetto', 'colors.roof', s.colors.roof) : ''}
+      ${s.roof !== 'none' ? this._colorRow(['shell', 'tent', 'petals'].includes(s.roof) ? 'Involucro' : s.roof === 'dragon' ? 'Pannelli solari' : s.roof === 'crown' ? 'Vele' : 'Tetto', 'colors.roof', s.colors.roof) : ''}
       ${['shell', 'tent', 'petals'].includes(s.roof) ? this._colorRow('Luce dell\'involucro di notte', 'colors.glow', s.colors.glow) : ''}
-      ${s.roof !== 'none' || s.lights !== 'none' ? this._colorRow(s.roof === 'dragon' ? 'Acciaio (tubi a spirale, tralicci, torri)' : s.roof === 'crown' ? 'Acciaio (colonne, anello, passerella)' : 'Acciaio (tralicci, pilastri, torri)', 'colors.steel', s.colors.steel) : ''}
+      ${s.roof === 'stands' || s.facade === 'cladding' ? this._colorRow('Righe luminose (accese di notte)', 'colors.glow', s.colors.glow) : ''}
+      ${s.roof !== 'none' || s.lights !== 'none' ? this._colorRow(s.roof === 'dragon' ? 'Acciaio (tubi a spirale, tralicci, torri)' : s.roof === 'crown' ? 'Acciaio (colonne, anello, passerella)' : s.roof === 'stands' ? 'Acciaio (piloni e tiranti)' : 'Acciaio (tralicci, pilastri, torri)', 'colors.steel', s.colors.steel) : ''}
       ${s.roof === 'girders' ? this._colorRow('Reticolato sopra il tetto (travi e sbalzi)', 'colors.girder', s.colors.girder) : ''}
-      ${s.facade === 'struts' || s.facade === 'panels' ? this._colorRow(s.facade === 'panels' ? 'Rivestimento esterno' : 'Fasce del basamento', 'colors.accent', s.colors.accent) : ''}
+      ${s.roof === 'stands' ? this._colorRow('Travi sopra il tetto e fascia davanti', 'colors.girder', s.colors.girder) : ''}
+      ${s.facade === 'cladding' ? `${this._colorRow('Pannelli della facciata', 'colors.cladding', s.colors.cladding)}${this._colorRow('Basamento e torri d\'angolo', 'colors.podium', s.colors.podium)}` : ''}
+      ${s.facade === 'struts' || s.facade === 'panels' || s.facade === 'cladding' ? this._colorRow({ panels: 'Rivestimento esterno', cladding: 'Cornicione, pinne, tornelli e portale' }[s.facade] || 'Fasce del basamento', 'colors.accent', s.colors.accent) : ''}
       ${s.screen !== 'none' ? this._colorRow('Sfondo del maxischermo', 'colors.screen', s.colors.screen) : ''}
       <div class="mp-muted" style="margin-top:.6rem;">Prova il pulsante Notte sull'anteprima per vedere i fari accesi.</div>`;
   },
@@ -353,7 +362,13 @@ export const StadioSquadra = {
   _secTexts() {
     const s = this._st;
     const rings = [[0, 'Tutti']].concat(Array.from({ length: maxRingsOf(s) }, (_, r) => [r + 1, `${r + 1}° anello`]));
+    const can = logoPlacesFor(s);
     return `
+      <div class="kit-sub">Logo della squadra</div>
+      ${this._logo() ? `
+      <div class="kit-chips">${LOGO_PLACES.filter(o => can.includes(o.id)).map(o => `<button class="lv-chip ${s.logoPlaces.includes(o.id) ? 'on' : ''}" data-act="logoPlace" data-v="${o.id}">${esc(o.label)}</button>`).join('')}</div>
+      <div class="mp-muted" style="margin-top:.3rem;">Tocca i posti dove metterlo, anche più di uno: grande e ben visibile, di notte si illumina. ${can.includes('entrance') ? 'Sull\'ingresso prende il posto dello stemma con le iniziali.' : 'L\'ingresso con il portale c\'è con il muro esterno "Inglese".'}${can.includes('roof') ? '' : ' Sul tetto serve una copertura piatta.'}</div>`
+      : `<div class="mp-muted">Carica il logo della squadra in Configurazione squadra: poi puoi metterlo sull'ingresso, sul tetto, sulle curve o al centro del campo.</div>`}
       <div class="kit-sub">Scritta sugli spalti</div>
       <label class="kit-field"><span>Testo</span><input type="text" data-text="standText" value="${esc(s.standText)}" maxlength="${MAX_STAND_TEXT}" placeholder="Es. FORZA RAGAZZI"></label>
       ${this._fontChips('standTextFont', s.standTextFont)}
@@ -426,7 +441,7 @@ export const StadioSquadra = {
     document.body.appendChild(el);
     const viewer = createStadiumViewer(el.querySelector('.kit-zoom-stage > div'), { zoom: true });
     let night = this._night;
-    viewer.update(this._st).then(() => viewer.setNight(night)).catch(err => console.error('Stadio:', err));
+    viewer.update(this._st, { logo: this._logo() }).then(() => viewer.setNight(night)).catch(err => console.error('Stadio:', err));
     const close = () => { viewer.dispose(); el.remove(); this._zoom = null; };
     el.addEventListener('click', (e) => {
       const b = e.target.closest('[data-z]');
@@ -496,6 +511,13 @@ export const StadioSquadra = {
         return;
       case 'roofSide':
         this._update(st => { st.roofSectors[Number(v)] = !st.roofSectors[Number(v)]; });
+        return;
+      case 'logoPlace':
+        this._update(st => {
+          const on = new Set(st.logoPlaces);
+          if (on.has(v)) on.delete(v); else on.add(v);
+          st.logoPlaces = LOGO_PLACES.map(o => o.id).filter(id => on.has(id));
+        });
         return;
     }
   },
@@ -583,7 +605,7 @@ export const StadioSquadra = {
     try {
       // foto dello stadio per il resto dell'app (configurazione squadra, scheda club)
       try {
-        const dataUrl = await renderStadiumImage(st, { width: 1300 });
+        const dataUrl = await renderStadiumImage(st, { width: 1300, logo: team.logo || '' });
         if (dataUrl) {
           const blob = await dataUrlToBlob(dataUrl);
           st.image = await uploadPngToImgBB(new File([blob], `stadio-${team.id}.png`, { type: 'image/png' }), 800);

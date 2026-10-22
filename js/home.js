@@ -284,7 +284,7 @@ export const HomePage = {
               </div>`;
           // stadio salvato senza foto (caricamento non riuscito): la disegno qui
           if (st && !st.image) {
-            renderStadiumImage(st, { width: 600 }).then(url => {
+            renderStadiumImage(st, { width: 600, logo: myTeam.logo || '' }).then(url => {
               const box = stadiumBox.querySelector('div > div');
               if (url && box && stadiumBox.dataset.key === key) box.innerHTML = `<img src="${url}" alt="Stadio" style="width: 100%; height: 100%; object-fit: contain;">`;
             });
