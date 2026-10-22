@@ -73,6 +73,29 @@ export const SHELL_PATTERNS = [
   { id: 'stripes', label: 'Fasce' },
   { id: 'plain',   label: 'Liscio' }
 ];
+/** Caratteri delle scritte: i font locali sono in fonts/fonts.css (gli stessi della divisa), gli altri sono di sistema. */
+export const TEXT_FONTS = [
+  { id: 'black',     label: 'Pesante',     css: "'Arial Black', Arial, sans-serif", weight: 900, style: 'normal' },
+  { id: 'seriea',    label: 'Serie A',     css: "'Seri EA', 'Bebas Neue', Impact, sans-serif", weight: 400, style: 'normal' },
+  { id: 'champions', label: 'Champions',   css: "'Champions', 'Bebas Neue', Impact, sans-serif", weight: 700, style: 'normal' },
+  { id: 'bebas',     label: 'Moderno',     css: "'Bebas Neue', Impact, sans-serif", weight: 400, style: 'normal' },
+  { id: 'nemoy',     label: 'Squadrato',   css: "'Nemoy', 'Arial Black', sans-serif", weight: 700, style: 'normal' },
+  { id: 'pirates',   label: 'Futuristico', css: "'Pirates of Cydonia', 'Arial Black', sans-serif", weight: 400, style: 'normal' },
+  { id: 'sport',     label: 'Sportivo',    css: "'Arial Black', Arial, sans-serif", weight: 900, style: 'italic' },
+  { id: 'novarese',  label: 'Elegante',    css: "'Novarese', Georgia, serif", weight: 700, style: 'normal' },
+  { id: 'serif',     label: 'Classico',    css: "Georgia, 'Times New Roman', serif", weight: 700, style: 'normal' },
+  { id: 'script',    label: 'Corsivo',     css: "'Brush Script MT', 'Segoe Script', cursive", weight: 700, style: 'italic' }
+];
+const fontOf = (id) => TEXT_FONTS.find(f => f.id === id) || TEXT_FONTS[0];
+const fontCss = (ft, px) => `${ft.style} ${ft.weight} ${Math.round(px)}px ${ft.css}`;
+
+/** Aspetta i font delle scritte (se sono font web) prima di disegnarle sulle tele. */
+async function loadTextFonts(st) {
+  if (typeof document === 'undefined' || !document.fonts || !document.fonts.load) return;
+  const ids = [st.standText && st.standTextFont, st.outerText && st.outerTextFont].filter(Boolean);
+  try { await Promise.all(ids.map(id => document.fonts.load(fontCss(fontOf(id), 100), 'AZ'))); } catch (e) { /* uso il ripiego */ }
+}
+
 export const SCREENS = [
   { id: 'none', label: 'Nessuno' },
   { id: 'ring', label: 'Anello a 360°' },
@@ -101,7 +124,7 @@ export const FACADES = [
 const DEFAULT = {
   name: '', rings: 2, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single',
   roof: 'none', lights: 'towers', facade: 'wall', ramps: false, shellPattern: 'rhombus', screen: 'none',
-  seatMosaic: false, standText: '', standTextSide: 'far', standTextRing: 1, outerText: '',
+  seatMosaic: false, standText: '', standTextSide: 'far', standTextRing: 1, standTextFont: 'black', outerText: '', outerTextFont: 'black',
   colors: {
     grass: '#3d8b37', track: '#b4452f', seatA: '#1e5bb8', seatB: '#ffffff', seatC: '#c62828', seatD: '#ffd400', parapet: '#e6e6e6', structure: '#a5a5a5',
     roof: '#5b6169', steel: '#767d86', accent: '#1e5bb8', girder: '#c0392b', glow: '#e30613',
@@ -192,7 +215,8 @@ export function applyPreset(st, id) {
   return normalizeStadium({
     ...base, ...p.st, colors: { ...base.colors, ...p.st.colors, standText: c.standText, outerText: c.outerText },
     name: st.name, capacityCustom: st.capacityCustom, image: st.image, capacity: st.capacity,
-    standText: st.standText, standTextSide: st.standTextSide, standTextRing: st.standTextRing, outerText: st.outerText, seatGrid: st.seatGrid
+    standText: st.standText, standTextSide: st.standTextSide, standTextRing: st.standTextRing, standTextFont: st.standTextFont,
+    outerText: st.outerText, outerTextFont: st.outerTextFont, seatGrid: st.seatGrid
   });
 }
 
@@ -223,7 +247,9 @@ export function normalizeStadium(s) {
     standText: String(src.standText || '').slice(0, MAX_STAND_TEXT),
     standTextSide: oneOf(TEXT_SIDES, src.standTextSide, DEFAULT.standTextSide),
     standTextRing: [0, 1, 2, 3].includes(Number(src.standTextRing)) ? Number(src.standTextRing) : DEFAULT.standTextRing, // 0 = tutti gli anelli
+    standTextFont: oneOf(TEXT_FONTS, src.standTextFont, DEFAULT.standTextFont),
     outerText: String(src.outerText || '').slice(0, MAX_OUTER_TEXT),
+    outerTextFont: oneOf(TEXT_FONTS, src.outerTextFont, DEFAULT.outerTextFont),
     // capienza scelta dalla squadra (0 = calcolata dai seggiolini)
     capacityCustom: Math.min(MAX_CAPACITY, Math.max(0, Math.round(Number(src.capacityCustom) || 0))),
     colors: Object.fromEntries(Object.entries(DEFAULT.colors).map(([k, d]) => [k, validColor(c[k], d)]))
@@ -505,11 +531,13 @@ function standTextMask(seats, st) {
   const c = document.createElement('canvas');
   c.width = cw; c.height = ch;
   const ctx = c.getContext('2d');
-  const font = (px) => `900 ${px}px "Arial Black", "Helvetica Neue", Arial, sans-serif`;
+  const ft = fontOf(st.standTextFont), font = (px) => fontCss(ft, px);
   ctx.font = font(100);
   const m = ctx.measureText(text), asc = m.actualBoundingBoxAscent || 72, desc = m.actualBoundingBoxDescent || 0;
+  // larghezza vera delle lettere (i corsivi escono un po' dal riquadro del testo)
+  const wide = Math.max(m.width, (m.actualBoundingBoxLeft || 0) + (m.actualBoundingBoxRight || 0)) || 1;
   let px = 100 * ch * 0.8 / (asc + desc);
-  px = Math.min(px, 100 * cw * 0.78 / (m.width || 1));
+  px = Math.min(px, 100 * cw * 0.78 / wide);
   ctx.font = font(px);
   ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   ctx.fillText(text, cw / 2, ch / 2 + (asc - desc) * px / 200);
@@ -920,10 +948,11 @@ function zOn(poly, x, sgn) {
  */
 function buildSign(THREE, shape, st, text, color) {
   const c = document.createElement('canvas'), ctx = c.getContext('2d');
-  const font = `900 120px "Arial Black", "Helvetica Neue", Arial, sans-serif`;
+  const font = fontCss(fontOf(st.outerTextFont), 120);
   ctx.font = font;
   const m = ctx.measureText(text), asc = m.actualBoundingBoxAscent || 88, desc = m.actualBoundingBoxDescent || 4;
-  c.width = Math.ceil(m.width + 50); c.height = Math.ceil(asc + desc + 36);
+  const wide = Math.max(m.width, (m.actualBoundingBoxLeft || 0) + (m.actualBoundingBoxRight || 0));
+  c.width = Math.ceil(wide + 50); c.height = Math.ceil(asc + desc + 36);
   ctx.font = font; ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   ctx.shadowColor = 'rgba(0,0,0,.28)'; ctx.shadowBlur = 6;
   ctx.fillText(text, c.width / 2, 18 + asc);
@@ -1916,7 +1945,7 @@ function buildStadium(L, st) {
       if (outside.deckMat) outside.deckMat.color.set(c.roof);
       if (outside.shellMat) { outside.shellMat.color.set(c.roof); outside.shellMat.emissive.set(c.glow); }
       // scritta sull'esterno: si ricostruisce solo se cambiano testo o colore
-      const sgk = s.outerText.trim() + '|' + c.outerText;
+      const sgk = s.outerText.trim() + '|' + c.outerText + '|' + s.outerTextFont;
       if (sgk !== signKey) {
         signKey = sgk;
         if (sign) { group.remove(sign.mesh); sign.dispose(); sign = null; }
@@ -1942,7 +1971,7 @@ function buildStadium(L, st) {
         paintPitch(pitchCanvas, s); pitchTex.needsUpdate = true;
         paintBase(baseCanvas, s, shape, ext); baseTex.needsUpdate = true;
       }
-      const sk = JSON.stringify([s.seatMode, c.seatA, c.seatB, c.seatC, c.seatD, s.seatGrid, s.seatMosaic, s.standText, s.standTextSide, s.standTextRing, c.standText]);
+      const sk = JSON.stringify([s.seatMode, c.seatA, c.seatB, c.seatC, c.seatD, s.seatGrid, s.seatMosaic, s.standText, s.standTextSide, s.standTextRing, s.standTextFont, c.standText]);
       if (sk !== seatColorKey) {
         seatColorKey = sk;
         // tavolozza: 0-3 colori A-D, 4-15 settore e anello (lato * 3 + anello); ognuno con le varianti per il mosaico
@@ -2148,7 +2177,7 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
   canvas.style.cssText = `width:100%; height:100%; display:block; touch-action:${zoom ? 'none' : 'pan-y'}; cursor:grab;`;
   container.innerHTML = '';
   container.appendChild(canvas);
-  let stage = null, disposed = false, night = false;
+  let stage = null, disposed = false, night = false, token = 0;
   const ready = loadLib().then(L => {
     if (disposed) return null;
     const r = container.getBoundingClientRect();
@@ -2166,9 +2195,10 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
   return {
     ready,
     async update(st) {
-      const s = await ready;
-      if (!s || disposed) return 0;
-      const capacity = s.setStadium(normalizeStadium(st));
+      const my = ++token, n = normalizeStadium(st);
+      const [s] = await Promise.all([ready, loadTextFonts(n)]);
+      if (!s || disposed || my !== token) return 0;
+      const capacity = s.setStadium(n);
       s.render();
       return capacity;
     },
@@ -2229,7 +2259,9 @@ export function renderStadiumImage(st, opts = {}) {
     if (!shot) shot = new Stage(L, document.createElement('canvas'), { width, height });
     shot.resize(width, height);
     shot.setNight(false);
-    shot.setStadium(normalizeStadium(st));
+    const n = normalizeStadium(st);
+    await loadTextFonts(n);
+    shot.setStadium(n);
     shot.setView(opts.view || 'aerial');
     shot.render();
     return cropToContent(shot.renderer.domElement);

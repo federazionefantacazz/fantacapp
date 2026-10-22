@@ -4,7 +4,7 @@ import { dataUrlToBlob } from '../components/Kit3D.js';
 import {
   createStadiumViewer, renderStadiumImage, stadiumCapacity, shownCapacity, normalizeStadium, defaultStadium, applyPreset,
   RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY,
-  SEAT_SIDES, TEXT_SIDES, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom
+  SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom
 } from '../components/Stadium3D.js';
 import { injectStyle, parseColor, SWATCHES } from './DivisaSquadra.js';
 import { esc } from './menuUtils.js';
@@ -299,18 +299,26 @@ export const StadioSquadra = {
       </div>` : seatFields(s).map(([k, label]) => this._colorRow(label, `colors.${k}`, s.colors[k])).join('')}`;
   },
 
+  /** Pulsanti per scegliere il carattere di una scritta: ogni nome è scritto nel suo carattere. */
+  _fontChips(key, value) {
+    return `<div class="kit-chips" style="margin-top:.4rem;">${TEXT_FONTS.map(f => `<button class="lv-chip ${value === f.id ? 'on' : ''}" data-act="set" data-k="${key}" data-v="${f.id}"
+      style="font-family:${esc(f.css)}; font-weight:${f.weight}; font-style:${f.style}; font-size:.85rem;">${esc(f.label)}</button>`).join('')}</div>`;
+  },
+
   _secTexts() {
     const s = this._st;
     const rings = [[0, 'Tutti']].concat(Array.from({ length: s.rings }, (_, r) => [r + 1, `${r + 1}° anello`]));
     return `
       <div class="kit-sub">Scritta sugli spalti</div>
       <label class="kit-field"><span>Testo</span><input type="text" data-text="standText" value="${esc(s.standText)}" maxlength="${MAX_STAND_TEXT}" placeholder="Es. FORZA RAGAZZI"></label>
+      ${this._fontChips('standTextFont', s.standTextFont)}
       <div class="kit-chips">${TEXT_SIDES.map(o => this._chip('standTextSide', o.id, o.label, s.standTextSide === o.id)).join('')}</div>
       <div class="kit-chips" style="margin-top:.4rem;">${rings.map(([v, l]) => this._chip('standTextRing', v, l, Math.min(s.standTextRing, s.rings) === v)).join('')}</div>
       ${this._colorRow('Colore della scritta', 'colors.standText', s.colors.standText)}
       <div class="mp-muted" style="margin-top:.3rem;">Fatta con i seggiolini, centrata sul settore scelto e leggibile dal campo. Prova la vista Tribuna.</div>
       <div class="kit-sub">Scritta sull'esterno</div>
       <label class="kit-field"><span>Testo</span><input type="text" data-text="outerText" value="${esc(s.outerText)}" maxlength="${MAX_OUTER_TEXT}" placeholder="Es. ${esc(s.name.trim() || 'Stadio Comunale')}"></label>
+      ${this._fontChips('outerTextFont', s.outerTextFont)}
       ${this._colorRow('Colore della scritta', 'colors.outerText', s.colors.outerText)}
       <div class="mp-muted" style="margin-top:.3rem;">Sui due lati lunghi, al centro, dove l'esterno la mostra meglio: sull'involucro, sul cornicione, sulla ringhiera o sul muro. Di notte si accende. Prova la vista Esterno.</div>`;
   },
