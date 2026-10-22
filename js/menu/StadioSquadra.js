@@ -229,7 +229,8 @@ export const StadioSquadra = {
       <div class="mp-muted" style="margin-top:.3rem;">${{
         truss: 'Tetto in lamiera sopra l\'anello più alto, con tralicci sotto e piloni in acciaio fuori che reggono una trave tutto intorno.',
         membrane: 'Tetto chiaro e liscio, con le costole sotto.',
-        girders: 'Tetto chiaro a botti con la struttura scura sotto, appeso a quattro grandi travi reticolari che poggiano su quattro torri agli angoli.'
+        girders: 'Tetto chiaro a botti con la struttura scura sotto, appeso a quattro grandi travi reticolari che poggiano su quattro torri agli angoli.',
+        shell: 'Un unico involucro a cuscini che avvolge lo stadio: si gonfia verso fuori, copre gli spalti e diventa trasparente verso il campo. Di notte si illumina.'
       }[s.roof] || 'Spalti scoperti.'}</div>
       <div class="kit-sub">Fari</div>
       <div class="kit-chips">${LIGHTS.map(o => this._chip('lights', o.id, o.label, s.lights === o.id)).join('')}</div>
@@ -241,7 +242,8 @@ export const StadioSquadra = {
       <div class="kit-chips">${this._chip('ramps', '1', 'Sì', s.ramps)}${this._chip('ramps', '0', 'No', !s.ramps)}</div>
       <div class="mp-muted" style="margin-top:.3rem;">Torri cilindriche lungo il perimetro, con le rampe che salgono a spirale.</div>
       <div class="kit-sub">Colori</div>
-      ${s.roof !== 'none' ? this._colorRow('Tetto', 'colors.roof', s.colors.roof) : ''}
+      ${s.roof !== 'none' ? this._colorRow(s.roof === 'shell' ? 'Involucro' : 'Tetto', 'colors.roof', s.colors.roof) : ''}
+      ${s.roof === 'shell' ? this._colorRow('Luce dell\'involucro di notte', 'colors.glow', s.colors.glow) : ''}
       ${s.roof !== 'none' || s.lights !== 'none' ? this._colorRow('Acciaio (tralicci, pilastri, torri)', 'colors.steel', s.colors.steel) : ''}
       ${s.roof === 'girders' ? this._colorRow('Travi principali', 'colors.girder', s.colors.girder) : ''}
       ${s.facade === 'struts' ? this._colorRow('Fasce del basamento', 'colors.accent', s.colors.accent) : ''}

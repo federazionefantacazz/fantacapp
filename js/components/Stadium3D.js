@@ -54,7 +54,8 @@ export const ROOFS = [
   { id: 'none',     label: 'Nessuna' },
   { id: 'truss',    label: 'Reticolare in acciaio' },
   { id: 'membrane', label: 'Moderna' },
-  { id: 'girders',  label: 'Travi rosse su torri' }
+  { id: 'girders',  label: 'Travi rosse su torri' },
+  { id: 'shell',    label: 'Involucro a cuscini' }
 ];
 export const LIGHTS = [
   { id: 'roof',   label: 'Sul bordo del tetto' },
@@ -65,7 +66,8 @@ export const FACADES = [
   { id: 'wall',    label: 'Muro liscio' },
   { id: 'columns', label: 'Pilastri' },
   { id: 'struts',  label: 'Struttura a vista e basamento' },
-  { id: 'bands',   label: 'Fasce orizzontali' }
+  { id: 'bands',   label: 'Fasce orizzontali' },
+  { id: 'esplanade', label: 'Spianata rialzata' }
 ];
 
 const DEFAULT = {
@@ -73,7 +75,7 @@ const DEFAULT = {
   roof: 'none', lights: 'towers', facade: 'wall', ramps: false,
   colors: {
     grass: '#3d8b37', track: '#b4452f', seatA: '#1e5bb8', seatB: '#ffffff', seatC: '#c62828', seatD: '#ffd400', parapet: '#e6e6e6', structure: '#a5a5a5',
-    roof: '#5b6169', steel: '#767d86', accent: '#1e5bb8', girder: '#c0392b'
+    roof: '#5b6169', steel: '#767d86', accent: '#1e5bb8', girder: '#c0392b', glow: '#e30613'
   }
 };
 
@@ -95,6 +97,16 @@ export const PRESETS = [
       colors: {
         grass: '#2f8a3a', seatA: '#2b5fb4', seatB: '#e8792b', seatC: '#3a9a6a', seatD: '#c8423a', parapet: '#ebe8e2', structure: '#bdb9b0',
         roof: '#dfe2e5', steel: '#2b2f34', girder: '#c0392b'
+      }
+    }
+  },
+  {
+    id: 'allianz', label: 'Stile Allianz Arena',
+    desc: 'Tre anelli ripidi di seggiolini rossi dentro un involucro bianco a cuscini che di notte si illumina, sopra una spianata rialzata.',
+    st: {
+      rings: 3, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single', roof: 'shell', lights: 'roof', facade: 'esplanade', ramps: false,
+      colors: {
+        grass: '#2e8b3a', seatA: '#c8102e', parapet: '#9ea3a9', structure: '#8e939a', roof: '#f4f6f8', steel: '#8a9099', glow: '#e30613'
       }
     }
   },
@@ -573,6 +585,8 @@ const RAMP_R = 5.2, RAMP_EVERY = 40;   // torri delle rampe a spirale: raggio, p
 const RAMP_PITCH = 4.2, RAMP_BAND = 2.9; // rampe: salita a ogni giro e spessore della fascia bianca (la riga scura è la differenza)
 const GIRDER_H = 10, GIRDER_W = 3, GIRDER_L = 15, GIRDER_PANEL = 6; // travi rosse: altezza, mezza larghezza, sbalzo, campata
 const TOWER_OVER = 5;   // le torri d'angolo salgono sopra le travi rosse
+const ESPLANADE_H = 5, ESPLANADE_W = 24;     // spianata rialzata: altezza e larghezza dal muro
+const SHELL_CELL_U = 7, SHELL_CELL_V = 4.4;  // involucro: un cuscino a rombo ogni 7 m in orizzontale e 4,4 m lungo il profilo
 const PLATFORM_H = 5.9, PLATFORM_OUT = 10; // piattaforma intorno allo stadio (struttura a vista): altezza e sporgenza dal muro
 
 /** Fari effettivi: senza tetto quelli "sul tetto" diventano torri. */
@@ -596,7 +610,62 @@ const pylonDist = (R) => R.dOut + 1.5;
 const pylonHeight = (R) => R.h(R.dOut) + 7;
 
 /** Distanza dal bordo occupata dal muro esterno (con basamento o fasce). */
-const footOf = (shape, st) => shape.outer + ({ struts: PLATFORM_OUT + 0.2, bands: 1.8, columns: 0.8 }[st.facade] || 0);
+const footOf = (shape, st) => shape.outer + ({ struts: PLATFORM_OUT + 0.2, bands: 1.8, columns: 0.8, esplanade: ESPLANADE_W + 0.2 }[st.facade] || 0);
+
+/**
+ * Profilo dell'involucro a cuscini (stile Allianz Arena), come punti (d, h): parte poco sopra la base, si gonfia
+ * verso fuori, gira sopra gli spalti e continua come tetto trasparente fino all'apertura sopra il campo.
+ * `split` = indice del primo punto della parte trasparente.
+ */
+function shellOf(shape, st) {
+  const T = shape.tiers[shape.tiers.length - 1], o = shape.outer;
+  const base = st.facade === 'esplanade' ? ESPLANADE_H : 0, h0 = base + 3, crest = T.top + 9;
+  const drop = Math.min(12, (crest - h0) * 0.32), dIn = 2;   // il tetto scende verso l'apertura, sopra il bordo del campo
+  const k = (f) => h0 + (crest - h0) * f;
+  // muro gonfio verso fuori e cresta larga e arrotondata
+  const key = [[o + 0.6, h0], [o + 5.2, k(0.22)], [o + 7, k(0.48)], [o + 5.6, k(0.74)], [o + 2.2, k(0.92)], [o - 3, crest], [o - 10, crest - 0.8]];
+  // poi il tetto scende curvo (convesso) fino all'apertura e si arrotonda verso il basso sul bordo
+  const d0 = o - 10, n = Math.max(3, Math.round((d0 - dIn) / 4));
+  for (let i = 1; i <= n; i++) { const f = i / n; key.push([d0 + (dIn - d0) * f, crest - 0.8 - (drop - 0.8) * Math.pow(f, 1.5)]); }
+  key.push([dIn - 1.2, crest - drop - 1.6]);
+  const P = [key[0], ...key, key[key.length - 1]], pts = [];
+  // curva liscia (Catmull-Rom) attraverso i punti chiave
+  for (let i = 1; i < P.length - 2; i++) {
+    for (let j = 0; j < 6; j++) {
+      const t = j / 6, t2 = t * t, t3 = t2 * t;
+      const f = (a, b, c, e) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - e) * t2 + (-a + 3 * b - 3 * c + e) * t3);
+      pts.push({ d: f(P[i - 1][0], P[i][0], P[i + 1][0], P[i + 2][0]), h: f(P[i - 1][1], P[i][1], P[i + 1][1], P[i + 2][1]) });
+    }
+  }
+  pts.push({ d: key[key.length - 1][0], h: key[key.length - 1][1] });
+  // la parte verso l'apertura (gli ultimi due terzi del tetto) è di cuscini trasparenti, un po' più grigi
+  const dSplit = d0 - (d0 - dIn) * 0.35, split = Math.max(1, pts.findIndex(p => p.d < dSplit));
+  const rows = new Map(), rowAt = (d) => { const key = d.toFixed(3); if (!rows.has(key)) rows.set(key, shellOutline(shape, d)); return rows.get(key); };
+  return { pts, split, base, dIn, hIn: crest - drop, top: crest, out: o + 12, rowAt };
+}
+
+/**
+ * Pianta dell'involucro a distanza d dal bordo degli spalti: un ovale "smussato" (superellisse, tra l'ellisse e il
+ * rettangolo arrotondato) il più tondo possibile che contiene ancora gli spalti a quella distanza. Punti chiusi [x, z].
+ */
+function shellOutline(shape, d, N = 240) {
+  const pts = shape.path.map(p => [p.x + p.mx * d, p.z + p.mz * d]);
+  const A = Math.max(...pts.map(p => Math.abs(p[0]))), B = Math.max(...pts.map(p => Math.abs(p[1])));
+  const worst = (n) => Math.max(...pts.map(([x, z]) => Math.abs(x / A) ** n + Math.abs(z / B) ** n));
+  let n = 2.4, scale = 1;
+  if (worst(4) > 1) { n = 4; scale = worst(4) ** (1 / 4); }      // forme squadrate: rettangolo arrotondato un po' più grande
+  else if (worst(n) > 1) {
+    let lo = n, hi = 4;
+    for (let it = 0; it < 18; it++) { const mid = (lo + hi) / 2; if (worst(mid) > 1) lo = mid; else hi = mid; }
+    n = hi;
+  }
+  const out = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N * Math.PI * 2, c = Math.cos(t), sn = Math.sin(t);
+    out.push([scale * A * Math.sign(c) * Math.abs(c) ** (2 / n), scale * B * Math.sign(sn) * Math.abs(sn) ** (2 / n)]);
+  }
+  return out;
+}
 
 /**
  * Travi rosse (stile San Siro): quattro torri sulle diagonali, appena fuori dall'esterno, e quattro travi reticolari
@@ -615,7 +684,8 @@ function girdersOf(shape, st) {
 function reachOf(shape, st) {
   const foot = footOf(shape, st);
   let d = foot + 0.5, h = shape.height, x = 0, z = 0;
-  if (st.roof !== 'none') { const R = roofOf(shape, st.roof); d = Math.max(d, st.roof === 'truss' ? pylonDist(R) + 2.5 : R.dOut); h = Math.max(R.h(R.dIn), st.roof === 'truss' ? pylonHeight(R) : 0) + 1; }
+  if (st.roof === 'shell') { const S = shellOf(shape, st); d = Math.max(d, S.out + 1); h = Math.max(h, S.top + 1); }
+  else if (st.roof !== 'none') { const R = roofOf(shape, st.roof); d = Math.max(d, st.roof === 'truss' ? pylonDist(R) + 2.5 : R.dOut); h = Math.max(R.h(R.dIn), st.roof === 'truss' ? pylonHeight(R) : 0) + 1; }
   if (st.ramps) d = Math.max(d, foot + RAMP_R * 2);
   if (st.roof === 'girders') {
     const G = girdersOf(shape, st);
@@ -726,6 +796,51 @@ function subRuns(run, pred) {
 
 /** Punto del bordo su un lato lungo (tribune), non sulle curve. */
 const onLongSide = (p) => Math.abs(p.mz) > 0.995;
+
+/** Cuscini a rombo dell'involucro (quasi bianchi: il colore scelto li tinge), con le giunture più scure. */
+function cushionCanvas() {
+  const W = 256, H = 164, c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#868e97'; ctx.fillRect(0, 0, W, H);
+  for (const [cx, cy] of [[W / 2, H / 2], [0, 0], [W, 0], [0, H], [W, H]]) {
+    // cuscino gonfio: chiaro in alto al centro, più scuro verso le giunture
+    const g = ctx.createRadialGradient(cx - W * 0.06, cy - H * 0.14, 2, cx, cy, W * 0.42);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.45, '#eef0f3'); g.addColorStop(1, '#bcc3cb');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - H / 2 + 3); ctx.lineTo(cx + W / 2 - 4, cy); ctx.lineTo(cx, cy + H / 2 - 3); ctx.lineTo(cx - W / 2 + 4, cy);
+    ctx.closePath(); ctx.fill();
+  }
+  return c;
+}
+
+/**
+ * Superficie che gira tutto intorno allo stadio con il profilo `prof` (punti d, h), dalla riga j0 alla j1;
+ * rowAt(d) dà la pianta chiusa a quella distanza. Coordinate per la texture lungo la pianta (numero intero di
+ * cuscini per giro, niente cuciture) e lungo il profilo.
+ */
+function sweepAround(THREE, rowAt, prof, j0, j1) {
+  const pos = [], uv = [], idx = [];
+  let v = 0, cols = 0;
+  for (let j = j0; j <= j1; j++) {
+    if (j > j0) v += Math.hypot(prof[j].d - prof[j - 1].d, prof[j].h - prof[j - 1].h) / SHELL_CELL_V;
+    const { d, h } = prof[j], row = rowAt(d), us = [0];
+    cols = row.length;
+    for (let i = 1; i < cols; i++) us.push(us[i - 1] + Math.hypot(row[i][0] - row[i - 1][0], row[i][1] - row[i - 1][1]));
+    const len = us[cols - 1] || 1, cells = Math.max(1, Math.round(len / SHELL_CELL_U));
+    for (let i = 0; i < cols; i++) { pos.push(row[i][0], h, row[i][1]); uv.push(us[i] / len * cells, v); }
+  }
+  for (let j = 0; j < j1 - j0; j++) {
+    for (let i = 0; i < cols - 1; i++) { const a = j * cols + i, b = a + cols; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
 
 /** Posizione lungo un tratto chiuso che riparte da capo; sui tratti aperti si ferma alle estremità. */
 const wrapU = (run, total, u) => (run.closed ? ((u % total) + total) % total : Math.min(Math.max(u, 0), total));
@@ -882,7 +997,38 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     return Math.abs(Math.atan2(Math.abs(pz) / shape.b, Math.abs(px) / shape.a) - Math.PI / 4) >= 0.3;
   });
 
-  const R = st.roof !== 'none' ? roofOf(shape, st.roof) : null;
+  const R = st.roof !== 'none' && st.roof !== 'shell' ? roofOf(shape, st.roof) : null;
+  let shellMat = null;
+  if (st.roof === 'shell') {
+    // involucro a cuscini: parte bianca (fuori e sopra) e tetto trasparente fino all'apertura; gira tutto intorno
+    // anche con le curve staccate. Di notte i cuscini si accendono del colore scelto.
+    const S = shellOf(shape, st);
+    const tex = new THREE.CanvasTexture(cushionCanvas());
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    shellMat = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissiveIntensity: 0, roughness: 0.38, side: THREE.DoubleSide });
+    // la parte verso l'apertura è di cuscini trasparenti: un po' più grigia e non fa ombra
+    const clearMat = new THREE.MeshStandardMaterial({ map: tex, color: 0xe3e6ea, roughness: 0.25, side: THREE.DoubleSide });
+    const outer = new THREE.Mesh(sweepAround(THREE, S.rowAt, S.pts, 0, S.split), shellMat);
+    const clear = new THREE.Mesh(sweepAround(THREE, S.rowAt, S.pts, S.split, S.pts.length - 1), clearMat);
+    outer.castShadow = outer.receiveShadow = true;
+    clear.receiveShadow = true;
+    group.add(outer, clear);
+    own.push(tex, shellMat, clearMat, outer.geometry, clear.geometry);
+    // fascia scura (vetrate e pilastri) tra la base e l'inizio dei cuscini, con la stessa pianta ovale
+    const o = shape.outer, bandG = sweepAround(THREE, S.rowAt, [{ d: o + 1.2, h: S.base }, { d: o + 1.2, h: S.base + 3.4 }], 0, 1);
+    const base = new THREE.Mesh(bandG, dark);
+    base.receiveShadow = true;
+    group.add(base);
+    own.push(bandG);
+    if (lights === 'roof') {
+      // proiettori sotto il bordo dell'apertura
+      const edge = S.rowAt(S.dIn + 0.8);
+      for (let i = 0; i < edge.length - 1; i += 8) lampAt(lamps, edge[i][0], S.hIn - 1.4, edge[i][1], 2.4, 1.3);
+      for (let k = 0; k < 6; k++) { const [x, z] = edge[Math.floor((k + 0.5) / 6 * (edge.length - 1))]; spots.push([x, S.hIn - 1.5, z]); }
+    }
+  }
   if (R) {
     const truss = st.roof === 'truss';
     const girders = st.roof === 'girders', ribbed = truss || girders; // girders: struttura nera sotto, come il reticolare
@@ -1071,6 +1217,31 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     own.push(g);
   }
 
+  if (st.facade === 'esplanade') {
+    // spianata rialzata tutto intorno (anche con le curve staccate): piano grigio, bordo chiaro,
+    // pilastri sotto il bordo e il fondo scuro dei parcheggi sotto
+    const o = shape.outer, H = ESPLANADE_H, W = ESPLANADE_W, ring = { pts: shape.path, closed: true };
+    const rect = (d0, d1, h0, h1, m) => [[d0, h0], [d1, h0], [d1, h1], [d0, h1]].map(([d, h]) => ({ d, h, m }));
+    const pos = [], idx = [[], [], []];
+    extrude(THREE, ring, rect(o - 0.1, o + W, H - 0.8, H, 0), pos, idx);           // piano
+    extrude(THREE, ring, rect(o + W - 0.35, o + W, H, H + 1.05, 1), pos, idx);     // parapetto sul bordo
+    extrude(THREE, ring, rect(o + W - 6, o + W - 5.7, 0, H - 0.8, 2), pos, idx);   // fondo scuro sotto
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    let start = 0;
+    idx.forEach((list, m) => { g.addGroup(start, list.length, m); start += list.length; });
+    g.setIndex(idx.flat());
+    g.computeVertexNormals();
+    const plaza = new THREE.Mesh(g, [structMat, parapetMat, dark]);
+    plaza.castShadow = plaza.receiveShadow = true;
+    group.add(plaza);
+    own.push(g);
+    const cum = runLengths(ring);
+    for (const u of stations(ring, cum, 9)) {
+      for (const d of [o + W - 1.2, o + W - 4.5]) { const [x, z] = pointAt(ring, cum, u, d); beam(pilasters, x, 0, z, x, H - 0.8, z, 0.8); }
+    }
+  }
+
   if (st.facade === 'bands') {
     // fasce orizzontali chiare e sporgenti (come le rampe di San Siro) sul muro esterno più scuro
     const T = shape.tiers[shape.tiers.length - 1], o = shape.outer, Ht = T.top + 2.2;
@@ -1256,7 +1427,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   inst(girderMat, girderBeams);
   inst([steel, steel, steel, steel, lamp, steel], lamps); // la faccia +z del proiettore è quella accesa
 
-  return { group, steel, deckMat, lamp, accent, dark, girder: girderMat, spots };
+  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots };
 }
 
 /* --------------------------------------------------------------- scena */
@@ -1350,6 +1521,7 @@ function buildStadium(L, st) {
     key: geomKey(st), group, shape, ext, height: reach.h, capacity: seats.count,
     setNight(on) {
       outside.lamp.emissiveIntensity = on ? 5 : 0.6;
+      if (outside.shellMat) outside.shellMat.emissiveIntensity = on ? 0.85 : 0; // l'involucro si accende
       nightLights.forEach(l => { l.visible = on; });
     },
     recolor(s) {
@@ -1359,6 +1531,7 @@ function buildStadium(L, st) {
       outside.dark.color.set(shade(c.structure, 0.62));
       outside.girder.color.set(c.girder);
       if (outside.deckMat) outside.deckMat.color.set(c.roof);
+      if (outside.shellMat) { outside.shellMat.color.set(c.roof); outside.shellMat.emissive.set(c.glow); }
       mats[M_PARAPET].color.set(c.parapet);
       mats[M_STEPS].color.set(shade(c.structure, 1.12));
       mats[M_STRUCT].color.set(shade(c.structure, 0.82));
