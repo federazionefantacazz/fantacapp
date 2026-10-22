@@ -619,23 +619,52 @@ const footOf = (shape, st) => shape.outer + ({ struts: PLATFORM_OUT + 0.2, bands
  */
 function shellOf(shape, st) {
   const T = shape.tiers[shape.tiers.length - 1], o = shape.outer;
-  const base = st.facade === 'esplanade' ? ESPLANADE_H : 0, h0 = base + 3, h1 = T.top + 7;
-  const k = (f) => h0 + (h1 - h0) * f;
-  const key = [[o + 1, h0], [o + 4.2, k(0.25)], [o + 5.6, k(0.52)], [o + 4.4, k(0.78)], [o + 1.2, k(0.95)], [o - 4, h1], [o - 9, h1 - 0.5]];
+  const base = st.facade === 'esplanade' ? ESPLANADE_H : 0, h0 = base + 3, crest = T.top + 9;
+  const drop = Math.min(12, (crest - h0) * 0.32), dIn = 2;   // il tetto scende verso l'apertura, sopra il bordo del campo
+  const k = (f) => h0 + (crest - h0) * f;
+  // muro gonfio verso fuori e cresta larga e arrotondata
+  const key = [[o + 0.6, h0], [o + 5.2, k(0.22)], [o + 7, k(0.48)], [o + 5.6, k(0.74)], [o + 2.2, k(0.92)], [o - 3, crest], [o - 10, crest - 0.8]];
+  // poi il tetto scende curvo (convesso) fino all'apertura e si arrotonda verso il basso sul bordo
+  const d0 = o - 10, n = Math.max(3, Math.round((d0 - dIn) / 4));
+  for (let i = 1; i <= n; i++) { const f = i / n; key.push([d0 + (dIn - d0) * f, crest - 0.8 - (drop - 0.8) * Math.pow(f, 1.5)]); }
+  key.push([dIn - 1.2, crest - drop - 1.6]);
   const P = [key[0], ...key, key[key.length - 1]], pts = [];
   // curva liscia (Catmull-Rom) attraverso i punti chiave
   for (let i = 1; i < P.length - 2; i++) {
-    for (let j = 0; j < 8; j++) {
-      const t = j / 8, t2 = t * t, t3 = t2 * t;
+    for (let j = 0; j < 6; j++) {
+      const t = j / 6, t2 = t * t, t3 = t2 * t;
       const f = (a, b, c, e) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - e) * t2 + (-a + 3 * b - 3 * c + e) * t3);
       pts.push({ d: f(P[i - 1][0], P[i][0], P[i + 1][0], P[i + 2][0]), h: f(P[i - 1][1], P[i][1], P[i + 1][1], P[i + 2][1]) });
     }
   }
-  const last = { d: key[key.length - 1][0], h: key[key.length - 1][1] };
-  pts.push(last);
-  const split = pts.length - 1, dIn = 6, n = Math.max(2, Math.round((last.d - dIn) / 2.5));
-  for (let i = 1; i <= n; i++) { const f = i / n; pts.push({ d: last.d + (dIn - last.d) * f, h: last.h - 3 * f * f }); }
-  return { pts, split, base, dIn, hIn: last.h - 3, top: h1, out: o + 5.6 };
+  pts.push({ d: key[key.length - 1][0], h: key[key.length - 1][1] });
+  // la parte verso l'apertura (gli ultimi due terzi del tetto) è di cuscini trasparenti, un po' più grigi
+  const dSplit = d0 - (d0 - dIn) * 0.35, split = Math.max(1, pts.findIndex(p => p.d < dSplit));
+  const rows = new Map(), rowAt = (d) => { const key = d.toFixed(3); if (!rows.has(key)) rows.set(key, shellOutline(shape, d)); return rows.get(key); };
+  return { pts, split, base, dIn, hIn: crest - drop, top: crest, out: o + 12, rowAt };
+}
+
+/**
+ * Pianta dell'involucro a distanza d dal bordo degli spalti: un ovale "smussato" (superellisse, tra l'ellisse e il
+ * rettangolo arrotondato) il più tondo possibile che contiene ancora gli spalti a quella distanza. Punti chiusi [x, z].
+ */
+function shellOutline(shape, d, N = 240) {
+  const pts = shape.path.map(p => [p.x + p.mx * d, p.z + p.mz * d]);
+  const A = Math.max(...pts.map(p => Math.abs(p[0]))), B = Math.max(...pts.map(p => Math.abs(p[1])));
+  const worst = (n) => Math.max(...pts.map(([x, z]) => Math.abs(x / A) ** n + Math.abs(z / B) ** n));
+  let n = 2.4, scale = 1;
+  if (worst(4) > 1) { n = 4; scale = worst(4) ** (1 / 4); }      // forme squadrate: rettangolo arrotondato un po' più grande
+  else if (worst(n) > 1) {
+    let lo = n, hi = 4;
+    for (let it = 0; it < 18; it++) { const mid = (lo + hi) / 2; if (worst(mid) > 1) lo = mid; else hi = mid; }
+    n = hi;
+  }
+  const out = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N * Math.PI * 2, c = Math.cos(t), sn = Math.sin(t);
+    out.push([scale * A * Math.sign(c) * Math.abs(c) ** (2 / n), scale * B * Math.sign(sn) * Math.abs(sn) ** (2 / n)]);
+  }
+  return out;
 }
 
 /**
@@ -787,22 +816,22 @@ function cushionCanvas() {
 }
 
 /**
- * Superficie che gira tutto intorno al bordo `path` (chiuso) con il profilo `prof` (punti d, h), dalla riga j0 alla j1:
- * coordinate per la texture lungo il bordo (numero intero di cuscini per giro, niente cuciture) e lungo il profilo.
+ * Superficie che gira tutto intorno allo stadio con il profilo `prof` (punti d, h), dalla riga j0 alla j1;
+ * rowAt(d) dà la pianta chiusa a quella distanza. Coordinate per la texture lungo la pianta (numero intero di
+ * cuscini per giro, niente cuciture) e lungo il profilo.
  */
-function sweepAround(THREE, path, prof, j0, j1) {
-  const n = path.length, cols = n + 1, pos = [], uv = [], idx = [];
-  let v = 0;
+function sweepAround(THREE, rowAt, prof, j0, j1) {
+  const pos = [], uv = [], idx = [];
+  let v = 0, cols = 0;
   for (let j = j0; j <= j1; j++) {
     if (j > j0) v += Math.hypot(prof[j].d - prof[j - 1].d, prof[j].h - prof[j - 1].h) / SHELL_CELL_V;
-    const { d, h } = prof[j], xs = [], zs = [], us = [0];
-    for (let i = 0; i < cols; i++) { const p = path[i % n]; xs.push(p.x + p.mx * d); zs.push(p.z + p.mz * d); }
-    for (let i = 1; i < cols; i++) us.push(us[i - 1] + Math.hypot(xs[i] - xs[i - 1], zs[i] - zs[i - 1]));
+    const { d, h } = prof[j], row = rowAt(d), us = [0];
+    cols = row.length;
+    for (let i = 1; i < cols; i++) us.push(us[i - 1] + Math.hypot(row[i][0] - row[i - 1][0], row[i][1] - row[i - 1][1]));
     const len = us[cols - 1] || 1, cells = Math.max(1, Math.round(len / SHELL_CELL_U));
-    for (let i = 0; i < cols; i++) { pos.push(xs[i], h, zs[i]); uv.push(us[i] / len * cells, v); }
+    for (let i = 0; i < cols; i++) { pos.push(row[i][0], h, row[i][1]); uv.push(us[i] / len * cells, v); }
   }
-  const rows = j1 - j0 + 1;
-  for (let j = 0; j < rows - 1; j++) {
+  for (let j = 0; j < j1 - j0; j++) {
     for (let i = 0; i < cols - 1; i++) { const a = j * cols + i, b = a + cols; idx.push(a, b, a + 1, a + 1, b, b + 1); }
   }
   const g = new THREE.BufferGeometry();
@@ -973,35 +1002,31 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   if (st.roof === 'shell') {
     // involucro a cuscini: parte bianca (fuori e sopra) e tetto trasparente fino all'apertura; gira tutto intorno
     // anche con le curve staccate. Di notte i cuscini si accendono del colore scelto.
-    const S = shellOf(shape, st), ring = shape.path;
+    const S = shellOf(shape, st);
     const tex = new THREE.CanvasTexture(cushionCanvas());
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 4;
     shellMat = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissiveIntensity: 0, roughness: 0.38, side: THREE.DoubleSide });
-    const clearMat = new THREE.MeshStandardMaterial({ map: tex, color: 0xaeb5bd, roughness: 0.25, transparent: true, opacity: 0.72, depthWrite: false, side: THREE.DoubleSide });
-    const outer = new THREE.Mesh(sweepAround(THREE, ring, S.pts, 0, S.split), shellMat);
-    const clear = new THREE.Mesh(sweepAround(THREE, ring, S.pts, S.split, S.pts.length - 1), clearMat);
+    // la parte verso l'apertura è di cuscini trasparenti: un po' più grigia e non fa ombra
+    const clearMat = new THREE.MeshStandardMaterial({ map: tex, color: 0xe3e6ea, roughness: 0.25, side: THREE.DoubleSide });
+    const outer = new THREE.Mesh(sweepAround(THREE, S.rowAt, S.pts, 0, S.split), shellMat);
+    const clear = new THREE.Mesh(sweepAround(THREE, S.rowAt, S.pts, S.split, S.pts.length - 1), clearMat);
     outer.castShadow = outer.receiveShadow = true;
     clear.receiveShadow = true;
     group.add(outer, clear);
     own.push(tex, shellMat, clearMat, outer.geometry, clear.geometry);
-    // fascia scura (vetrate e pilastri) tra la base e l'inizio dei cuscini
-    const o = shape.outer, pos = [], idx = [[], [], []];
-    extrude(THREE, { pts: ring, closed: true }, [[o - 0.2, S.base], [o + 1.4, S.base], [o + 1.4, S.base + 3.4], [o - 0.2, S.base + 3.4]].map(([d, h]) => ({ d, h, m: 0 })), pos, idx);
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    g.setIndex(idx[0]);
-    g.computeVertexNormals();
-    const base = new THREE.Mesh(g, dark);
+    // fascia scura (vetrate e pilastri) tra la base e l'inizio dei cuscini, con la stessa pianta ovale
+    const o = shape.outer, bandG = sweepAround(THREE, S.rowAt, [{ d: o + 1.2, h: S.base }, { d: o + 1.2, h: S.base + 3.4 }], 0, 1);
+    const base = new THREE.Mesh(bandG, dark);
     base.receiveShadow = true;
     group.add(base);
-    own.push(g);
+    own.push(bandG);
     if (lights === 'roof') {
       // proiettori sotto il bordo dell'apertura
-      const run = { pts: ring, closed: true }, cum = runLengths(run), total = cum[cum.length - 1];
-      for (const u of stations(run, cum, LAMP_EVERY)) { const [x, z] = pointAt(run, cum, u, S.dIn + 0.8); lampAt(lamps, x, S.hIn - 1.4, z, 2.4, 1.3); }
-      for (let k = 0; k < 6; k++) { const [x, z] = pointAt(run, cum, (k + 0.5) * total / 6, S.dIn); spots.push([x, S.hIn - 1.5, z]); }
+      const edge = S.rowAt(S.dIn + 0.8);
+      for (let i = 0; i < edge.length - 1; i += 8) lampAt(lamps, edge[i][0], S.hIn - 1.4, edge[i][1], 2.4, 1.3);
+      for (let k = 0; k < 6; k++) { const [x, z] = edge[Math.floor((k + 0.5) / 6 * (edge.length - 1))]; spots.push([x, S.hIn - 1.5, z]); }
     }
   }
   if (R) {
