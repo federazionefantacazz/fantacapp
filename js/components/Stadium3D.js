@@ -8,6 +8,8 @@
  * - normalizeStadium / defaultStadium: dati dello stadio (team.stadium).
  * Misure in metri; il campo è al centro, lato lungo sull'asse x.
  */
+import { getCutout } from '../services/imageCutout.js';
+
 let lib = null;
 function loadLib() {
   if (!lib) {
@@ -168,6 +170,13 @@ export const FACADES = [
   { id: 'panels',  label: 'Rivestimento a pannelli' },
   { id: 'cladding', label: 'Inglese: basamento con ingresso e pannelli chiari' }
 ];
+/** Dove mettere il logo della squadra (anche più posti insieme). */
+export const LOGO_PLACES = [
+  { id: 'entrance', label: 'Sull\'ingresso' },
+  { id: 'roof',     label: 'Sul tetto delle tribune' },
+  { id: 'facade',   label: 'Fuori, sulle curve' },
+  { id: 'pitch',    label: 'Al centro del campo' }
+];
 export const TEXT_PLACES = [
   { id: 'facade', label: 'Sulla facciata' },
   { id: 'roof',   label: 'Sul fronte del tetto' }
@@ -177,7 +186,7 @@ const DEFAULT = {
   name: '', rings: 2, ringsEnds: 0, ringsSides: [0, 0, 0, 0], horseshoe: false, trackApron: false, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single',
   roof: 'none', roofCover: 'all', roofSectors: [true, false, false, false], roofReach: 'normal', lights: 'towers', facade: 'wall', ramps: false, boxes: false, shellPattern: 'rhombus', screen: 'none',
   seatMosaic: 'none', standText: '', standTextSide: 'far', standTextRing: 1, standTextFont: 'black',
-  outerText: '', outerTextFont: 'black', outerTextStyle: 'outline', outerTextSize: 'M', outerTextPlace: 'facade',
+  outerText: '', outerTextFont: 'black', outerTextStyle: 'outline', outerTextSize: 'M', outerTextPlace: 'facade', logoPlaces: [],
   colors: {
     grass: '#3d8b37', track: '#b4452f', seatA: '#1e5bb8', seatB: '#ffffff', seatC: '#c62828', seatD: '#ffd400', parapet: '#e6e6e6', structure: '#a5a5a5',
     roof: '#5b6169', steel: '#767d86', accent: '#1e5bb8', girder: '#c0392b', glow: '#e30613',
@@ -307,7 +316,8 @@ export function applyPreset(st, id) {
     ...base, ...p.st, colors: { ...base.colors, ...p.st.colors, standText: c.standText, outerText: c.outerText, outerPanel: c.outerPanel },
     name: st.name, capacityCustom: st.capacityCustom, image: st.image, capacity: st.capacity,
     standText: st.standText, standTextSide: st.standTextSide, standTextRing: st.standTextRing, standTextFont: st.standTextFont,
-    outerText: st.outerText, outerTextFont: st.outerTextFont, outerTextStyle: st.outerTextStyle, outerTextSize: st.outerTextSize, outerTextPlace: st.outerTextPlace, seatGrid: st.seatGrid
+    outerText: st.outerText, outerTextFont: st.outerTextFont, outerTextStyle: st.outerTextStyle, outerTextSize: st.outerTextSize, outerTextPlace: st.outerTextPlace, seatGrid: st.seatGrid,
+    logoPlaces: st.logoPlaces
   });
 }
 
@@ -362,6 +372,7 @@ export function normalizeStadium(s) {
     outerTextStyle: oneOf(OUTER_STYLES, src.outerTextStyle, DEFAULT.outerTextStyle),
     outerTextSize: oneOf(TEXT_SIZES, src.outerTextSize, DEFAULT.outerTextSize),
     outerTextPlace: oneOf(TEXT_PLACES, src.outerTextPlace, DEFAULT.outerTextPlace),
+    logoPlaces: Array.isArray(src.logoPlaces) ? LOGO_PLACES.map(o => o.id).filter(id => src.logoPlaces.includes(id)) : [],
     // capienza scelta dalla squadra (0 = calcolata dai seggiolini)
     capacityCustom: Math.min(MAX_CAPACITY, Math.max(0, Math.round(Number(src.capacityCustom) || 0))),
     colors: Object.fromEntries(Object.entries(DEFAULT.colors).map(([k, d]) => [k, validColor(c[k], d)]))
@@ -402,7 +413,7 @@ const GAP = 0.18;         // curve staccate: apertura intorno agli angoli (radia
 const M_PARAPET = 0, M_STEPS = 1, M_STRUCT = 2, M_BOX = 3;
 
 const seatKey = (st) => [ringsBySide(st).join(','), st.track ? 1 : 0, st.shape, st.corners, st.horseshoe ? 1 : 0].join('|');
-const geomKey = (st) => [seatKey(st), st.roof, st.roofCover, st.roofCover === 'pick' ? st.roofSectors.map(Number).join('') : '', st.roofReach, st.lights, st.facade, st.ramps ? 1 : 0, st.shellPattern, st.screen, st.boxes ? 1 : 0].join('|');
+const geomKey = (st) => [seatKey(st), st.roof, st.roofCover, st.roofCover === 'pick' ? st.roofSectors.map(Number).join('') : '', st.roofReach, st.lights, st.facade, st.ramps ? 1 : 0, st.shellPattern, st.screen, st.boxes ? 1 : 0, (st.logoPlaces || []).join(',')].join('|');
 
 /** Punto del bordo su un lato lungo (tribune), non sulle curve: gli angoli smussati vanno con le tribune (come quelli squadrati). */
 const onLongSide = (p) => !!p.corner || Math.abs(p.mz) > 0.995;
@@ -932,6 +943,97 @@ function mastsOf(shape, st) {
     const p = diagonalPoint(shape, sx, sz);
     return { sx, sz, x: p.x + p.mx * d, z: p.z + p.mz * d, top, long: sz > 0 ? 0 : 2, end: sx > 0 ? 1 : 3 };
   });
+}
+
+/** Lamiera e moderna stanno all'altezza dei settori coperti più alti: se sono più bassi degli altri il tetto non resta in aria. */
+function roofShapeOf(shape, st, roofRuns) {
+  if ((st.roof === 'truss' || st.roof === 'membrane') && roofRuns.length) {
+    const tall = roofRuns.reduce((m, r) => (r.tiers.length > m.tiers.length ? r : m));
+    return { ...shape, tiers: tall.tiers, outer: Math.max(...roofRuns.map(runOuter)) };
+  }
+  return shape;
+}
+
+/** Ingresso principale della facciata inglese: al centro del lato lungo verso z+ (fronte del basamento z0, vetrata fino a top). */
+function entranceOf(shape) {
+  const run = shape.runs.find(r => r.pts.some(p => onLongSide(p) && p.z > 0 && Math.abs(p.x) < 3));
+  if (!run) return null;
+  const o = runOuter(run), PH = cladPodium(runTop(run).top + 2.2);
+  return { run, o, PH, z0: shape.b + o + CLAD_PODIUM_W, top: PH + 1 };
+}
+
+/** Posti del logo possibili con questa struttura (l'ingresso c'è solo con la facciata inglese, il tetto deve essere piatto). */
+export function logoPlacesFor(st) {
+  const wrapped = WRAP_ROOFS.includes(st.roof) || st.roof === 'dragon';
+  const ok = { entrance: st.facade === 'cladding', roof: st.roof !== 'none' && !wrapped, facade: !wrapped, pitch: true };
+  return LOGO_PLACES.map(o => o.id).filter(id => ok[id]);
+}
+
+const LOGO_ENTRANCE = 12, LOGO_MAX = 15, LOGO_PITCH = 12; // lato del logo in metri: sull'ingresso, al massimo, sul campo
+
+/**
+ * Logo della squadra: un quadrato per posto scelto, con i vertici [in basso a sinistra, in basso a destra, in alto a destra,
+ * in alto a sinistra] come lo si guarda (da fuori; dall'alto con l'alto verso -z), più place, lato (side) e misura (s).
+ */
+function logoSpots(shape, st) {
+  const places = logoPlacesFor(st).filter(id => (st.logoPlaces || []).includes(id)), out = [];
+  const sq = (c, r, u, s) => [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([i, j]) => c.map((v, k) => v + (r[k] * i + u[k] * j) * s / 2));
+  if (places.includes('entrance')) {
+    // sopra il portale, appoggiato a metà dell'architrave
+    const E = entranceOf(shape);
+    if (E) out.push({ place: 'entrance', s: LOGO_ENTRANCE, pts: sq([0, E.top + 0.6 + LOGO_ENTRANCE / 2, E.z0 + 4.45], [1, 0, 0], [0, 1, 0], LOGO_ENTRANCE) });
+  }
+  if (places.includes('roof')) {
+    // dipinto sul tetto dei due lati lunghi, a metà profondità
+    const runs = coveredRuns(shape, st), reach = reachOf_(st);
+    for (const sgn of [1, -1]) {
+      const run = runs.find(r => r.pts.some(p => onLongSide(p) && Math.sign(p.z) === sgn && Math.abs(p.x) < 3));
+      if (!run) continue;
+      const R = st.roof === 'stands' ? roofOf({ ...shape, tiers: run.tiers }, 'stands', reach) : roofOf(roofShapeOf(shape, st, runs), st.roof, reach);
+      const s = Math.min(LOGO_MAX, R.dOut - R.dIn - 3), dm = (R.dIn + R.dOut) / 2, lift = st.roof === 'stands' ? 0.45 : 0.08;
+      if (s < 4) continue;
+      const at = (x, d) => [x, R.h(d) + lift, sgn * (shape.b + d)], dB = dm + sgn * s / 2, dT = dm - sgn * s / 2;
+      out.push({ place: 'roof', side: sgn, s, pts: [at(-s / 2, dB), at(s / 2, dB), at(s / 2, dT), at(-s / 2, dT)] });
+    }
+  }
+  if (places.includes('facade')) {
+    // sul muro esterno al centro delle due curve, nella fascia libera
+    for (const sgn of [1, -1]) {
+      const run = shape.runs.find(r => r.pts.some(p => !onLongSide(p) && Math.sign(p.x) === sgn && Math.abs(p.z) < 3));
+      if (!run) continue;
+      const o = runOuter(run), H = runTop(run).top + 2.2, clad = st.facade === 'cladding';
+      const lo = clad ? cladPodium(H) + 1.6 : { esplanade: ESPLANADE_H + 1, struts: PLATFORM_H + 1.15 }[st.facade] ?? 1.5;
+      const hi = clad ? H - cladCornice(H) - 0.8 : H - 0.5, s = Math.min(LOGO_MAX, hi - lo);
+      const d = o + (clad ? 0.95 : { struts: PLATFORM_OUT + 0.35, bands: 2, columns: 1.2 }[st.facade] ?? 0.5);
+      if (s < 4) continue;
+      // da fuori la destra è verso -z sulla curva x+ e verso +z sulla curva x-
+      out.push({ place: 'facade', side: sgn, s, pts: sq([sgn * (shape.a + d), (lo + hi) / 2, 0], [0, 0, -sgn], [0, 1, 0], s) });
+    }
+  }
+  if (places.includes('pitch')) out.push({ place: 'pitch', s: LOGO_PITCH, pts: sq([0, 0.09, 0], [1, 0, 0], [0, 0, -1], LOGO_PITCH) });
+  return out;
+}
+
+const logoCache = new Map();
+/** Tela quadrata con il logo scontornato al centro; null se manca o non si può usare in WebGL (immagine senza CORS). */
+function stadiumLogo(url) {
+  if (!url) return Promise.resolve(null);
+  if (!logoCache.has(url)) {
+    logoCache.set(url, getCutout(url).then(src => new Promise(resolve => {
+      const img = new Image();
+      if (!/^data:/i.test(src)) img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const S = 512, c = document.createElement('canvas'), ctx = c.getContext('2d');
+        c.width = c.height = S;
+        const k = Math.min(S / img.naturalWidth, S / img.naturalHeight), w = img.naturalWidth * k, h = img.naturalHeight * k;
+        ctx.drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
+        try { ctx.getImageData(0, 0, 1, 1); resolve(c); } catch (e) { resolve(null); }
+      };
+      img.onerror = () => resolve(null);
+      img.src = src;
+    })));
+  }
+  return logoCache.get(url);
 }
 
 /**
@@ -1510,9 +1612,10 @@ function signOf(shape, st) {
   const outline = (d) => { const pts = shape.path.map(p => [p.x + p.mx * d, p.z + p.mz * d]); pts.push(pts[0]); return pts; };
   if (st.facade === 'cladding') {
     // sui pannelli chiari, nella fascia libera più alta tra zoccolo, vetrate e cornicione
-    const cuts = [[0, cladPodium(Ht) + 4.5], ...cladBands(shape.tiers), [Ht - cladCornice(Ht) - 1.2, Ht]];
-    let best = [0, 0];
-    for (let i = 1; i < cuts.length; i++) if (cuts[i][0] - cuts[i - 1][1] > best[1] - best[0]) best = [cuts[i - 1][1], cuts[i][0]];
+    const above = st.logoPlaces && st.logoPlaces.includes('entrance') ? 1.6 + LOGO_ENTRANCE + 0.6 : 4.5; // sopra il portale (e il logo)
+    const cuts = [[0, cladPodium(Ht) + above], ...cladBands(shape.tiers), [Ht - cladCornice(Ht) - 1.2, Ht]];
+    let best = [0, 0], end = 0;
+    for (const [a, b] of cuts.sort((p, q) => p[0] - q[0])) { if (a - end > best[1] - best[0]) best = [end, a]; end = Math.max(end, b); }
     return { hc: (best[0] + best[1]) / 2, maxH: Math.max(2, Math.min(7, best[1] - best[0] - 1.2)), standOn: 0, dAt: () => o + 0.9, outline, rows: 1 }; // davanti alle lesene
   }
   const free = Math.min(6, Math.max(3, Ht * 0.2));
@@ -2338,6 +2441,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   const nightGlow = [[glowMat, 0.15, 1.6], [winMat, 0.03, 0.85]], repaint = [];
   // materiali tinti con un colore dello stadio [materiale, chiave del colore]
   const tints = [[cladMat, 'cladding'], [podiumMat, 'podium']];
+  let badge = null; // stemma con le iniziali sul portale (nascosto quando c'è il logo della squadra)
   const inst = (mat, list, geo = box) => {
     if (!list.length) return;
     const m = new THREE.InstancedMesh(geo, mat, list.length / 16);
@@ -2362,12 +2466,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
 
   // dove c'è la copertura (tutto unito, per settore, solo tribune, solo curve...)
   const roofRuns = coveredRuns(shape, st);
-  // lamiera e moderna stanno all'altezza dei settori coperti: se sono più bassi degli altri il tetto non resta in aria
-  let roofShape = shape;
-  if ((st.roof === 'truss' || st.roof === 'membrane') && roofRuns.length) {
-    const tall = roofRuns.reduce((m, r) => (r.tiers.length > m.tiers.length ? r : m));
-    roofShape = { ...shape, tiers: tall.tiers, outer: Math.max(...roofRuns.map(runOuter)) };
-  }
+  const roofShape = roofShapeOf(shape, st, roofRuns);
   const R = st.roof !== 'none' && st.roof !== 'stands' && st.roof !== 'dragon' && !WRAP_ROOFS.includes(st.roof) ? roofOf(roofShape, st.roof, reachOf_(st)) : null;
   let shellMat = null, roofDecor = null;
   if (st.roof === 'wave') {
@@ -2809,6 +2908,9 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     // tratti dritti dei lati (fuori dagli angoli): lì stanno le travi sopra il tetto
     const gapA = shape.a - Math.max(shape.r, 4), gapB = shape.b - Math.max(shape.r, 4);
     const straight = (p) => (Math.abs(p.mz) > 0.995 && Math.abs(p.x) < gapA) || (Math.abs(p.mx) > 0.995 && Math.abs(p.z) < gapB);
+    // logo dipinto sul tetto: lì niente travi sopra (si vede intero dall'alto)
+    const logos = logoSpots(shape, st).filter(l => l.place === 'roof');
+    const onLogo = (x, z) => logos.some(l => Math.sign(z) === l.side && Math.abs(z) > shape.b - 1 && Math.abs(x) < l.s / 2 + 1.5);
     for (const run of roofRuns) {
       const Rs = roofOf({ ...shape, tiers: run.tiers }, 'stands', reachOf_(st)), hI = Rs.h(Rs.dIn);
       const d0 = Rs.dIn + 0.6, span = Rs.dOut - 0.5 - d0, yb = (d) => Rs.h(d) + 0.1;
@@ -2823,7 +2925,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       // correnti lungo il tetto: in cima alle travi sulla punta, a metà e sull'appoggio, più quelli in basso
       for (const f of [0, 0.5, 1]) {
         const d = d0 + span * f;
-        extrude(THREE, run, rect(d - 0.18, d + 0.18, yt(d) - 0.36, yt(d), 1), pos, idx);
+        for (const part of f === 0.5 ? subRuns(run, p => !onLogo(p.x, p.z) || !onLongSide(p)) : [run]) extrude(THREE, part, rect(d - 0.18, d + 0.18, yt(d) - 0.36, yt(d), 1), pos, idx);
         if (f > 0) extrude(THREE, run, rect(d - 0.15, d + 0.15, yb(d), yb(d) + 0.3, 1), pos, idx);
       }
       const cum = runLengths(run), total = cum[cum.length - 1];
@@ -2841,7 +2943,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       };
       for (const side of subRuns(run, straight)) {
         const sc = runLengths(side), len = sc[sc.length - 1];
-        for (const u of stations(side, sc, 9)) across(side, sc, u);
+        for (const u of stations(side, sc, 9)) { const [x, z] = pointAt(side, sc, u, 0); if (!onLogo(x, z)) across(side, sc, u); }
         covered.push({ side: sideOfPoint(side.pts[Math.floor(side.pts.length / 2)]), Rs, d0, span, yt });
         if (lights === 'roof') for (const f of [0.25, 0.75]) { const [x, z] = pointAt(side, sc, len * f, Rs.dIn); spots.push([x, hI - 3, z]); }
       }
@@ -2920,8 +3022,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     const panelFace = { pos: [], uv: [], idx: [] }, stoneFace = { pos: [], uv: [], idx: [] }, glassFace = { pos: [], uv: [], idx: [] };
     const accentBoxes = [], whiteBoxes = [], winBoxes = [], paveBoxes = [], flatLamps = [], drumBody = [], drumWin = [], drumTop = [], cladEnds = [];
     // ingresso principale: centro del lato lungo verso z+ (davanti al basamento)
-    const mid = shape.runs.flatMap(run => run.pts.filter(p => onLongSide(p) && p.z > 0 && Math.abs(p.x) < 3).map(() => run))[0];
-    const eo = mid ? runOuter(mid) : 0, eH = mid ? runTop(mid).top + 2.2 : 0, ePH = cladPodium(eH), z0 = shape.b + eo + CLAD_PODIUM_W;
+    const E = entranceOf(shape), mid = E && E.run, z0 = E ? E.z0 : 0;
     const inEntrance = (x, z) => mid && z > 0 && Math.abs(x) < CLAD_ENTRANCE / 2 + 2.5 && Math.abs(z - z0) < 3;
     for (const run of shape.runs) {
       const o = runOuter(run), H = runTop(run).top + 2.2, PH = cladPodium(H), CH = cladCornice(H), W = o + CLAD_PODIUM_W;
@@ -3005,10 +3106,10 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     }
     if (mid) {
       // ingresso principale: atrio vetrato dentro un portale colorato con lo stemma, pensilina, gradini e due pennoni
-      const hw = CLAD_ENTRANCE / 2, top = ePH + 1, box = (list, x0, x1, y0, y1, za, zb) => boxAt(list, (x0 + x1) / 2, (y0 + y1) / 2, (za + zb) / 2, [Math.abs(x1 - x0), 0, 0], [0, y1 - y0, 0], [0, 0, zb - za]);
+      const hw = CLAD_ENTRANCE / 2, top = E.top, box = (list, x0, x1, y0, y1, za, zb) => boxAt(list, (x0 + x1) / 2, (y0 + y1) / 2, (za + zb) / 2, [Math.abs(x1 - x0), 0, 0], [0, y1 - y0, 0], [0, 0, zb - za]);
       box(winBoxes, -hw + 1, hw - 1, 0, top, z0 - 0.5, z0 + 2.5);
       for (let x = -hw + 1; x <= hw - 1 + 1e-6; x += (CLAD_ENTRANCE - 2) / 8) box(whiteBoxes, x - 0.15, x + 0.15, 0, top, z0 + 2.45, z0 + 2.75);
-      for (const y of [4.2, ePH]) box(whiteBoxes, -hw + 1, hw - 1, y - 0.15, y + 0.15, z0 + 2.45, z0 + 2.75);
+      for (const y of [4.2, E.PH]) box(whiteBoxes, -hw + 1, hw - 1, y - 0.15, y + 0.15, z0 + 2.45, z0 + 2.75);
       for (const s of [-1, 1]) box(accentBoxes, s * hw - 1.2, s * hw + 1.2, 0, top + 2.5, z0 - 0.5, z0 + 4);
       box(accentBoxes, -hw - 1.2, hw + 1.2, top, top + 2.5, z0 - 0.5, z0 + 4);
       box(whiteBoxes, -hw - 2, hw + 2, 5.2, 5.6, z0 + 2.5, z0 + 8.5);                           // pensilina
@@ -3029,7 +3130,8 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       bg.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1], 2));
       bg.setIndex([0, 1, 2, 0, 2, 3]);
       bg.computeVertexNormals();
-      group.add(new THREE.Mesh(bg, bmat));
+      badge = new THREE.Mesh(bg, bmat);
+      group.add(badge);
       boxAt(drumTop, 0, y, z0 + 4.15, [r + 0.3, 0, 0], [0, 0, 0.4], [0, -(r + 0.3), 0]);
       own.push(btex, bmat, bg);
       nightGlow.push([bmat, 0.15, 0.9]);
@@ -3466,7 +3568,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   inst(girderMat, girderBeams);
   inst([steel, steel, steel, steel, lamp, steel], lamps); // la faccia +z del proiettore è quella accesa
 
-  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, nightGlow, repaint, tints };
+  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, nightGlow, repaint, tints, badge };
 }
 
 /* --------------------------------------------------------------- scena */
@@ -3581,6 +3683,28 @@ function buildStadium(L, st) {
     return l;
   });
 
+  // logo della squadra nei posti scelti: compare quando la tela è pronta (setLogo)
+  const spots = logoSpots(shape, st), lpos = [], luv = [], lidx = [];
+  spots.forEach((sp, i) => {
+    sp.pts.forEach(q => lpos.push(...q));
+    luv.push(0, 0, 1, 0, 1, 1, 0, 1);
+    lidx.push(i * 4, i * 4 + 1, i * 4 + 2, i * 4, i * 4 + 2, i * 4 + 3);
+  });
+  const logoGeo = new THREE.BufferGeometry();
+  logoGeo.setAttribute('position', new THREE.Float32BufferAttribute(lpos, 3));
+  logoGeo.setAttribute('uv', new THREE.Float32BufferAttribute(luv, 2));
+  logoGeo.setIndex(lidx);
+  logoGeo.computeVertexNormals();
+  const logoMat = new THREE.MeshStandardMaterial({
+    transparent: true, alphaTest: 0.05, roughness: 0.6, emissive: 0xffffff, emissiveIntensity: 0.12, side: THREE.DoubleSide,
+    polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3
+  });
+  const logoMesh = new THREE.Mesh(logoGeo, logoMat);
+  logoMesh.visible = false;
+  group.add(logoMesh);
+  own.push(logoGeo, logoMat);
+  let logoSrc = null, logoTex = null;
+
   let paintKey = '', seatColorKey = '', signKey = '', screenKey = '', sign = null, night = false;
   return {
     key: geomKey(st), group, shape, ext, height: reach.h, capacity: seats.count,
@@ -3590,6 +3714,7 @@ function buildStadium(L, st) {
       outside.lamp.emissiveIntensity = on ? 5 : 0.6;
       if (outside.shellMat) outside.shellMat.emissiveIntensity = on ? 0.85 : 0; // l'involucro si accende
       outside.nightGlow.forEach(([m, day, nightOn]) => { m.emissiveIntensity = on ? nightOn : day; });
+      logoMat.emissiveIntensity = on ? 0.7 : 0.12;
       nightLights.forEach(l => { l.visible = on; });
     },
     recolor(s) {
@@ -3664,7 +3789,18 @@ function buildStadium(L, st) {
         seatMesh.instanceColor.needsUpdate = true;
       }
     },
-    dispose() { own.forEach(o => o.dispose()); seatMesh.dispose(); if (sign) sign.dispose(); }
+    /** Logo della squadra (tela di stadiumLogo, null = nessuno): al posto dello stemma con le iniziali sull'ingresso. */
+    setLogo(c) {
+      if (c === logoSrc) return;
+      logoSrc = c;
+      if (logoTex) { logoTex.dispose(); logoTex = null; }
+      if (c) { logoTex = new THREE.CanvasTexture(c); logoTex.colorSpace = THREE.SRGBColorSpace; logoTex.anisotropy = 8; }
+      logoMat.map = logoMat.emissiveMap = logoTex;
+      logoMat.needsUpdate = true;
+      logoMesh.visible = !!logoTex && spots.length > 0;
+      if (outside.badge) outside.badge.visible = !(logoTex && spots.some(sp => sp.place === 'entrance'));
+    },
+    dispose() { own.forEach(o => o.dispose()); seatMesh.dispose(); if (sign) sign.dispose(); if (logoTex) logoTex.dispose(); }
   };
 }
 
@@ -3726,8 +3862,8 @@ class Stage {
     }
   }
 
-  /** Mostra lo stadio: ricostruisce la geometria solo se cambia la struttura, altrimenti cambia i colori. */
-  setStadium(st) {
+  /** Mostra lo stadio: ricostruisce la geometria solo se cambia la struttura, altrimenti cambia i colori (logo: tela o null). */
+  setStadium(st, logo = null) {
     if (!this.built || this.built.key !== geomKey(st)) {
       if (this.built) { this.scene.remove(this.built.group); this.built.dispose(); }
       this.built = buildStadium(this.L, st);
@@ -3736,6 +3872,7 @@ class Stage {
       this.fit();
     }
     this.built.recolor(st);
+    this.built.setLogo(logo);
     return this.built.capacity;
   }
 
@@ -3835,7 +3972,8 @@ class Stage {
 
 /**
  * Stadio 3D ruotabile dentro `container` (zoom: true = vista ingrandita con zoom e spostamento).
- * Restituisce { ready, update(stadium) → capienza, setView('aerial'|'top'|'stand'|'outside'), setNight(on), zoomBy(f), dispose() }.
+ * Restituisce { ready, update(stadium, { logo }) → capienza, setView('aerial'|'top'|'stand'|'outside'), setNight(on), zoomBy(f), dispose() }
+ * (logo: indirizzo del logo della squadra, da mettere nei posti scelti in stadium.logoPlaces).
  */
 export function createStadiumViewer(container, { zoom = false } = {}) {
   const canvas = document.createElement('canvas');
@@ -3859,11 +3997,11 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
 
   return {
     ready,
-    async update(st) {
+    async update(st, { logo = '' } = {}) {
       const my = ++token, n = normalizeStadium(st);
-      const [s] = await Promise.all([ready, loadTextFonts(n)]);
+      const [s, , lc] = await Promise.all([ready, loadTextFonts(n), n.logoPlaces.length ? stadiumLogo(logo) : null]);
       if (!s || disposed || my !== token) return 0;
-      const capacity = s.setStadium(n);
+      const capacity = s.setStadium(n, lc);
       s.render();
       return capacity;
     },
@@ -3916,7 +4054,7 @@ function cropToContent(src) {
 let shot = null; // palcoscenico unico per le foto (un solo contesto WebGL)
 let queue = Promise.resolve();
 
-/** Foto PNG dello stadio (data URL, sfondo trasparente, ritagliata). opts: { width (default 800), view } */
+/** Foto PNG dello stadio (data URL, sfondo trasparente, ritagliata). opts: { width (default 800), view, logo (indirizzo del logo) } */
 export function renderStadiumImage(st, opts = {}) {
   const width = Math.round(opts.width || 800), height = Math.round(width * 0.6);
   const job = queue.then(async () => {
@@ -3926,7 +4064,7 @@ export function renderStadiumImage(st, opts = {}) {
     shot.setNight(false);
     const n = normalizeStadium(st);
     await loadTextFonts(n);
-    shot.setStadium(n);
+    shot.setStadium(n, n.logoPlaces.length ? await stadiumLogo(opts.logo) : null);
     shot.setView(opts.view || 'aerial');
     shot.render();
     return cropToContent(shot.renderer.domElement);
