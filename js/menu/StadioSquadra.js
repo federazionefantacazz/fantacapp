@@ -4,7 +4,7 @@ import { dataUrlToBlob } from '../components/Kit3D.js';
 import {
   createStadiumViewer, renderStadiumImage, stadiumCapacity, shownCapacity, normalizeStadium, defaultStadium, applyPreset,
   RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY,
-  SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom
+  SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom
 } from '../components/Stadium3D.js';
 import { injectStyle, parseColor, SWATCHES } from './DivisaSquadra.js';
 import { esc } from './menuUtils.js';
@@ -49,7 +49,6 @@ function seatFields(st) {
   switch (st.seatMode) {
     case 'sectors': return [['seatA', 'Tribune (lati lunghi)'], ['seatB', 'Curve']];
     case 'rings':   return [['seatA', 'Primo anello'], ['seatB', 'Secondo anello'], ['seatC', 'Terzo anello']].slice(0, st.rings);
-    case 'mosaic':  return [['seatA', 'Colore principale'], ['seatB', 'Secondo colore'], ['seatC', 'Terzo colore']];
     case 'sides':   return [['seatA', 'Tribuna (lato vicino)'], ['seatC', 'Distinti (lato di fronte)'], ['seatD', 'Curva sinistra'], ['seatB', 'Curva destra']];
     default:        return [['seatA', 'Seggiolini']];
   }
@@ -218,6 +217,7 @@ export const StadioSquadra = {
       <div class="kit-chips">${RINGS.map(r => this._chip('rings', r.id, r.label, s.rings === r.id)).join('')}</div>
       <div class="kit-sub">Pista d'atletica</div>
       <div class="kit-chips">${this._chip('track', '1', 'Sì', s.track)}${this._chip('track', '0', 'No', !s.track)}</div>
+      ${s.track ? `${this._colorRow('Colore della pista', 'colors.track', s.colors.track)}${this._colorRow('Linee delle corsie', 'colors.trackLines', s.colors.trackLines)}` : ''}
       <div class="mp-muted" style="margin-top:.3rem;">Con la pista gli spalti sono più lontani dal campo.</div>
       <div class="kit-sub">Forma delle curve</div>
       <div class="kit-chips">${SHAPES.map(o => this._chip('shape', o.id, o.label, s.shape === o.id)).join('')}</div>
@@ -272,22 +272,27 @@ export const StadioSquadra = {
       <div class="kit-chips">${MOWING.map(o => this._chip('mowing', o.id, o.label, s.mowing === o.id)).join('')}</div>
       <div class="kit-sub">Colori</div>
       ${this._colorRow('Erba', 'colors.grass', s.colors.grass)}
-      ${s.track ? this._colorRow('Pista', 'colors.track', s.colors.track) : ''}`;
+      ${s.track ? `${this._colorRow('Pista', 'colors.track', s.colors.track)}${this._colorRow('Linee delle corsie', 'colors.trackLines', s.colors.trackLines)}` : ''}`;
   },
 
   _secSeats() {
     const s = this._st;
     const grid = s.seatMode === 'grid';
     return `
+      <div class="kit-sub">Effetto mosaico</div>
+      <div class="kit-chips">${MOSAICS.map(o => this._chip('seatMosaic', o.id, o.label, s.seatMosaic === o.id)).join('')}</div>
+      <div class="mp-muted" style="margin-top:.3rem;">${{
+        none: 'Ogni settore di un colore pieno.',
+        shades: 'Ogni settore resta del suo colore, con posti più chiari e più scuri sparsi a caso.',
+        mix: 'Nel colore di ogni settore si mescolano a caso altri due colori, uguali per tutto lo stadio.'
+      }[s.seatMosaic]} Vale con qualsiasi colorazione qui sotto.</div>
+      ${s.seatMosaic === 'mix' ? `
+      ${this._colorRow('Secondo colore sparso', 'colors.mosaicB', s.colors.mosaicB)}
+      ${this._colorRow('Terzo colore sparso', 'colors.mosaicC', s.colors.mosaicC)}` : ''}
       <div class="kit-sub">Come colorarli</div>
       <div class="kit-chips">${SEAT_MODES.map(o => this._chip('seatMode', o.id, o.label, s.seatMode === o.id)).join('')}</div>
       ${(s.seatMode === 'rings' || grid) && s.rings === 1 ? `<div class="mp-muted" style="margin-top:.3rem;">Lo stadio ha un solo anello: aggiungine altri in "Anelli, curve e pista" per colorarli in modo diverso.</div>` : ''}
-      ${s.seatMode === 'mosaic' ? `<div class="mp-muted" style="margin-top:.3rem;">Seggiolini mescolati a caso: tanti del colore principale, meno degli altri due.</div>` : ''}
       ${grid ? `<div class="mp-muted" style="margin-top:.3rem;">Un colore per ogni tribuna e curva, anello per anello.</div>` : ''}
-      ${s.seatMode !== 'mosaic' ? `
-      <div class="kit-sub">Effetto mosaico</div>
-      <div class="kit-chips">${this._chip('seatMosaic', '1', 'Sì', s.seatMosaic)}${this._chip('seatMosaic', '0', 'No', !s.seatMosaic)}</div>
-      <div class="mp-muted" style="margin-top:.3rem;">Ogni settore resta del suo colore, con posti più chiari e più scuri sparsi a caso.</div>` : ''}
       <div class="kit-sub">Colori</div>
       ${grid ? `
       <div class="std-grid" style="--rings:${s.rings}">
@@ -319,8 +324,13 @@ export const StadioSquadra = {
       <div class="kit-sub">Scritta sull'esterno</div>
       <label class="kit-field"><span>Testo</span><input type="text" data-text="outerText" value="${esc(s.outerText)}" maxlength="${MAX_OUTER_TEXT}" placeholder="Es. ${esc(s.name.trim() || 'Stadio Comunale')}"></label>
       ${this._fontChips('outerTextFont', s.outerTextFont)}
+      <div class="kit-sub">Stile</div>
+      <div class="kit-chips">${OUTER_STYLES.map(o => this._chip('outerTextStyle', o.id, o.label, s.outerTextStyle === o.id)).join('')}</div>
+      <div class="kit-sub">Dimensione</div>
+      <div class="kit-chips">${TEXT_SIZES.map(o => this._chip('outerTextSize', o.id, o.label, s.outerTextSize === o.id)).join('')}</div>
       ${this._colorRow('Colore della scritta', 'colors.outerText', s.colors.outerText)}
-      <div class="mp-muted" style="margin-top:.3rem;">Sui due lati lunghi, al centro, dove l'esterno la mostra meglio: sull'involucro, sul cornicione, sulla ringhiera o sul muro. Di notte si accende. Prova la vista Esterno.</div>`;
+      ${s.outerTextStyle === 'panel' ? this._colorRow('Fondo dell\'insegna', 'colors.outerPanel', s.colors.outerPanel) : ''}
+      <div class="mp-muted" style="margin-top:.3rem;">Sui due lati lunghi, dove l'esterno la mostra meglio (involucro, cornicione, ringhiera, muro) e sempre nel tratto libero tra torri e piloni. Il contorno si adatta al colore per farla leggere su qualsiasi fondo. Di notte si accende. Prova la vista Esterno.</div>`;
   },
 
   _secWalls() {
@@ -428,7 +438,7 @@ export const StadioSquadra = {
           if (inp) { inp.focus(); inp.select(); }
           return;
         }
-        const value = k === 'rings' || k === 'standTextRing' ? Number(v) : k === 'track' || k === 'ramps' || k === 'seatMosaic' ? v === '1' : v;
+        const value = k === 'rings' || k === 'standTextRing' ? Number(v) : k === 'track' || k === 'ramps' ? v === '1' : v;
         // "Ogni settore e anello": si parte dai colori che lo stadio ha adesso
         if (k === 'seatMode' && v === 'grid' && this._st.seatMode !== 'grid') this._update(st => { st.seatGrid = seatGridFrom(st); st.seatMode = 'grid'; });
         else this._update(st => { st[k] = value; });
