@@ -125,8 +125,30 @@ export const ROOFS = [
   { id: 'girders',  label: 'Travi rosse su torri' },
   { id: 'shell',    label: 'Involucro a cuscini' },
   { id: 'wave',     label: 'Ondulata a sella' },
-  { id: 'stands',   label: 'Tetti separati per tribuna' }
+  { id: 'stands',   label: 'Tetti separati per tribuna' },
+  { id: 'dome',     label: 'Cupola a raggiera' },
+  { id: 'tent',     label: 'Tenda con pennoni' },
+  { id: 'petals',   label: 'Petali' }
 ];
+/** Coperture che avvolgono tutto lo stadio con un'unica superficie (si estendono sempre tutto intorno). */
+export const WRAP_ROOFS = ['shell', 'wave', 'dome', 'tent', 'petals'];
+const SHELLISH = ['shell', 'tent', 'petals'];
+export const ROOF_COVERS = [
+  { id: 'all',     label: 'Tutto unito' },
+  { id: 'sectors', label: 'Staccata per settore' },
+  { id: 'main',    label: 'Solo la tribuna principale' },
+  { id: 'stands',  label: 'Entrambe le tribune' },
+  { id: 'ends',    label: 'Solo le curve' }
+];
+export const ROOF_REACHES = [
+  { id: 'open',   label: 'Molto aperta', m: -8 },
+  { id: 'less',   label: 'Aperta',       m: -4 },
+  { id: 'normal', label: 'Normale',      m: 0 },
+  { id: 'more',   label: 'Coperta',      m: 6 },
+  { id: 'max',    label: 'Quasi chiusa', m: 13 }
+];
+/** Metri in più verso il campo (positivi) o verso fuori (negativi) del bordo interno della copertura. */
+const reachOf_ = (st) => (ROOF_REACHES.find(r => r.id === st.roofReach) || ROOF_REACHES[2]).m;
 export const LIGHTS = [
   { id: 'roof',   label: 'Sul bordo del tetto' },
   { id: 'towers', label: 'Quattro torri faro' },
@@ -148,7 +170,7 @@ export const TEXT_PLACES = [
 
 const DEFAULT = {
   name: '', rings: 2, ringsEnds: 0, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single',
-  roof: 'none', lights: 'towers', facade: 'wall', ramps: false, boxes: false, shellPattern: 'rhombus', screen: 'none',
+  roof: 'none', roofCover: 'all', roofReach: 'normal', lights: 'towers', facade: 'wall', ramps: false, boxes: false, shellPattern: 'rhombus', screen: 'none',
   seatMosaic: 'none', standText: '', standTextSide: 'far', standTextRing: 1, standTextFont: 'black',
   outerText: '', outerTextFont: 'black', outerTextStyle: 'outline', outerTextSize: 'M', outerTextPlace: 'facade',
   colors: {
@@ -285,6 +307,8 @@ export function normalizeStadium(s) {
     mowing: oneOf(MOWING, src.mowing, DEFAULT.mowing),
     seatMode: oneOf(SEAT_MODES, seatMode, DEFAULT.seatMode),
     roof: oneOf(ROOFS, src.roof, DEFAULT.roof),
+    roofCover: oneOf(ROOF_COVERS, src.roofCover, DEFAULT.roofCover),
+    roofReach: oneOf(ROOF_REACHES, src.roofReach, DEFAULT.roofReach),
     lights: oneOf(LIGHTS, src.lights, DEFAULT.lights),
     facade: oneOf(FACADES, src.facade, DEFAULT.facade),
     ramps: !!src.ramps,
@@ -328,7 +352,7 @@ const GAP = 0.18;         // curve staccate: apertura intorno agli angoli (radia
 const M_PARAPET = 0, M_STEPS = 1, M_STRUCT = 2, M_BOX = 3;
 
 const seatKey = (st) => [st.rings, st.ringsEnds, st.track ? 1 : 0, st.shape, st.corners].join('|');
-const geomKey = (st) => [seatKey(st), st.roof, st.lights, st.facade, st.ramps ? 1 : 0, st.shellPattern, st.screen, st.boxes ? 1 : 0].join('|');
+const geomKey = (st) => [seatKey(st), st.roof, st.roofCover, st.roofReach, st.lights, st.facade, st.ramps ? 1 : 0, st.shellPattern, st.screen, st.boxes ? 1 : 0].join('|');
 
 /** Punto del bordo su un lato lungo (tribune), non sulle curve. */
 const onLongSide = (p) => Math.abs(p.mz) > 0.995;
@@ -808,19 +832,21 @@ const lightsOf = (st) => (st.lights === 'roof' && st.roof === 'none' ? 'towers' 
  * Copertura: dal davanti dell'anello più alto (con le travi rosse quasi dal bordo del campo, come a San Siro)
  * fino oltre il muro esterno, appena inclinata verso fuori.
  */
-function roofOf(shape, roof) {
+function roofOf(shape, roof, shift = 0) {
   const top = shape.tiers[shape.tiers.length - 1];
+  // shift: metri verso il campo (positivi) o verso fuori (negativi) del bordo davanti
+  const clampIn = (d, dOut) => Math.min(dOut - 5, Math.max(-14, d - shift));
   if (roof === 'stands') {
     // tetti piatti per tribuna: dal davanti dell'anello più alto fino appena oltre il muro, salgono un poco verso il campo
-    const dIn = Math.max(top.D - 3, 2), dOut = shape.outer + 1.2, hIn = top.top + 6.5;
+    const dOut = shape.outer + 1.2, dIn = clampIn(Math.max(top.D - 3, 2), dOut), hIn = top.top + 6.5;
     return { dIn, dOut, h: (d) => hIn - (d - dIn) * 0.06, depth: () => 1.2 };
   }
-  const dIn = roof === 'girders' ? 4 : Math.max(top.D - 2, 3), dOut = shape.outer + 4, hIn = top.top + 9;
+  const dOut = shape.outer + 4, dIn = clampIn(roof === 'girders' ? 4 : Math.max(top.D - 2, 3), dOut), hIn = top.top + 9;
   return { dIn, dOut, h: (d) => hIn - (d - dIn) * 0.04, depth: (d) => 1.4 + 3.6 * (d - dIn) / (dOut - dIn) };
 }
 
-const towerHeight = (shape, st) => (st.roof !== 'none' ? roofOf(shape, st.roof).h(0) : shape.height) + 18;
-const towerDist = (shape, st) => Math.max(shape.outer, st.roof !== 'none' ? roofOf(shape, st.roof).dOut : 0) + 6;
+const towerHeight = (shape, st) => (st.roof !== 'none' ? roofOf(shape, st.roof, reachOf_(st)).h(0) : shape.height) + 18;
+const towerDist = (shape, st) => Math.max(shape.outer, st.roof !== 'none' ? roofOf(shape, st.roof, reachOf_(st)).dOut : 0) + 6;
 
 /** Piloni a traliccio del tetto reticolare: appena fuori dal bordo del tetto, più alti di lui. */
 const pylonDist = (R) => R.dOut + 1.5;
@@ -837,7 +863,7 @@ const footOf = (shape, st) => shape.outer + ({ struts: PLATFORM_OUT + 0.2, bands
 function shellOf(shape, st) {
   const T = shape.tiers[shape.tiers.length - 1], o = shape.outer;
   const base = st.facade === 'esplanade' ? ESPLANADE_H : 0, h0 = base + 3, crest = T.top + 9;
-  const drop = Math.min(12, (crest - h0) * 0.32), dIn = 2;   // il tetto scende verso l'apertura, sopra il bordo del campo
+  const drop = Math.min(12, (crest - h0) * 0.32), dIn = Math.min(o - 16, Math.max(-14, 2 - reachOf_(st))); // il tetto scende verso l'apertura
   const k = (f) => h0 + (crest - h0) * f;
   // muro gonfio verso fuori e cresta larga e arrotondata
   const key = [[o + 0.6, h0], [o + 5.2, k(0.22)], [o + 7, k(0.48)], [o + 5.6, k(0.74)], [o + 2.2, k(0.92)], [o - 3, crest], [o - 10, crest - 0.8]];
@@ -858,7 +884,37 @@ function shellOf(shape, st) {
   // la parte verso l'apertura (gli ultimi due terzi del tetto) è di cuscini trasparenti, un po' più grigi
   const dSplit = d0 - (d0 - dIn) * 0.35, split = Math.max(1, pts.findIndex(p => p.d < dSplit));
   const rows = new Map(), rowAt = (d) => { const key = d.toFixed(3); if (!rows.has(key)) rows.set(key, shellOutline(shape, d)); return rows.get(key); };
-  return { pts, split, base, dIn, hIn: crest - drop, top: crest, out: o + 12, rowAt };
+  // tenda: la membrana è tirata su dai pennoni; petali: quattro lobi separati da valli sulle diagonali
+  let yFn = null, masts = [], extra = 0;
+  if (st.roof === 'tent') {
+    // tenda: quattro punte affilate (coni) tirate dai pennoni sulle diagonali; il bordo in basso fa una fila di archi
+    const ring = rowAt(o - 2), N = ring.length - 1;
+    masts = [0.125, 0.375, 0.625, 0.875].map(f => ring[Math.round(f * N) % N]);
+    const P = 46, w = 7.5, jCrest = Math.max(1, pts.findIndex(p => p.h >= crest - 1)), ARCHES = 44;
+    yFn = (x, z, j) => {
+      if (!j) {
+        const t = (Math.atan2(z / shape.b, x / shape.a) / (Math.PI * 2) + 1) % 1;
+        return 4.5 * Math.abs(Math.sin(Math.PI * ARCHES * t)) ** 0.6;
+      }
+      const wj = Math.min(1, j / jCrest) * (j > jCrest ? Math.max(0.25, 1 - (j - jCrest) / (pts.length - jCrest)) : 1);
+      let up = 0;
+      for (const [mx, mz] of masts) up += P * Math.exp(-Math.hypot(x - mx, z - mz) / w);
+      return up * wj;
+    };
+    extra = P + 16;
+  } else if (st.roof === 'petals') {
+    // petali: quattro lobi gonfi separati da pieghe nette sulle diagonali; le pieghe scavano solo il tetto
+    // (dalla cresta verso il campo), così il muro esterno resta intero
+    const jCrest = Math.max(1, pts.findIndex(p => p.h >= crest - 1));
+    yFn = (x, z, j) => {
+      const wj = Math.min(1, Math.max(0, (j - jCrest * 0.7) / (jCrest * 0.3)));
+      if (!wj) return 0;
+      const th = Math.atan2(Math.abs(z) / shape.b, Math.abs(x) / shape.a);
+      const crease = Math.exp(-(((th - Math.PI / 4) / 0.12) ** 2)), lobe = Math.sin(2 * th) ** 2;
+      return (-6.5 * crease + 2 * (1 - lobe)) * wj;
+    };
+  }
+  return { pts, split, base, dIn, hIn: crest - drop, top: crest + extra, out: o + 12, rowAt, yFn, masts };
 }
 
 /**
@@ -868,7 +924,17 @@ function shellOf(shape, st) {
  */
 function waveOf(shape, st) {
   const T = shape.tiers[shape.tiers.length - 1], o = shape.outer;
-  const hSide = T.top + 5, hEnd = T.top + 30, skirtBottom = hSide - 12, dIn = 3;
+  if (st.roof === 'dome') {
+    // cupola: sale dal basso, ripida fuori e quasi piatta in cima, fino all'apertura; i denti a punta stanno attorno alla base
+    const hb = 7, top = T.top + 19, dOut = o + 13, dIn = Math.min(o - 12, Math.max(-14, 4 - reachOf_(st)));
+    // la cupola deve passare sopra il muro in cima agli spalti (sale ripida all'inizio)
+    const pts = [], n = Math.max(10, Math.round((dOut - dIn) / 3));
+    for (let i = 0; i <= n; i++) { const f = i / n; pts.push({ d: dOut + (dIn - dOut) * f, h: hb + (top - hb) * Math.sin(f * Math.PI / 2) ** 0.45 }); }
+    pts.push({ d: dIn - 0.8, h: top - 1.4 });
+    const rows = new Map(), rowAt = (d) => { const key = d.toFixed(3); if (!rows.has(key)) rows.set(key, shellOutline(shape, d)); return rows.get(key); };
+    return { pts, dIn, hSide: top, hEnd: top, skirtBottom: hb, wave: () => top, rowAt, yFn: () => 0, out: dOut + 4, top, dome: { hb, dOut } };
+  }
+  const hSide = T.top + 5, hEnd = T.top + 30, skirtBottom = hSide - 12, dIn = Math.min(o - 6, Math.max(-14, 3 - reachOf_(st)));
   // sella: piatta sui lati lunghi, sale ripida verso le curve e fa un grande arco sopra di loro
   const wave = (x, z) => {
     const c = Math.cos(Math.atan2(Math.abs(z) / shape.b, Math.abs(x) / shape.a));
@@ -936,7 +1002,7 @@ function shellOutline(shape, d, N = 240) {
  * che passano sopra le torri (x = ±X e z = ±Z), sopra il tetto, e continuano a sbalzo per GIRDER_L metri.
  */
 function girdersOf(shape, st) {
-  const R = roofOf(shape, st.roof), foot = footOf(shape, st);
+  const R = roofOf(shape, st.roof, reachOf_(st)), foot = footOf(shape, st);
   // distanza dal centro dell'angolo, lungo la diagonale, del punto più esterno dell'esterno (angolo vivo: √2 volte)
   const diag = (shape.r > 0 ? shape.r + foot : foot * Math.SQRT2) + CORNER_R + 1.5;
   const X = shape.a - shape.r + diag / Math.SQRT2, Z = shape.b - shape.r + diag / Math.SQRT2;
@@ -948,11 +1014,11 @@ function girdersOf(shape, st) {
 function reachOf(shape, st) {
   const foot = footOf(shape, st);
   let d = foot + 0.5, h = shape.height, x = 0, z = 0;
-  if (st.roof === 'shell') { const S = shellOf(shape, st); d = Math.max(d, S.out + 1); h = Math.max(h, S.top + 1); }
-  else if (st.roof === 'wave') { const V = waveOf(shape, st); d = Math.max(d, V.out + 1); h = Math.max(h, V.top + 1); }
-  else if (st.roof !== 'none') { const R = roofOf(shape, st.roof); d = Math.max(d, st.roof === 'truss' ? pylonDist(R) + 2.5 : R.dOut); h = Math.max(R.h(R.dIn), st.roof === 'truss' ? pylonHeight(R) : 0) + 1; }
+  if (SHELLISH.includes(st.roof)) { const S = shellOf(shape, st); d = Math.max(d, S.out + 1); h = Math.max(h, S.top + 1); }
+  else if (st.roof === 'wave' || st.roof === 'dome') { const V = waveOf(shape, st); d = Math.max(d, V.out + 1); h = Math.max(h, V.top + 1); }
+  else if (st.roof !== 'none') { const R = roofOf(shape, st.roof, reachOf_(st)); d = Math.max(d, st.roof === 'truss' ? pylonDist(R) + 2.5 : R.dOut); h = Math.max(R.h(R.dIn), st.roof === 'truss' ? pylonHeight(R) : 0) + 1; }
   if (st.ramps) d = Math.max(d, foot + RAMP_R * 2);
-  if (st.roof === 'stands') { const R = roofOf(shape, 'stands'); d = Math.max(d, R.dOut + 11); h = Math.max(h, R.h(R.dIn) + 17); }
+  if (st.roof === 'stands') { const R = roofOf(shape, 'stands', reachOf_(st)); d = Math.max(d, R.dOut + 11); h = Math.max(h, R.h(R.dIn) + 17); }
   if (st.roof === 'girders') {
     const G = girdersOf(shape, st);
     d = Math.max(d, foot + CORNER_R * 2 + 2);
@@ -973,12 +1039,12 @@ const ENDS_W = 26, ENDS_H = 7;                       // schermi sopra le curve
  */
 function screenOf(shape, st) {
   const T = shape.tiers[shape.tiers.length - 1];
-  if (st.roof === 'wave') {
+  if (st.roof === 'wave' || st.roof === 'dome') {
     // sotto il bordo interno, alla quota più bassa dell'onda (sui lati lunghi)
-    const V = waveOf(shape, st), ds = V.dIn + 1.5;
-    return { ds, hang: true, y: V.hSide - 5.6 - 2.2, roofY: V.hSide - 5 };
+    const V = waveOf(shape, st), ds = V.dIn + 1.5, lip = st.roof === 'dome' ? 1.4 : 5.6;
+    return { ds, hang: true, y: V.hSide - lip - 2.2, roofY: V.hSide - lip + 0.6 };
   }
-  if (st.roof === 'shell') {
+  if (SHELLISH.includes(st.roof)) {
     const S = shellOf(shape, st), ds = S.dIn + 3;
     let hr = S.hIn;
     for (let j = 1; j < S.pts.length; j++) {
@@ -988,7 +1054,7 @@ function screenOf(shape, st) {
     return { ds, hang: true, y: hr - 2.4, roofY: hr };
   }
   if (st.roof !== 'none') {
-    const R = roofOf(shape, st.roof), ds = R.dIn + 0.9, ribbed = st.roof === 'truss' || st.roof === 'girders';
+    const R = roofOf(shape, st.roof, reachOf_(st)), ds = R.dIn + 0.9, ribbed = st.roof === 'truss' || st.roof === 'girders';
     return { ds, hang: true, y: R.h(R.dIn) - 3.2, roofY: R.h(ds) - (ribbed ? R.depth(ds) : 0.4) };
   }
   return { ds: T.back + WALL / 2, hang: false, y: T.top + 2.2 };
@@ -1045,8 +1111,8 @@ function signOf(shape, st) {
     const V = waveOf(shape, st), d = o + 3.4;
     return { hc: (V.skirtBottom + V.hSide - 2.6) / 2, maxH: 6, standOn: 0, dAt: () => d, outline: V.rowAt, rows: 1 };
   }
-  if (st.roof === 'shell') {
-    const S = shellOf(shape, st), wall = [];
+  if (SHELLISH.includes(st.roof) || st.roof === 'dome') {
+    const S = st.roof === 'dome' ? waveOf(shape, st) : shellOf(shape, st), wall = [];
     // muro gonfio dell'involucro: punti dal basso fino alla cresta (la quota sale)
     for (const p of S.pts) { if (wall.length && p.h <= wall[wall.length - 1].h) break; wall.push(p); }
     const best = wall.reduce((m, p) => (p.d > m.d ? p : m), wall[0]);
@@ -1086,7 +1152,7 @@ function signObstacles(shape, st, d) {
     }
   }
   if (st.roof === 'truss') {
-    const R = roofOf(shape, st.roof), PD = pylonDist(R);
+    const R = roofOf(shape, st.roof, reachOf_(st)), PD = pylonDist(R);
     if (PD + 1.6 > d) {
       for (const run of shape.runs) {
         const cum = runLengths(run);
@@ -1154,9 +1220,9 @@ function buildSign(THREE, shape, st, text, color, panel) {
   const aspect = c.width / c.height;
 
   const k0 = (TEXT_SIZES.find(z => z.id === st.outerTextSize) || TEXT_SIZES[1]).k;
-  if (st.outerTextPlace === 'roof' && !['none', 'shell', 'wave'].includes(st.roof)) {
+  if (st.outerTextPlace === 'roof' && st.roof !== 'none' && !WRAP_ROOFS.includes(st.roof)) {
     // appesa sotto il bordo davanti del tetto dei lati lunghi, rivolta verso il campo (si legge dagli spalti di fronte)
-    const R = roofOf(shape, st.roof), half = Math.max(6, shape.a - shape.r) * 0.85;
+    const R = roofOf(shape, st.roof, reachOf_(st)), half = Math.max(6, shape.a - shape.r) * 0.85;
     let H = Math.min(5.5, 3.2 * k0), W = H * aspect;
     if (W > 2 * half) { H *= 2 * half / W; W = 2 * half; }
     const yTop = R.h(R.dIn) - 0.3, yBot = yTop - H, pos = [], uv = [], idx = [];
@@ -1357,6 +1423,13 @@ function shellPatternCanvas(kind) {
     ctx.fillStyle = g; ctx.fillRect(0, 0, 64, 64);
     return { canvas: c, rx: 1, ry: 1.6 };
   }
+  if (kind === 'ribs') {
+    // costole bianche che corrono lungo il profilo (petali)
+    const [c, ctx] = make(64, 8), g = ctx.createLinearGradient(0, 0, 64, 0);
+    g.addColorStop(0, '#8c949d'); g.addColorStop(0.1, '#e8ebee'); g.addColorStop(0.5, '#ffffff'); g.addColorStop(0.88, '#d6dbe0'); g.addColorStop(1, '#8c949d');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 64, 8);
+    return { canvas: c, rx: 2, ry: 1 };
+  }
   if (kind === 'plain') {
     const [c, ctx] = make(8, 8);
     ctx.fillStyle = '#f2f4f6'; ctx.fillRect(0, 0, 8, 8);
@@ -1396,6 +1469,18 @@ function sweepAround(THREE, rowAt, prof, j0, j1, yFn = null) {
   g.setIndex(idx);
   g.computeVertexNormals();
   return g;
+}
+
+/** Tratti coperti dal tetto secondo la scelta (le coperture che avvolgono lo stadio restano tutto intorno). */
+function coveredRuns(shape, st) {
+  if (st.roofCover === 'all') return shape.runs;
+  const pred = {
+    sectors: (p) => Math.abs(Math.atan2(Math.abs(p.z) / shape.b, Math.abs(p.x) / shape.a) - Math.PI / 4) > 0.16,
+    stands: (p) => onLongSide(p),
+    main: (p) => onLongSide(p) && p.z > 0,
+    ends: (p) => !onLongSide(p)
+  }[st.roofCover];
+  return shape.runs.flatMap(run => subRuns(run, pred).map(r => ({ ...r, tiers: run.tiers })));
 }
 
 /** Posizione lungo un tratto chiuso che riparte da capo; sui tratti aperti si ferma alle estremità. */
@@ -1557,14 +1642,16 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     return Math.abs(Math.atan2(Math.abs(pz) / shape.b, Math.abs(px) / shape.a) - Math.PI / 4) >= 0.3;
   });
 
-  const R = !['none', 'shell', 'wave', 'stands'].includes(st.roof) ? roofOf(shape, st.roof) : null;
+  const R = st.roof !== 'none' && st.roof !== 'stands' && !WRAP_ROOFS.includes(st.roof) ? roofOf(shape, st.roof, reachOf_(st)) : null;
+  // dove c'è la copertura (tutto unito, per settore, solo tribune, solo curve...)
+  const roofRuns = coveredRuns(shape, st);
   let shellMat = null;
-  if (st.roof === 'wave') {
-    // copertura ondulata: sopra pannelli bianchi a costole, sotto il traliccio a triangoli (stessa superficie, due facce)
+  if (st.roof === 'wave' || st.roof === 'dome') {
+    // copertura ondulata o cupola: sopra pannelli bianchi a costole, sotto il traliccio a triangoli (stessa superficie, due facce)
     const V = waveOf(shape, st);
     const top = new THREE.CanvasTexture(wavePanelCanvas()), under = new THREE.CanvasTexture(latticeCanvas());
     for (const t of [top, under]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; }
-    top.repeat.set(3, 1); under.repeat.set(2, 1.2);
+    top.repeat.set(st.roof === 'dome' ? 1 : 3, 1); under.repeat.set(2, 1.2);
     const g = sweepAround(THREE, V.rowAt, V.pts, 0, V.pts.length - 1, V.yFn);
     // da che parte guarda la faccia di sopra: la normale a metà tetto deve puntare in alto
     const nrm = g.getAttribute('normal'), cols = V.rowAt(V.pts[0].d).length, mid = Math.floor(V.pts.length * 0.6) * cols + 3;
@@ -1578,15 +1665,32 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     own.push(top, under, shellMat, underMat, g);
     if (lights === 'roof') {
       const edge = V.rowAt(V.dIn + 0.6);
-      for (let i = 0; i < edge.length - 1; i += 8) lampAt(lamps, edge[i][0], V.wave(edge[i][0], edge[i][1]) - 6.6, edge[i][1], 2.4, 1.3);
-      for (let k = 0; k < 6; k++) { const [x, z] = edge[Math.floor((k + 0.5) / 6 * (edge.length - 1))]; spots.push([x, V.wave(x, z) - 6.8, z]); }
+      const lip = st.roof === 'dome' ? 2.4 : 6.6;
+      for (let i = 0; i < edge.length - 1; i += 8) lampAt(lamps, edge[i][0], V.wave(edge[i][0], edge[i][1]) - lip, edge[i][1], 2.4, 1.3);
+      for (let k = 0; k < 6; k++) { const [x, z] = edge[Math.floor((k + 0.5) / 6 * (edge.length - 1))]; spots.push([x, V.wave(x, z) - lip - 0.2, z]); }
+    }
+    if (V.dome) {
+      // denti a punta attorno alla base della cupola, con le gambe che scendono a terra
+      const ring = V.rowAt(V.dome.dOut), foot = V.rowAt(V.dome.dOut + 3.5), N = ring.length - 1, TEETH = 30, tp = [];
+      for (let k = 0; k < TEETH; k++) {
+        const a = ring[Math.round(k / TEETH * N)], b = ring[Math.round((k + 1) / TEETH * N) % N], m = foot[Math.round((k + 0.5) / TEETH * N) % N];
+        tp.push(a[0], V.dome.hb + 0.3, a[1], b[0], V.dome.hb + 0.3, b[1], m[0], 0.6, m[1]);
+        beam(beams, m[0], 0, m[1], m[0], 0.6, m[1], 0.5);
+      }
+      const tg = new THREE.BufferGeometry();
+      tg.setAttribute('position', new THREE.Float32BufferAttribute(tp, 3));
+      tg.computeVertexNormals();
+      const teeth = new THREE.Mesh(tg, new THREE.MeshStandardMaterial({ color: 0xf2f4f6, roughness: 0.5, side: THREE.DoubleSide }));
+      teeth.castShadow = teeth.receiveShadow = true;
+      group.add(teeth);
+      own.push(tg, teeth.material);
     }
   }
-  if (st.roof === 'shell') {
+  if (SHELLISH.includes(st.roof)) {
     // involucro a cuscini: parte bianca (fuori e sopra) e tetto trasparente fino all'apertura; gira tutto intorno
     // anche con le curve staccate. Di notte i cuscini si accendono del colore scelto.
     const S = shellOf(shape, st);
-    const pat = shellPatternCanvas(st.shellPattern);
+    const pat = shellPatternCanvas(st.roof === 'shell' ? st.shellPattern : st.roof === 'petals' ? 'ribs' : 'plain');
     const tex = new THREE.CanvasTexture(pat.canvas);
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(pat.rx, pat.ry);
@@ -1595,8 +1699,10 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     shellMat = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissiveIntensity: 0, roughness: 0.38, side: THREE.DoubleSide });
     // la parte verso l'apertura è di cuscini trasparenti: un po' più grigia e non fa ombra
     const clearMat = new THREE.MeshStandardMaterial({ map: tex, color: 0xe3e6ea, roughness: 0.25, side: THREE.DoubleSide });
-    const outer = new THREE.Mesh(sweepAround(THREE, S.rowAt, S.pts, 0, S.split), shellMat);
-    const clear = new THREE.Mesh(sweepAround(THREE, S.rowAt, S.pts, S.split, S.pts.length - 1), clearMat);
+    const outer = new THREE.Mesh(sweepAround(THREE, S.rowAt, S.pts, 0, S.split, S.yFn), shellMat);
+    const clear = new THREE.Mesh(sweepAround(THREE, S.rowAt, S.pts, S.split, S.pts.length - 1, S.yFn ? (x, z, j) => S.yFn(x, z, j + S.split) : null), clearMat);
+    // pennoni della tenda: dalla base fino sopra la punta della membrana
+    for (const [mx, mz] of S.masts) beam(beams, mx, 0, mz, mx, S.top + 4, mz, 0.6);
     outer.castShadow = outer.receiveShadow = true;
     clear.receiveShadow = true;
     group.add(outer, clear);
@@ -1622,7 +1728,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 4;
     deckMat = new THREE.MeshStandardMaterial({ map: tex, roughness: truss ? 0.5 : girders ? 0.35 : 0.7, metalness: truss ? 0.25 : 0, side: THREE.DoubleSide });
-    const deck = new THREE.Mesh(deckGeometry(THREE, shape, R), deckMat);
+    const deck = new THREE.Mesh(deckGeometry(THREE, { ...shape, runs: roofRuns }, R), deckMat);
     deck.castShadow = deck.receiveShadow = true;
     group.add(deck);
     own.push(tex, deckMat, deck.geometry);
@@ -1632,7 +1738,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     const pos = [], idx = [[], [], []];
     const bar = (d, h, w, t) => [{ d: d - w / 2, h: h - t / 2, m: 0 }, { d: d + w / 2, h: h - t / 2, m: 0 }, { d: d + w / 2, h: h + t / 2, m: 0 }, { d: d - w / 2, h: h + t / 2, m: 0 }];
     const PD = pylonDist(R), PH = pylonHeight(R), chordLow = R.h(R.dOut) - 1, chordHigh = PH - 1.2;
-    for (const run of shape.runs) {
+    for (const run of roofRuns) {
       extrude(THREE, run, bar(R.dIn, R.h(R.dIn) - 0.7, 0.5, 1.4), pos, idx);
       if (!ribbed) continue;
       for (let k = 1; k <= N; k++) { const d = R.dIn + k * (R.dOut - R.dIn) / N; extrude(THREE, run, bar(d, R.h(d) - R.depth(d), 0.3, 0.3), pos, idx); }
@@ -1649,7 +1755,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     group.add(rails);
     own.push(g);
 
-    for (const run of shape.runs) {
+    for (const run of roofRuns) {
       const cum = runLengths(run);
       for (const u of stations(run, cum, ribbed ? TRUSS_EVERY : TRUSS_EVERY * 1.5)) {
         if (!ribbed) {
@@ -1805,7 +1911,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   if (st.roof === 'stands') {
     // ogni tribuna ha il suo tetto (gli angoli restano aperti): sopra scuro, sotto pannelli traslucidi in una griglia di
     // travi del colore dell'acciaio, davanti una trave reticolare sottile con le luci; dietro la tribuna di fronte i piloni
-    const Rs = roofOf(shape, 'stands'), T = shape.tiers[shape.tiers.length - 1], pos = [], idx = [[], [], []];
+    const Rs = roofOf(shape, 'stands', reachOf_(st)), T = shape.tiers[shape.tiers.length - 1], pos = [], idx = [[], [], []];
     const slabProf = [[Rs.dIn, Rs.h(Rs.dIn) - 0.25, 2], [Rs.dOut, Rs.h(Rs.dOut) - 0.25, 2], [Rs.dOut, Rs.h(Rs.dOut), 0], [Rs.dIn, Rs.h(Rs.dIn), 2]]
       .map(([d, h, m]) => ({ d, h, m }));
     const bar = (d, h, w, t) => [[d - w / 2, h - t / 2], [d + w / 2, h - t / 2], [d + w / 2, h + t / 2], [d - w / 2, h + t / 2]].map(([dd, hh]) => ({ d: dd, h: hh, m: 1 }));
@@ -1814,9 +1920,9 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     const gapA = shape.a - Math.max(shape.r, 4), gapB = shape.b - Math.max(shape.r, 4);
     const straight = (p) => (Math.abs(p.mz) > 0.995 && Math.abs(p.x) < gapA) || (Math.abs(p.mx) > 0.995 && Math.abs(p.z) < gapB);
     const TH = 2.4; // altezza della trave reticolare davanti
-    for (const run of shape.runs) {
+    for (const run of roofRuns) {
       // ogni tratto ha il suo tetto alla sua altezza (tribune e curve possono avere anelli diversi)
-      const Rs = roofOf({ ...shape, tiers: run.tiers }, 'stands');
+      const Rs = roofOf({ ...shape, tiers: run.tiers }, 'stands', reachOf_(st));
       const slabProf = [[Rs.dIn, Rs.h(Rs.dIn) - 0.25, 2], [Rs.dOut, Rs.h(Rs.dOut) - 0.25, 2], [Rs.dOut, Rs.h(Rs.dOut), 0], [Rs.dIn, Rs.h(Rs.dIn), 2]]
         .map(([d, h, m]) => ({ d, h, m }));
       for (const side of subRuns(run, straight)) {
@@ -2066,8 +2172,8 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
 
     // anello interno (due pareti lungo il bordo interno del tetto) e travi trasversali fino al bordo esterno:
     // con le travi principali formano la griglia rossa sopra la copertura
-    const R2 = roofOf(shape, st.roof), ri = [R2.dIn + 1.2, R2.dIn + 4.2], hRing = 4.5;
-    for (const run of shape.runs) {
+    const R2 = roofOf(shape, st.roof, reachOf_(st)), ri = [R2.dIn + 1.2, R2.dIn + 4.2], hRing = 4.5;
+    for (const run of roofRuns) {
       const cum = runLengths(run), st5 = stations(run, cum, 5), last = run.closed ? st5.length : st5.length - 1;
       for (let i = 0; i < last; i++) {
         const ua = st5[i], ub = st5[(i + 1) % st5.length] || cum[cum.length - 1];
@@ -2350,7 +2456,7 @@ function buildStadium(L, st) {
       outside.dark.color.set(shade(c.structure, 0.62));
       outside.girder.color.set(c.girder);
       if (outside.deckMat) outside.deckMat.color.set(c.roof);
-      if (outside.shellMat) { outside.shellMat.color.set(c.roof); if (s.roof === 'shell') outside.shellMat.emissive.set(c.glow); }
+      if (outside.shellMat) { outside.shellMat.color.set(c.roof); if (SHELLISH.includes(s.roof)) outside.shellMat.emissive.set(c.glow); }
       // scritta sull'esterno: si ricostruisce solo se cambiano testo o colore
       const sgk = [s.outerText.trim(), c.outerText, c.outerPanel, s.outerTextFont, s.outerTextStyle, s.outerTextSize, s.outerTextPlace].join('|');
       if (sgk !== signKey) {

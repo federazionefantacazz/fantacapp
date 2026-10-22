@@ -4,7 +4,7 @@ import { dataUrlToBlob } from '../components/Kit3D.js';
 import {
   createStadiumViewer, renderStadiumImage, stadiumCapacity, shownCapacity, normalizeStadium, defaultStadium, applyPreset,
   RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY,
-  SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom
+  SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom
 } from '../components/Stadium3D.js';
 import { injectStyle, parseColor, SWATCHES } from './DivisaSquadra.js';
 import { esc } from './menuUtils.js';
@@ -243,8 +243,17 @@ export const StadioSquadra = {
         girders: 'Tetto chiaro a botti con la struttura scura sotto, appeso a quattro grandi travi reticolari che poggiano su quattro torri agli angoli.',
         stands: 'Ogni tribuna ha il suo tetto piatto: sotto pannelli traslucidi e travi, davanti la fascia con le luci; dietro la tribuna di fronte due piloni con i tiranti. Gli angoli restano scoperti.',
         wave: 'Copertura bianca a sella, alta sopra le curve e più bassa sui lati lunghi, con il traliccio a triangoli sotto e una fascia bianca che scende all\'esterno.',
+        dome: 'Cupola bianca a raggiera che sale dal basso fino all\'apertura, con i denti a punta tutto attorno alla base.',
+        tent: 'Membrana tesa da sei pennoni altissimi, con le punte sopra lo stadio. Di notte si illumina.',
+        petals: 'Involucro a petali con le costole, diviso in quattro lobi da valli sulle diagonali. Di notte si illumina.',
         shell: 'Un unico involucro a cuscini che avvolge lo stadio: si gonfia verso fuori, copre gli spalti e diventa trasparente verso il campo. Di notte si illumina.'
       }[s.roof] || 'Spalti scoperti.'}</div>
+      ${s.roof !== 'none' ? `
+      <div class="kit-sub">Dove mettere la copertura</div>
+      ${WRAP_ROOFS.includes(s.roof) ? `<div class="mp-muted">Questa copertura avvolge tutto lo stadio.</div>` : `
+      <div class="kit-chips">${ROOF_COVERS.map(o => this._chip('roofCover', o.id, o.label, s.roofCover === o.id)).join('')}</div>`}
+      <div class="kit-sub">Quanto copre verso il campo</div>
+      <div class="kit-chips">${ROOF_REACHES.map(o => this._chip('roofReach', o.id, o.label, s.roofReach === o.id)).join('')}</div>` : ''}
       ${s.roof === 'shell' ? `
       <div class="kit-sub">Disegno dell'involucro</div>
       <div class="kit-chips">${SHELL_PATTERNS.map(o => this._chip('shellPattern', o.id, o.label, s.shellPattern === o.id)).join('')}</div>` : ''}
@@ -263,10 +272,10 @@ export const StadioSquadra = {
         ? 'Senza copertura lo schermo sta in cima agli spalti.'
         : 'Appeso sotto il bordo del tetto.'} Mostra il nome dello stadio, il risultato e il minuto.</div>` : ''}
       <div class="kit-sub">Colori</div>
-      ${s.roof !== 'none' ? this._colorRow(s.roof === 'shell' ? 'Involucro' : s.roof === 'stands' ? 'Pannelli sotto il tetto' : 'Tetto', 'colors.roof', s.colors.roof) : ''}
-      ${s.roof === 'shell' ? this._colorRow('Luce dell\'involucro di notte', 'colors.glow', s.colors.glow) : ''}
+      ${s.roof !== 'none' ? this._colorRow(['shell', 'tent', 'petals'].includes(s.roof) ? 'Involucro' : s.roof === 'stands' ? 'Pannelli sotto il tetto' : 'Tetto', 'colors.roof', s.colors.roof) : ''}
+      ${['shell', 'tent', 'petals'].includes(s.roof) ? this._colorRow('Luce dell\'involucro di notte', 'colors.glow', s.colors.glow) : ''}
       ${s.roof !== 'none' || s.lights !== 'none' ? this._colorRow('Acciaio (tralicci, pilastri, torri)', 'colors.steel', s.colors.steel) : ''}
-      ${s.roof === 'girders' ? this._colorRow('Travi principali', 'colors.girder', s.colors.girder) : ''}
+      ${s.roof === 'girders' ? this._colorRow('Reticolato sopra il tetto (travi e sbalzi)', 'colors.girder', s.colors.girder) : ''}
       ${s.facade === 'struts' || s.facade === 'panels' ? this._colorRow(s.facade === 'panels' ? 'Rivestimento esterno' : 'Fasce del basamento', 'colors.accent', s.colors.accent) : ''}
       ${s.screen !== 'none' ? this._colorRow('Sfondo del maxischermo', 'colors.screen', s.colors.screen) : ''}
       <div class="mp-muted" style="margin-top:.6rem;">Prova il pulsante Notte sull'anteprima per vedere i fari accesi.</div>`;
@@ -333,7 +342,7 @@ export const StadioSquadra = {
       ${this._fontChips('outerTextFont', s.outerTextFont)}
       <div class="kit-sub">Dove</div>
       <div class="kit-chips">${TEXT_PLACES.map(o => this._chip('outerTextPlace', o.id, o.label, s.outerTextPlace === o.id)).join('')}</div>
-      ${s.outerTextPlace === 'roof' && ['none', 'shell', 'wave'].includes(s.roof) ? `<div class="mp-muted" style="margin-top:.3rem;">Con questa copertura la scritta va sulla facciata.</div>` : ''}
+      ${s.outerTextPlace === 'roof' && (s.roof === 'none' || WRAP_ROOFS.includes(s.roof)) ? `<div class="mp-muted" style="margin-top:.3rem;">Con questa copertura la scritta va sulla facciata.</div>` : ''}
       <div class="kit-sub">Stile</div>
       <div class="kit-chips">${OUTER_STYLES.map(o => this._chip('outerTextStyle', o.id, o.label, s.outerTextStyle === o.id)).join('')}</div>
       <div class="kit-sub">Dimensione</div>
