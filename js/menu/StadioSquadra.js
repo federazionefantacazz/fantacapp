@@ -220,7 +220,10 @@ export const StadioSquadra = {
       <div class="mp-muted" style="margin-top:.3rem;">Con un numero diverso di anelli tribune e curve hanno altezze diverse: quella più alta sale sopra l'altra.</div>
       <div class="kit-sub">Pista d'atletica</div>
       <div class="kit-chips">${this._chip('track', '1', 'Sì', s.track)}${this._chip('track', '0', 'No', !s.track)}</div>
-      ${s.track ? `${this._colorRow('Colore della pista', 'colors.track', s.colors.track)}${this._colorRow('Linee delle corsie', 'colors.trackLines', s.colors.trackLines)}` : ''}
+      ${s.track ? `${this._colorRow('Colore della pista', 'colors.track', s.colors.track)}${this._colorRow('Linee delle corsie', 'colors.trackLines', s.colors.trackLines)}
+      <div class="kit-sub">Fondo intorno alla pista</div>
+      <div class="kit-chips">${this._chip('trackApron', '0', 'Prato', !s.trackApron)}${this._chip('trackApron', '1', 'Colorato', s.trackApron)}</div>
+      ${s.trackApron ? this._colorRow('Colore del fondo (anche ai lati del campo)', 'colors.apron', s.colors.apron) : ''}` : ''}
       <div class="mp-muted" style="margin-top:.3rem;">Con la pista gli spalti sono più lontani dal campo.</div>
       ${s.rings > 1 ? `<div class="kit-sub">Palchi vetrati tra gli anelli</div>
       <div class="kit-chips">${this._chip('boxes', '1', 'Sì', s.boxes)}${this._chip('boxes', '0', 'No', !s.boxes)}</div>` : ''}
@@ -228,7 +231,10 @@ export const StadioSquadra = {
       <div class="kit-chips">${SHAPES.map(o => this._chip('shape', o.id, o.label, s.shape === o.id)).join('')}</div>
       <div class="kit-sub">Curve e tribune</div>
       <div class="kit-chips">${CORNERS.map(o => this._chip('corners', o.id, o.label, s.corners === o.id)).join('')}</div>
-      <div class="mp-muted" style="margin-top:.3rem;">${s.corners === 'open' ? 'Quattro settori separati, con gli angoli aperti.' : 'Un unico anello di spalti tutto intorno al campo.'}</div>`;
+      <div class="mp-muted" style="margin-top:.3rem;">${s.corners === 'open' ? 'Quattro settori separati, con gli angoli aperti.' : 'Un unico anello di spalti tutto intorno al campo.'}</div>
+      <div class="kit-sub">Una curva aperta (ferro di cavallo)</div>
+      <div class="kit-chips">${this._chip('horseshoe', '0', 'No', !s.horseshoe)}${this._chip('horseshoe', '1', 'Sì', s.horseshoe)}</div>
+      <div class="mp-muted" style="margin-top:.3rem;">${s.horseshoe ? 'Al posto di una curva un piazzale con le sculture bianche; con lo schermo sulle curve, lì c\'è un maxischermo su pali.' : 'Spalti anche su tutte e due le curve.'}</div>`;
   },
 
   _secExterior() {
@@ -246,6 +252,8 @@ export const StadioSquadra = {
         dome: 'Cupola bianca a raggiera che sale dal basso fino all\'apertura, con i denti a punta tutto attorno alla base.',
         tent: 'Membrana tesa da sei pennoni altissimi, con le punte sopra lo stadio. Di notte si illumina.',
         petals: 'Involucro a petali con le costole, diviso in quattro lobi da valli sulle diagonali. Di notte si illumina.',
+        crown: 'Corona di vele bianche piegate a zig-zag: da fuori triangoli con la punta in giù sulle colonne inclinate e l\'anello bianco in cima; dentro le travi sotto le creste, la passerella ad anello e il bordo a denti verso il campo. Di notte le vele si illuminano.',
+        dragon: 'Nastro di pannelli solari a scaglie retto da tubi bianchi a spirale che scendono fino a terra. Con una curva aperta (ferro di cavallo) il nastro esce dallo stadio e scende a terra come la coda di un drago.',
         shell: 'Un unico involucro a cuscini che avvolge lo stadio: si gonfia verso fuori, copre gli spalti e diventa trasparente verso il campo. Di notte si illumina.'
       }[s.roof] || 'Spalti scoperti.'}</div>
       ${s.roof !== 'none' ? `
@@ -272,9 +280,9 @@ export const StadioSquadra = {
         ? 'Senza copertura lo schermo sta in cima agli spalti.'
         : 'Appeso sotto il bordo del tetto.'} Mostra il nome dello stadio, il risultato e il minuto.</div>` : ''}
       <div class="kit-sub">Colori</div>
-      ${s.roof !== 'none' ? this._colorRow(['shell', 'tent', 'petals'].includes(s.roof) ? 'Involucro' : s.roof === 'stands' ? 'Pannelli sotto il tetto' : 'Tetto', 'colors.roof', s.colors.roof) : ''}
+      ${s.roof !== 'none' ? this._colorRow(['shell', 'tent', 'petals'].includes(s.roof) ? 'Involucro' : s.roof === 'stands' ? 'Pannelli sotto il tetto' : s.roof === 'dragon' ? 'Pannelli solari' : s.roof === 'crown' ? 'Vele' : 'Tetto', 'colors.roof', s.colors.roof) : ''}
       ${['shell', 'tent', 'petals'].includes(s.roof) ? this._colorRow('Luce dell\'involucro di notte', 'colors.glow', s.colors.glow) : ''}
-      ${s.roof !== 'none' || s.lights !== 'none' ? this._colorRow('Acciaio (tralicci, pilastri, torri)', 'colors.steel', s.colors.steel) : ''}
+      ${s.roof !== 'none' || s.lights !== 'none' ? this._colorRow(s.roof === 'dragon' ? 'Acciaio (tubi a spirale, tralicci, torri)' : s.roof === 'crown' ? 'Acciaio (colonne, anello, passerella)' : 'Acciaio (tralicci, pilastri, torri)', 'colors.steel', s.colors.steel) : ''}
       ${s.roof === 'girders' ? this._colorRow('Reticolato sopra il tetto (travi e sbalzi)', 'colors.girder', s.colors.girder) : ''}
       ${s.facade === 'struts' || s.facade === 'panels' ? this._colorRow(s.facade === 'panels' ? 'Rivestimento esterno' : 'Fasce del basamento', 'colors.accent', s.colors.accent) : ''}
       ${s.screen !== 'none' ? this._colorRow('Sfondo del maxischermo', 'colors.screen', s.colors.screen) : ''}
@@ -288,7 +296,8 @@ export const StadioSquadra = {
       <div class="kit-chips">${MOWING.map(o => this._chip('mowing', o.id, o.label, s.mowing === o.id)).join('')}</div>
       <div class="kit-sub">Colori</div>
       ${this._colorRow('Erba', 'colors.grass', s.colors.grass)}
-      ${s.track ? `${this._colorRow('Pista', 'colors.track', s.colors.track)}${this._colorRow('Linee delle corsie', 'colors.trackLines', s.colors.trackLines)}` : ''}`;
+      ${s.track ? `${this._colorRow('Pista', 'colors.track', s.colors.track)}${this._colorRow('Linee delle corsie', 'colors.trackLines', s.colors.trackLines)}` : ''}
+      ${s.track && s.trackApron ? this._colorRow('Fondo intorno alla pista', 'colors.apron', s.colors.apron) : ''}`;
   },
 
   _secSeats() {
@@ -458,7 +467,7 @@ export const StadioSquadra = {
           if (inp) { inp.focus(); inp.select(); }
           return;
         }
-        const value = k === 'rings' || k === 'ringsEnds' || k === 'standTextRing' ? Number(v) : k === 'track' || k === 'ramps' || k === 'boxes' ? v === '1' : v;
+        const value = k === 'rings' || k === 'ringsEnds' || k === 'standTextRing' ? Number(v) : ['track', 'ramps', 'boxes', 'horseshoe', 'trackApron'].includes(k) ? v === '1' : v;
         // "Ogni settore e anello": si parte dai colori che lo stadio ha adesso
         if (k === 'seatMode' && v === 'grid' && this._st.seatMode !== 'grid') this._update(st => { st.seatGrid = seatGridFrom(st); st.seatMode = 'grid'; });
         else this._update(st => { st[k] = value; });
