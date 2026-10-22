@@ -300,8 +300,8 @@ export const StadioSquadra = {
       ${s.roof !== 'none' || s.lights !== 'none' ? this._colorRow(s.roof === 'dragon' ? 'Acciaio (tubi a spirale, tralicci, torri)' : s.roof === 'crown' ? 'Acciaio (colonne, anello, passerella)' : s.roof === 'stands' ? 'Acciaio (piloni e tiranti)' : 'Acciaio (tralicci, pilastri, torri)', 'colors.steel', s.colors.steel) : ''}
       ${s.roof === 'girders' ? this._colorRow('Reticolato sopra il tetto (travi e sbalzi)', 'colors.girder', s.colors.girder) : ''}
       ${s.roof === 'stands' ? this._colorRow('Travi sopra il tetto e fascia davanti', 'colors.girder', s.colors.girder) : ''}
-      ${s.facade === 'cladding' ? this._colorRow('Pannelli della facciata', 'colors.cladding', s.colors.cladding) : ''}
-      ${s.facade === 'struts' || s.facade === 'panels' || s.facade === 'cladding' ? this._colorRow({ panels: 'Rivestimento esterno', cladding: 'Zoccolo e cornicione' }[s.facade] || 'Fasce del basamento', 'colors.accent', s.colors.accent) : ''}
+      ${s.facade === 'cladding' ? `${this._colorRow('Pannelli della facciata', 'colors.cladding', s.colors.cladding)}${this._colorRow('Basamento e torri d\'angolo', 'colors.podium', s.colors.podium)}` : ''}
+      ${s.facade === 'struts' || s.facade === 'panels' || s.facade === 'cladding' ? this._colorRow({ panels: 'Rivestimento esterno', cladding: 'Cornicione, pinne, tornelli e portale' }[s.facade] || 'Fasce del basamento', 'colors.accent', s.colors.accent) : ''}
       ${s.screen !== 'none' ? this._colorRow('Sfondo del maxischermo', 'colors.screen', s.colors.screen) : ''}
       <div class="mp-muted" style="margin-top:.6rem;">Prova il pulsante Notte sull'anteprima per vedere i fari accesi.</div>`;
   },
