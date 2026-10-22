@@ -72,10 +72,11 @@ function loadVariant(kit) {
       if (shape === 'v') return base;
       const { THREE } = L;
       const model = base.clone(true);
-      if (shape === 'polo' && !raglan) {
+      if (shape === 'polo') {
         // bordo della stoffa sulla cucitura del colletto: spostamenti precalcolati per ogni vertice vicino al collo
-        // (neck-polo.bin: 'NKP1', n. mesh, poi per mesh n, indici uint32, spostamenti int16 x3 in unità di 0,05 mm)
-        const data = await fetch(KIT3D_FILES.neckPolo).then(r => r.arrayBuffer());
+        // (neck-polo.bin: 'NKP1', n. mesh, poi per mesh n, indici uint32, spostamenti int16 x3 in unità di 0,05 mm).
+        // Raglan (neck-polo-raglan.bin): la stoffa che resterebbe davanti al colletto o alle strisce va appena dietro
+        const data = await fetch(raglan ? KIT3D_FILES.neckPoloRaglan : KIT3D_FILES.neckPolo).then(r => r.arrayBuffer());
         const dv = new DataView(data);
         let o = 6;
         const meshes = [];
@@ -100,8 +101,8 @@ function loadVariant(kit) {
           g.computeBoundingBox(); g.computeBoundingSphere(); // normali originali: lo spostamento è piccolo
           m.geometry = g;
         }
-        // la costina dello scollo a V non serve: il colletto è cucito direttamente alla stoffa
-        model.traverse(o => { if (o.isMesh && /Pattern2D_3805002/.test(`${o.name}|${o.parent ? o.parent.name : ''}`)) o.visible = false; });
+        // la costina dello scollo a V non serve: il colletto è cucito direttamente alla stoffa (raglan: in neck-cut-raglan.bin)
+        if (!raglan) model.traverse(o => { if (o.isMesh && /Pattern2D_3805002/.test(`${o.name}|${o.parent ? o.parent.name : ''}`)) o.visible = false; });
       }
       if (shape === 'polo' && raglan) {
         // la costina del girocollo fa da base al colletto (l'attaccatura coincide); davanti la maglia si apre a V come la

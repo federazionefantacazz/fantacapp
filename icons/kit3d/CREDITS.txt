@@ -20,4 +20,7 @@ collar-polo-raglan.glb
                  inclinato tutto insieme perché ala e strisce della V appoggino sulla raglan.
 neck-cut-raglan.bin
                  Taglio a V della maglia raglan per il colletto alto (come lo scollo della classica): triangoli di
-                 stoffa da togliere dentro l'apertura e dove copre il colletto o le strisce, e costina del girocollo.
+                 stoffa da togliere dentro l'apertura, con il bordo nascosto sotto le strisce, e costina del girocollo.
+neck-polo-raglan.bin
+                 Raglan con colletto alto: la stoffa che resterebbe davanti al colletto o alle strisce va appena dietro
+                 (pochi millimetri, solo i punti coperti), così il bordo del colletto la copre pulito.
