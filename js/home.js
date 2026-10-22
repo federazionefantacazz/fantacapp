@@ -7,6 +7,8 @@ import { LiveMatchModule } from './liveMatch.js';
 import { kitPairHTML, kitPairShown } from './components/Kit3D.js';
 import { MenuPanel } from './components/MenuPanel.js';
 import { DivisaSquadra } from './menu/DivisaSquadra.js';
+import { StadioSquadra } from './menu/StadioSquadra.js';
+import { renderStadiumImage } from './components/Stadium3D.js';
 import { getWonTrophies } from './services/palmaresService.js';
 import { esc, sameId, toArray } from './utils.js';
 
@@ -79,6 +81,9 @@ window.openKitEditor = () => {
   MenuPanel.open(DivisaSquadra, 'kit');
 };
 
+// "Modifica" sullo stadio apre l'editor dello stadio
+window.openStadiumEditor = () => MenuPanel.open(StadioSquadra, 'stadium');
+
 // Palmarès: apre l'Info Club della mia squadra nella pagina Squadre
 window.openMyClubInfo = () => {
   const team = window.STATE && window.STATE.user;
@@ -104,7 +109,7 @@ export const HomePage = {
             </div>
           </div>
 
-          <!-- RIQUADRI: MAGLIA + CLASSIFICA affiancati, PALMARÈS sotto -->
+          <!-- RIQUADRI: MAGLIA + CLASSIFICA affiancati, STADIO e PALMARÈS sotto -->
           <div id="homeBoxes" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; width: 100%;">
             <div id="homeKitBox" style="${BOX} display: flex; flex-direction: column; min-width: 0;">
               <div onclick="window.openKitEditor && window.openKitEditor()" style="display: flex; align-items: center; justify-content: space-between; gap: 0.3rem; margin-bottom: 0.3rem; cursor: pointer;">
@@ -115,6 +120,13 @@ export const HomePage = {
             </div>
             <div id="homeMiniClassifica" style="${BOX} min-width: 0;">
               <div style="font-size: 0.7rem; font-weight: 600; color: var(--text2); font-family: var(--font-sub, inherit);">Caricamento...</div>
+            </div>
+            <div id="homeStadiumBox" onclick="window.openStadiumEditor && window.openStadiumEditor()" style="${BOX} grid-column: 1 / -1; cursor: pointer;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.3rem; margin-bottom: 0.3rem;">
+                <div style="font-size: 0.7rem; font-weight: 700; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase;">Stadio</div>
+                <div id="homeStadiumAction" style="font-size: 0.65rem; color: var(--accent); display: flex; align-items: center; flex-shrink: 0;">Modifica <i class="ri-arrow-right-s-line"></i></div>
+              </div>
+              <div id="homeStadium"></div>
             </div>
             <div id="homePalmares" onclick="window.openMyClubInfo && window.openMyClubInfo()" style="${BOX} grid-column: 1 / -1; cursor: pointer;">
               <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.3rem; margin-bottom: 0.4rem;">
@@ -172,6 +184,9 @@ export const HomePage = {
     const kitBox = document.getElementById('homeTeamKit');
     const kitWrap = document.getElementById('homeKitBox');
     const kitAction = document.getElementById('homeKitAction');
+    const stadiumBox = document.getElementById('homeStadium');
+    const stadiumWrap = document.getElementById('homeStadiumBox');
+    const stadiumAction = document.getElementById('homeStadiumAction');
     const boxes = document.getElementById('homeBoxes');
     const palmaresAction = document.getElementById('homePalmaresAction');
 
@@ -247,6 +262,37 @@ export const HomePage = {
         }
       }
       if (kitWrap) kitWrap.style.display = '';
+
+      if (stadiumBox) {
+        const st = myTeam.stadium;
+        const key = st ? JSON.stringify([st.image || '', st.name || '', st.capacity || 0, st.image ? '' : st]) : 'none';
+        if (stadiumBox.dataset.key !== key) {
+          stadiumBox.dataset.key = key;
+          stadiumBox.innerHTML = st
+            ? `<div style="display: flex; align-items: center; gap: 0.7rem; min-width: 0;">
+                <div style="width: 58%; max-width: 230px; flex-shrink: 0; aspect-ratio: 5 / 3; display: flex; align-items: center; justify-content: center;">
+                  ${st.image ? `<img src="${esc(st.image)}" alt="Stadio" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: contain;">` : '<i class="ri-building-2-line" style="font-size: 2.4rem; color: var(--text3);"></i>'}
+                </div>
+                <div style="min-width: 0;">
+                  <div style="font-size: 0.85rem; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(st.name || 'Stadio senza nome')}</div>
+                  ${st.capacity ? `<div style="font-size: 0.7rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-top: 2px;">${Number(st.capacity).toLocaleString('it-IT')} posti</div>` : ''}
+                </div>
+              </div>`
+            : `<div style="display: flex; align-items: center; gap: 0.6rem;">
+                <i class="ri-building-2-line" style="font-size: 2.6rem; line-height: 1; color: var(--text3); font-family: var(--font-text3, inherit);"></i>
+                <div style="font-size: 0.7rem; font-weight: 600; color: var(--text2); font-family: var(--font-sub, inherit);">Crea lo stadio della squadra: anelli, curve, tetto e colori</div>
+              </div>`;
+          // stadio salvato senza foto (caricamento non riuscito): la disegno qui
+          if (st && !st.image) {
+            renderStadiumImage(st, { width: 600 }).then(url => {
+              const box = stadiumBox.querySelector('div > div');
+              if (url && box && stadiumBox.dataset.key === key) box.innerHTML = `<img src="${url}" alt="Stadio" style="width: 100%; height: 100%; object-fit: contain;">`;
+            });
+          }
+          if (stadiumAction) stadiumAction.innerHTML = `${st ? 'Modifica' : 'Crea'} <i class="ri-arrow-right-s-line"></i>`;
+        }
+      }
+      if (stadiumWrap) stadiumWrap.style.display = '';
       if (boxes) boxes.style.gridTemplateColumns = '1fr 1fr';
       if (palmaresAction) palmaresAction.style.display = '';
 
@@ -300,6 +346,8 @@ export const HomePage = {
       if (miniClassificaBox) miniClassificaBox.innerHTML = `<div style="font-size: 0.7rem; color: var(--text3); font-family: var(--font-text3, inherit);">Non associato a una squadra.</div>`;
       if (kitBox) { kitBox.dataset.key = ''; kitBox.innerHTML = ''; }
       if (kitWrap) kitWrap.style.display = 'none';
+      if (stadiumBox) { stadiumBox.dataset.key = ''; stadiumBox.innerHTML = ''; }
+      if (stadiumWrap) stadiumWrap.style.display = 'none';
       if (boxes) boxes.style.gridTemplateColumns = '1fr';
       if (palmaresAction) palmaresAction.style.display = 'none';
     }
