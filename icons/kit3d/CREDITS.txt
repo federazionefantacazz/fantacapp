@@ -16,8 +16,8 @@ shirt-raglan.glb Maglia con maniche raglan e girocollo, convertita dal progetto 
 mask-raglan.png, seams-raglan.jpg
                  Maschera dei pezzi e impunture della maglia raglan, generate dai cartamodelli dello stesso progetto.
 collar-polo-raglan.glb
-                 Lo stesso colletto alto per la maglia raglan, non deformato: solo spostato, inclinato e rimpicciolito
-                 (94%) tutto insieme perché ala e strisce della V appoggino sulla raglan.
+                 Lo stesso colletto alto per la maglia raglan, non deformato e della stessa misura: solo spostato e
+                 inclinato tutto insieme perché ala e strisce della V appoggino sulla raglan.
 neck-cut-raglan.bin
                  Taglio a V della maglia raglan per il colletto alto (come lo scollo della classica): triangoli di
-                 stoffa da togliere dentro l'apertura, con il bordo nascosto sotto le strisce, e costina del girocollo.
+                 stoffa da togliere dentro l'apertura e dove copre il colletto o le strisce, e costina del girocollo.
