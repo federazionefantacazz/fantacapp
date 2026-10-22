@@ -23,6 +23,8 @@ function loadLib() {
 /* ------------------------------------------------------------------ dati */
 export const MAX_NAME = 40;
 export const MAX_CAPACITY = 200000;
+export const MAX_STAND_TEXT = 16;
+export const MAX_OUTER_TEXT = 24;
 
 export const RINGS = [
   { id: 1, label: '1 anello' },
@@ -47,8 +49,34 @@ export const SEAT_MODES = [
   { id: 'single',  label: 'Tinta unita' },
   { id: 'sectors', label: 'Tribune e curve' },
   { id: 'rings',   label: 'Un colore per anello' },
-  { id: 'mosaic',  label: 'Mosaico' },
-  { id: 'sides',   label: 'Un colore per lato' }
+  { id: 'mosaic',  label: 'Mosaico a 3 colori' },
+  { id: 'sides',   label: 'Un colore per lato' },
+  { id: 'grid',    label: 'Ogni settore e anello' }
+];
+/** Lati degli spalti (come nelle info dei seggiolini): 0 tribuna vicina, 1 curva destra, 2 tribuna di fronte, 3 curva sinistra. */
+export const SEAT_SIDES = [
+  { id: 0, label: 'Tribuna vicina' },
+  { id: 2, label: 'Tribuna di fronte' },
+  { id: 3, label: 'Curva sinistra' },
+  { id: 1, label: 'Curva destra' }
+];
+export const TEXT_SIDES = [
+  { id: 'far',   side: 2, label: 'Tribuna di fronte' },
+  { id: 'near',  side: 0, label: 'Tribuna vicina' },
+  { id: 'left',  side: 3, label: 'Curva sinistra' },
+  { id: 'right', side: 1, label: 'Curva destra' }
+];
+export const SHELL_PATTERNS = [
+  { id: 'rhombus', label: 'Rombi' },
+  { id: 'hex',     label: 'Esagoni' },
+  { id: 'scales',  label: 'Squame' },
+  { id: 'stripes', label: 'Fasce' },
+  { id: 'plain',   label: 'Liscio' }
+];
+export const SCREENS = [
+  { id: 'none', label: 'Nessuno' },
+  { id: 'ring', label: 'Anello a 360°' },
+  { id: 'ends', label: 'Sopra le curve' }
 ];
 export const ROOFS = [
   { id: 'none',     label: 'Nessuna' },
@@ -72,12 +100,32 @@ export const FACADES = [
 
 const DEFAULT = {
   name: '', rings: 2, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single',
-  roof: 'none', lights: 'towers', facade: 'wall', ramps: false,
+  roof: 'none', lights: 'towers', facade: 'wall', ramps: false, shellPattern: 'rhombus', screen: 'none',
+  seatMosaic: false, standText: '', standTextSide: 'far', standTextRing: 1, outerText: '',
   colors: {
     grass: '#3d8b37', track: '#b4452f', seatA: '#1e5bb8', seatB: '#ffffff', seatC: '#c62828', seatD: '#ffd400', parapet: '#e6e6e6', structure: '#a5a5a5',
-    roof: '#5b6169', steel: '#767d86', accent: '#1e5bb8', girder: '#c0392b', glow: '#e30613'
+    roof: '#5b6169', steel: '#767d86', accent: '#1e5bb8', girder: '#c0392b', glow: '#e30613',
+    standText: '#ffffff', outerText: '#1d3f8f', screen: '#152c78'
   }
 };
+
+/** Chiave del colore di un settore in seatGrid: lato (0-3) e anello (0-2). */
+export const gridKey = (side, ring) => `${side}-${ring}`;
+
+/**
+ * Colori per settore e anello che riproducono la colorazione attuale (per partire da lì quando si sceglie
+ * "Ogni settore e anello").
+ */
+export function seatGridFrom(st) {
+  const c = st.colors, pal = [c.seatA, c.seatB, c.seatC, c.seatD], out = {};
+  for (let side = 0; side < 4; side++) {
+    for (let ring = 0; ring < 3; ring++) {
+      const k = { sectors: side % 2, rings: ring, sides: side, grid: -1 }[st.seatMode] ?? 0;
+      out[gridKey(side, ring)] = k < 0 ? (st.seatGrid || {})[gridKey(side, ring)] || pal[side] : pal[k];
+    }
+  }
+  return out;
+}
 
 /** Stili rapidi: cambiano struttura, copertura e colori (il nome resta). */
 export const PRESETS = [
@@ -120,9 +168,9 @@ export const PRESETS = [
   },
   {
     id: 'arena', label: 'Arena moderna',
-    desc: 'Tre anelli con angoli arrotondati, seggiolini a mosaico e copertura chiara.',
+    desc: 'Tre anelli con angoli arrotondati, seggiolini a mosaico, copertura chiara e maxischermo a 360°.',
     st: {
-      rings: 3, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'mosaic', roof: 'membrane', lights: 'roof', facade: 'columns',
+      rings: 3, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'mosaic', roof: 'membrane', lights: 'roof', facade: 'columns', screen: 'ring',
       colors: { grass: '#3d8b37', seatA: '#212121', seatB: '#616161', seatC: '#ffd400', parapet: '#e0e0e0', structure: '#8d8d8d', roof: '#f1f3f5', steel: '#c8cdd3' }
     }
   },
@@ -136,12 +184,16 @@ export const PRESETS = [
   }
 ];
 
-/** Stadio con lo stile rapido applicato: nome (e foto, capienza) restano quelli di `st`. */
+/** Stadio con lo stile rapido applicato: nome, capienza, scritte (e foto) restano quelli di `st`. */
 export function applyPreset(st, id) {
   const p = PRESETS.find(x => x.id === id);
   if (!p) return normalizeStadium(st);
-  const base = defaultStadium();
-  return normalizeStadium({ ...base, ...p.st, colors: { ...base.colors, ...p.st.colors }, name: st.name, capacityCustom: st.capacityCustom, image: st.image, capacity: st.capacity });
+  const base = defaultStadium(), c = st.colors || {};
+  return normalizeStadium({
+    ...base, ...p.st, colors: { ...base.colors, ...p.st.colors, standText: c.standText, outerText: c.outerText },
+    name: st.name, capacityCustom: st.capacityCustom, image: st.image, capacity: st.capacity,
+    standText: st.standText, standTextSide: st.standTextSide, standTextRing: st.standTextRing, outerText: st.outerText, seatGrid: st.seatGrid
+  });
 }
 
 export function defaultStadium() { return JSON.parse(JSON.stringify(DEFAULT)); }
@@ -165,10 +217,21 @@ export function normalizeStadium(s) {
     lights: oneOf(LIGHTS, src.lights, DEFAULT.lights),
     facade: oneOf(FACADES, src.facade, DEFAULT.facade),
     ramps: !!src.ramps,
+    shellPattern: oneOf(SHELL_PATTERNS, src.shellPattern, DEFAULT.shellPattern),
+    screen: oneOf(SCREENS, src.screen, DEFAULT.screen),
+    seatMosaic: !!src.seatMosaic,
+    standText: String(src.standText || '').slice(0, MAX_STAND_TEXT),
+    standTextSide: oneOf(TEXT_SIDES, src.standTextSide, DEFAULT.standTextSide),
+    standTextRing: [0, 1, 2, 3].includes(Number(src.standTextRing)) ? Number(src.standTextRing) : DEFAULT.standTextRing, // 0 = tutti gli anelli
+    outerText: String(src.outerText || '').slice(0, MAX_OUTER_TEXT),
     // capienza scelta dalla squadra (0 = calcolata dai seggiolini)
     capacityCustom: Math.min(MAX_CAPACITY, Math.max(0, Math.round(Number(src.capacityCustom) || 0))),
     colors: Object.fromEntries(Object.entries(DEFAULT.colors).map(([k, d]) => [k, validColor(c[k], d)]))
   };
+  // un colore per ogni lato e anello (modalità "Ogni settore e anello")
+  const grid = src.seatGrid && typeof src.seatGrid === 'object' ? src.seatGrid : {}, pal = [out.colors.seatA, out.colors.seatB, out.colors.seatC, out.colors.seatD];
+  out.seatGrid = {};
+  for (let side = 0; side < 4; side++) for (let ring = 0; ring < 3; ring++) out.seatGrid[gridKey(side, ring)] = validColor(grid[gridKey(side, ring)], pal[side]);
   if (src.image) out.image = String(src.image);
   if (src.capacity) out.capacity = Number(src.capacity) || 0;
   return out;
@@ -188,7 +251,7 @@ const GAP = 0.18;         // curve staccate: apertura intorno agli angoli (radia
 const M_PARAPET = 0, M_STEPS = 1, M_STRUCT = 2;
 
 const seatKey = (st) => [st.rings, st.track ? 1 : 0, st.shape, st.corners].join('|');
-const geomKey = (st) => [seatKey(st), st.roof, st.lights, st.facade, st.ramps ? 1 : 0].join('|');
+const geomKey = (st) => [seatKey(st), st.roof, st.lights, st.facade, st.ramps ? 1 : 0, st.shellPattern, st.screen].join('|');
 
 /**
  * Bordo interno degli spalti: rettangolo con angoli arrotondati (r = 0 squadrato, r = b curve a semicerchio),
@@ -355,7 +418,7 @@ function standsGeometry(THREE, shape, exposed) {
 }
 
 /**
- * Seggiolini: una matrice per posto (lungo ogni fila, rivolto verso il campo) e info = settore | anello << 1 | lato << 3
+ * Seggiolini: una matrice per posto (lungo ogni fila, rivolto verso il campo), la fila nell'anello e info = settore | anello << 1 | lato << 3
  * (settore 0 = tribune sui lati lunghi, 1 = curve; lato 0 = tribuna verso z+, 1 = curva destra, 2 = distinti, 3 = curva sinistra).
  * Le scalette sono allineate da una fila all'altra.
  */
@@ -364,7 +427,7 @@ function seatsOf(st) {
   const key = seatKey(st);
   if (seatCache.has(key)) return seatCache.get(key);
   const shape = shapeOf(st);
-  const mats = [], info = [];
+  const mats = [], info = [], rows = [];
   for (const run of shape.runs) {
     const P = run.pts, n = P.length, segs = run.closed ? n : n - 1;
     const Li = [], U = [0];
@@ -398,16 +461,65 @@ function seatsOf(st) {
             const sector = Math.abs(z) / (shape.b + d) > Math.abs(x) / (shape.a + d) ? 0 : 1;
             const side = sector === 0 ? (z > 0 ? 0 : 2) : (x > 0 ? 1 : 3);
             info.push(sector | (t.i << 1) | (side << 3));
+            rows.push(row);
           }
           carry = s - l;
         }
       }
     }
   }
-  const val = { count: info.length, matrices: new Float32Array(mats), info: Uint8Array.from(info) };
+  const val = { count: info.length, matrices: new Float32Array(mats), info: Uint8Array.from(info), rows: Uint8Array.from(rows), tierRows: shape.tiers.map(t => t.rows) };
   if (seatCache.size >= 4) seatCache.delete(seatCache.keys().next().value);
   seatCache.set(key, val);
   return val;
+}
+
+/**
+ * Scritta fatta con i seggiolini: per ogni posto 1 se fa parte delle lettere. Le lettere stanno nel lato e nell'anello
+ * scelti (0 = tutti), centrate, alte quasi quanto le file e larghe al massimo il 78% del settore; si leggono dal campo.
+ */
+function standTextMask(seats, st) {
+  const text = st.standText.trim();
+  if (!text) return null;
+  const side = TEXT_SIDES.find(t => t.id === st.standTextSide).side;
+  const ring = Math.min(st.standTextRing, seats.tierRows.length); // 0 = tutti gli anelli
+  const before = [0];
+  seats.tierRows.forEach((r, i) => before.push(before[i] + r));
+  const total = ring ? seats.tierRows[ring - 1] : before[before.length - 1];
+  const M = seats.matrices, info = seats.info, sel = [];
+  // coordinata lungo il lato, da sinistra a destra per chi guarda dal campo
+  const along = (i) => { const x = M[i * 16 + 12], z = M[i * 16 + 14]; return side === 0 ? -x : side === 2 ? x : side === 1 ? z : -z; };
+  let amin = Infinity, amax = -Infinity;
+  for (let i = 0; i < seats.count; i++) {
+    const tier = (info[i] >> 1) & 3;
+    if (info[i] >> 3 !== side || (ring && tier !== ring - 1)) continue;
+    const a = along(i);
+    sel.push(i);
+    if (a < amin) amin = a;
+    if (a > amax) amax = a;
+  }
+  if (!sel.length || amax - amin < 4) return null;
+  // disegno in pixel quadrati di 25 cm: un posto è largo 2 pixel, una fila (gradone in diagonale) circa 4
+  const PX = 0.25, rowM = Math.hypot(TREAD, 0.5);
+  const cw = Math.ceil((amax - amin) / PX), ch = Math.ceil(total * rowM / PX);
+  const c = document.createElement('canvas');
+  c.width = cw; c.height = ch;
+  const ctx = c.getContext('2d');
+  const font = (px) => `900 ${px}px "Arial Black", "Helvetica Neue", Arial, sans-serif`;
+  ctx.font = font(100);
+  const m = ctx.measureText(text), asc = m.actualBoundingBoxAscent || 72, desc = m.actualBoundingBoxDescent || 0;
+  let px = 100 * ch * 0.8 / (asc + desc);
+  px = Math.min(px, 100 * cw * 0.78 / (m.width || 1));
+  ctx.font = font(px);
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(text, cw / 2, ch / 2 + (asc - desc) * px / 200);
+  const data = ctx.getImageData(0, 0, cw, ch).data, mask = new Uint8Array(seats.count);
+  for (const i of sel) {
+    const g = ring ? seats.rows[i] : before[(info[i] >> 1) & 3] + seats.rows[i];
+    const x = Math.min(cw - 1, Math.floor((along(i) - amin) / PX)), y = Math.min(ch - 1, Math.floor((total - 1 - g + 0.5) / total * ch));
+    if (data[(y * cw + x) * 4 + 3] > 110) mask[i] = 1;
+  }
+  return mask;
 }
 
 /** Capienza: numero di seggiolini dello stadio. */
@@ -693,7 +805,169 @@ function reachOf(shape, st) {
     h = Math.max(h, G.top + TOWER_OVER + 8);
     x = G.X + GIRDER_L + 2; z = G.Z + GIRDER_L + 2;
   } else if (lightsOf(st) === 'towers') { d = Math.max(d, towerDist(shape, st) + 6); h = towerHeight(shape, st) + 6; }
+  if (st.screen !== 'none' && st.roof === 'none') h = Math.max(h, screenOf(shape, st).y + (st.screen === 'ends' ? ENDS_H : SCREEN_H) + 1);
   return { d: d + 1.5, h, x, z };
+}
+
+/* ------------------------------------------------------- maxischermo e scritte */
+const SCREEN_H = 4.2, SCREEN_PANEL = SCREEN_H * 8; // anello: alto 4,2 m, la tela (1024 x 128) copre 33,6 m
+const ENDS_W = 26, ENDS_H = 7;                       // schermi sopra le curve
+
+/**
+ * Dove sta il maxischermo: distanza dal bordo degli spalti (ds) e quota. Con la copertura è appeso sotto il bordo
+ * del tetto (y = lato alto, roofY = sotto del tetto per i tiranti), senza copertura poggia sul muro in cima agli spalti (y = lato basso).
+ */
+function screenOf(shape, st) {
+  const T = shape.tiers[shape.tiers.length - 1];
+  if (st.roof === 'shell') {
+    const S = shellOf(shape, st), ds = S.dIn + 3;
+    let hr = S.hIn;
+    for (let j = 1; j < S.pts.length; j++) {
+      const a = S.pts[j - 1], b = S.pts[j];
+      if ((a.d - ds) * (b.d - ds) <= 0 && a.d !== b.d) hr = Math.max(hr, a.h + (b.h - a.h) * (ds - a.d) / (b.d - a.d));
+    }
+    return { ds, hang: true, y: hr - 2.4, roofY: hr };
+  }
+  if (st.roof !== 'none') {
+    const R = roofOf(shape, st.roof), ds = R.dIn + 0.9, ribbed = st.roof === 'truss' || st.roof === 'girders';
+    return { ds, hang: true, y: R.h(R.dIn) - 3.2, roofY: R.h(ds) - (ribbed ? R.depth(ds) : 0.4) };
+  }
+  return { ds: T.back + WALL / 2, hang: false, y: T.top + 2.2 };
+}
+
+/** Immagine del maxischermo: nome dello stadio, punteggio, campo e minuto (anello) o tabellone (sopra le curve). */
+function paintScreen(canvas, kind, name, color) {
+  const ctx = canvas.getContext('2d'), W = canvas.width, H = canvas.height;
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, shade(color, 1.35)); bg.addColorStop(1, shade(color, 0.7));
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  const font = (px) => `900 ${px}px "Arial Black", "Helvetica Neue", Arial, sans-serif`;
+  const fit = (text, x, y, maxW, px) => {
+    ctx.font = font(px);
+    const w = ctx.measureText(text).width;
+    if (w > maxW) ctx.font = font(px * maxW / w);
+    ctx.fillText(text, x, y);
+  };
+  const pitch = (x, y, w, h) => {
+    ctx.fillStyle = '#2f9a3e'; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#38ad48';
+    for (let i = 0; i < 8; i += 2) ctx.fillRect(x + w * i / 8, y, w / 8, h);
+    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = Math.max(1.5, h / 40);
+    ctx.strokeRect(x + 4, y + 4, w - 8, h - 8);
+    ctx.beginPath(); ctx.moveTo(x + w / 2, y + 4); ctx.lineTo(x + w / 2, y + h - 4); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x + w / 2, y + h / 2, h / 6, 0, Math.PI * 2); ctx.stroke();
+  };
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (kind === 'ring') {
+    fit(name, 170, H / 2 + 4, 300, 54);
+    ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(338, 14, 4, H - 28);
+    pitch(360, 12, 230, H - 24);
+    ctx.fillStyle = '#fff'; fit('2 - 1', 705, H / 2 + 4, 200, 80);
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(820, 18, 186, H - 36);
+    ctx.fillStyle = '#fff'; fit("88:10", 913, H / 2 + 3, 160, 52);
+  } else {
+    fit(name, W / 2, H * 0.17, W * 0.9, 50);
+    pitch(30, H * 0.34, W * 0.27, H * 0.5);
+    pitch(W - 30 - W * 0.27, H * 0.34, W * 0.27, H * 0.5);
+    fit('2 - 1', W / 2, H * 0.6, W * 0.36, 120);
+    fit("88:10", W / 2, H * 0.88, W * 0.3, 34);
+  }
+}
+
+/**
+ * Dove va la scritta sull'esterno, sui due lati lunghi: quota del centro (hc), altezza massima (maxH), distanza dal
+ * bordo a ogni quota (dAt) e pianta chiusa a quella distanza (outline). Segue l'esterno scelto: involucro, ringhiera
+ * della piattaforma, cornicione, pilastri o muro.
+ */
+function signOf(shape, st) {
+  const T = shape.tiers[shape.tiers.length - 1], o = shape.outer, Ht = T.top + 2.2;
+  if (st.roof === 'shell') {
+    const S = shellOf(shape, st), wall = [];
+    // muro gonfio dell'involucro: punti dal basso fino alla cresta (la quota sale)
+    for (const p of S.pts) { if (wall.length && p.h <= wall[wall.length - 1].h) break; wall.push(p); }
+    const best = wall.reduce((m, p) => (p.d > m.d ? p : m), wall[0]);
+    const dAt = (h) => {
+      for (let j = 1; j < wall.length; j++) if (wall[j].h >= h) { const a = wall[j - 1], b = wall[j]; return a.d + (b.d - a.d) * (h - a.h) / (b.h - a.h) + 0.2; }
+      return wall[wall.length - 1].d + 0.2;
+    };
+    return { hc: best.h, maxH: 8.5, dAt, outline: S.rowAt, rows: 8 };
+  }
+  const outline = (d) => { const pts = shape.path.map(p => [p.x + p.mx * d, p.z + p.mz * d]); pts.push(pts[0]); return pts; };
+  const free = Math.min(6, Math.max(3, Ht * 0.2));
+  const [d, hc, maxH] = {
+    struts: [o + PLATFORM_OUT + 0.12, PLATFORM_H + 2.9, 3.4],                   // sopra la ringhiera della piattaforma, davanti ai piloni
+    bands: [o + 1.95, Ht - (RAMP_BAND + 0.15) / 2, RAMP_BAND - 0.25],           // cornicione
+    columns: [o + 0.8, Ht * 0.62, free]                                         // davanti ai pilastri
+  }[st.facade] || [o + 0.08, Math.max(Ht * 0.62, (st.facade === 'esplanade' ? ESPLANADE_H : 0) + 4.5), free];
+  return { hc, maxH, dAt: () => d, outline, rows: 1 };
+}
+
+/** z del contorno chiuso `poly` alla x data, sul lato sgn (+1 z > 0, -1 z < 0); il punto più esterno. */
+function zOn(poly, x, sgn) {
+  let best = -Infinity;
+  for (let j = 1; j < poly.length; j++) {
+    const a = poly[j - 1], b = poly[j];
+    if (a[1] * sgn <= 0 && b[1] * sgn <= 0) continue;
+    if ((a[0] - x) * (b[0] - x) > 0 || a[0] === b[0]) continue;
+    best = Math.max(best, (a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0])) * sgn);
+  }
+  return best === -Infinity ? null : best * sgn;
+}
+
+/**
+ * Scritta sull'esterno: un nastro con la scritta che segue la facciata, centrato su ciascun lato lungo e leggibile da
+ * fuori. Si accende di notte.
+ */
+function buildSign(THREE, shape, st, text, color) {
+  const c = document.createElement('canvas'), ctx = c.getContext('2d');
+  const font = `900 120px "Arial Black", "Helvetica Neue", Arial, sans-serif`;
+  ctx.font = font;
+  const m = ctx.measureText(text), asc = m.actualBoundingBoxAscent || 88, desc = m.actualBoundingBoxDescent || 4;
+  c.width = Math.ceil(m.width + 50); c.height = Math.ceil(asc + desc + 36);
+  ctx.font = font; ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.shadowColor = 'rgba(0,0,0,.28)'; ctx.shadowBlur = 6;
+  ctx.fillText(text, c.width / 2, 18 + asc);
+  const aspect = c.width / c.height;
+
+  const sg = signOf(shape, st), mid = sg.outline(sg.dAt(sg.hc));
+  // larghezza: il tratto quasi dritto del lato lungo
+  const zmax = Math.max(...mid.map(p => p[1])), half = Math.max(...mid.filter(p => p[1] >= zmax - 1.2).map(p => Math.abs(p[0])));
+  let H = sg.maxH, W = H * aspect;
+  const maxW = Math.max(8, 2 * half * 0.92);
+  if (W > maxW) { H *= maxW / W; W = maxW; }
+  const hb = sg.hc - H / 2, NR = sg.rows, NC = Math.max(8, Math.ceil(W / 0.7));
+  const pos = [], uv = [], idx = [];
+  for (const sgn of [1, -1]) {
+    const base = pos.length / 3;
+    for (let r = 0; r <= NR; r++) {
+      const h = hb + H * r / NR, poly = sg.outline(sg.dAt(h));
+      for (let i = 0; i <= NC; i++) {
+        const t = i / NC, x = sgn > 0 ? -W / 2 + W * t : W / 2 - W * t; // da fuori si legge da sinistra a destra
+        const z = zOn(poly, x, sgn) ?? sgn * zmax, z0 = zOn(poly, x - 0.5, sgn) ?? z, z1 = zOn(poly, x + 0.5, sgn) ?? z;
+        const nx = -(z1 - z0) * sgn, nz = sgn, nl = Math.hypot(nx, nz);
+        pos.push(x + nx / nl * 0.06, h, z + nz / nl * 0.06);
+        uv.push(t, r / NR);
+      }
+    }
+    for (let r = 0; r < NR; r++) for (let i = 0; i < NC; i++) {
+      const a = base + r * (NC + 1) + i, b = a + NC + 1;
+      idx.push(a, a + 1, b, a + 1, b + 1, b);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  const mat = new THREE.MeshStandardMaterial({
+    map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0, transparent: true, alphaTest: 0.35, roughness: 0.5,
+    side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2
+  });
+  const mesh = new THREE.Mesh(g, mat);
+  return { mesh, mat, dispose() { g.dispose(); mat.dispose(); tex.dispose(); } };
 }
 
 /** Lunghezze progressive del bordo interno lungo un tratto (per mettere oggetti a passo regolare). */
@@ -797,22 +1071,56 @@ function subRuns(run, pred) {
 /** Punto del bordo su un lato lungo (tribune), non sulle curve. */
 const onLongSide = (p) => Math.abs(p.mz) > 0.995;
 
-/** Cuscini a rombo dell'involucro (quasi bianchi: il colore scelto li tinge), con le giunture più scure. */
-function cushionCanvas() {
-  const W = 256, H = 164, c = document.createElement('canvas');
-  c.width = W; c.height = H;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#868e97'; ctx.fillRect(0, 0, W, H);
-  for (const [cx, cy] of [[W / 2, H / 2], [0, 0], [W, 0], [0, H], [W, H]]) {
-    // cuscino gonfio: chiaro in alto al centro, più scuro verso le giunture
-    const g = ctx.createRadialGradient(cx - W * 0.06, cy - H * 0.14, 2, cx, cy, W * 0.42);
+/**
+ * Disegno dell'involucro (quasi bianco: il colore scelto lo tinge, di notte si accende). Restituisce la tela e quante
+ * volte ripeterla per ogni cella da SHELL_CELL_U x SHELL_CELL_V metri (rx intero: niente cuciture sul giro).
+ */
+function shellPatternCanvas(kind) {
+  const make = (W, H) => { const c = document.createElement('canvas'); c.width = W; c.height = H; return [c, c.getContext('2d')]; };
+  // cuscino gonfio: chiaro in alto al centro, più scuro verso le giunture
+  const cushion = (ctx, cx, cy, r, path) => {
+    const g = ctx.createRadialGradient(cx - r * 0.12, cy - r * 0.25, 2, cx, cy, r * 1.05);
     g.addColorStop(0, '#ffffff'); g.addColorStop(0.45, '#eef0f3'); g.addColorStop(1, '#bcc3cb');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - H / 2 + 3); ctx.lineTo(cx + W / 2 - 4, cy); ctx.lineTo(cx, cy + H / 2 - 3); ctx.lineTo(cx - W / 2 + 4, cy);
-    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = g; ctx.beginPath(); path(); ctx.closePath(); ctx.fill();
+  };
+  const JOINT = '#868e97';
+  if (kind === 'hex') {
+    // esagoni a punta in su: vicini a (±W, 0) e (±W/2, ±H/2), con H = W·√3
+    const W = 148, H = 256, r = H / 3, [c, ctx] = make(W, H);
+    ctx.fillStyle = JOINT; ctx.fillRect(0, 0, W, H);
+    for (const [cx, cy] of [[0, 0], [W, 0], [W / 2, H / 2], [0, H], [W, H]]) {
+      cushion(ctx, cx, cy, r, () => { for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + k * Math.PI / 3; ctx.lineTo(cx + Math.cos(a) * (r - 4), cy + Math.sin(a) * (r - 4)); } });
+    }
+    return { canvas: c, rx: 2, ry: SHELL_CELL_V / (SHELL_CELL_U / 2 * Math.sqrt(3)) };
   }
-  return c;
+  if (kind === 'scales') {
+    // squame: file di semicerchi sfalsati, quelle più in basso sopra le altre
+    const W = 256, H = 128, R = W / 4, [c, ctx] = make(W, H);
+    ctx.fillStyle = JOINT; ctx.fillRect(0, 0, W, H);
+    for (const [y, xs] of [[0, [0, W / 2, W]], [H / 2, [W / 4, 3 * W / 4]], [H, [0, W / 2, W]], [H * 1.5, [W / 4, 3 * W / 4]]]) {
+      for (const x of xs) cushion(ctx, x, y, R, () => ctx.arc(x, y, R - 3, 0, Math.PI * 2));
+    }
+    return { canvas: c, rx: 2, ry: SHELL_CELL_V / (SHELL_CELL_U / 4) };
+  }
+  if (kind === 'stripes') {
+    // fasce orizzontali gonfie
+    const [c, ctx] = make(64, 64), g = ctx.createLinearGradient(0, 0, 0, 64);
+    g.addColorStop(0, '#bcc3cb'); g.addColorStop(0.3, '#ffffff'); g.addColorStop(0.7, '#eef0f3'); g.addColorStop(0.94, '#bcc3cb'); g.addColorStop(1, JOINT);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 64, 64);
+    return { canvas: c, rx: 1, ry: 1.6 };
+  }
+  if (kind === 'plain') {
+    const [c, ctx] = make(8, 8);
+    ctx.fillStyle = '#f2f4f6'; ctx.fillRect(0, 0, 8, 8);
+    return { canvas: c, rx: 1, ry: 1 };
+  }
+  // rombi (come l'Allianz Arena)
+  const W = 256, H = 164, [c, ctx] = make(W, H);
+  ctx.fillStyle = JOINT; ctx.fillRect(0, 0, W, H);
+  for (const [cx, cy] of [[W / 2, H / 2], [0, 0], [W, 0], [0, H], [W, H]]) {
+    cushion(ctx, cx, cy, W * 0.4, () => { ctx.moveTo(cx, cy - H / 2 + 3); ctx.lineTo(cx + W / 2 - 4, cy); ctx.lineTo(cx, cy + H / 2 - 3); ctx.lineTo(cx - W / 2 + 4, cy); });
+  }
+  return { canvas: c, rx: 1, ry: 1 };
 }
 
 /**
@@ -985,7 +1293,9 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   const cylinder = new THREE.CylinderGeometry(1, 1, 1, 28);
   own.push(dark, girderMat, cylinder);
   const beams = [], pilasters = [], lamps = [], spots = [], windows = [];
-  const towerCores = [], towerCaps = [], girderBeams = [], drums = [];
+  const towerCores = [], towerCaps = [], girderBeams = [], drums = [], frames = [];
+  const screenFrame = new THREE.MeshStandardMaterial({ color: 0x1b1e23, roughness: 0.6, side: THREE.DoubleSide });
+  own.push(screenFrame);
   const ramps = surface(), wedges = surface();
   const lights = lightsOf(st);
   let deckMat = null;
@@ -1003,8 +1313,10 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     // involucro a cuscini: parte bianca (fuori e sopra) e tetto trasparente fino all'apertura; gira tutto intorno
     // anche con le curve staccate. Di notte i cuscini si accendono del colore scelto.
     const S = shellOf(shape, st);
-    const tex = new THREE.CanvasTexture(cushionCanvas());
+    const pat = shellPatternCanvas(st.shellPattern);
+    const tex = new THREE.CanvasTexture(pat.canvas);
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(pat.rx, pat.ry);
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 4;
     shellMat = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissiveIntensity: 0, roughness: 0.38, side: THREE.DoubleSide });
@@ -1387,6 +1699,74 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     }
   }
 
+  // maxischermo: anello a 360° (lungo i tratti) o due schermi sopra le curve, con la cornice scura e i tiranti
+  let screen = null;
+  if (st.screen !== 'none') {
+    const Sc = screenOf(shape, st), ring = st.screen === 'ring', Hs = ring ? SCREEN_H : ENDS_H;
+    const ht = Sc.hang ? Sc.y : Sc.y + Hs, hb = ht - Hs;
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024; canvas.height = ring ? 128 : Math.round(1024 * ENDS_H / ENDS_W);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.anisotropy = 4;
+    const faceMat = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 1, side: THREE.DoubleSide });
+    own.push(tex, faceMat);
+    const facePos = [], faceUv = [], faceIdx = [], framePos = [], frameIdx = [[], [], []];
+    const quad = (pts, uvs) => {
+      const b = facePos.length / 3;
+      pts.forEach(p => facePos.push(...p)); uvs.forEach(u => faceUv.push(...u));
+      faceIdx.push(b, b + 1, b + 2, b, b + 2, b + 3);
+    };
+    if (ring) {
+      for (const run of shape.runs) {
+        const P = run.pts, n = P.length, cnt = run.closed ? n + 1 : n, us = [0];
+        const at = (k) => { const p = P[k % n]; return [p.x + p.mx * (Sc.ds - 0.04), p.z + p.mz * (Sc.ds - 0.04)]; };
+        for (let k = 1; k < cnt; k++) { const a = at(k - 1), b = at(k); us.push(us[k - 1] + Math.hypot(b[0] - a[0], b[1] - a[1])); }
+        const len = us[cnt - 1] || 1, cells = Math.max(1, Math.round(len / SCREEN_PANEL));
+        for (let k = 1; k < cnt; k++) {
+          const a = at(k - 1), b = at(k), ua = us[k - 1] / len * cells, ub = us[k] / len * cells;
+          quad([[a[0], hb, a[1]], [b[0], hb, b[1]], [b[0], ht, b[1]], [a[0], ht, a[1]]], [[ua, 0], [ub, 0], [ub, 1], [ua, 1]]);
+        }
+        extrude(THREE, run, [[Sc.ds, hb - 0.25], [Sc.ds + 0.5, hb - 0.25], [Sc.ds + 0.5, ht + 0.25], [Sc.ds, ht + 0.25]].map(([d, h]) => ({ d, h, m: 0 })), framePos, frameIdx);
+        if (Sc.hang) {
+          const cum = runLengths(run);
+          for (const u of stations(run, cum, 12)) { const [x, z] = pointAt(run, cum, u, Sc.ds + 0.25); beam(beams, x, ht + 0.2, z, x, Sc.roofY, z, 0.12); }
+        }
+      }
+    } else {
+      for (const sgn of [1, -1]) {
+        // centro della curva: punto del bordo con la x più grande (o più piccola)
+        const c0 = shape.path.reduce((m, p) => (p.x * sgn > m.x * sgn ? p : m), shape.path[0]);
+        const x = sgn * (Math.abs(c0.x) + Sc.ds), xf = x - sgn * 0.04, w = ENDS_W / 2;
+        // dal campo si legge da sinistra a destra: guardando verso +x la destra è +z
+        quad([[xf, hb, -sgn * w], [xf, hb, sgn * w], [xf, ht, sgn * w], [xf, ht, -sgn * w]], [[0, 0], [1, 0], [1, 1], [0, 1]]);
+        boxAt(frames, x + sgn * 0.25, (hb + ht) / 2, 0, [0.5, 0, 0], [0, Hs + 0.5, 0], [0, 0, ENDS_W + 0.5]);
+        if (Sc.hang) for (const zz of [-w + 2, 0, w - 2]) beam(beams, x + sgn * 0.25, ht + 0.2, zz, x + sgn * 0.25, Sc.roofY, zz, 0.12);
+        else for (const zz of [-w + 2, w - 2]) beam(pilasters, x + sgn * 0.25, Sc.y - 6, zz, x + sgn * 0.25, Sc.y, zz, 0.5);
+      }
+    }
+    const fg = new THREE.BufferGeometry();
+    fg.setAttribute('position', new THREE.Float32BufferAttribute(facePos, 3));
+    fg.setAttribute('uv', new THREE.Float32BufferAttribute(faceUv, 2));
+    fg.setIndex(faceIdx);
+    fg.computeVertexNormals();
+    const face = new THREE.Mesh(fg, faceMat);
+    group.add(face);
+    own.push(fg);
+    if (framePos.length) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(framePos, 3));
+      g.setIndex(frameIdx[0]);
+      g.computeVertexNormals();
+      const frame = new THREE.Mesh(g, screenFrame);
+      frame.castShadow = true;
+      group.add(frame);
+      own.push(g);
+    }
+    screen = { canvas, tex, kind: st.screen };
+  }
+
   if (st.facade === 'columns') {
     const top = shape.tiers[shape.tiers.length - 1], H = top.top + 2.2, d = shape.outer + 0.35;
     for (const run of shape.runs) {
@@ -1413,6 +1793,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   inst(steel, beams);
   inst(structMat, pilasters);
   inst(glass, windows);
+  inst(screenFrame, frames);
   inst(dark, towerCores, cylinder);
   inst(parapetMat, towerCaps, cylinder);
   inst(steel, drums, cylinder);
@@ -1427,7 +1808,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   inst(girderMat, girderBeams);
   inst([steel, steel, steel, steel, lamp, steel], lamps); // la faccia +z del proiettore è quella accesa
 
-  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots };
+  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen };
 }
 
 /* --------------------------------------------------------------- scena */
@@ -1516,10 +1897,12 @@ function buildStadium(L, st) {
     return l;
   });
 
-  let paintKey = '', seatColorKey = '';
+  let paintKey = '', seatColorKey = '', signKey = '', screenKey = '', sign = null, night = false;
   return {
     key: geomKey(st), group, shape, ext, height: reach.h, capacity: seats.count,
     setNight(on) {
+      night = on;
+      if (sign) sign.mat.emissiveIntensity = on ? 0.9 : 0; // la scritta si accende
       outside.lamp.emissiveIntensity = on ? 5 : 0.6;
       if (outside.shellMat) outside.shellMat.emissiveIntensity = on ? 0.85 : 0; // l'involucro si accende
       nightLights.forEach(l => { l.visible = on; });
@@ -1532,6 +1915,24 @@ function buildStadium(L, st) {
       outside.girder.color.set(c.girder);
       if (outside.deckMat) outside.deckMat.color.set(c.roof);
       if (outside.shellMat) { outside.shellMat.color.set(c.roof); outside.shellMat.emissive.set(c.glow); }
+      // scritta sull'esterno: si ricostruisce solo se cambiano testo o colore
+      const sgk = s.outerText.trim() + '|' + c.outerText;
+      if (sgk !== signKey) {
+        signKey = sgk;
+        if (sign) { group.remove(sign.mesh); sign.dispose(); sign = null; }
+        if (s.outerText.trim()) {
+          sign = buildSign(THREE, shape, s, s.outerText.trim(), c.outerText);
+          sign.mat.emissiveIntensity = night ? 0.9 : 0;
+          group.add(sign.mesh);
+        }
+      }
+      // maxischermo: nome dello stadio e colore
+      const scr = outside.screen, sck = s.name.trim() + '|' + c.screen;
+      if (scr && sck !== screenKey) {
+        screenKey = sck;
+        paintScreen(scr.canvas, scr.kind, (s.name.trim() || 'FANTACAZZ').toUpperCase(), c.screen);
+        scr.tex.needsUpdate = true;
+      }
       mats[M_PARAPET].color.set(c.parapet);
       mats[M_STEPS].color.set(shade(c.structure, 1.12));
       mats[M_STRUCT].color.set(shade(c.structure, 0.82));
@@ -1541,23 +1942,35 @@ function buildStadium(L, st) {
         paintPitch(pitchCanvas, s); pitchTex.needsUpdate = true;
         paintBase(baseCanvas, s, shape, ext); baseTex.needsUpdate = true;
       }
-      const sk = [s.seatMode, c.seatA, c.seatB, c.seatC, c.seatD].join('|');
+      const sk = JSON.stringify([s.seatMode, c.seatA, c.seatB, c.seatC, c.seatD, s.seatGrid, s.seatMosaic, s.standText, s.standTextSide, s.standTextRing, c.standText]);
       if (sk !== seatColorKey) {
         seatColorKey = sk;
-        const pal = [c.seatA, c.seatB, c.seatC, c.seatD].map(h => new THREE.Color(h));
+        // tavolozza: 0-3 colori A-D, 4-15 settore e anello (lato * 3 + anello); ognuno con le varianti per il mosaico
+        const white = new THREE.Color(1, 1, 1);
+        const pal = [c.seatA, c.seatB, c.seatC, c.seatD];
+        for (let side = 0; side < 4; side++) for (let r = 0; r < 3; r++) pal.push(s.seatGrid[gridKey(side, r)]);
+        const base = pal.map(h => new THREE.Color(h));
+        const dark = base.map(col => col.clone().multiplyScalar(0.68)), light = base.map(col => col.clone().lerp(white, 0.42));
+        const txt = new THREE.Color(c.standText), mask = standTextMask(seats, s);
         const arr = seatMesh.instanceColor.array, info = seats.info;
         for (let i = 0; i < seats.count; i++) {
           let k = 0;
+          const h = (Math.imul(i + 1, 2654435761) >>> 0) / 4294967296;
           if (s.seatMode === 'sectors') k = info[i] & 1;
           else if (s.seatMode === 'rings') k = (info[i] >> 1) & 3;
           else if (s.seatMode === 'sides') k = info[i] >> 3;
-          else if (s.seatMode === 'mosaic') { const h = (Math.imul(i + 1, 2654435761) >>> 0) / 4294967296; k = h < 0.6 ? 0 : h < 0.88 ? 1 : 2; }
-          arr[i * 3] = pal[k].r; arr[i * 3 + 1] = pal[k].g; arr[i * 3 + 2] = pal[k].b;
+          else if (s.seatMode === 'grid') k = 4 + (info[i] >> 3) * 3 + ((info[i] >> 1) & 3);
+          else if (s.seatMode === 'mosaic') k = h < 0.6 ? 0 : h < 0.88 ? 1 : 2;
+          // effetto mosaico: ogni posto resta del colore del suo settore, più scuro o più chiaro a caso
+          let col = base[k];
+          if (s.seatMosaic && s.seatMode !== 'mosaic') col = h < 0.58 ? base[k] : h < 0.84 ? dark[k] : light[k];
+          if (mask && mask[i]) col = txt;
+          arr[i * 3] = col.r; arr[i * 3 + 1] = col.g; arr[i * 3 + 2] = col.b;
         }
         seatMesh.instanceColor.needsUpdate = true;
       }
     },
-    dispose() { own.forEach(o => o.dispose()); seatMesh.dispose(); }
+    dispose() { own.forEach(o => o.dispose()); seatMesh.dispose(); if (sign) sign.dispose(); }
   };
 }
 
@@ -1689,6 +2102,9 @@ class Stage {
     this.camera.lookAt(target);
     if (this.controls) {
       if (!this.zoom) this.controls.minPolarAngle = this.controls.maxPolarAngle = sph.phi;
+      // i limiti di distanza non devono spostare la camera (la tribuna è più vicina del minimo pensato per le viste dall'alto)
+      this.controls.minDistance = Math.min(this.dist * 0.12, sph.radius * 0.95);
+      this.controls.maxDistance = Math.max(this.dist * 1.5, sph.radius * 1.05);
       this.controls.target.copy(target);
       this.controls.update();
     }
