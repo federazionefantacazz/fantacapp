@@ -4,7 +4,8 @@ import { dataUrlToBlob } from '../components/Kit3D.js';
 import {
   createStadiumViewer, renderStadiumImage, stadiumCapacity, shownCapacity, normalizeStadium, defaultStadium, applyPreset,
   RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY,
-  SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom
+  SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom,
+  ringsBySide, maxRingsOf
 } from '../components/Stadium3D.js';
 import { injectStyle, parseColor, SWATCHES } from './DivisaSquadra.js';
 import { esc } from './menuUtils.js';
@@ -40,6 +41,9 @@ function injectStadiumStyle() {
     .std-grid .hd { font-size: .62rem; font-weight: 700; color: var(--label, var(--text2)); text-align: center; text-transform: uppercase; }
     .std-grid .nm { font-size: .8rem; font-weight: 600; color: var(--text); }
     .std-grid .kit-color { width: 46px; }
+    .std-sides { display: grid; grid-template-columns: minmax(0, 7.2rem) minmax(0, 1fr); gap: .45rem .5rem; align-items: center; margin-top: .35rem; }
+    .std-sides .nm { font-size: .8rem; font-weight: 600; color: var(--text); }
+    .std-sides .kit-chips { margin: 0; }
   `;
   document.head.appendChild(style);
 }
@@ -48,7 +52,7 @@ function injectStadiumStyle() {
 function seatFields(st) {
   switch (st.seatMode) {
     case 'sectors': return [['seatA', 'Tribune (lati lunghi)'], ['seatB', 'Curve']];
-    case 'rings':   return [['seatA', 'Primo anello'], ['seatB', 'Secondo anello'], ['seatC', 'Terzo anello']].slice(0, st.rings);
+    case 'rings':   return [['seatA', 'Primo anello'], ['seatB', 'Secondo anello'], ['seatC', 'Terzo anello']].slice(0, maxRingsOf(st));
     case 'sides':   return [['seatA', 'Tribuna (lato vicino)'], ['seatC', 'Distinti (lato di fronte)'], ['seatD', 'Curva sinistra'], ['seatB', 'Curva destra']];
     default:        return [['seatA', 'Seggiolini']];
   }
@@ -218,6 +222,13 @@ export const StadioSquadra = {
       <div class="kit-sub">Anelli delle curve</div>
       <div class="kit-chips">${this._chip('ringsEnds', 0, 'Come le tribune', !s.ringsEnds)}${RINGS.map(r => this._chip('ringsEnds', r.id, r.label, s.ringsEnds === r.id)).join('')}</div>
       <div class="mp-muted" style="margin-top:.3rem;">Con un numero diverso di anelli tribune e curve hanno altezze diverse: quella più alta sale sopra l'altra.</div>
+      <div class="kit-sub">Anelli settore per settore</div>
+      <div class="mp-muted">Per cambiare un solo settore (per esempio la tribuna principale più alta): "Auto" segue le scelte qui sopra.</div>
+      <div class="std-sides">${SEAT_SIDES.filter(sd => !(s.horseshoe && sd.id === 3)).map(sd => {
+        const auto = sd.id % 2 ? (s.ringsEnds || s.rings) : s.rings, cur = s.ringsSides[sd.id];
+        return `<span class="nm">${esc(sd.label)}</span><div class="kit-chips">${[[0, `Auto (${auto})`], ...RINGS.map(r => [r.id, String(r.id)])]
+          .map(([n, l]) => `<button class="lv-chip ${cur === n ? 'on' : ''}" data-act="ringsSide" data-side="${sd.id}" data-v="${n}">${esc(l)}</button>`).join('')}</div>`;
+      }).join('')}</div>
       <div class="kit-sub">Pista d'atletica</div>
       <div class="kit-chips">${this._chip('track', '1', 'Sì', s.track)}${this._chip('track', '0', 'No', !s.track)}</div>
       ${s.track ? `${this._colorRow('Colore della pista', 'colors.track', s.colors.track)}${this._colorRow('Linee delle corsie', 'colors.trackLines', s.colors.trackLines)}
@@ -225,7 +236,7 @@ export const StadioSquadra = {
       <div class="kit-chips">${this._chip('trackApron', '0', 'Prato', !s.trackApron)}${this._chip('trackApron', '1', 'Colorato', s.trackApron)}</div>
       ${s.trackApron ? this._colorRow('Colore del fondo (anche ai lati del campo)', 'colors.apron', s.colors.apron) : ''}` : ''}
       <div class="mp-muted" style="margin-top:.3rem;">Con la pista gli spalti sono più lontani dal campo.</div>
-      ${s.rings > 1 ? `<div class="kit-sub">Palchi vetrati tra gli anelli</div>
+      ${maxRingsOf(s) > 1 ? `<div class="kit-sub">Palchi vetrati tra gli anelli</div>
       <div class="kit-chips">${this._chip('boxes', '1', 'Sì', s.boxes)}${this._chip('boxes', '0', 'No', !s.boxes)}</div>` : ''}
       <div class="kit-sub">Forma delle curve</div>
       <div class="kit-chips">${SHAPES.map(o => this._chip('shape', o.id, o.label, s.shape === o.id)).join('')}</div>
@@ -259,7 +270,10 @@ export const StadioSquadra = {
       ${s.roof !== 'none' ? `
       <div class="kit-sub">Dove mettere la copertura</div>
       ${WRAP_ROOFS.includes(s.roof) ? `<div class="mp-muted">Questa copertura avvolge tutto lo stadio.</div>` : `
-      <div class="kit-chips">${ROOF_COVERS.map(o => this._chip('roofCover', o.id, o.label, s.roofCover === o.id)).join('')}</div>`}
+      <div class="kit-chips">${ROOF_COVERS.map(o => this._chip('roofCover', o.id, o.label, s.roofCover === o.id)).join('')}</div>
+      ${s.roofCover === 'pick' ? `
+      <div class="kit-chips" style="margin-top:.45rem;">${SEAT_SIDES.map(sd => `<button class="lv-chip ${s.roofSectors[sd.id] ? 'on' : ''}" data-act="roofSide" data-v="${sd.id}">${esc(sd.label)}</button>`).join('')}</div>
+      <div class="mp-muted" style="margin-top:.3rem;">${s.roofSectors.some(Boolean) ? 'Tocca i settori da coprire o scoprire: anche uno solo, come la tribuna del Camp Nou.' : 'Nessun settore scelto: tocca quelli da coprire.'}</div>` : ''}`}
       <div class="kit-sub">Quanto copre verso il campo</div>
       <div class="kit-chips">${ROOF_REACHES.map(o => this._chip('roofReach', o.id, o.label, s.roofReach === o.id)).join('')}</div>` : ''}
       ${s.roof === 'shell' ? `
@@ -316,13 +330,14 @@ export const StadioSquadra = {
       ${this._colorRow('Terzo colore sparso', 'colors.mosaicC', s.colors.mosaicC)}` : ''}
       <div class="kit-sub">Come colorarli</div>
       <div class="kit-chips">${SEAT_MODES.map(o => this._chip('seatMode', o.id, o.label, s.seatMode === o.id)).join('')}</div>
-      ${(s.seatMode === 'rings' || grid) && s.rings === 1 ? `<div class="mp-muted" style="margin-top:.3rem;">Lo stadio ha un solo anello: aggiungine altri in "Anelli, curve e pista" per colorarli in modo diverso.</div>` : ''}
+      ${(s.seatMode === 'rings' || grid) && maxRingsOf(s) === 1 ? `<div class="mp-muted" style="margin-top:.3rem;">Lo stadio ha un solo anello: aggiungine altri in "Anelli, curve e pista" per colorarli in modo diverso.</div>` : ''}
       ${grid ? `<div class="mp-muted" style="margin-top:.3rem;">Un colore per ogni tribuna e curva, anello per anello.</div>` : ''}
       <div class="kit-sub">Colori</div>
       ${grid ? `
-      <div class="std-grid" style="--rings:${s.rings}">
-        <span></span>${Array.from({ length: s.rings }, (_, r) => `<span class="hd">${r + 1}° anello</span>`).join('')}
-        ${SEAT_SIDES.map(sd => `<span class="nm">${esc(sd.label)}</span>${Array.from({ length: s.rings }, (_, r) => {
+      <div class="std-grid" style="--rings:${maxRingsOf(s)}">
+        <span></span>${Array.from({ length: maxRingsOf(s) }, (_, r) => `<span class="hd">${r + 1}° anello</span>`).join('')}
+        ${SEAT_SIDES.map(sd => `<span class="nm">${esc(sd.label)}</span>${Array.from({ length: maxRingsOf(s) }, (_, r) => {
+          if (r >= ringsBySide(s)[sd.id] || (s.horseshoe && sd.id === 3)) return '<span class="hd">–</span>'; // anello che lì non c'è
           const path = `seatGrid.${gridKey(sd.id, r)}`;
           return `<input type="color" class="kit-color" data-color="${path}" value="${esc(s.seatGrid[gridKey(sd.id, r)])}" aria-label="${esc(sd.label)}, ${r + 1}° anello">`;
         }).join('')}`).join('')}
@@ -337,13 +352,13 @@ export const StadioSquadra = {
 
   _secTexts() {
     const s = this._st;
-    const rings = [[0, 'Tutti']].concat(Array.from({ length: s.rings }, (_, r) => [r + 1, `${r + 1}° anello`]));
+    const rings = [[0, 'Tutti']].concat(Array.from({ length: maxRingsOf(s) }, (_, r) => [r + 1, `${r + 1}° anello`]));
     return `
       <div class="kit-sub">Scritta sugli spalti</div>
       <label class="kit-field"><span>Testo</span><input type="text" data-text="standText" value="${esc(s.standText)}" maxlength="${MAX_STAND_TEXT}" placeholder="Es. FORZA RAGAZZI"></label>
       ${this._fontChips('standTextFont', s.standTextFont)}
       <div class="kit-chips">${TEXT_SIDES.map(o => this._chip('standTextSide', o.id, o.label, s.standTextSide === o.id)).join('')}</div>
-      <div class="kit-chips" style="margin-top:.4rem;">${rings.map(([v, l]) => this._chip('standTextRing', v, l, Math.min(s.standTextRing, s.rings) === v)).join('')}</div>
+      <div class="kit-chips" style="margin-top:.4rem;">${rings.map(([v, l]) => this._chip('standTextRing', v, l, Math.min(s.standTextRing, maxRingsOf(s)) === v)).join('')}</div>
       ${this._colorRow('Colore della scritta', 'colors.standText', s.colors.standText)}
       <div class="mp-muted" style="margin-top:.3rem;">Fatta con i seggiolini, centrata sul settore scelto e leggibile dal campo. Prova la vista Tribuna.</div>
       <div class="kit-sub">Scritta sull'esterno</div>
@@ -475,6 +490,12 @@ export const StadioSquadra = {
       }
       case 'swatch':
         this._update(() => this._set(btn.dataset.path, v));
+        return;
+      case 'ringsSide':
+        this._update(st => { st.ringsSides[Number(btn.dataset.side)] = Number(v); });
+        return;
+      case 'roofSide':
+        this._update(st => { st.roofSectors[Number(v)] = !st.roofSectors[Number(v)]; });
         return;
     }
   },

@@ -140,7 +140,8 @@ export const ROOF_COVERS = [
   { id: 'sectors', label: 'Staccata per settore' },
   { id: 'main',    label: 'Solo la tribuna principale' },
   { id: 'stands',  label: 'Entrambe le tribune' },
-  { id: 'ends',    label: 'Solo le curve' }
+  { id: 'ends',    label: 'Solo le curve' },
+  { id: 'pick',    label: 'Scegli i settori' }
 ];
 export const ROOF_REACHES = [
   { id: 'open',   label: 'Molto aperta', m: -8 },
@@ -171,8 +172,8 @@ export const TEXT_PLACES = [
 ];
 
 const DEFAULT = {
-  name: '', rings: 2, ringsEnds: 0, horseshoe: false, trackApron: false, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single',
-  roof: 'none', roofCover: 'all', roofReach: 'normal', lights: 'towers', facade: 'wall', ramps: false, boxes: false, shellPattern: 'rhombus', screen: 'none',
+  name: '', rings: 2, ringsEnds: 0, ringsSides: [0, 0, 0, 0], horseshoe: false, trackApron: false, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single',
+  roof: 'none', roofCover: 'all', roofSectors: [true, false, false, false], roofReach: 'normal', lights: 'towers', facade: 'wall', ramps: false, boxes: false, shellPattern: 'rhombus', screen: 'none',
   seatMosaic: 'none', standText: '', standTextSide: 'far', standTextRing: 1, standTextFont: 'black',
   outerText: '', outerTextFont: 'black', outerTextStyle: 'outline', outerTextSize: 'M', outerTextPlace: 'facade',
   colors: {
@@ -327,6 +328,8 @@ export function normalizeStadium(s) {
     name: String(src.name || '').slice(0, MAX_NAME),
     rings: oneOf(RINGS, Number(src.rings), DEFAULT.rings),
     ringsEnds: [1, 2, 3].includes(Number(src.ringsEnds)) ? Number(src.ringsEnds) : 0, // 0 = come le tribune
+    // anelli di un solo settore (per lato, come SEAT_SIDES): 0 = come tribune o curve
+    ringsSides: [0, 1, 2, 3].map(i => ([1, 2, 3].includes(Number((src.ringsSides || [])[i])) ? Number(src.ringsSides[i]) : 0)),
     horseshoe: !!src.horseshoe,
     trackApron: !!src.trackApron,
     track: !!src.track,
@@ -336,6 +339,9 @@ export function normalizeStadium(s) {
     seatMode: oneOf(SEAT_MODES, seatMode, DEFAULT.seatMode),
     roof: oneOf(ROOFS, src.roof, DEFAULT.roof),
     roofCover: oneOf(ROOF_COVERS, src.roofCover, DEFAULT.roofCover),
+    // "Scegli i settori": quali lati hanno la copertura (per lato, come SEAT_SIDES)
+    roofSectors: Array.isArray(src.roofSectors) || (src.roofSectors && typeof src.roofSectors === 'object')
+      ? [0, 1, 2, 3].map(i => !!src.roofSectors[i]) : [...DEFAULT.roofSectors],
     roofReach: oneOf(ROOF_REACHES, src.roofReach, DEFAULT.roofReach),
     lights: oneOf(LIGHTS, src.lights, DEFAULT.lights),
     facade: oneOf(FACADES, src.facade, DEFAULT.facade),
@@ -366,6 +372,18 @@ export function normalizeStadium(s) {
   return out;
 }
 
+/** Anelli di ogni lato (indice come SEAT_SIDES: 0 tribuna vicina, 1 curva destra, 2 tribuna di fronte, 3 curva sinistra). */
+export function ringsBySide(st) {
+  const ends = st.ringsEnds || st.rings, sides = st.ringsSides || [];
+  return [0, 1, 2, 3].map(i => sides[i] || (i % 2 ? ends : st.rings));
+}
+
+/** Anelli del settore più alto. */
+export const maxRingsOf = (st) => Math.max(...ringsBySide(st));
+
+/** Lato di un punto del bordo degli spalti (come SEAT_SIDES): sui lati lunghi le tribune, il resto alle curve. */
+const sideOfPoint = (p) => (onLongSide(p) ? (p.z > 0 ? 0 : 2) : (p.x > 0 ? 1 : 3));
+
 /* ------------------------------------------------------------- geometria */
 const PITCH = { l: 105, w: 68 };
 const TRACK = { straight: 84.39, r: 36.5, lanes: 8, lane: 1.22 }; // pista regolamentare da 400 m
@@ -379,8 +397,8 @@ const AISLE_HALF = 0.55;
 const GAP = 0.18;         // curve staccate: apertura intorno agli angoli (radianti, in coordinate normalizzate)
 const M_PARAPET = 0, M_STEPS = 1, M_STRUCT = 2, M_BOX = 3;
 
-const seatKey = (st) => [st.rings, st.ringsEnds, st.track ? 1 : 0, st.shape, st.corners, st.horseshoe ? 1 : 0].join('|');
-const geomKey = (st) => [seatKey(st), st.roof, st.roofCover, st.roofReach, st.lights, st.facade, st.ramps ? 1 : 0, st.shellPattern, st.screen, st.boxes ? 1 : 0].join('|');
+const seatKey = (st) => [ringsBySide(st).join(','), st.track ? 1 : 0, st.shape, st.corners, st.horseshoe ? 1 : 0].join('|');
+const geomKey = (st) => [seatKey(st), st.roof, st.roofCover, st.roofCover === 'pick' ? st.roofSectors.map(Number).join('') : '', st.roofReach, st.lights, st.facade, st.ramps ? 1 : 0, st.shellPattern, st.screen, st.boxes ? 1 : 0].join('|');
 
 /** Punto del bordo su un lato lungo (tribune), non sulle curve. */
 const onLongSide = (p) => Math.abs(p.mz) > 0.995;
@@ -451,7 +469,7 @@ function shapeOf(st) {
   const tiers = [];
   let D = 0, H = 1.2;
   // anelli delle tribune (lati lunghi) e delle curve: gli anelli in comune sono identici, quelli in più salgono sopra
-  const ringsEnds = st.ringsEnds || st.rings, maxRings = Math.max(st.rings, ringsEnds);
+  const counts = ringsBySide(st), maxRings = Math.max(...counts);
   ROWS[maxRings].forEach((rows, i) => {
     const R = RISERS[i], depth = rows * TREAD;
     const t = { i, rows, R, D, H, back: D + depth, top: H + (rows - 1) * R };
@@ -465,15 +483,17 @@ function shapeOf(st) {
   const last = tiers[tiers.length - 1];
   const path = buildPath(a, b, r);
   let runs = buildRuns(path, a, b, st.corners);
-  if (ringsEnds !== st.rings) {
-    // tratti separati per tribune e curve; le tribune arrivano fino al primo punto della curva (niente buchi)
+  if (new Set(counts).size > 1) {
+    // tratti separati dove cambia il numero di anelli (tribune, curve o un solo settore): quello con più anelli
+    // arriva fino al primo punto del settore vicino (niente buchi)
     const split = [];
     for (const run of runs) {
-      const P = run.pts, n = P.length, isLong = P.map(onLongSide);
-      const grow = P.map((p, i) => isLong[i] || isLong[(i + 1) % n] && (run.closed || i + 1 < n) || isLong[(i - 1 + n) % n] && (run.closed || i > 0));
-      const longPts = new Set(P.filter((p, i) => grow[i]));
-      for (const sub of subRuns(run, p => longPts.has(p))) split.push({ ...sub, tiers: tiers.slice(0, st.rings), long: true });
-      for (const sub of subRuns(run, p => !isLong[P.indexOf(p)])) split.push({ ...sub, tiers: tiers.slice(0, ringsEnds), long: false });
+      const P = run.pts, n = P.length, cnt = P.map(p => counts[sideOfPoint(p)]);
+      const at = (i) => (run.closed ? cnt[(i + n) % n] : i >= 0 && i < n ? cnt[i] : 0);
+      for (const c of new Set(cnt)) {
+        const mine = new Set(P.filter((p, i) => cnt[i] === c || cnt[i] < c && (at(i - 1) === c || at(i + 1) === c)));
+        for (const sub of subRuns(run, p => mine.has(p))) split.push({ ...sub, tiers: tiers.slice(0, c) });
+      }
     }
     runs = split;
   } else runs.forEach(run => { run.tiers = tiers; });
@@ -481,7 +501,7 @@ function shapeOf(st) {
     // ferro di cavallo: niente spalti sulla curva verso -x
     // fino all'inizio della curva (lì parte la coda del drago); con gli angoli vivi resta l'angolo, via il lato in fondo
     const keep = (p) => p.x > -(a - r) - 1e-6 && !(p.mx < 0 && Math.abs(p.mz) < 1e-6);
-    runs = runs.flatMap(run => subRuns(run, keep).map(sub => ({ ...sub, tiers: run.tiers, long: run.long })));
+    runs = runs.flatMap(run => subRuns(run, keep).map(sub => ({ ...sub, tiers: run.tiers })));
   }
   return { a, b, r, tiers, path, runs, outer: Math.max(...tiers.map(t => t.back)) + WALL, height: last.top + 2.2 };
 }
@@ -998,6 +1018,10 @@ const pylonHeight = (R) => R.h(R.dOut) + 7;
 
 /** Distanza dal bordo occupata dal muro esterno (con basamento o fasce). */
 const footOf = (shape, st) => shape.outer + ({ struts: PLATFORM_OUT + 0.2, bands: 1.8, columns: 0.8, esplanade: ESPLANADE_W + 0.2 }[st.facade] || 0);
+
+/** Muro esterno e altezza di un tratto: i settori possono avere anelli diversi, la facciata segue ognuno. */
+const runOuter = (run) => Math.max(...run.tiers.map(t => t.back)) + WALL;
+const runTop = (run) => run.tiers[run.tiers.length - 1];
 
 /**
  * Profilo dell'involucro a cuscini (stile Allianz Arena), come punti (d, h): parte poco sopra la base, si gonfia
@@ -1791,7 +1815,8 @@ function coveredRuns(shape, st) {
     sectors: (p) => Math.abs(Math.atan2(Math.abs(p.z) / shape.b, Math.abs(p.x) / shape.a) - Math.PI / 4) > 0.16,
     stands: (p) => onLongSide(p),
     main: (p) => onLongSide(p) && p.z > 0,
-    ends: (p) => !onLongSide(p)
+    ends: (p) => !onLongSide(p),
+    pick: (p) => !!st.roofSectors[sideOfPoint(p)]
   }[st.roofCover];
   return shape.runs.flatMap(run => subRuns(run, pred).map(r => ({ ...r, tiers: run.tiers })));
 }
@@ -1957,9 +1982,15 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     return Math.abs(Math.atan2(Math.abs(pz) / shape.b, Math.abs(px) / shape.a) - Math.PI / 4) >= 0.3;
   });
 
-  const R = st.roof !== 'none' && st.roof !== 'stands' && st.roof !== 'dragon' && !WRAP_ROOFS.includes(st.roof) ? roofOf(shape, st.roof, reachOf_(st)) : null;
   // dove c'è la copertura (tutto unito, per settore, solo tribune, solo curve...)
   const roofRuns = coveredRuns(shape, st);
+  // lamiera e moderna stanno all'altezza dei settori coperti: se sono più bassi degli altri il tetto non resta in aria
+  let roofShape = shape;
+  if ((st.roof === 'truss' || st.roof === 'membrane') && roofRuns.length) {
+    const tall = roofRuns.reduce((m, r) => (r.tiers.length > m.tiers.length ? r : m));
+    roofShape = { ...shape, tiers: tall.tiers, outer: Math.max(...roofRuns.map(runOuter)) };
+  }
+  const R = st.roof !== 'none' && st.roof !== 'stands' && st.roof !== 'dragon' && !WRAP_ROOFS.includes(st.roof) ? roofOf(roofShape, st.roof, reachOf_(st)) : null;
   let shellMat = null, roofDecor = null;
   if (st.roof === 'wave') {
     // copertura ondulata: sopra pannelli bianchi a costole, sotto il traliccio a triangoli (stessa superficie, due facce)
@@ -2322,12 +2353,13 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     // struttura in cemento a vista: grande anello sul bordo in alto, sotto inclinato degli spalti con travi e pilastri,
     // ballatoio chiaro a metà, piattaforma tutto intorno (pavimento e bordo colorati, ringhiera chiara);
     // sotto la piattaforma il basamento bianco con le finestre solo sui lati lunghi, sulle curve i pilastri
-    const tiers = shape.tiers, T = tiers[tiers.length - 1], o = shape.outer;
+    const tiers = shape.tiers;
     const rect = (d0, d1, h0, h1, m) => [[d0, h0], [d1, h0], [d1, h1], [d0, h1]].map(([d, h]) => ({ d, h, m }));
     const Hw = Math.max(8.5, tiers[0].top * 0.6);                       // ballatoio
-    const walk = [[tiers[0].back - 1, Hw - 0.5], [o + 0.4, Hw - 0.5], [o + 0.4, Hw + 1.1], [o + 0.15, Hw + 1.1], [o + 0.15, Hw], [tiers[0].back - 1, Hw]].map(([d, h]) => ({ d, h, m: 1 }));
     const pos = [], idx = [[], [], [], []];
     for (const run of shape.runs) {
+      const T = runTop(run), o = runOuter(run);
+      const walk = [[tiers[0].back - 1, Hw - 0.5], [o + 0.4, Hw - 0.5], [o + 0.4, Hw + 1.1], [o + 0.15, Hw + 1.1], [o + 0.15, Hw], [tiers[0].back - 1, Hw]].map(([d, h]) => ({ d, h, m: 1 }));
       extrude(THREE, run, rect(o, o + 0.9, T.top + 2.2 - 4.5, T.top + 2.2, 0), pos, idx); // anello in alto
       extrude(THREE, run, walk, pos, idx);
       const Hp = PLATFORM_H, po = o + PLATFORM_OUT;
@@ -2469,9 +2501,9 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
 
   if (st.facade === 'panels') {
     // rivestimento a pannelli del colore delle fasce, con le giunture verticali e la fascia luminosa in cima
-    const o = shape.outer, H = shape.tiers[shape.tiers.length - 1].top + 2.2;
     const pos = [], idx = [[], [], []];
     for (const ring of shape.runs) {
+    const o = runOuter(ring), H = runTop(ring).top + 2.2;
     extrude(THREE, ring, [[o - 0.1, 0], [o + 0.3, 0], [o + 0.3, H], [o - 0.1, H]].map(([d, h]) => ({ d, h, m: 0 })), pos, idx);
     }
     const g = new THREE.BufferGeometry();
@@ -2483,7 +2515,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     group.add(wall);
     own.push(g);
     for (const ring of shape.runs) {
-    const cum = runLengths(ring);
+    const cum = runLengths(ring), o = runOuter(ring), H = runTop(ring).top + 2.2;
     for (const u of stations(ring, cum, 4.5)) {
       const [x, z] = pointAt(ring, cum, u, o + 0.33), [tx, tz] = tangentAt(ring, cum, u, o + 0.33);
       boxAt(windows, x, H / 2, z, [tx * 0.18, 0, tz * 0.18], [0, H, 0], [-tz * 0.08, 0, tx * 0.08]);
@@ -2495,9 +2527,9 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
 
   if (st.facade === 'glass') {
     // vetrate scure tutto intorno, divise da montanti chiari
-    const o = shape.outer, H = shape.tiers[shape.tiers.length - 1].top + 2.2;
     const pos = [], idx = [[], [], []];
     for (const ring of shape.runs) {
+    const o = runOuter(ring), H = runTop(ring).top + 2.2;
     extrude(THREE, ring, [[o - 0.1, 0], [o + 0.25, 0], [o + 0.25, H], [o - 0.1, H]].map(([d, h]) => ({ d, h, m: 0 })), pos, idx);
     }
     const g = new THREE.BufferGeometry();
@@ -2509,7 +2541,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     group.add(wall);
     own.push(g);
     for (const ring of shape.runs) {
-    const cum = runLengths(ring);
+    const cum = runLengths(ring), o = runOuter(ring), H = runTop(ring).top + 2.2;
     for (const u of stations(ring, cum, 3.2)) {
       const [x, z] = pointAt(ring, cum, u, o + 0.3), [tx, tz] = tangentAt(ring, cum, u, o + 0.3);
       boxAt(pilasters, x, H / 2, z, [tx * 0.25, 0, tz * 0.25], [0, H, 0], [-tz * 0.2, 0, tx * 0.2]);
@@ -2522,10 +2554,11 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   if (st.facade === 'esplanade') {
     // spianata rialzata tutto intorno (anche con le curve staccate): piano grigio, bordo chiaro,
     // pilastri sotto il bordo e il fondo scuro dei parcheggi sotto
-    const o = shape.outer, H = ESPLANADE_H, W = ESPLANADE_W, ring = { pts: shape.path, closed: true };
+    // dal muro del settore più basso (sotto i settori più alti resta nascosta dentro gli spalti)
+    const o0 = Math.min(...shape.runs.map(runOuter)), o = shape.outer, H = ESPLANADE_H, W = ESPLANADE_W, ring = { pts: shape.path, closed: true };
     const rect = (d0, d1, h0, h1, m) => [[d0, h0], [d1, h0], [d1, h1], [d0, h1]].map(([d, h]) => ({ d, h, m }));
     const pos = [], idx = [[], [], []];
-    extrude(THREE, ring, rect(o - 0.1, o + W, H - 0.8, H, 0), pos, idx);           // piano
+    extrude(THREE, ring, rect(o0 - 0.1, o + W, H - 0.8, H, 0), pos, idx);          // piano
     extrude(THREE, ring, rect(o + W - 0.35, o + W, H, H + 1.05, 1), pos, idx);     // parapetto sul bordo
     extrude(THREE, ring, rect(o + W - 6, o + W - 5.7, 0, H - 0.8, 2), pos, idx);   // fondo scuro sotto
     const g = new THREE.BufferGeometry();
@@ -2546,10 +2579,10 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
 
   if (st.facade === 'bands') {
     // fasce orizzontali chiare e sporgenti (come le rampe di San Siro) sul muro esterno più scuro
-    const T = shape.tiers[shape.tiers.length - 1], o = shape.outer, Ht = T.top + 2.2;
     const rect = (d0, d1, h0, h1, m) => [[d0, h0], [d1, h0], [d1, h1], [d0, h1]].map(([d, h]) => ({ d, h, m }));
     const pos = [], idx = [[], [], []];
     for (const run of shape.runs) {
+      const o = runOuter(run), Ht = runTop(run).top + 2.2;
       extrude(THREE, run, rect(o - 0.05, o + 0.3, 0, Ht, 1), pos, idx);
       // cornicione in cima e zoccolo a terra: alti quanto una fascia, così le rampe tagliate finiscono dentro
       extrude(THREE, run, rect(o + 0.3, o + 1.9, Ht - RAMP_BAND - 0.15, Ht, 0), pos, idx);
@@ -2610,9 +2643,8 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     rampBand(ramps, inner, outer, out, t);
   };
   if (st.ramps) {
-    const foot = footOf(shape, st), H = shape.tiers[shape.tiers.length - 1].top + 2.2;
     for (const run of shape.runs) {
-      const cum = runLengths(run);
+      const cum = runLengths(run), foot = footOf({ ...shape, outer: runOuter(run) }, st), H = runTop(run).top + 2.2;
       for (const u of rampStations(run, cum)) {
         const [x, z] = pointAt(run, cum, u, foot + RAMP_R - 0.4);
         spiralTower(x, z, RAMP_R, H);
@@ -2779,9 +2811,8 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   }
 
   if (st.facade === 'columns') {
-    const top = shape.tiers[shape.tiers.length - 1], H = top.top + 2.2, d = shape.outer + 0.35;
     for (const run of shape.runs) {
-      const cum = runLengths(run), total = cum[cum.length - 1];
+      const cum = runLengths(run), total = cum[cum.length - 1], H = runTop(run).top + 2.2, d = runOuter(run) + 0.35;
       for (const u of stations(run, cum, PILASTER_EVERY)) {
         const [x, z] = pointAt(run, cum, u, d);
         const [xa, za] = pointAt(run, cum, Math.max(0, u - 0.5), d), [xb, zb] = pointAt(run, cum, Math.min(total, u + 0.5), d);
