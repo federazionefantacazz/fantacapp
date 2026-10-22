@@ -2043,11 +2043,16 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     own.push(tex, shellMat, ringMat);
     const P = (line, i, t) => { const { d, h } = C.at(line, t), [x, z] = C.rowAt(d)[i]; return [x, h, z]; };
     const pos = [], uv = [], idx = [];
-    // una falda: striscia dalla linea a (punto i) alla linea b (punto j), da fuori verso il campo
+    // una falda: striscia dalla linea a (punto i) alla linea b (punto j), da fuori verso il campo; divisa anche di
+    // traverso (Q) perché le cuciture restino dritte
+    const Q = 4;
     const strip = (la, i, ua, lb, j, ub) => {
       const b0 = pos.length / 3;
-      for (let m = 0; m <= M; m++) { const t = m / M; pos.push(...P(la, i, t), ...P(lb, j, t)); uv.push(ua, t * 3, ub, t * 3); }
-      for (let m = 0; m < M; m++) { const a = b0 + m * 2; idx.push(a, a + 1, a + 2, a + 2, a + 1, a + 3); }
+      for (let m = 0; m <= M; m++) {
+        const t = m / M, A = P(la, i, t), B = P(lb, j, t);
+        for (let q = 0; q <= Q; q++) { const f = q / Q; pos.push(A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f, A[2] + (B[2] - A[2]) * f); uv.push(ua + (ub - ua) * f, t * 3); }
+      }
+      for (let m = 0; m < M; m++) for (let q = 0; q < Q; q++) { const a = b0 + m * (Q + 1) + q, b = a + Q + 1; idx.push(a, a + 1, b, b, a + 1, b + 1); }
     };
     for (let k = 0; k < N; k++) {
       strip(C.ridge, k * step, 0, C.valley, k * step + step / 2, 1);
