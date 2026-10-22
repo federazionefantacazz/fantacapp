@@ -45,6 +45,7 @@ function seatFields(st) {
     case 'sectors': return [['seatA', 'Tribune (lati lunghi)'], ['seatB', 'Curve']];
     case 'rings':   return [['seatA', 'Primo anello'], ['seatB', 'Secondo anello'], ['seatC', 'Terzo anello']].slice(0, st.rings);
     case 'mosaic':  return [['seatA', 'Colore principale'], ['seatB', 'Secondo colore'], ['seatC', 'Terzo colore']];
+    case 'sides':   return [['seatA', 'Tribuna (lato vicino)'], ['seatC', 'Distinti (lato di fronte)'], ['seatD', 'Curva sinistra'], ['seatB', 'Curva destra']];
     default:        return [['seatA', 'Seggiolini']];
   }
 }
@@ -225,15 +226,24 @@ export const StadioSquadra = {
     return `
       <div class="kit-sub">Copertura</div>
       <div class="kit-chips">${ROOFS.map(o => this._chip('roof', o.id, o.label, s.roof === o.id)).join('')}</div>
-      <div class="mp-muted" style="margin-top:.3rem;">${s.roof === 'truss' ? 'Tetto in lamiera sopra l\'anello più alto, con tralicci sotto e piloni in acciaio fuori che reggono una trave tutto intorno.' : s.roof === 'membrane' ? 'Tetto chiaro e liscio, con le costole sotto.' : 'Spalti scoperti.'}</div>
+      <div class="mp-muted" style="margin-top:.3rem;">${{
+        truss: 'Tetto in lamiera sopra l\'anello più alto, con tralicci sotto e piloni in acciaio fuori che reggono una trave tutto intorno.',
+        membrane: 'Tetto chiaro e liscio, con le costole sotto.',
+        girders: 'Tetto chiaro a botti con la struttura scura sotto, appeso a quattro grandi travi reticolari che poggiano su quattro torri agli angoli.'
+      }[s.roof] || 'Spalti scoperti.'}</div>
       <div class="kit-sub">Fari</div>
       <div class="kit-chips">${LIGHTS.map(o => this._chip('lights', o.id, o.label, s.lights === o.id)).join('')}</div>
       ${roofLights ? `<div class="mp-muted" style="margin-top:.3rem;">Senza copertura i fari vanno sulle quattro torri.</div>` : ''}
+      ${s.lights === 'towers' && s.roof === 'girders' ? `<div class="mp-muted" style="margin-top:.3rem;">Con le travi rosse i fari vanno in cima alle torri d'angolo.</div>` : ''}
       <div class="kit-sub">Muro esterno</div>
       <div class="kit-chips">${FACADES.map(o => this._chip('facade', o.id, o.label, s.facade === o.id)).join('')}</div>
+      <div class="kit-sub">Torri delle rampe a spirale</div>
+      <div class="kit-chips">${this._chip('ramps', '1', 'Sì', s.ramps)}${this._chip('ramps', '0', 'No', !s.ramps)}</div>
+      <div class="mp-muted" style="margin-top:.3rem;">Torri cilindriche lungo il perimetro, con le rampe che salgono a spirale.</div>
       <div class="kit-sub">Colori</div>
       ${s.roof !== 'none' ? this._colorRow('Tetto', 'colors.roof', s.colors.roof) : ''}
       ${s.roof !== 'none' || s.lights !== 'none' ? this._colorRow('Acciaio (tralicci, pilastri, torri)', 'colors.steel', s.colors.steel) : ''}
+      ${s.roof === 'girders' ? this._colorRow('Travi principali', 'colors.girder', s.colors.girder) : ''}
       ${s.facade === 'struts' ? this._colorRow('Fasce del basamento', 'colors.accent', s.colors.accent) : ''}
       <div class="mp-muted" style="margin-top:.6rem;">Prova il pulsante Notte sull'anteprima per vedere i fari accesi.</div>`;
   },
@@ -349,7 +359,7 @@ export const StadioSquadra = {
         return;
       case 'set': {
         const k = btn.dataset.k;
-        const value = k === 'rings' ? Number(v) : k === 'track' ? v === '1' : v;
+        const value = k === 'rings' ? Number(v) : k === 'track' || k === 'ramps' ? v === '1' : v;
         this._update(st => { st[k] = value; });
         return;
       }

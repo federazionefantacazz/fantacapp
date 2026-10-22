@@ -46,12 +46,14 @@ export const SEAT_MODES = [
   { id: 'single',  label: 'Tinta unita' },
   { id: 'sectors', label: 'Tribune e curve' },
   { id: 'rings',   label: 'Un colore per anello' },
-  { id: 'mosaic',  label: 'Mosaico' }
+  { id: 'mosaic',  label: 'Mosaico' },
+  { id: 'sides',   label: 'Un colore per lato' }
 ];
 export const ROOFS = [
   { id: 'none',     label: 'Nessuna' },
   { id: 'truss',    label: 'Reticolare in acciaio' },
-  { id: 'membrane', label: 'Moderna' }
+  { id: 'membrane', label: 'Moderna' },
+  { id: 'girders',  label: 'Travi rosse su torri' }
 ];
 export const LIGHTS = [
   { id: 'roof',   label: 'Sul bordo del tetto' },
@@ -61,15 +63,16 @@ export const LIGHTS = [
 export const FACADES = [
   { id: 'wall',    label: 'Muro liscio' },
   { id: 'columns', label: 'Pilastri' },
-  { id: 'struts',  label: 'Struttura a vista e basamento' }
+  { id: 'struts',  label: 'Struttura a vista e basamento' },
+  { id: 'bands',   label: 'Fasce orizzontali' }
 ];
 
 const DEFAULT = {
   name: '', rings: 2, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single',
-  roof: 'none', lights: 'towers', facade: 'wall',
+  roof: 'none', lights: 'towers', facade: 'wall', ramps: false,
   colors: {
-    grass: '#3d8b37', track: '#b4452f', seatA: '#1e5bb8', seatB: '#ffffff', seatC: '#c62828', parapet: '#e6e6e6', structure: '#a5a5a5',
-    roof: '#5b6169', steel: '#767d86', accent: '#1e5bb8'
+    grass: '#3d8b37', track: '#b4452f', seatA: '#1e5bb8', seatB: '#ffffff', seatC: '#c62828', seatD: '#ffd400', parapet: '#e6e6e6', structure: '#a5a5a5',
+    roof: '#5b6169', steel: '#767d86', accent: '#1e5bb8', girder: '#c0392b'
   }
 };
 
@@ -81,6 +84,17 @@ export const PRESETS = [
     st: {
       rings: 2, track: true, shape: 'oval', corners: 'closed', mowing: 'stripes', seatMode: 'mosaic', roof: 'truss', lights: 'roof', facade: 'struts',
       colors: { grass: '#3f8a35', track: '#1f5fbf', seatA: '#29a3e0', seatB: '#1565c0', seatC: '#ffffff', parapet: '#ececec', structure: '#b3b1ab', roof: '#a9aeb3', steel: '#858c93', accent: '#1f6fd1' }
+    }
+  },
+  {
+    id: 'sansiro', label: 'Stile San Siro',
+    desc: 'Tre anelli con angoli arrotondati e un colore per lato, tetto chiaro a botti sotto le travi rosse sulle quattro torri, rampe a spirale e fasce orizzontali.',
+    st: {
+      rings: 3, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'sides', roof: 'girders', lights: 'roof', facade: 'bands', ramps: true,
+      colors: {
+        grass: '#2f8a3a', seatA: '#2b5fb4', seatB: '#e8792b', seatC: '#3a9a6a', seatD: '#c8423a', parapet: '#ebe8e2', structure: '#bdb9b0',
+        roof: '#dfe2e5', steel: '#2b2f34', girder: '#c0392b'
+      }
     }
   },
   {
@@ -137,6 +151,7 @@ export function normalizeStadium(s) {
     roof: oneOf(ROOFS, src.roof, DEFAULT.roof),
     lights: oneOf(LIGHTS, src.lights, DEFAULT.lights),
     facade: oneOf(FACADES, src.facade, DEFAULT.facade),
+    ramps: !!src.ramps,
     colors: Object.fromEntries(Object.entries(DEFAULT.colors).map(([k, d]) => [k, validColor(c[k], d)]))
   };
   if (src.image) out.image = String(src.image);
@@ -158,7 +173,7 @@ const GAP = 0.18;         // curve staccate: apertura intorno agli angoli (radia
 const M_PARAPET = 0, M_STEPS = 1, M_STRUCT = 2;
 
 const seatKey = (st) => [st.rings, st.track ? 1 : 0, st.shape, st.corners].join('|');
-const geomKey = (st) => [seatKey(st), st.roof, st.lights, st.facade].join('|');
+const geomKey = (st) => [seatKey(st), st.roof, st.lights, st.facade, st.ramps ? 1 : 0].join('|');
 
 /**
  * Bordo interno degli spalti: rettangolo con angoli arrotondati (r = 0 squadrato, r = b curve a semicerchio),
@@ -253,13 +268,24 @@ function tierProfile(t, next, exposed) {
     add(t.D + (k + 1) * TREAD, t.H + k * t.R, last ? M_STRUCT : M_STEPS);
     if (!last) add(t.D + (k + 1) * TREAD, t.H + (k + 1) * t.R, M_STEPS);
   }
-  // muro dietro: sale fino sotto l'anello di sopra (niente buchi tra un anello e l'altro) o fa da bordo in cima
-  const wallTop = next ? next.soffit(t.back + WALL) : t.top + 2.2;
+  // muro dietro: sale fino sotto l'anello di sopra (niente buchi tra un anello e l'altro) o fa da bordo in cima;
+  // con la struttura a vista tra un anello e l'altro resta aperto (si vede il sotto a gradoni dell'anello sopra)
+  const wallTop = next && !exposed ? next.soffit(t.back + WALL) : t.top + (next ? 1.2 : 2.2);
   add(t.back, wallTop, M_STRUCT);
   add(t.back + WALL, wallTop, M_STRUCT);
-  if (t.i > 0) add(t.back + WALL, t.soffit(t.back + WALL), M_STRUCT);
-  else if (!exposed) add(t.back + WALL, 0, M_STRUCT);
-  else { add(t.back + WALL, t.under(t.back + WALL), M_STRUCT); add(t.D + 6, 0, M_STRUCT); }
+  if (!exposed) {
+    add(t.back + WALL, t.i > 0 ? t.soffit(t.back + WALL) : 0, M_STRUCT);
+    return pts;
+  }
+  // struttura a vista: il sotto degli spalti segue i gradoni, così da fuori si vedono le "scale" inclinate
+  const y = (k) => t.under(t.D + (k + 1) * TREAD);
+  add(t.back + WALL, y(t.rows - 1), M_STRUCT);
+  for (let k = t.rows - 1; k >= 0; k--) {
+    const dk = t.D + k * TREAD, yn = k > 0 ? y(k - 1) : null;
+    add(dk, y(k), M_STRUCT);
+    if (t.i === 0 && (yn === null || yn <= 0.3)) { add(dk, 0, M_STRUCT); break; } // il primo anello poggia a terra
+    if (yn !== null) add(dk, yn, M_STRUCT);
+  }
   return pts;
 }
 
@@ -314,8 +340,9 @@ function standsGeometry(THREE, shape, exposed) {
 }
 
 /**
- * Seggiolini: una matrice per posto (lungo ogni fila, rivolto verso il campo) e info = settore | anello << 1
- * (settore 0 = tribune sui lati lunghi, 1 = curve). Le scalette sono allineate da una fila all'altra.
+ * Seggiolini: una matrice per posto (lungo ogni fila, rivolto verso il campo) e info = settore | anello << 1 | lato << 3
+ * (settore 0 = tribune sui lati lunghi, 1 = curve; lato 0 = tribuna verso z+, 1 = curva destra, 2 = distinti, 3 = curva sinistra).
+ * Le scalette sono allineate da una fila all'altra.
  */
 const seatCache = new Map();
 function seatsOf(st) {
@@ -353,7 +380,9 @@ function seatsOf(st) {
             const x = x0 + tx * s, z = z0 + tz * s;
             // assi: x lungo la fila, y in alto, z verso il campo
             mats.push(tx, 0, tz, 0, 0, 1, 0, 0, -tz, 0, tx, 0, x, h, z, 1);
-            info.push((Math.abs(z) / (shape.b + d) > Math.abs(x) / (shape.a + d) ? 0 : 1) | (t.i << 1));
+            const sector = Math.abs(z) / (shape.b + d) > Math.abs(x) / (shape.a + d) ? 0 : 1;
+            const side = sector === 0 ? (z > 0 ? 0 : 2) : (x > 0 ? 1 : 3);
+            info.push(sector | (t.i << 1) | (side << 3));
           }
           carry = s - l;
         }
@@ -398,7 +427,12 @@ function paintPitch(canvas, st) {
   const W = PITCH.l + PITCH_PAD * 2, H = PITCH.w + PITCH_PAD * 2;
   const s = canvas.width / W;
   const ctx = canvas.getContext('2d');
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
   ctx.setTransform(s, 0, 0, s, W / 2 * s, H / 2 * s);
+  // con la pista il margine d'erba intorno al campo si ferma alla prima corsia (fuori resta trasparente)
+  if (st.track) { ctx.beginPath(); ovalPath(ctx, TRACK.r - 0.3); ctx.clip(); }
   const g = st.colors.grass, light = shade(g, 1.1), dark = shade(g, 0.88);
   ctx.fillStyle = g;
   ctx.fillRect(-W / 2, -H / 2, W, H);
@@ -436,6 +470,7 @@ function paintPitch(canvas, st) {
       stroke(() => ctx.arc(gx, sz * W2, 1, a0 - Math.PI / 4, a0 + Math.PI / 4));
     }
   }
+  ctx.restore();
 }
 
 /** Pista da 400 m: due rettilinei e due curve; r = raggio della linea interna della corsia. */
@@ -525,8 +560,11 @@ function addDetail(THREE, mat, tex, repeat, strength) {
 }
 
 /* ------------------------------------------------------------- esterno */
-const TRUSS_EVERY = 7, SUPPORT_EVERY = 14, LAMP_EVERY = 16, PILASTER_EVERY = 8, PYLON_EVERY = 34, RIB_EVERY = 15;
+const TRUSS_EVERY = 7, SUPPORT_EVERY = 14, LAMP_EVERY = 16, PILASTER_EVERY = 8, PYLON_EVERY = 24, RIB_EVERY = 15;
 const ROOF_PANEL = 5;     // m: passo dei pannelli del tetto
+const CORNER_R = 5.5;     // torri d'angolo delle travi rosse (raggio)
+const RAMP_R = 5.2, RAMP_EVERY = 40, RAMP_PITCH = 3.4; // torri delle rampe a spirale: raggio, passo lungo il bordo, salita a ogni giro
+const GIRDER_H = 10, GIRDER_W = 2.2, GIRDER_L = 14, GIRDER_PANEL = 6; // travi rosse: altezza, mezza larghezza, sbalzo, campata
 
 /** Fari effettivi: senza tetto quelli "sul tetto" diventano torri. */
 const lightsOf = (st) => (st.lights === 'roof' && st.roof === 'none' ? 'towers' : st.lights);
@@ -545,12 +583,35 @@ const towerDist = (shape, st) => Math.max(shape.outer, st.roof !== 'none' ? roof
 const pylonDist = (R) => R.dOut + 1.5;
 const pylonHeight = (R) => R.h(R.dOut) + 7;
 
-/** Fin dove arrivano le parti esterne (distanza dal bordo e altezza): per inquadratura, ombre e pavimento. */
+/** Distanza dal bordo occupata dal muro esterno (con basamento o fasce). */
+const footOf = (shape, st) => shape.outer + ({ struts: 4.4, bands: 1.8, columns: 0.8 }[st.facade] || 0);
+
+/**
+ * Travi rosse (stile San Siro): quattro torri sulle diagonali, appena fuori dall'esterno, e quattro travi reticolari
+ * che passano sopra le torri (x = ±X e z = ±Z), sopra il tetto, e continuano a sbalzo per GIRDER_L metri.
+ */
+function girdersOf(shape, st) {
+  const R = roofOf(shape), foot = footOf(shape, st);
+  // distanza dal centro dell'angolo, lungo la diagonale, del punto più esterno dell'esterno (angolo vivo: √2 volte)
+  const diag = (shape.r > 0 ? shape.r + foot : foot * Math.SQRT2) + CORNER_R + 1.5;
+  const X = shape.a - shape.r + diag / Math.SQRT2, Z = shape.b - shape.r + diag / Math.SQRT2;
+  const y0 = R.h(R.dIn) + 2;
+  return { X, Z, y0, top: y0 + GIRDER_H, towers: [[X, Z], [-X, Z], [-X, -Z], [X, -Z]] };
+}
+
+/** Fin dove arrivano le parti esterne (distanza dal bordo, altezza, estensione): per inquadratura, ombre e pavimento. */
 function reachOf(shape, st) {
-  let d = shape.outer + (st.facade === 'struts' ? 5 : 0), h = shape.height;
-  if (st.roof !== 'none') { const R = roofOf(shape); d = st.roof === 'truss' ? pylonDist(R) + 2.5 : R.dOut; h = Math.max(R.h(R.dIn), st.roof === 'truss' ? pylonHeight(R) : 0) + 1; }
-  if (lightsOf(st) === 'towers') { d = towerDist(shape, st) + 6; h = towerHeight(shape, st) + 6; }
-  return { d: d + 1.5, h };
+  const foot = footOf(shape, st);
+  let d = foot + 0.5, h = shape.height, x = 0, z = 0;
+  if (st.roof !== 'none') { const R = roofOf(shape); d = Math.max(d, st.roof === 'truss' ? pylonDist(R) + 2.5 : R.dOut); h = Math.max(R.h(R.dIn), st.roof === 'truss' ? pylonHeight(R) : 0) + 1; }
+  if (st.ramps) d = Math.max(d, foot + RAMP_R * 2);
+  if (st.roof === 'girders') {
+    const G = girdersOf(shape, st);
+    d = Math.max(d, foot + CORNER_R * 2 + 2);
+    h = Math.max(h, G.top + 2);
+    x = G.X + GIRDER_L + 2; z = G.Z + GIRDER_L + 2;
+  } else if (lightsOf(st) === 'towers') { d = Math.max(d, towerDist(shape, st) + 6); h = towerHeight(shape, st) + 6; }
+  return { d: d + 1.5, h, x, z };
 }
 
 /** Lunghezze progressive del bordo interno lungo un tratto (per mettere oggetti a passo regolare). */
@@ -609,17 +670,24 @@ function lampAt(out, x, y, z, w, h) {
 }
 
 /**
- * Pannelli del tetto (grigio da moltiplicare per il colore): giunti verso il campo e, nel reticolare,
- * la lamiera ondulata (righe fitte nella stessa direzione).
+ * Pannelli del tetto (grigio da moltiplicare per il colore): giunti verso il campo e, a scelta,
+ * la lamiera ondulata (righe fitte) o le "botti" di policarbonato (due volte per pannello, chiare al centro).
  */
-function roofPanelCanvas(corrugated) {
+function roofPanelCanvas(kind) {
   const c = document.createElement('canvas');
   c.width = 128; c.height = 64;
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 128, 64);
-  if (corrugated) {
+  if (kind === 'corrugated') {
     ctx.fillStyle = 'rgba(0,0,0,.13)';
     for (let x = 4; x < 128; x += 8) ctx.fillRect(x, 0, 4, 64);
+  } else if (kind === 'barrel') {
+    for (const x0 of [0, 64]) {
+      const g = ctx.createLinearGradient(x0, 0, x0 + 64, 0);
+      g.addColorStop(0, 'rgba(0,0,0,.42)'); g.addColorStop(0.3, 'rgba(0,0,0,.08)'); g.addColorStop(0.5, 'rgba(0,0,0,0)');
+      g.addColorStop(0.75, 'rgba(0,0,0,.14)'); g.addColorStop(1, 'rgba(0,0,0,.42)');
+      ctx.fillStyle = g; ctx.fillRect(x0, 0, 64, 64);
+    }
   }
   ctx.fillStyle = 'rgba(0,0,0,.32)'; ctx.fillRect(0, 0, 4, 64);
   ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.fillRect(0, 0, 128, 2);
@@ -637,11 +705,29 @@ function tangentAt(run, cum, u, d) {
   return [(xb - xa) / l, (zb - za) / l];
 }
 
-/** Pilone a traliccio: quattro montanti con croci su ogni faccia, alto H, alla posizione u del tratto. */
+/**
+ * Lastra da (x1, y1, z1) a (x2, y2, z2), larga w nella direzione orizzontale (nx, nz) e spessa t:
+ * rampe inclinate delle torri e della facciata.
+ */
+function slab(out, x1, y1, z1, x2, y2, z2, nx, nz, w, t) {
+  let dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
+  const len = Math.hypot(dx, dy, dz) || 1;
+  dx /= len; dy /= len; dz /= len;
+  const ux = -nz * dy, uy = nz * dx - nx * dz, uz = nx * dy; // n × d: terna destra (d, n × d, n)
+  const ul = Math.hypot(ux, uy, uz) || 1;
+  boxAt(out, (x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2, [dx * len, dy * len, dz * len], [ux / ul * t, uy / ul * t, uz / ul * t], [nx * w, 0, nz * w]);
+}
+
+/** Cilindro orizzontale (raggio r, lungo L) con l'asse nella direzione orizzontale (nx, nz): tamburi in cima ai piloni. */
+function drumAt(out, x, y, z, nx, nz, r, L) {
+  boxAt(out, x, y, z, [0, r, 0], [nx * L, 0, nz * L], [nz * r, 0, -nx * r]);
+}
+
+/** Pilone a traliccio: quattro montanti con croci su ogni faccia, alto H, alla posizione u del tratto (più largo lungo il bordo). */
 function pylon(out, run, cum, u, d, H) {
   const [x, z] = pointAt(run, cum, u, d), [tx, tz] = tangentAt(run, cum, u, d);
-  const s = 1.7; // metà del lato
-  const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => [x + (tx * a + tz * b) * s, z + (tz * a - tx * b) * s]);
+  const sa = 2.6, sb = 1.6; // metà del lato lungo il bordo e verso fuori
+  const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => [x + tx * a * sa + tz * b * sb, z + tz * a * sa - tx * b * sb]);
   for (const [cx, cz] of corners) beam(out, cx, 0, cz, cx, H, cz, 0.38);
   const levels = Math.max(2, Math.round(H / 5));
   for (let k = 0; k < levels; k++) {
@@ -690,18 +776,31 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   const accent = new THREE.MeshStandardMaterial({ roughness: 0.6 });
   const glass = new THREE.MeshStandardMaterial({ color: 0x1f2730, roughness: 0.95 }); // opaco: lucido rifletterebbe il cielo e sembrerebbe bianco
   own.push(accent, glass);
+  const dark = new THREE.MeshStandardMaterial({ roughness: 0.9 });
+  const girderMat = new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.2 });
+  const cylinder = new THREE.CylinderGeometry(1, 1, 1, 28);
+  own.push(dark, girderMat, cylinder);
   const beams = [], pilasters = [], lamps = [], spots = [], windows = [];
+  const towerCores = [], towerRings = [], towerCaps = [], girderBeams = [], girderBlocks = [], rampSlabs = [], drums = [];
   const lights = lightsOf(st);
   let deckMat = null;
+  const G = st.roof === 'girders' ? girdersOf(shape, st) : null;
+  // dove stanno le torri delle rampe lungo un tratto (agli angoli, con le travi rosse, ci sono già le torri d'angolo)
+  const rampStations = (run, cum) => stations(run, cum, RAMP_EVERY).filter(u => {
+    if (!G) return true;
+    const [px, pz] = pointAt(run, cum, u, 0);
+    return Math.abs(Math.atan2(Math.abs(pz) / shape.b, Math.abs(px) / shape.a) - Math.PI / 4) >= 0.3;
+  });
 
   const R = st.roof !== 'none' ? roofOf(shape) : null;
   if (R) {
     const truss = st.roof === 'truss';
-    const tex = new THREE.CanvasTexture(roofPanelCanvas(truss));
+    const girders = st.roof === 'girders', ribbed = truss || girders; // girders: struttura nera sotto, come il reticolare
+    const tex = new THREE.CanvasTexture(roofPanelCanvas(truss ? 'corrugated' : girders ? 'barrel' : 'plain'));
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 4;
-    deckMat = new THREE.MeshStandardMaterial({ map: tex, roughness: truss ? 0.5 : 0.7, metalness: truss ? 0.25 : 0, side: THREE.DoubleSide });
+    deckMat = new THREE.MeshStandardMaterial({ map: tex, roughness: truss ? 0.5 : girders ? 0.35 : 0.7, metalness: truss ? 0.25 : 0, side: THREE.DoubleSide });
     const deck = new THREE.Mesh(deckGeometry(THREE, shape, R), deckMat);
     deck.castShadow = deck.receiveShadow = true;
     group.add(deck);
@@ -714,8 +813,9 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     const PD = pylonDist(R), PH = pylonHeight(R), chordLow = R.h(R.dOut) - 1, chordHigh = PH - 1.2;
     for (const run of shape.runs) {
       extrude(THREE, run, bar(R.dIn, R.h(R.dIn) - 0.7, 0.5, 1.4), pos, idx);
-      if (!truss) continue;
+      if (!ribbed) continue;
       for (let k = 1; k <= N; k++) { const d = R.dIn + k * (R.dOut - R.dIn) / N; extrude(THREE, run, bar(d, R.h(d) - R.depth(d), 0.3, 0.3), pos, idx); }
+      if (!truss) continue;
       // trave reticolare che corre tutto intorno sui piloni: quattro correnti (dentro/fuori, sopra/sotto)
       for (const dd of [PD - 1.2, PD + 1.2]) for (const hh of [chordLow, chordHigh]) extrude(THREE, run, bar(dd, hh, 0.45, 0.45), pos, idx);
     }
@@ -730,8 +830,8 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
 
     for (const run of shape.runs) {
       const cum = runLengths(run);
-      for (const u of stations(run, cum, truss ? TRUSS_EVERY : TRUSS_EVERY * 1.5)) {
-        if (!truss) {
+      for (const u of stations(run, cum, ribbed ? TRUSS_EVERY : TRUSS_EVERY * 1.5)) {
+        if (!ribbed) {
           // moderna: una costola sotto il tetto
           const [x0, z0] = pointAt(run, cum, u, R.dIn), [x1, z1] = pointAt(run, cum, u, R.dOut);
           beam(beams, x0, R.h(R.dIn) - 0.45, z0, x1, R.h(R.dOut) - 0.45, z1, 0.4);
@@ -755,7 +855,15 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       if (truss) {
         const total = cum[cum.length - 1];
         // piloni a traliccio che reggono il tetto da fuori, e croci della trave perimetrale tra un pilone e l'altro
-        for (const u of stations(run, cum, PYLON_EVERY)) pylon(beams, run, cum, u, PD, PH);
+        // niente piloni addosso alle torri delle rampe (se ci sono)
+        const towersAt = st.ramps ? rampStations(run, cum) : [];
+        const nearTower = (u) => towersAt.some(t => Math.min(Math.abs(u - t), run.closed ? total - Math.abs(u - t) : Infinity) < 8);
+        for (const u of stations(run, cum, PYLON_EVERY)) {
+          if (nearTower(u)) continue;
+          pylon(beams, run, cum, u, PD, PH);
+          const [x, z] = pointAt(run, cum, u, PD), [tx, tz] = tangentAt(run, cum, u, PD);
+          drumAt(drums, x, PH + 0.9, z, tz, -tx, 1.25, 5.2);
+        }
         const step = 4;
         for (const u of stations(run, cum, step)) {
           if (!run.closed && u + step > total + 1e-6) continue;
@@ -770,8 +878,8 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
           const [x0, z0] = pointAt(run, cum, u, R.dIn), [x1, z1] = pointAt(run, cum, u, PD);
           beam(beams, x0, R.h(R.dIn) + 0.45, z0, x1, R.h(PD) + 0.45, z1, 0.9);
         }
-      } else {
-        // moderna: pilastri che reggono il tetto da fuori
+      } else if (!girders) {
+        // moderna: pilastri che reggono il tetto da fuori (con le travi rosse il tetto è appeso a loro)
         for (const u of stations(run, cum, SUPPORT_EVERY)) {
           const d = R.dOut - 1.5, [x, z] = pointAt(run, cum, u, d);
           beam(beams, x, 0, z, x, R.h(d) - 0.1, z, 0.7);
@@ -791,7 +899,9 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     }
   }
 
-  if (lights === 'towers') {
+  if (lights === 'towers' && G) {
+    for (const [x, z] of G.towers) { lampAt(lamps, x, G.top + 4, z, 10, 6); spots.push([x, G.top + 4, z]); }
+  } else if (lights === 'towers') {
     const d = towerDist(shape, st), H = towerHeight(shape, st);
     for (const [sx, sz] of [[1, 1], [-1, 1], [-1, -1], [1, -1]]) {
       // punto del bordo più vicino alla diagonale di questo quarto
@@ -856,6 +966,114 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     own.push(g);
   }
 
+  if (st.facade === 'bands') {
+    // fasce orizzontali chiare e sporgenti (come le rampe di San Siro) sul muro esterno più scuro
+    const T = shape.tiers[shape.tiers.length - 1], o = shape.outer, Ht = T.top + 2.2;
+    const rect = (d0, d1, h0, h1, m) => [[d0, h0], [d1, h0], [d1, h1], [d0, h1]].map(([d, h]) => ({ d, h, m }));
+    const pos = [], idx = [[], [], []];
+    for (const run of shape.runs) {
+      extrude(THREE, run, rect(o - 0.05, o + 0.3, 0, Ht, 1), pos, idx);
+      extrude(THREE, run, rect(o + 0.3, o + 1.8, Ht - 1.6, Ht, 0), pos, idx); // cornicione in cima
+      extrude(THREE, run, rect(o + 0.3, o + 1.2, 0, 1.2, 0), pos, idx);       // zoccolo a terra
+      // rampe che salgono inclinate tra una torre e l'altra e cambiano verso a ogni torre (zig-zag)
+      const cum = runLengths(run), total = cum[cum.length - 1];
+      const B = rampStations(run, cum);
+      if (!run.closed) { if (B[0] > 1e-6) B.unshift(0); if (B[B.length - 1] < total - 1e-6) B.push(total); }
+      if (B.length < 2) B.push(B[0] + total);
+      else if (run.closed) B.push(B[0] + total);           // l'ultimo tratto riparte dalla prima torre
+      const nSeg = B.length - 1, STEP = 2.5, dc = o + 1.05;
+      const segOf = (u) => { let j = 0; while (j < nSeg - 1 && u >= B[j + 1]) j++; return j; };
+      const norm = (u) => (run.closed && u < B[0] ? u + total : u);
+      const yAt = (u, k, j) => { const f = (u - B[j]) / (B[j + 1] - B[j]); return 2.6 + (k + (j % 2 ? 1 - f : f)) * RAMP_PITCH; };
+      const pieces = Math.ceil(total / STEP);
+      for (let i = 0; i < pieces; i++) {
+        let ua = norm(i * total / pieces), ub = ua + total / pieces;
+        // dentro un tratto la rampa è dritta: il pezzo si spezza dove la rampa cambia verso
+        const parts = [];
+        for (let j = segOf(ua); ua < ub - 1e-6; j++) { const e = Math.min(ub, B[j + 1]); parts.push([ua, e, j]); ua = e; }
+        for (const [u0, u1, j] of parts) {
+          if (u1 - u0 < 0.05) continue;
+          const w = (u) => (u > total ? u - total : u);
+          const [x0, z0] = pointAt(run, cum, w(u0), dc), [x1, z1] = pointAt(run, cum, Math.min(w(u1), total), dc), [tx, tz] = tangentAt(run, cum, w((u0 + u1) / 2), dc);
+          for (let k = -1; k * RAMP_PITCH < Ht; k++) {
+            const y0 = yAt(u0, k, j), y1 = yAt(u1, k, j);
+            if (Math.min(y0, y1) < 2 || Math.max(y0, y1) > Ht - 2.2) continue;
+            const ex = 0.06, lx = x1 - x0, ly = y1 - y0, lz = z1 - z0, ll = Math.hypot(lx, ly, lz) || 1; // pezzi appena sovrapposti: niente fessure
+            slab(rampSlabs, x0 - lx / ll * ex, y0 - ly / ll * ex, z0 - lz / ll * ex, x1 + lx / ll * ex, y1 + ly / ll * ex, z1 + lz / ll * ex, tz, -tx, 1.5, 0.75);
+          }
+        }
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    let start = 0;
+    idx.forEach((list, m) => { g.addGroup(start, list.length, m); start += list.length; });
+    g.setIndex(idx.flat());
+    g.computeVertexNormals();
+    const bands = new THREE.Mesh(g, [parapetMat, dark, structMat]); // 2 = tappi dei tratti aperti
+    bands.castShadow = bands.receiveShadow = true;
+    group.add(bands);
+    own.push(g);
+  }
+
+  // torri cilindriche con le rampe a spirale: anima scura e due rampe chiare che salgono girando (doppia elica)
+  let towerCount = 0;
+  const spiralTower = (x, z, r, H) => {
+    boxAt(towerCores, x, H / 2, z, [r * 0.72, 0, 0], [0, H, 0], [0, 0, r * 0.72]);
+    const SEG = 18, rc = r - 0.8, dir = towerCount++ % 2 ? 1 : -1; // le torri vicine girano in versi opposti
+    for (const phase of [0, 0.5]) {
+      for (let k = 0; ; k++) {
+        const y0 = 1.2 + (k / SEG + phase) * RAMP_PITCH, y1 = y0 + RAMP_PITCH / SEG;
+        if (y1 > H - 0.8) break;
+        const a0 = dir * (k / SEG + phase) * Math.PI * 2, a1 = dir * ((k + 1) / SEG + phase) * Math.PI * 2, am = (a0 + a1) / 2;
+        slab(towerRings, x + Math.cos(a0) * rc, y0, z + Math.sin(a0) * rc, x + Math.cos(a1) * rc, y1, z + Math.sin(a1) * rc, Math.cos(am), Math.sin(am), 1.7, 1.05);
+      }
+    }
+    boxAt(towerCaps, x, H - 0.3, z, [r, 0, 0], [0, 0.6, 0], [0, 0, r]);
+  };
+  if (st.ramps) {
+    const foot = footOf(shape, st), H = shape.tiers[shape.tiers.length - 1].top + 2.2;
+    for (const run of shape.runs) {
+      const cum = runLengths(run);
+      for (const u of rampStations(run, cum)) {
+        const [x, z] = pointAt(run, cum, u, foot + RAMP_R - 0.4);
+        spiralTower(x, z, RAMP_R, H);
+      }
+    }
+  }
+
+  if (G) {
+    for (const [x, z] of G.towers) spiralTower(x, z, CORNER_R, G.top + 0.6);
+    // travi reticolari: due pareti a traliccio (correnti, montanti, diagonali) unite da traversi sopra e sotto
+    const girder = (x1, z1, x2, z2) => {
+      const len = Math.hypot(x2 - x1, z2 - z1), tx = (x2 - x1) / len, tz = (z2 - z1) / len, nx = -tz, nz = tx;
+      const n = Math.max(2, Math.round(len / GIRDER_PANEL)), y0 = G.y0, y1 = G.top;
+      const at = (k, side) => [x1 + tx * len * k / n + nx * GIRDER_W * side, z1 + tz * len * k / n + nz * GIRDER_W * side];
+      for (const side of [-1, 1]) {
+        const [ax, az] = at(0, side), [bx, bz] = at(n, side);
+        beam(girderBeams, ax, y0, az, bx, y0, bz, 0.7);
+        beam(girderBeams, ax, y1, az, bx, y1, bz, 0.7);
+        for (let k = 0; k <= n; k++) {
+          const [px, pz] = at(k, side);
+          beam(girderBeams, px, y0, pz, px, y1, pz, 0.4);
+          if (k < n) { const [qx, qz] = at(k + 1, side); if (k % 2) beam(girderBeams, px, y0, pz, qx, y1, qz, 0.4); else beam(girderBeams, px, y1, pz, qx, y0, qz, 0.4); }
+        }
+      }
+      for (let k = 0; k <= n; k++) {
+        const [px, pz] = at(k, -1), [qx, qz] = at(k, 1);
+        beam(girderBeams, px, y0, pz, qx, y0, qz, 0.3);
+        beam(girderBeams, px, y1, pz, qx, y1, qz, 0.3);
+      }
+      // blocchi rossi in fondo agli sbalzi
+      for (const [ex, ez, sx] of [[x1, z1, 1], [x2, z2, -1]]) {
+        boxAt(girderBlocks, ex + tx * sx * 3, (y0 + y1) / 2, ez + tz * sx * 3, [tx * 6, 0, tz * 6], [0, y1 - y0 + 0.7, 0], [nx * (GIRDER_W * 2 + 0.7), 0, nz * (GIRDER_W * 2 + 0.7)]);
+      }
+    };
+    const ex = G.X + GIRDER_L, ez = G.Z + GIRDER_L;
+    girder(-ex, G.Z, ex, G.Z); girder(-ex, -G.Z, ex, -G.Z);
+    girder(G.X, -ez, G.X, ez); girder(-G.X, -ez, -G.X, ez);
+  }
+
   if (st.facade === 'columns') {
     const top = shape.tiers[shape.tiers.length - 1], H = top.top + 2.2, d = shape.outer + 0.35;
     for (const run of shape.runs) {
@@ -869,9 +1087,9 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     }
   }
 
-  const inst = (mat, list) => {
+  const inst = (mat, list, geo = box) => {
     if (!list.length) return;
-    const m = new THREE.InstancedMesh(box, mat, list.length / 16);
+    const m = new THREE.InstancedMesh(geo, mat, list.length / 16);
     m.instanceMatrix.array.set(list);
     m.instanceMatrix.needsUpdate = true;
     m.frustumCulled = false;
@@ -882,9 +1100,16 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   inst(steel, beams);
   inst(structMat, pilasters);
   inst(glass, windows);
+  inst(dark, towerCores, cylinder);
+  inst(parapetMat, towerRings);
+  inst(parapetMat, towerCaps, cylinder);
+  inst(parapetMat, rampSlabs);
+  inst(steel, drums, cylinder);
+  inst(girderMat, girderBeams);
+  inst(girderMat, girderBlocks);
   inst([steel, steel, steel, steel, lamp, steel], lamps); // la faccia +z del proiettore è quella accesa
 
-  return { group, steel, deckMat, lamp, accent, spots };
+  return { group, steel, deckMat, lamp, accent, dark, girder: girderMat, spots };
 }
 
 /* --------------------------------------------------------------- scena */
@@ -894,7 +1119,7 @@ function buildStadium(L, st) {
   const shape = shapeOf(st);
   const group = new THREE.Group();
   const reach = reachOf(shape, st);
-  const ext = { x: shape.a + reach.d + 2, z: shape.b + reach.d + 2 };
+  const ext = { x: Math.max(shape.a + reach.d + 2, reach.x), z: Math.max(shape.b + reach.d + 2, reach.z) };
   const own = []; // geometrie, materiali e texture da liberare
   const detail = new THREE.CanvasTexture(grassDetailCanvas());
   detail.wrapS = detail.wrapT = THREE.RepeatWrapping;
@@ -945,7 +1170,7 @@ function buildStadium(L, st) {
   const pitchTex = new THREE.CanvasTexture(pitchCanvas);
   pitchTex.colorSpace = THREE.SRGBColorSpace;
   const pitchGeo = new THREE.PlaneGeometry(PITCH.l + PITCH_PAD * 2, PITCH.w + PITCH_PAD * 2).rotateX(-Math.PI / 2);
-  const pitchMat = new THREE.MeshStandardMaterial({ map: pitchTex, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const pitchMat = new THREE.MeshStandardMaterial({ map: pitchTex, alphaTest: 0.5, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   addDetail(THREE, pitchMat, detail, new THREE.Vector2((PITCH.l + PITCH_PAD * 2) / 2.5, (PITCH.w + PITCH_PAD * 2) / 2.5), 0.32);
   const pitch = new THREE.Mesh(pitchGeo, pitchMat);
   pitch.position.y = 0.05;
@@ -984,6 +1209,8 @@ function buildStadium(L, st) {
       const c = s.colors;
       outside.steel.color.set(c.steel);
       outside.accent.color.set(c.accent);
+      outside.dark.color.set(shade(c.structure, 0.62));
+      outside.girder.color.set(c.girder);
       if (outside.deckMat) outside.deckMat.color.set(c.roof);
       mats[M_PARAPET].color.set(c.parapet);
       mats[M_STEPS].color.set(shade(c.structure, 1.12));
@@ -994,15 +1221,16 @@ function buildStadium(L, st) {
         paintPitch(pitchCanvas, s); pitchTex.needsUpdate = true;
         paintBase(baseCanvas, s, shape, ext); baseTex.needsUpdate = true;
       }
-      const sk = [s.seatMode, c.seatA, c.seatB, c.seatC].join('|');
+      const sk = [s.seatMode, c.seatA, c.seatB, c.seatC, c.seatD].join('|');
       if (sk !== seatColorKey) {
         seatColorKey = sk;
-        const pal = [c.seatA, c.seatB, c.seatC].map(h => new THREE.Color(h));
+        const pal = [c.seatA, c.seatB, c.seatC, c.seatD].map(h => new THREE.Color(h));
         const arr = seatMesh.instanceColor.array, info = seats.info;
         for (let i = 0; i < seats.count; i++) {
           let k = 0;
           if (s.seatMode === 'sectors') k = info[i] & 1;
-          else if (s.seatMode === 'rings') k = info[i] >> 1;
+          else if (s.seatMode === 'rings') k = (info[i] >> 1) & 3;
+          else if (s.seatMode === 'sides') k = info[i] >> 3;
           else if (s.seatMode === 'mosaic') { const h = (Math.imul(i + 1, 2654435761) >>> 0) / 4294967296; k = h < 0.6 ? 0 : h < 0.88 ? 1 : 2; }
           arr[i * 3] = pal[k].r; arr[i * 3 + 1] = pal[k].g; arr[i * 3 + 2] = pal[k].b;
         }
@@ -1044,6 +1272,9 @@ class Stage {
     this.sun.shadow.bias = -0.0005;
     this.sun.shadow.normalBias = 0.08;
     this.scene.add(this.sun, this.sun.target);
+    // luce di riempimento dal lato opposto al sole (senza ombre): i lati in ombra mostrano comunque i rilievi
+    this.fill = new THREE.DirectionalLight(0xdce6ff, 0.75);
+    this.scene.add(this.fill);
 
     this.camera = new THREE.PerspectiveCamera(FOV, width / height, 1, 5000);
     this.view = 'aerial';
@@ -1087,6 +1318,7 @@ class Stage {
     this.scene.environmentIntensity = on ? 0.04 : 0.3;
     this.hemi.intensity = on ? 0.07 : 0.45;
     this.sun.intensity = on ? 0 : 2;
+    this.fill.intensity = on ? 0 : 0.75;
     this.sun.castShadow = !on;
     if (this.built) this.built.setNight(this.night);
   }
@@ -1104,6 +1336,7 @@ class Stage {
     sc.left = sc.bottom = -R; sc.right = sc.top = R; sc.near = 1; sc.far = R * 4;
     sc.updateProjectionMatrix();
     this.sun.position.set(-0.6, 0.55, 0.45).normalize().multiplyScalar(R * 2);
+    this.fill.position.set(0.65, 0.4, -0.55).normalize().multiplyScalar(R * 2);
     if (this.controls) {
       this.controls.minDistance = this.dist * 0.12;
       this.controls.maxDistance = this.dist * 1.5;
