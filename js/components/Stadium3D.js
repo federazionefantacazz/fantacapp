@@ -49,9 +49,26 @@ export const SEAT_MODES = [
   { id: 'single',  label: 'Tinta unita' },
   { id: 'sectors', label: 'Tribune e curve' },
   { id: 'rings',   label: 'Un colore per anello' },
-  { id: 'mosaic',  label: 'Mosaico a 3 colori' },
   { id: 'sides',   label: 'Un colore per lato' },
   { id: 'grid',    label: 'Ogni settore e anello' }
+];
+/** Effetto mosaico, scelto prima e valido con ogni colorazione. */
+export const MOSAICS = [
+  { id: 'none',   label: 'Nessuno' },
+  { id: 'shades', label: 'Sfumature dello stesso colore' },
+  { id: 'mix',    label: 'Altri due colori sparsi' }
+];
+export const OUTER_STYLES = [
+  { id: 'outline', label: 'Lettere con contorno' },
+  { id: 'panel',   label: 'Insegna con fondo' },
+  { id: 'lit',     label: 'Luminosa' },
+  { id: 'plain',   label: 'Solo lettere' }
+];
+export const TEXT_SIZES = [
+  { id: 'S',  label: 'Piccola',    k: 0.7 },
+  { id: 'M',  label: 'Media',      k: 1 },
+  { id: 'L',  label: 'Grande',     k: 1.35 },
+  { id: 'XL', label: 'Grandissima', k: 1.75 }
 ];
 /** Lati degli spalti (come nelle info dei seggiolini): 0 tribuna vicina, 1 curva destra, 2 tribuna di fronte, 3 curva sinistra. */
 export const SEAT_SIDES = [
@@ -124,11 +141,13 @@ export const FACADES = [
 const DEFAULT = {
   name: '', rings: 2, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single',
   roof: 'none', lights: 'towers', facade: 'wall', ramps: false, shellPattern: 'rhombus', screen: 'none',
-  seatMosaic: false, standText: '', standTextSide: 'far', standTextRing: 1, standTextFont: 'black', outerText: '', outerTextFont: 'black',
+  seatMosaic: 'none', standText: '', standTextSide: 'far', standTextRing: 1, standTextFont: 'black',
+  outerText: '', outerTextFont: 'black', outerTextStyle: 'outline', outerTextSize: 'M',
   colors: {
     grass: '#3d8b37', track: '#b4452f', seatA: '#1e5bb8', seatB: '#ffffff', seatC: '#c62828', seatD: '#ffd400', parapet: '#e6e6e6', structure: '#a5a5a5',
     roof: '#5b6169', steel: '#767d86', accent: '#1e5bb8', girder: '#c0392b', glow: '#e30613',
-    standText: '#ffffff', outerText: '#1d3f8f', screen: '#152c78'
+    standText: '#ffffff', outerText: '#1d3f8f', outerPanel: '#ffffff', screen: '#152c78', trackLines: '#ffffff',
+    mosaicB: '#ffffff', mosaicC: '#9e9e9e'
   }
 };
 
@@ -143,7 +162,7 @@ export function seatGridFrom(st) {
   const c = st.colors, pal = [c.seatA, c.seatB, c.seatC, c.seatD], out = {};
   for (let side = 0; side < 4; side++) {
     for (let ring = 0; ring < 3; ring++) {
-      const k = { sectors: side % 2, rings: ring, sides: side, grid: -1 }[st.seatMode] ?? 0;
+      const k = { sectors: side % 2, rings: ring, sides: side, grid: -1 }[st.seatMode] ?? 0; // tinta unita: colore A
       out[gridKey(side, ring)] = k < 0 ? (st.seatGrid || {})[gridKey(side, ring)] || pal[side] : pal[k];
     }
   }
@@ -156,8 +175,8 @@ export const PRESETS = [
     id: 'maradona', label: 'Stile Maradona',
     desc: 'Ovale con pista blu, due anelli a mosaico azzurro, tetto in lamiera retto da piloni a traliccio, cemento a vista e basamento bianco.',
     st: {
-      rings: 2, track: true, shape: 'oval', corners: 'closed', mowing: 'stripes', seatMode: 'mosaic', roof: 'truss', lights: 'roof', facade: 'struts',
-      colors: { grass: '#3f8a35', track: '#1f5fbf', seatA: '#29a3e0', seatB: '#1565c0', seatC: '#ffffff', parapet: '#ececec', structure: '#b3b1ab', roof: '#a9aeb3', steel: '#858c93', accent: '#1f6fd1' }
+      rings: 2, track: true, shape: 'oval', corners: 'closed', mowing: 'stripes', seatMode: 'single', seatMosaic: 'mix', roof: 'truss', lights: 'roof', facade: 'struts',
+      colors: { grass: '#3f8a35', track: '#1f5fbf', seatA: '#29a3e0', mosaicB: '#1565c0', mosaicC: '#ffffff', parapet: '#ececec', structure: '#b3b1ab', roof: '#a9aeb3', steel: '#858c93', accent: '#1f6fd1' }
     }
   },
   {
@@ -193,8 +212,8 @@ export const PRESETS = [
     id: 'arena', label: 'Arena moderna',
     desc: 'Tre anelli con angoli arrotondati, seggiolini a mosaico, copertura chiara e maxischermo a 360°.',
     st: {
-      rings: 3, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'mosaic', roof: 'membrane', lights: 'roof', facade: 'columns', screen: 'ring',
-      colors: { grass: '#3d8b37', seatA: '#212121', seatB: '#616161', seatC: '#ffd400', parapet: '#e0e0e0', structure: '#8d8d8d', roof: '#f1f3f5', steel: '#c8cdd3' }
+      rings: 3, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single', seatMosaic: 'mix', roof: 'membrane', lights: 'roof', facade: 'columns', screen: 'ring',
+      colors: { grass: '#3d8b37', seatA: '#212121', mosaicB: '#616161', mosaicC: '#ffd400', parapet: '#e0e0e0', structure: '#8d8d8d', roof: '#f1f3f5', steel: '#c8cdd3' }
     }
   },
   {
@@ -213,10 +232,10 @@ export function applyPreset(st, id) {
   if (!p) return normalizeStadium(st);
   const base = defaultStadium(), c = st.colors || {};
   return normalizeStadium({
-    ...base, ...p.st, colors: { ...base.colors, ...p.st.colors, standText: c.standText, outerText: c.outerText },
+    ...base, ...p.st, colors: { ...base.colors, ...p.st.colors, standText: c.standText, outerText: c.outerText, outerPanel: c.outerPanel },
     name: st.name, capacityCustom: st.capacityCustom, image: st.image, capacity: st.capacity,
     standText: st.standText, standTextSide: st.standTextSide, standTextRing: st.standTextRing, standTextFont: st.standTextFont,
-    outerText: st.outerText, outerTextFont: st.outerTextFont, seatGrid: st.seatGrid
+    outerText: st.outerText, outerTextFont: st.outerTextFont, outerTextStyle: st.outerTextStyle, outerTextSize: st.outerTextSize, seatGrid: st.seatGrid
   });
 }
 
@@ -228,7 +247,14 @@ const oneOf = (list, v, def) => (list.some(o => o.id === v) ? v : def);
 /** Stadio con tutti i campi validi (quelli mancanti o sbagliati tornano ai valori predefiniti). */
 export function normalizeStadium(s) {
   const src = s && typeof s === 'object' ? s : {};
-  const c = src.colors || {};
+  const c = { ...(src.colors || {}) };
+  // stadi salvati prima: "Mosaico a 3 colori" era una colorazione, ora è tinta unita + effetto mosaico con due colori sparsi
+  let seatMode = src.seatMode, seatMosaic = src.seatMosaic === true ? 'shades' : src.seatMosaic;
+  if (seatMode === 'mosaic') {
+    seatMode = 'single'; seatMosaic = 'mix';
+    if (!c.mosaicB) c.mosaicB = c.seatB;
+    if (!c.mosaicC) c.mosaicC = c.seatC;
+  }
   const out = {
     name: String(src.name || '').slice(0, MAX_NAME),
     rings: oneOf(RINGS, Number(src.rings), DEFAULT.rings),
@@ -236,20 +262,22 @@ export function normalizeStadium(s) {
     shape: oneOf(SHAPES, src.shape, DEFAULT.shape),
     corners: oneOf(CORNERS, src.corners, DEFAULT.corners),
     mowing: oneOf(MOWING, src.mowing, DEFAULT.mowing),
-    seatMode: oneOf(SEAT_MODES, src.seatMode, DEFAULT.seatMode),
+    seatMode: oneOf(SEAT_MODES, seatMode, DEFAULT.seatMode),
     roof: oneOf(ROOFS, src.roof, DEFAULT.roof),
     lights: oneOf(LIGHTS, src.lights, DEFAULT.lights),
     facade: oneOf(FACADES, src.facade, DEFAULT.facade),
     ramps: !!src.ramps,
     shellPattern: oneOf(SHELL_PATTERNS, src.shellPattern, DEFAULT.shellPattern),
     screen: oneOf(SCREENS, src.screen, DEFAULT.screen),
-    seatMosaic: !!src.seatMosaic,
+    seatMosaic: oneOf(MOSAICS, seatMosaic, DEFAULT.seatMosaic),
     standText: String(src.standText || '').slice(0, MAX_STAND_TEXT),
     standTextSide: oneOf(TEXT_SIDES, src.standTextSide, DEFAULT.standTextSide),
     standTextRing: [0, 1, 2, 3].includes(Number(src.standTextRing)) ? Number(src.standTextRing) : DEFAULT.standTextRing, // 0 = tutti gli anelli
     standTextFont: oneOf(TEXT_FONTS, src.standTextFont, DEFAULT.standTextFont),
     outerText: String(src.outerText || '').slice(0, MAX_OUTER_TEXT),
     outerTextFont: oneOf(TEXT_FONTS, src.outerTextFont, DEFAULT.outerTextFont),
+    outerTextStyle: oneOf(OUTER_STYLES, src.outerTextStyle, DEFAULT.outerTextStyle),
+    outerTextSize: oneOf(TEXT_SIZES, src.outerTextSize, DEFAULT.outerTextSize),
     // capienza scelta dalla squadra (0 = calcolata dai seggiolini)
     capacityCustom: Math.min(MAX_CAPACITY, Math.max(0, Math.round(Number(src.capacityCustom) || 0))),
     colors: Object.fromEntries(Object.entries(DEFAULT.colors).map(([k, d]) => [k, validColor(c[k], d)]))
@@ -657,9 +685,11 @@ function paintBase(canvas, st, shape, ext) {
   const outer = TRACK.r + TRACK.lanes * TRACK.lane;
   ctx.fillStyle = st.colors.track;
   ctx.beginPath(); ovalPath(ctx, outer + 0.6); ovalPath(ctx, TRACK.r - 0.3); ctx.fill('evenodd');
-  ctx.strokeStyle = 'rgba(255,255,255,.8)';
+  ctx.strokeStyle = st.colors.trackLines;
+  ctx.globalAlpha = 0.85;
   ctx.lineWidth = Math.max(0.06, 1.1 / s);
   for (let k = 0; k <= TRACK.lanes; k++) { ctx.beginPath(); ovalPath(ctx, TRACK.r + k * TRACK.lane); ctx.stroke(); }
+  ctx.globalAlpha = 1;
 }
 
 /**
@@ -918,16 +948,65 @@ function signOf(shape, st) {
       for (let j = 1; j < wall.length; j++) if (wall[j].h >= h) { const a = wall[j - 1], b = wall[j]; return a.d + (b.d - a.d) * (h - a.h) / (b.h - a.h) + 0.2; }
       return wall[wall.length - 1].d + 0.2;
     };
-    return { hc: best.h, maxH: 8.5, dAt, outline: S.rowAt, rows: 8 };
+    return { hc: best.h, maxH: 8.5, standOn: 0, dAt, outline: S.rowAt, rows: 8 };
   }
   const outline = (d) => { const pts = shape.path.map(p => [p.x + p.mx * d, p.z + p.mz * d]); pts.push(pts[0]); return pts; };
   const free = Math.min(6, Math.max(3, Ht * 0.2));
-  const [d, hc, maxH] = {
-    struts: [o + PLATFORM_OUT + 0.12, PLATFORM_H + 2.9, 3.4],                   // sopra la ringhiera della piattaforma, davanti ai piloni
-    bands: [o + 1.95, Ht - (RAMP_BAND + 0.15) / 2, RAMP_BAND - 0.25],           // cornicione
+  const [d, hc, maxH, standOn] = {
+    struts: [o + PLATFORM_OUT + 0.12, 0, 4.2, PLATFORM_H + 1.15],              // in piedi sulla ringhiera della piattaforma, davanti ai piloni
+    bands: [o + 1.95, Ht - 5, 6.5],                                            // in alto sulla facciata, tra una torre e l'altra
     columns: [o + 0.8, Ht * 0.62, free]                                         // davanti ai pilastri
   }[st.facade] || [o + 0.08, Math.max(Ht * 0.62, (st.facade === 'esplanade' ? ESPLANADE_H : 0) + 4.5), free];
-  return { hc, maxH, dAt: () => d, outline, rows: 1 };
+  return { hc, maxH, standOn, dAt: () => d, outline, rows: 1 };
+}
+
+/**
+ * Ingombri grandi davanti alla facciata (torri delle rampe, piloni del tetto reticolare) sui lati lunghi, a distanza
+ * maggiore di d: per lato (+1 z > 0, -1 z < 0) gli intervalli di x occupati. La scritta va negli spazi liberi.
+ */
+function signObstacles(shape, st, d) {
+  const out = { 1: [], [-1]: [] }, foot = footOf(shape, st);
+  const G = st.roof === 'girders' ? girdersOf(shape, st) : null;
+  const towers = [];
+  if (st.ramps) {
+    for (const run of shape.runs) {
+      const cum = runLengths(run);
+      for (const u of stations(run, cum, RAMP_EVERY)) {
+        const [px, pz] = pointAt(run, cum, u, 0);
+        if (G && Math.abs(Math.atan2(Math.abs(pz) / shape.b, Math.abs(px) / shape.a) - Math.PI / 4) < 0.3) continue;
+        const [x, z] = pointAt(run, cum, u, foot + RAMP_R - 0.4);
+        towers.push([x, z, RAMP_R + 0.6]);
+      }
+    }
+  }
+  if (st.roof === 'truss') {
+    const R = roofOf(shape, st.roof), PD = pylonDist(R);
+    if (PD + 1.6 > d) {
+      for (const run of shape.runs) {
+        const cum = runLengths(run);
+        for (const u of stations(run, cum, PYLON_EVERY)) { const [x, z] = pointAt(run, cum, u, PD); towers.push([x, z, 3.2]); }
+      }
+    }
+  }
+  for (const [x, z, r] of towers) if (Math.abs(z) > shape.b * 0.6) out[Math.sign(z)].push([x - r, x + r]);
+  return out;
+}
+
+/** Tratto libero più largo tra -half e half, tolti gli intervalli occupati: [centro, larghezza]. */
+function widestGap(half, busy) {
+  const cuts = busy.filter(([a, b]) => b > -half && a < half).sort((p, q) => p[0] - q[0]);
+  let best = [0, 0], x = -half;
+  for (const [a, b] of [...cuts, [half, half]]) {
+    if (a - x > best[1]) best = [(a + x) / 2, a - x];
+    x = Math.max(x, b);
+  }
+  return best;
+}
+
+/** Contorno ben visibile per una scritta di colore `hex`: scuro sulle lettere chiare, bianco su quelle scure. */
+function contrastOf(hex) {
+  const n = parseInt(hex.slice(1), 16), l = 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+  return l > 150 ? '#1b1e23' : '#ffffff';
 }
 
 /** z del contorno chiuso `poly` alla x data, sul lato sgn (+1 z > 0, -1 z < 0); il punto più esterno. */
@@ -943,35 +1022,48 @@ function zOn(poly, x, sgn) {
 }
 
 /**
- * Scritta sull'esterno: un nastro con la scritta che segue la facciata, centrato su ciascun lato lungo e leggibile da
- * fuori. Si accende di notte.
+ * Scritta sull'esterno: un nastro con la scritta che segue la facciata, su ciascun lato lungo, nel tratto libero più
+ * largo (tra torri e piloni) e leggibile da fuori. Stile: lettere con contorno, insegna con fondo, luminosa o solo lettere;
+ * dimensione: fattore sull'altezza adatta a quella facciata. Si accende di notte.
  */
-function buildSign(THREE, shape, st, text, color) {
-  const c = document.createElement('canvas'), ctx = c.getContext('2d');
+function buildSign(THREE, shape, st, text, color, panel) {
+  const style = st.outerTextStyle, c = document.createElement('canvas'), ctx = c.getContext('2d');
   const font = fontCss(fontOf(st.outerTextFont), 120);
   ctx.font = font;
   const m = ctx.measureText(text), asc = m.actualBoundingBoxAscent || 88, desc = m.actualBoundingBoxDescent || 4;
   const wide = Math.max(m.width, (m.actualBoundingBoxLeft || 0) + (m.actualBoundingBoxRight || 0));
-  c.width = Math.ceil(wide + 50); c.height = Math.ceil(asc + desc + 36);
-  ctx.font = font; ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-  ctx.shadowColor = 'rgba(0,0,0,.28)'; ctx.shadowBlur = 6;
-  ctx.fillText(text, c.width / 2, 18 + asc);
+  const line = style === 'outline' || style === 'lit' ? 16 : 0, pad = style === 'panel' ? 46 : 26 + line;
+  c.width = Math.ceil(wide + pad * 2); c.height = Math.ceil(asc + desc + (style === 'panel' ? 70 : 30 + line * 2));
+  if (style === 'panel') {
+    // insegna: fondo pieno con il bordo del colore delle lettere
+    ctx.fillStyle = panel; ctx.strokeStyle = color; ctx.lineWidth = 10;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(5, 5, c.width - 10, c.height - 10, 18) : ctx.rect(5, 5, c.width - 10, c.height - 10);
+    ctx.fill(); ctx.stroke();
+  }
+  ctx.font = font; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round';
+  const y = (c.height - asc - desc) / 2 + asc;
+  if (line) { ctx.strokeStyle = contrastOf(color); ctx.lineWidth = line; ctx.strokeText(text, c.width / 2, y); }
+  ctx.fillStyle = color;
+  ctx.fillText(text, c.width / 2, y);
   const aspect = c.width / c.height;
 
-  const sg = signOf(shape, st), mid = sg.outline(sg.dAt(sg.hc));
-  // larghezza: il tratto quasi dritto del lato lungo
-  const zmax = Math.max(...mid.map(p => p[1])), half = Math.max(...mid.filter(p => p[1] >= zmax - 1.2).map(p => Math.abs(p[0])));
-  let H = sg.maxH, W = H * aspect;
-  const maxW = Math.max(8, 2 * half * 0.92);
+  const sg = signOf(shape, st), mid = sg.outline(sg.dAt(sg.hc || sg.standOn));
+  // larghezza: il tratto quasi dritto del lato lungo, tolti torri e piloni davanti alla facciata
+  const zmax = Math.max(...mid.map(p => p[1])), half = Math.max(...mid.filter(p => p[1] >= zmax - 1.2).map(p => Math.abs(p[0]))) * 0.92;
+  const busy = signObstacles(shape, st, sg.dAt(sg.hc || sg.standOn));
+  const gaps = { 1: widestGap(half, busy[1]), [-1]: widestGap(half, busy[-1]) };
+  const k = (TEXT_SIZES.find(z => z.id === st.outerTextSize) || TEXT_SIZES[1]).k;
+  let H = sg.maxH * k, W = H * aspect;
+  const maxW = Math.max(6, Math.min(gaps[1][1], gaps[-1][1]) - 1);
   if (W > maxW) { H *= maxW / W; W = maxW; }
-  const hb = sg.hc - H / 2, NR = sg.rows, NC = Math.max(8, Math.ceil(W / 0.7));
+  const hb = sg.standOn ? sg.standOn : sg.hc - H / 2, NR = sg.rows, NC = Math.max(8, Math.ceil(W / 0.7));
   const pos = [], uv = [], idx = [];
   for (const sgn of [1, -1]) {
-    const base = pos.length / 3;
+    const base = pos.length / 3, xc = gaps[sgn][0];
     for (let r = 0; r <= NR; r++) {
       const h = hb + H * r / NR, poly = sg.outline(sg.dAt(h));
       for (let i = 0; i <= NC; i++) {
-        const t = i / NC, x = sgn > 0 ? -W / 2 + W * t : W / 2 - W * t; // da fuori si legge da sinistra a destra
+        const t = i / NC, x = sgn > 0 ? xc - W / 2 + W * t : xc + W / 2 - W * t; // da fuori si legge da sinistra a destra
         const z = zOn(poly, x, sgn) ?? sgn * zmax, z0 = zOn(poly, x - 0.5, sgn) ?? z, z1 = zOn(poly, x + 0.5, sgn) ?? z;
         const nx = -(z1 - z0) * sgn, nz = sgn, nl = Math.hypot(nx, nz);
         pos.push(x + nx / nl * 0.06, h, z + nz / nl * 0.06);
@@ -991,12 +1083,14 @@ function buildSign(THREE, shape, st, text, color) {
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
+  // un po' di luce propria anche di giorno: la scritta resta leggibile sul lato in ombra
+  const day = style === 'lit' ? 0.75 : 0.2, night = style === 'lit' ? 1.25 : 0.9;
   const mat = new THREE.MeshStandardMaterial({
-    map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0, transparent: true, alphaTest: 0.35, roughness: 0.5,
+    map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: day, transparent: true, alphaTest: 0.35, roughness: 0.5,
     side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2
   });
   const mesh = new THREE.Mesh(g, mat);
-  return { mesh, mat, dispose() { g.dispose(); mat.dispose(); tex.dispose(); } };
+  return { mesh, mat, glow: (on) => { mat.emissiveIntensity = on ? night : day; }, dispose() { g.dispose(); mat.dispose(); tex.dispose(); } };
 }
 
 /** Lunghezze progressive del bordo interno lungo un tratto (per mettere oggetti a passo regolare). */
@@ -1931,7 +2025,7 @@ function buildStadium(L, st) {
     key: geomKey(st), group, shape, ext, height: reach.h, capacity: seats.count,
     setNight(on) {
       night = on;
-      if (sign) sign.mat.emissiveIntensity = on ? 0.9 : 0; // la scritta si accende
+      if (sign) sign.glow(on); // la scritta si accende
       outside.lamp.emissiveIntensity = on ? 5 : 0.6;
       if (outside.shellMat) outside.shellMat.emissiveIntensity = on ? 0.85 : 0; // l'involucro si accende
       nightLights.forEach(l => { l.visible = on; });
@@ -1945,13 +2039,13 @@ function buildStadium(L, st) {
       if (outside.deckMat) outside.deckMat.color.set(c.roof);
       if (outside.shellMat) { outside.shellMat.color.set(c.roof); outside.shellMat.emissive.set(c.glow); }
       // scritta sull'esterno: si ricostruisce solo se cambiano testo o colore
-      const sgk = s.outerText.trim() + '|' + c.outerText + '|' + s.outerTextFont;
+      const sgk = [s.outerText.trim(), c.outerText, c.outerPanel, s.outerTextFont, s.outerTextStyle, s.outerTextSize].join('|');
       if (sgk !== signKey) {
         signKey = sgk;
         if (sign) { group.remove(sign.mesh); sign.dispose(); sign = null; }
         if (s.outerText.trim()) {
-          sign = buildSign(THREE, shape, s, s.outerText.trim(), c.outerText);
-          sign.mat.emissiveIntensity = night ? 0.9 : 0;
+          sign = buildSign(THREE, shape, s, s.outerText.trim(), c.outerText, c.outerPanel);
+          sign.glow(night);
           group.add(sign.mesh);
         }
       }
@@ -1965,19 +2059,20 @@ function buildStadium(L, st) {
       mats[M_PARAPET].color.set(c.parapet);
       mats[M_STEPS].color.set(shade(c.structure, 1.12));
       mats[M_STRUCT].color.set(shade(c.structure, 0.82));
-      const pk = [c.grass, c.track, c.structure, s.mowing].join('|');
+      const pk = [c.grass, c.track, c.trackLines, c.structure, s.mowing].join('|');
       if (pk !== paintKey) {
         paintKey = pk;
         paintPitch(pitchCanvas, s); pitchTex.needsUpdate = true;
         paintBase(baseCanvas, s, shape, ext); baseTex.needsUpdate = true;
       }
-      const sk = JSON.stringify([s.seatMode, c.seatA, c.seatB, c.seatC, c.seatD, s.seatGrid, s.seatMosaic, s.standText, s.standTextSide, s.standTextRing, s.standTextFont, c.standText]);
+      const sk = JSON.stringify([s.seatMode, c.seatA, c.seatB, c.seatC, c.seatD, c.mosaicB, c.mosaicC, s.seatGrid, s.seatMosaic, s.standText, s.standTextSide, s.standTextRing, s.standTextFont, c.standText]);
       if (sk !== seatColorKey) {
         seatColorKey = sk;
         // tavolozza: 0-3 colori A-D, 4-15 settore e anello (lato * 3 + anello); ognuno con le varianti per il mosaico
         const white = new THREE.Color(1, 1, 1);
         const pal = [c.seatA, c.seatB, c.seatC, c.seatD];
         for (let side = 0; side < 4; side++) for (let r = 0; r < 3; r++) pal.push(s.seatGrid[gridKey(side, r)]);
+        const mixB = new THREE.Color(c.mosaicB), mixC = new THREE.Color(c.mosaicC);
         const base = pal.map(h => new THREE.Color(h));
         const dark = base.map(col => col.clone().multiplyScalar(0.68)), light = base.map(col => col.clone().lerp(white, 0.42));
         const txt = new THREE.Color(c.standText), mask = standTextMask(seats, s);
@@ -1989,10 +2084,10 @@ function buildStadium(L, st) {
           else if (s.seatMode === 'rings') k = (info[i] >> 1) & 3;
           else if (s.seatMode === 'sides') k = info[i] >> 3;
           else if (s.seatMode === 'grid') k = 4 + (info[i] >> 3) * 3 + ((info[i] >> 1) & 3);
-          else if (s.seatMode === 'mosaic') k = h < 0.6 ? 0 : h < 0.88 ? 1 : 2;
-          // effetto mosaico: ogni posto resta del colore del suo settore, più scuro o più chiaro a caso
+          // effetto mosaico sopra la colorazione: sfumature del colore del settore o altri due colori sparsi
           let col = base[k];
-          if (s.seatMosaic && s.seatMode !== 'mosaic') col = h < 0.58 ? base[k] : h < 0.84 ? dark[k] : light[k];
+          if (s.seatMosaic === 'shades') col = h < 0.58 ? base[k] : h < 0.84 ? dark[k] : light[k];
+          else if (s.seatMosaic === 'mix') col = h < 0.6 ? base[k] : h < 0.88 ? mixB : mixC;
           if (mask && mask[i]) col = txt;
           arr[i * 3] = col.r; arr[i * 3 + 1] = col.g; arr[i * 3 + 2] = col.b;
         }
