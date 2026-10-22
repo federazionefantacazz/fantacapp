@@ -259,7 +259,7 @@ export const StadioSquadra = {
         membrane: 'Tetto chiaro e liscio, con le costole sotto.',
         girders: 'Tetto chiaro a botti con la struttura scura sotto, appeso a quattro grandi travi reticolari che poggiano su quattro torri agli angoli.',
         stands: 'Ogni tribuna ha il suo tetto piatto: sotto pannelli traslucidi e travi, davanti la fascia con le luci; dietro la tribuna di fronte due piloni con i tiranti. Gli angoli restano scoperti.',
-        wave: 'Copertura bianca a sella, alta sopra le curve e più bassa sui lati lunghi, con il traliccio a triangoli sotto e una fascia bianca che scende all\'esterno.',
+        wave: 'Copertura bianca quasi tonda a cuscini radiali, alta sopra le curve e più bassa sui lati lunghi, con le travi d\'acciaio sotto. Fuori una fascia bianca che sulle curve scende quasi a terra; sui lati sotto la fascia si vedono i piani in cemento e al centro della tribuna vicina c\'è l\'ingresso principale con la vetrata a lamelle e gli schermi.',
         dome: 'Cupola bianca a raggiera che sale dal basso fino all\'apertura, con i denti a punta tutto attorno alla base.',
         tent: 'Membrana tesa da sei pennoni altissimi, con le punte sopra lo stadio. Di notte si illumina.',
         petals: 'Involucro a petali con le costole, diviso in quattro lobi da valli sulle diagonali. Di notte si illumina.',
