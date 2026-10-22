@@ -902,17 +902,6 @@ function shellOf(shape, st) {
       return up * wj;
     };
     extra = P + 16;
-  } else if (st.roof === 'petals') {
-    // petali: quattro lobi gonfi separati da pieghe nette sulle diagonali; le pieghe scavano solo il tetto
-    // (dalla cresta verso il campo), così il muro esterno resta intero
-    const jCrest = Math.max(1, pts.findIndex(p => p.h >= crest - 1));
-    yFn = (x, z, j) => {
-      const wj = Math.min(1, Math.max(0, (j - jCrest * 0.7) / (jCrest * 0.3)));
-      if (!wj) return 0;
-      const th = Math.atan2(Math.abs(z) / shape.b, Math.abs(x) / shape.a);
-      const crease = Math.exp(-(((th - Math.PI / 4) / 0.12) ** 2)), lobe = Math.sin(2 * th) ** 2;
-      return (-6.5 * crease + 2 * (1 - lobe)) * wj;
-    };
   }
   return { pts, split, base, dIn, hIn: crest - drop, top: crest + extra, out: o + 12, rowAt, yFn, masts };
 }
@@ -924,16 +913,6 @@ function shellOf(shape, st) {
  */
 function waveOf(shape, st) {
   const T = shape.tiers[shape.tiers.length - 1], o = shape.outer;
-  if (st.roof === 'dome') {
-    // cupola: sale dal basso, ripida fuori e quasi piatta in cima, fino all'apertura; i denti a punta stanno attorno alla base
-    const hb = 7, top = T.top + 19, dOut = o + 13, dIn = Math.min(o - 12, Math.max(-14, 4 - reachOf_(st)));
-    // la cupola deve passare sopra il muro in cima agli spalti (sale ripida all'inizio)
-    const pts = [], n = Math.max(10, Math.round((dOut - dIn) / 3));
-    for (let i = 0; i <= n; i++) { const f = i / n; pts.push({ d: dOut + (dIn - dOut) * f, h: hb + (top - hb) * Math.sin(f * Math.PI / 2) ** 0.45 }); }
-    pts.push({ d: dIn - 0.8, h: top - 1.4 });
-    const rows = new Map(), rowAt = (d) => { const key = d.toFixed(3); if (!rows.has(key)) rows.set(key, shellOutline(shape, d)); return rows.get(key); };
-    return { pts, dIn, hSide: top, hEnd: top, skirtBottom: hb, wave: () => top, rowAt, yFn: () => 0, out: dOut + 4, top, dome: { hb, dOut } };
-  }
   const hSide = T.top + 5, hEnd = T.top + 30, skirtBottom = hSide - 12, dIn = Math.min(o - 6, Math.max(-14, 3 - reachOf_(st)));
   // sella: piatta sui lati lunghi, sale ripida verso le curve e fa un grande arco sopra di loro
   const wave = (x, z) => {
@@ -972,6 +951,110 @@ function latticeCanvas() {
   ctx.fillStyle = '#4b5057';
   for (const [x, y] of [[0, 0], [64, 0], [128, 0], [0, 64], [64, 64], [128, 64], [0, 128], [64, 128], [128, 128]]) { ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill(); }
   return c;
+}
+
+/**
+ * Cupola a raggiera (stile Samara): pianta ellittica più rotonda e molto più larga degli spalti, superficie liscia e
+ * bassa che sale fino a una piccola apertura con l'anello in rilievo; alla base una corona di grandi denti triangolari.
+ * Profilo (d, h) assoluto; rowAt(d) dà l'ellisse a quella distanza dal bordo degli spalti.
+ */
+function domeOf(shape, st) {
+  const T = shape.tiers[shape.tiers.length - 1], o = shape.outer;
+  const hb = 15, top = T.top + 15, dOut = o + 24, dIn = Math.min(o - 10, Math.max(-20, -10 - reachOf_(st)));
+  // cupola: ripida al bordo e piatta in cima (passa sopra il muro in cima agli spalti)
+  const pts = [], n = 22;
+  for (let i = 0; i <= n; i++) { const f = i / n; pts.push({ d: dOut + (dIn - dOut) * f, h: hb + (top - hb) * Math.sqrt(1 - (1 - f) ** 2) }); }
+  const rows = new Map(), rowAt = (d) => { const key = d.toFixed(3); if (!rows.has(key)) rows.set(key, domeOutline(shape, d)); return rows.get(key); };
+  return { pts, dIn, dOut, hb, top, rowAt, out: dOut + 3, hIn: top };
+}
+
+/** Ellisse (pianta della cupola) a distanza d dal bordo degli spalti: più rotonda degli spalti, li contiene tutti. */
+function domeOutline(shape, d, N = 240) {
+  const pts = shape.path.map(p => [p.x + p.mx * d, p.z + p.mz * d]);
+  const A = Math.max(...pts.map(p => Math.abs(p[0]))), B0 = Math.max(...pts.map(p => Math.abs(p[1])));
+  const B = B0 + (A - B0) * 0.4;
+  const k = Math.sqrt(Math.max(1, ...pts.map(([x, z]) => (x / A) ** 2 + (z / B) ** 2)));
+  const out = [];
+  for (let i = 0; i <= N; i++) { const t = i / N * Math.PI * 2; out.push([k * A * Math.cos(t), k * B * Math.sin(t)]); }
+  return out;
+}
+
+/**
+ * Superficie che gira intorno con il profilo `prof`, con le coordinate per la texture allineate per colonna
+ * (u = colonna / colonne * K): le linee a raggiera restano dritte da una riga all'altra.
+ */
+function sweepGrid(THREE, rowAt, prof, K, vScale) {
+  const pos = [], uv = [], idx = [];
+  let v = 0, cols = 0;
+  prof.forEach((p, j) => {
+    if (j) v += Math.hypot(p.d - prof[j - 1].d, p.h - prof[j - 1].h) / vScale;
+    const row = rowAt(p.d);
+    cols = row.length;
+    row.forEach(([x, z], i) => { pos.push(x, p.h, z); uv.push(i / (cols - 1) * K, v); });
+  });
+  for (let j = 0; j < prof.length - 1; j++) for (let i = 0; i < cols - 1; i++) { const a = j * cols + i, b = a + cols; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+/** Pannelli della cupola: bianco liscio, una linea sottile per pannello e una più marcata ogni otto. */
+function domePanelCanvas() {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 8;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 512, 8);
+  ctx.fillStyle = 'rgba(80,90,100,.22)';
+  for (let x = 0; x < 512; x += 64) ctx.fillRect(x, 0, 3, 8);
+  ctx.fillStyle = 'rgba(70,80,90,.5)'; ctx.fillRect(0, 0, 5, 8);
+  return c;
+}
+
+/**
+ * Petali (stile Al Janoub): quattro petali sul profilo dell'involucro. Le giunture partono dalle diagonali in basso e
+ * salgono piegando verso il centro delle curve: il petalo delle curve diventa una V che punta all'apertura, quelli dei
+ * lati la avvolgono. Le costole (texture) seguono le colonne di ogni petalo, quindi convergono con le giunture; ogni
+ * petalo è gonfio al centro. Le giunture scure vanno in `seamsOut` (travi sottili).
+ */
+function petalsGeometry(THREE, S, beamsOut, seamsOut) {
+  const rows = S.pts.length, M = 40, RIBS = 18;
+  const at = (row, q) => {                                  // punto della pianta alla frazione q del giro
+    const N = row.length - 1, f = ((q % 1) + 1) % 1 * N, i = Math.floor(f), t = f - i, a = row[i], b = row[Math.min(N, i + 1)];
+    return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  };
+  const bound = (k, t) => { const qb = 0.125 + 0.25 * k, qt = [0.03, 0.47, 0.53, 0.97][k]; return qb + (qt - qb) * t ** 1.5; };
+  // petali: [inizio, fine] per riga (t da 0 in basso a 1 sull'apertura)
+  const petals = [(t) => [bound(3, t) - 1, bound(0, t)], (t) => [bound(0, t), bound(1, t)], (t) => [bound(1, t), bound(2, t)], (t) => [bound(2, t), bound(3, t)]];
+  const pos = [], uv = [], idx = [];
+  for (const span of petals) {
+    const base = pos.length / 3;
+    for (let j = 0; j < rows; j++) {
+      const t = j / (rows - 1), [q0, q1] = span(t), row = S.rowAt(S.pts[j].d);
+      for (let m = 0; m <= M; m++) {
+        const f = m / M, [x, z] = at(row, q0 + (q1 - q0) * f), l = Math.hypot(x, z) || 1;
+        const puff = 2.6 * Math.sin(Math.PI * f) * Math.min(1, j / 3);     // gonfio al centro del petalo
+        pos.push(x + x / l * puff, S.pts[j].h + puff * 0.4, z + z / l * puff);
+        uv.push(f * RIBS, t * 4);
+      }
+    }
+    for (let j = 0; j < rows - 1; j++) for (let m = 0; m < M; m++) { const a = base + j * (M + 1) + m, b = a + M + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+  }
+  // giunture scure tra un petalo e l'altro
+  for (let k = 0; k < 4; k++) {
+    for (let j = 0; j < rows - 1; j++) {
+      const t0 = j / (rows - 1), t1 = (j + 1) / (rows - 1);
+      const [x0, z0] = at(S.rowAt(S.pts[j].d), bound(k, t0)), [x1, z1] = at(S.rowAt(S.pts[j + 1].d), bound(k, t1));
+      beam(seamsOut, x0, S.pts[j].h + 0.1, z0, x1, S.pts[j + 1].h + 0.1, z1, 0.35);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
 }
 
 /**
@@ -1015,7 +1098,8 @@ function reachOf(shape, st) {
   const foot = footOf(shape, st);
   let d = foot + 0.5, h = shape.height, x = 0, z = 0;
   if (SHELLISH.includes(st.roof)) { const S = shellOf(shape, st); d = Math.max(d, S.out + 1); h = Math.max(h, S.top + 1); }
-  else if (st.roof === 'wave' || st.roof === 'dome') { const V = waveOf(shape, st); d = Math.max(d, V.out + 1); h = Math.max(h, V.top + 1); }
+  else if (st.roof === 'wave') { const V = waveOf(shape, st); d = Math.max(d, V.out + 1); h = Math.max(h, V.top + 1); }
+  else if (st.roof === 'dome') { const D = domeOf(shape, st); d = Math.max(d, D.out + 1); h = Math.max(h, D.top + 3); }
   else if (st.roof !== 'none') { const R = roofOf(shape, st.roof, reachOf_(st)); d = Math.max(d, st.roof === 'truss' ? pylonDist(R) + 2.5 : R.dOut); h = Math.max(R.h(R.dIn), st.roof === 'truss' ? pylonHeight(R) : 0) + 1; }
   if (st.ramps) d = Math.max(d, foot + RAMP_R * 2);
   if (st.roof === 'stands') { const R = roofOf(shape, 'stands', reachOf_(st)); d = Math.max(d, R.dOut + 11); h = Math.max(h, R.h(R.dIn) + 17); }
@@ -1039,10 +1123,14 @@ const ENDS_W = 26, ENDS_H = 7;                       // schermi sopra le curve
  */
 function screenOf(shape, st) {
   const T = shape.tiers[shape.tiers.length - 1];
-  if (st.roof === 'wave' || st.roof === 'dome') {
+  if (st.roof === 'wave') {
     // sotto il bordo interno, alla quota più bassa dell'onda (sui lati lunghi)
-    const V = waveOf(shape, st), ds = V.dIn + 1.5, lip = st.roof === 'dome' ? 1.4 : 5.6;
-    return { ds, hang: true, y: V.hSide - lip - 2.2, roofY: V.hSide - lip + 0.6 };
+    const V = waveOf(shape, st), ds = V.dIn + 1.5;
+    return { ds, hang: true, y: V.hSide - 5.6 - 2.2, roofY: V.hSide - 5 };
+  }
+  if (st.roof === 'dome') {
+    const D = domeOf(shape, st), ds = Math.max(D.dIn + 3, T.D + 2);
+    return { ds, hang: true, y: D.top - 6, roofY: D.top - 1 };
   }
   if (SHELLISH.includes(st.roof)) {
     const S = shellOf(shape, st), ds = S.dIn + 3;
@@ -1112,7 +1200,7 @@ function signOf(shape, st) {
     return { hc: (V.skirtBottom + V.hSide - 2.6) / 2, maxH: 6, standOn: 0, dAt: () => d, outline: V.rowAt, rows: 1 };
   }
   if (SHELLISH.includes(st.roof) || st.roof === 'dome') {
-    const S = st.roof === 'dome' ? waveOf(shape, st) : shellOf(shape, st), wall = [];
+    const S = st.roof === 'dome' ? domeOf(shape, st) : shellOf(shape, st), wall = [];
     // muro gonfio dell'involucro: punti dal basso fino alla cresta (la quota sale)
     for (const p of S.pts) { if (wall.length && p.h <= wall[wall.length - 1].h) break; wall.push(p); }
     const best = wall.reduce((m, p) => (p.d > m.d ? p : m), wall[0]);
@@ -1428,7 +1516,7 @@ function shellPatternCanvas(kind) {
     const [c, ctx] = make(64, 8), g = ctx.createLinearGradient(0, 0, 64, 0);
     g.addColorStop(0, '#8c949d'); g.addColorStop(0.1, '#e8ebee'); g.addColorStop(0.5, '#ffffff'); g.addColorStop(0.88, '#d6dbe0'); g.addColorStop(1, '#8c949d');
     ctx.fillStyle = g; ctx.fillRect(0, 0, 64, 8);
-    return { canvas: c, rx: 2, ry: 1 };
+    return { canvas: c, rx: 1, ry: 1 };
   }
   if (kind === 'plain') {
     const [c, ctx] = make(8, 8);
@@ -1626,7 +1714,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   const cylinder = new THREE.CylinderGeometry(1, 1, 1, 28);
   own.push(dark, girderMat, cylinder);
   const beams = [], pilasters = [], lamps = [], spots = [], windows = [];
-  const towerCores = [], towerCaps = [], girderBeams = [], drums = [], frames = [];
+  const towerCores = [], towerCaps = [], girderBeams = [], drums = [], frames = [], seams = [];
   const screenFrame = new THREE.MeshStandardMaterial({ color: 0x1b1e23, roughness: 0.6, side: THREE.DoubleSide });
   const glassWall = new THREE.MeshStandardMaterial({ color: 0x2a323c, roughness: 0.25, metalness: 0.3, side: THREE.DoubleSide });
   own.push(screenFrame, glassWall);
@@ -1646,12 +1734,12 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   // dove c'è la copertura (tutto unito, per settore, solo tribune, solo curve...)
   const roofRuns = coveredRuns(shape, st);
   let shellMat = null;
-  if (st.roof === 'wave' || st.roof === 'dome') {
-    // copertura ondulata o cupola: sopra pannelli bianchi a costole, sotto il traliccio a triangoli (stessa superficie, due facce)
+  if (st.roof === 'wave') {
+    // copertura ondulata: sopra pannelli bianchi a costole, sotto il traliccio a triangoli (stessa superficie, due facce)
     const V = waveOf(shape, st);
     const top = new THREE.CanvasTexture(wavePanelCanvas()), under = new THREE.CanvasTexture(latticeCanvas());
     for (const t of [top, under]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; }
-    top.repeat.set(st.roof === 'dome' ? 1 : 3, 1); under.repeat.set(2, 1.2);
+    top.repeat.set(3, 1); under.repeat.set(2, 1.2);
     const g = sweepAround(THREE, V.rowAt, V.pts, 0, V.pts.length - 1, V.yFn);
     // da che parte guarda la faccia di sopra: la normale a metà tetto deve puntare in alto
     const nrm = g.getAttribute('normal'), cols = V.rowAt(V.pts[0].d).length, mid = Math.floor(V.pts.length * 0.6) * cols + 3;
@@ -1665,25 +1753,62 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     own.push(top, under, shellMat, underMat, g);
     if (lights === 'roof') {
       const edge = V.rowAt(V.dIn + 0.6);
-      const lip = st.roof === 'dome' ? 2.4 : 6.6;
+      const lip = 6.6;
       for (let i = 0; i < edge.length - 1; i += 8) lampAt(lamps, edge[i][0], V.wave(edge[i][0], edge[i][1]) - lip, edge[i][1], 2.4, 1.3);
       for (let k = 0; k < 6; k++) { const [x, z] = edge[Math.floor((k + 0.5) / 6 * (edge.length - 1))]; spots.push([x, V.wave(x, z) - lip - 0.2, z]); }
     }
-    if (V.dome) {
-      // denti a punta attorno alla base della cupola, con le gambe che scendono a terra
-      const ring = V.rowAt(V.dome.dOut), foot = V.rowAt(V.dome.dOut + 3.5), N = ring.length - 1, TEETH = 30, tp = [];
-      for (let k = 0; k < TEETH; k++) {
-        const a = ring[Math.round(k / TEETH * N)], b = ring[Math.round((k + 1) / TEETH * N) % N], m = foot[Math.round((k + 0.5) / TEETH * N) % N];
-        tp.push(a[0], V.dome.hb + 0.3, a[1], b[0], V.dome.hb + 0.3, b[1], m[0], 0.6, m[1]);
-        beam(beams, m[0], 0, m[1], m[0], 0.6, m[1], 0.5);
-      }
-      const tg = new THREE.BufferGeometry();
-      tg.setAttribute('position', new THREE.Float32BufferAttribute(tp, 3));
-      tg.computeVertexNormals();
-      const teeth = new THREE.Mesh(tg, new THREE.MeshStandardMaterial({ color: 0xf2f4f6, roughness: 0.5, side: THREE.DoubleSide }));
-      teeth.castShadow = teeth.receiveShadow = true;
-      group.add(teeth);
-      own.push(tg, teeth.material);
+  }
+  if (st.roof === 'dome') {
+    // cupola a raggiera: sopra bianca a pannelli, sotto il traliccio; anello in rilievo attorno all'apertura;
+    // corona di denti triangolari alla base con la struttura scura dietro
+    const D = domeOf(shape, st);
+    const topTex = new THREE.CanvasTexture(domePanelCanvas()), under = new THREE.CanvasTexture(latticeCanvas());
+    for (const t of [topTex, under]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; }
+    under.repeat.set(1, 0.6);
+    const g = sweepGrid(THREE, D.rowAt, D.pts, 22, 9);
+    const gu = sweepGrid(THREE, D.rowAt, D.pts, 70, 7);
+    shellMat = new THREE.MeshStandardMaterial({ map: topTex, roughness: 0.35, side: THREE.FrontSide });
+    const underMat = new THREE.MeshStandardMaterial({ map: under, roughness: 0.8, side: THREE.BackSide });
+    // la faccia di sopra guarda in alto? (dipende dal verso della griglia)
+    const nrm = g.getAttribute('normal'), cols = D.rowAt(D.pts[0].d).length;
+    if (nrm.getY(Math.floor(D.pts.length / 2) * cols + 5) < 0) { shellMat.side = THREE.BackSide; underMat.side = THREE.FrontSide; }
+    const roofTop = new THREE.Mesh(g, shellMat), roofUnder = new THREE.Mesh(gu, underMat);
+    roofTop.castShadow = roofTop.receiveShadow = true;
+    group.add(roofTop, roofUnder);
+    own.push(topTex, under, shellMat, underMat, g, gu);
+    // anello attorno all'apertura
+    const lip = [[D.dIn + 2.5, D.top - 0.2], [D.dIn + 1.6, D.top + 1.4], [D.dIn, D.top + 1.9], [D.dIn - 1.5, D.top + 1.2], [D.dIn - 1.8, D.top - 0.6], [D.dIn - 0.6, D.top - 1.8], [D.dIn + 2.5, D.top - 1.2]]
+      .map(([d, h]) => ({ d, h }));
+    const lg = sweepGrid(THREE, D.rowAt, lip, 1, 50);
+    const rim = new THREE.Mesh(lg, new THREE.MeshStandardMaterial({ color: 0xf4f6f8, roughness: 0.4, side: THREE.DoubleSide }));
+    rim.castShadow = true;
+    group.add(rim);
+    own.push(lg, rim.material);
+    // denti: triangoli piegati (due facce) dal bordo della cupola giù quasi a terra
+    const ring = D.rowAt(D.dOut), tipRing = D.rowAt(D.dOut + 2.6), foldRing = D.rowAt(D.dOut + 1.8), N = ring.length - 1, TEETH = 34, tp = [];
+    for (let k = 0; k < TEETH; k++) {
+      const a = ring[Math.round(k / TEETH * N)], b = ring[Math.round((k + 1) / TEETH * N) % N];
+      const m = tipRing[Math.round((k + 0.5) / TEETH * N) % N], f = foldRing[Math.round((k + 0.5) / TEETH * N) % N];
+      const A = [a[0], D.hb + 0.4, a[1]], B = [b[0], D.hb + 0.4, b[1]], M = [m[0], 2.2, m[1]], F = [f[0], D.hb - 1.2, f[1]];
+      tp.push(...A, ...F, ...M, ...F, ...B, ...M);
+      beam(beams, m[0], 0, m[1], m[0], 2.3, m[1], 0.45);
+    }
+    const tg = new THREE.BufferGeometry();
+    tg.setAttribute('position', new THREE.Float32BufferAttribute(tp, 3));
+    tg.computeVertexNormals();
+    const teeth = new THREE.Mesh(tg, new THREE.MeshStandardMaterial({ color: 0xf2f4f6, roughness: 0.45, side: THREE.DoubleSide }));
+    teeth.castShadow = teeth.receiveShadow = true;
+    group.add(teeth);
+    own.push(tg, teeth.material);
+    // struttura scura dietro ai denti
+    const bg = sweepGrid(THREE, D.rowAt, [{ d: D.dOut - 5, h: 0 }, { d: D.dOut - 5, h: D.hb + 1 }], 1, 10);
+    const back = new THREE.Mesh(bg, dark);
+    group.add(back);
+    own.push(bg);
+    if (lights === 'roof') {
+      const edge = D.rowAt(D.dIn + 3);
+      for (let i = 0; i < edge.length - 1; i += 8) lampAt(lamps, edge[i][0], D.top - 2.4, edge[i][1], 2.4, 1.3);
+      for (let k = 0; k < 6; k++) { const [x, z] = edge[Math.floor((k + 0.5) / 6 * (edge.length - 1))]; spots.push([x, D.top - 2.6, z]); }
     }
   }
   if (SHELLISH.includes(st.roof)) {
@@ -1699,8 +1824,9 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     shellMat = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissiveIntensity: 0, roughness: 0.38, side: THREE.DoubleSide });
     // la parte verso l'apertura è di cuscini trasparenti: un po' più grigia e non fa ombra
     const clearMat = new THREE.MeshStandardMaterial({ map: tex, color: 0xe3e6ea, roughness: 0.25, side: THREE.DoubleSide });
-    const outer = new THREE.Mesh(sweepAround(THREE, S.rowAt, S.pts, 0, S.split, S.yFn), shellMat);
-    const clear = new THREE.Mesh(sweepAround(THREE, S.rowAt, S.pts, S.split, S.pts.length - 1, S.yFn ? (x, z, j) => S.yFn(x, z, j + S.split) : null), clearMat);
+    const petals = st.roof === 'petals';
+    const outer = new THREE.Mesh(petals ? petalsGeometry(THREE, S, beams, seams) : sweepAround(THREE, S.rowAt, S.pts, 0, S.split, S.yFn), shellMat);
+    const clear = new THREE.Mesh(petals ? new THREE.BufferGeometry() : sweepAround(THREE, S.rowAt, S.pts, S.split, S.pts.length - 1, S.yFn ? (x, z, j) => S.yFn(x, z, j + S.split) : null), clearMat);
     // pennoni della tenda: dalla base fino sopra la punta della membrana
     for (const [mx, mz] of S.masts) beam(beams, mx, 0, mz, mx, S.top + 4, mz, 0.6);
     outer.castShadow = outer.receiveShadow = true;
@@ -2301,6 +2427,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   inst(structMat, pilasters);
   inst(glass, windows);
   inst(screenFrame, frames);
+  inst(dark, seams);
   if (bandPos.length) {
     // fasce orizzontali dei piani sulle vetrate
     const g = new THREE.BufferGeometry();
