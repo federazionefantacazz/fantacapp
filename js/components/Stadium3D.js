@@ -2075,6 +2075,198 @@ function deckGeometry(THREE, shape, R) {
  * Copertura, fari ed esterno. Restituisce i materiali da colorare, i proiettori (per la notte)
  * e dove mettere le luci notturne.
  */
+/* ------------------------------------------------- superfici con le texture */
+/** Numeri a caso ripetibili (le texture escono uguali a ogni disegno). */
+function rng(seed) {
+  let a = seed >>> 0;
+  return () => { a = (a + 0x6d2b79f5) >>> 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t ^= t + Math.imul(t ^ (t >>> 7), 61 | t); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+
+/** Colore a metà strada tra due colori #rrggbb (t = 0 il primo, 1 il secondo). */
+function mixHex(a, b, t) {
+  const p = parseInt(a.slice(1), 16), q = parseInt(b.slice(1), 16);
+  const m = (s) => Math.round(((p >> s) & 255) * (1 - t) + ((q >> s) & 255) * t);
+  return `rgb(${m(16)}, ${m(8)}, ${m(0)})`;
+}
+
+/** Grana fine: n puntini chiari e scuri con opacità a. */
+function speckle(ctx, w, h, n, a, r) {
+  for (let i = 0; i < n; i++) {
+    ctx.fillStyle = r() < 0.5 ? `rgba(0,0,0,${a})` : `rgba(255,255,255,${a})`;
+    ctx.fillRect(r() * w, r() * h, 1 + r() * 2, 1 + r() * 2);
+  }
+}
+
+/**
+ * Superficie con le coordinate per le texture lungo un tratto: per ogni punto del bordo una fila dal profilo prof
+ * ([{ d, h }]); u = metri lungo la linea del primo punto del profilo / tu, v = metri lungo il profilo / tv.
+ * Si aggiunge all'accumulatore acc = { pos, uv, idx }.
+ */
+function stripUV(run, prof, acc, tu, tv) {
+  const P = run.pts, n = P.length, J = prof.length, base = acc.pos.length / 3, d0 = prof[0].d;
+  const vs = [0];
+  for (let j = 1; j < J; j++) vs.push(vs[j - 1] + Math.hypot(prof[j].d - prof[j - 1].d, prof[j].h - prof[j - 1].h));
+  const rows = run.closed ? n + 1 : n;
+  let u = 0;
+  for (let k = 0; k < rows; k++) {
+    const p = P[k % n];
+    if (k) { const q = P[k - 1]; u += Math.hypot(p.x + p.mx * d0 - q.x - q.mx * d0, p.z + p.mz * d0 - q.z - q.mz * d0); }
+    for (let j = 0; j < J; j++) {
+      acc.pos.push(p.x + p.mx * prof[j].d, prof[j].h, p.z + p.mz * prof[j].d);
+      acc.uv.push(u / tu, vs[j] / tv);
+    }
+    if (k) for (let j = 0; j < J - 1; j++) {
+      const a = base + (k - 1) * J + j, b = a + J;
+      acc.idx.push(a, b, a + 1, a + 1, b, b + 1);
+    }
+  }
+}
+
+/** Geometria da un accumulatore { pos, uv, idx } (null se vuoto). */
+function uvGeometry(THREE, acc) {
+  if (!acc.idx.length) return null;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(acc.pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(acc.uv, 2));
+  g.setIndex(acc.idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+/** Texture ripetuta da una tela (colore: sRGB; rilievo: lineare). */
+function canvasTex(THREE, c, color = true, repeat = [1, 1]) {
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 4;
+  if (color) t.colorSpace = THREE.SRGBColorSpace;
+  t.repeat.set(...repeat);
+  return t;
+}
+
+const CLAD_TILE = [18, 9], STONE_TILE = 6.4, GLASS_TILE = 9, ROOF_TILE = 12; // metri coperti da una tela
+
+/**
+ * Pannelli della facciata inglese (quasi bianchi, il colore li tinge): 3 x 1,5 m con tono leggermente diverso,
+ * giunture scure con il filo di luce sotto e qualche colatura. Restituisce [colore, rilievo].
+ */
+function claddingCanvases() {
+  const W = 1152, H = 576, pw = W / 6, ph = H / 6, r = rng(11);
+  const c = document.createElement('canvas'), b = document.createElement('canvas');
+  c.width = b.width = W; c.height = b.height = H;
+  const ctx = c.getContext('2d'), bx = b.getContext('2d');
+  for (let y = 0; y < H; y += ph) for (let x = 0; x < W; x += pw) {
+    const v = 240 + Math.floor(r() * 14), g = ctx.createLinearGradient(0, y, 0, y + ph);
+    g.addColorStop(0, `rgb(${v},${v},${v + 1})`); g.addColorStop(1, `rgb(${v - 7},${v - 7},${v - 5})`);
+    ctx.fillStyle = g; ctx.fillRect(x, y, pw, ph);
+  }
+  for (let i = 0; i < 90; i++) {
+    const x = r() * W, y = Math.floor(r() * 6) * ph + 3, l = 15 + r() * 70, g = ctx.createLinearGradient(0, y, 0, y + l);
+    g.addColorStop(0, 'rgba(70,72,76,.16)'); g.addColorStop(1, 'rgba(70,72,76,0)');
+    ctx.fillStyle = g; ctx.fillRect(x, y, 1.5 + r() * 3, l);
+  }
+  speckle(ctx, W, H, 9000, 0.035, r);
+  bx.fillStyle = '#ffffff'; bx.fillRect(0, 0, W, H);
+  // giunture orizzontali marcate, verticali appena accennate (i pannelli si leggono come fasce)
+  for (const [cx, col, a] of [[ctx, '60,64,70', 0.32], [bx, '0,0,0', 0.7]]) {
+    cx.fillStyle = `rgba(${col},${a * 0.5})`;
+    for (let x = 0; x < W; x += pw) cx.fillRect(x, 0, 2, H);
+    cx.fillStyle = `rgba(${col},${a})`;
+    for (let y = 0; y < H; y += ph) cx.fillRect(0, y, W, 3);
+  }
+  ctx.fillStyle = 'rgba(255,255,255,.45)';
+  for (let y = 0; y < H; y += ph) ctx.fillRect(0, y + 3, W, 1);
+  return [c, b];
+}
+
+/** Pietra del basamento (quasi bianca, il colore la tinge): corsi da 0,9 m di lastre sfalsate, grana e giunti. */
+function stoneCanvases() {
+  const S = 512, ch = S / 7.11, bw = S / 2.67, r = rng(23);
+  const c = document.createElement('canvas'), b = document.createElement('canvas');
+  c.width = c.height = b.width = b.height = S;
+  const ctx = c.getContext('2d'), bx = b.getContext('2d');
+  bx.fillStyle = '#ffffff'; bx.fillRect(0, 0, S, S);
+  for (let row = 0, y = 0; y < S; row++, y += ch) {
+    for (let x = row % 2 ? -bw / 2 : 0; x < S; x += bw) {
+      const v = 236 + Math.floor(r() * 16);
+      ctx.fillStyle = `rgb(${v},${v - 1},${v - 4})`; ctx.fillRect(x, y, bw, ch);
+      ctx.fillStyle = 'rgba(0,0,0,.14)'; ctx.fillRect(x, y, 2, ch);
+      bx.fillStyle = '#000000'; bx.fillRect(x, y, 3, ch);
+    }
+    ctx.fillStyle = 'rgba(0,0,0,.16)'; ctx.fillRect(0, y, S, 2);
+    ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.fillRect(0, y + 2, S, 1);
+    bx.fillStyle = '#000000'; bx.fillRect(0, y, S, 3);
+  }
+  speckle(ctx, S, S, 7000, 0.04, r);
+  return [c, b];
+}
+
+/**
+ * Vetrate (in colore pieno): riquadri da 1,5 m con il riflesso del cielo in alto, montanti e traverso chiari.
+ * Seconda tela: le luci di notte (riquadri accesi più o meno, montanti spenti).
+ */
+function glassCanvases() {
+  const W = 768, H = 128, pw = W / 6, r = rng(5);
+  const c = document.createElement('canvas'), e = document.createElement('canvas');
+  c.width = e.width = W; c.height = e.height = H;
+  const ctx = c.getContext('2d'), ex = e.getContext('2d');
+  ex.fillStyle = '#000000'; ex.fillRect(0, 0, W, H);
+  for (let x = 0; x < W; x += pw) {
+    const g = ctx.createLinearGradient(0, 0, 0, H), k = r() * 0.15;
+    g.addColorStop(0, `rgb(${120 + k * 100},${140 + k * 90},${160 + k * 70})`); g.addColorStop(0.45, '#3a4a5c'); g.addColorStop(1, '#18212b');
+    ctx.fillStyle = g; ctx.fillRect(x, 0, pw, H);
+    ctx.fillStyle = 'rgba(255,255,255,.07)';
+    ctx.beginPath(); ctx.moveTo(x + pw * 0.2, H); ctx.lineTo(x + pw * 0.55, 0); ctx.lineTo(x + pw * 0.75, 0); ctx.lineTo(x + pw * 0.4, H); ctx.fill();
+    const lit = r(), l = lit < 0.2 ? 0.08 : 0.45 + r() * 0.55;
+    ex.fillStyle = `rgba(255,${Math.round(205 + r() * 30)},${Math.round(140 + r() * 50)},${l})`; ex.fillRect(x + 4, 6, pw - 8, H - 12);
+  }
+  ctx.fillStyle = '#c8cdd3';
+  for (let x = 0; x < W; x += pw) ctx.fillRect(x, 0, 5, H);
+  ctx.fillRect(0, 0, W, 6); ctx.fillRect(0, H - 6, W, 6); ctx.fillRect(0, H * 0.62, W, 3);
+  return [c, e];
+}
+
+/** Rilievo della lamiera aggraffata: una costola ogni 0,6 m (lungo la profondità del tetto), lucernari lisci. */
+function roofBumpCanvas() {
+  const S = 512, step = S / 20, b = document.createElement('canvas');
+  b.width = b.height = S;
+  const bx = b.getContext('2d');
+  bx.fillStyle = '#808080'; bx.fillRect(0, 0, S, S);
+  for (let x = 0; x < S; x += step) {
+    if (ROOF_LIGHTS.some(([a, w]) => x >= a * S - 1 && x < (a + w) * S)) continue;
+    const g = bx.createLinearGradient(x, 0, x + 6, 0);
+    g.addColorStop(0, '#808080'); g.addColorStop(0.5, '#ffffff'); g.addColorStop(1, '#808080');
+    bx.fillStyle = g; bx.fillRect(x, 0, 6, S);
+  }
+  return b;
+}
+const ROOF_LIGHTS = [[0.46, 0.08]]; // lucernari: inizio e larghezza (frazioni della tela lungo la tribuna)
+
+/** Lamiera del tetto nel colore scelto: fogli tra le costole con toni diversi, sormonti, lucernari chiari e sporco. */
+function paintRoofMetal(c, color) {
+  const S = c.width, step = S / 20, ctx = c.getContext('2d'), r = rng(31);
+  for (let x = 0; x < S; x += step) {
+    ctx.fillStyle = shade(color, 0.94 + r() * 0.12); ctx.fillRect(x, 0, step, S);
+    ctx.fillStyle = shade(color, 1.35); ctx.fillRect(x, 0, 2, S);
+    ctx.fillStyle = shade(color, 0.7); ctx.fillRect(x + 3, 0, 2, S);
+  }
+  ctx.fillStyle = 'rgba(0,0,0,.18)';
+  for (let y = 0; y < S; y += S / 2) ctx.fillRect(0, y, S, 2);
+  for (let i = 0; i < 26; i++) {
+    const x = r() * S, y = r() * S, rad = 20 + r() * 70, g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+    g.addColorStop(0, `rgba(0,0,0,${0.05 + r() * 0.07})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+  }
+  for (let i = 0; i < 60; i++) { ctx.fillStyle = `rgba(0,0,0,${0.04 + r() * 0.05})`; ctx.fillRect(r() * S, r() * S, 1.5, 30 + r() * 120); }
+  for (const [a, w] of ROOF_LIGHTS) {
+    const x0 = a * S, ww = w * S;
+    ctx.fillStyle = mixHex(color, '#e4ecf2', 0.65); ctx.fillRect(x0, 0, ww, S);
+    ctx.fillStyle = 'rgba(80,90,100,.35)';
+    for (let y = 0; y < S; y += S / 12) ctx.fillRect(x0, y, ww, 2);
+    ctx.fillRect(x0, 0, 2, S); ctx.fillRect(x0 + ww - 2, 0, 2, S);
+  }
+  speckle(ctx, S, S, 5000, 0.05, r);
+}
+
 /** Manifesti del basamento inglese: tre disegni affiancati (giocatore e numero su fondo del colore delle fasce). */
 function paintPosters(c, accent, frame) {
   const ctx = c.getContext('2d'), w = c.width / 3, h = c.height;
@@ -2138,13 +2330,14 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   const cladMat = new THREE.MeshStandardMaterial({ roughness: 0.55, side: THREE.DoubleSide });
   own.push(glowMat, cladMat);
   const glowPos = [], glowIdx = [[], [], []];
-  let roofTopMat = null;
   // basamento e vetrate della facciata inglese (le vetrate di notte si accendono)
   const podiumMat = new THREE.MeshStandardMaterial({ roughness: 0.8, side: THREE.DoubleSide });
   const winMat = new THREE.MeshStandardMaterial({ color: 0x26303a, roughness: 0.25, metalness: 0.3, emissive: 0xffd7a0, side: THREE.DoubleSide });
   own.push(podiumMat, winMat);
   // materiali che si accendono di notte [materiale, luce di giorno, luce di notte] e tele da ridipingere coi colori
   const nightGlow = [[glowMat, 0.15, 1.6], [winMat, 0.03, 0.85]], repaint = [];
+  // materiali tinti con un colore dello stadio [materiale, chiave del colore]
+  const tints = [[cladMat, 'cladding'], [podiumMat, 'podium']];
   const inst = (mat, list, geo = box) => {
     if (!list.length) return;
     const m = new THREE.InstancedMesh(geo, mat, list.length / 16);
@@ -2611,7 +2804,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     // stile inglese (Stamford Bridge): ogni tribuna ha il suo tetto alla sua altezza, anche sugli angoli. Sopra lamiera
     // scura con la struttura a vista (travi reticolari a sbalzo, più alte dietro, e correnti lungo la tribuna), davanti
     // la fascia chiara con la riga colorata e le luci, sotto pannelli chiari; agli angoli i piloni con i tiranti
-    const pos = [], idx = [[], [], []], under = [], underUv = [], underIdx = [], covered = [];
+    const pos = [], idx = [[], [], []], under = [], underUv = [], underIdx = [], covered = [], top = { pos: [], uv: [], idx: [] };
     const rect = (d0, d1, h0, h1, m) => [[d0, h0], [d1, h0], [d1, h1], [d0, h1]].map(([d, h]) => ({ d, h, m }));
     // tratti dritti dei lati (fuori dagli angoli): lì stanno le travi sopra il tetto
     const gapA = shape.a - Math.max(shape.r, 4), gapB = shape.b - Math.max(shape.r, 4);
@@ -2620,9 +2813,10 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       const Rs = roofOf({ ...shape, tiers: run.tiers }, 'stands', reachOf_(st)), hI = Rs.h(Rs.dIn);
       const d0 = Rs.dIn + 0.6, span = Rs.dOut - 0.5 - d0, yb = (d) => Rs.h(d) + 0.1;
       const yt = (d) => yb(d) + 1 + 4.5 * (d - d0) / span; // sopra le travi: 1 m sulla punta, 5,5 m sull'appoggio dietro
-      // lastra (sopra lamiera, bordi chiari) e fascia davanti
-      extrude(THREE, run, [[Rs.dIn, hI - 0.25, 1], [Rs.dOut, Rs.h(Rs.dOut) - 0.25, 1], [Rs.dOut, Rs.h(Rs.dOut), 0], [Rs.dIn, hI, 1]]
+      // lastra (bordi chiari), sopra la lamiera con la texture, e fascia davanti
+      extrude(THREE, run, [[Rs.dIn, hI - 0.25, 1], [Rs.dOut, Rs.h(Rs.dOut) - 0.25, 1], [Rs.dOut, Rs.h(Rs.dOut), 1], [Rs.dIn, hI, 1]]
         .map(([d, h, m]) => ({ d, h, m })), pos, idx);
+      stripUV(run, [{ d: Rs.dIn, h: hI + 0.02 }, { d: Rs.dOut, h: Rs.h(Rs.dOut) + 0.02 }], top, ROOF_TILE, ROOF_TILE);
       extrude(THREE, run, rect(Rs.dIn - 0.05, Rs.dIn + 0.35, hI - STANDS_FASCIA, hI + 0.15, 1), pos, idx);
       extrude(THREE, run, rect(Rs.dIn - 0.1, Rs.dIn + 0.35, hI - STANDS_FASCIA - 0.5, hI - STANDS_FASCIA, 0), glowPos, glowIdx);
       extrude(THREE, run, rect(Rs.dOut, Rs.dOut + 0.08, Rs.h(Rs.dOut) - 1.05, Rs.h(Rs.dOut) - 0.3, 0), glowPos, glowIdx);
@@ -2665,14 +2859,24 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     idx.forEach((list, m) => { g.addGroup(start, list.length, m); start += list.length; });
     g.setIndex(idx.flat());
     g.computeVertexNormals();
-    const panels = new THREE.CanvasTexture(roofPanelCanvas('corrugated'));
-    panels.wrapS = panels.wrapT = THREE.RepeatWrapping; panels.colorSpace = THREE.SRGBColorSpace; panels.anisotropy = 4;
-    panels.repeat.set(0.25, 0.25);
-    roofTopMat = new THREE.MeshStandardMaterial({ map: panels, roughness: 0.65, metalness: 0.15, side: THREE.DoubleSide });
-    const roof = new THREE.Mesh(g, [roofTopMat, girderMat, girderMat]);
+    const roof = new THREE.Mesh(g, [girderMat, girderMat, girderMat]);
     roof.castShadow = true;
     roof.receiveShadow = true;
-    group.add(roof);
+    // lamiera aggraffata con i lucernari (la tela si ridipinge col colore del tetto) e il rilievo delle costole
+    const metalC = document.createElement('canvas'); metalC.width = metalC.height = 512;
+    const metal = canvasTex(THREE, metalC), ribs = canvasTex(THREE, roofBumpCanvas(), false);
+    const topMat = new THREE.MeshStandardMaterial({ map: metal, bumpMap: ribs, bumpScale: 2, roughness: 0.45, metalness: 0.35, side: THREE.DoubleSide });
+    const tg = uvGeometry(THREE, top), roofTop = new THREE.Mesh(tg, topMat);
+    roofTop.receiveShadow = true;
+    group.add(roof, roofTop);
+    own.push(metal, ribs, topMat, tg);
+    let metalKey = '';
+    repaint.push((s) => {
+      if (s.colors.roof === metalKey) return;
+      metalKey = s.colors.roof;
+      paintRoofMetal(metalC, metalKey);
+      metal.needsUpdate = true;
+    });
     // pannelli chiari sotto, con la griglia delle travi
     const gridC = document.createElement('canvas'); gridC.width = gridC.height = 128;
     const gx = gridC.getContext('2d');
@@ -2688,7 +2892,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     ug.setIndex(underIdx);
     ug.computeVertexNormals();
     group.add(new THREE.Mesh(ug, underMat));
-    own.push(g, ug, panels, roofTopMat, underMat, gridTex);
+    own.push(g, ug, underMat, gridTex);
     // piloni tubolari agli angoli, fuori dagli spalti, con i tiranti verso le travi dei due tetti vicini e il puntone dietro
     const M = mastsOf(shape, st);
     for (const m of M) {
@@ -2713,6 +2917,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     // tribuna vicina
     const rect = (d0, d1, h0, h1, m) => [[d0, h0], [d1, h0], [d1, h1], [d0, h1]].map(([d, h]) => ({ d, h, m }));
     const pos = [], idx = [[], [], []], winPos = [], winIdx = [[], [], []], poster = { pos: [], uv: [], idx: [] };
+    const panelFace = { pos: [], uv: [], idx: [] }, stoneFace = { pos: [], uv: [], idx: [] }, glassFace = { pos: [], uv: [], idx: [] };
     const accentBoxes = [], whiteBoxes = [], winBoxes = [], paveBoxes = [], flatLamps = [], drumBody = [], drumWin = [], drumTop = [], cladEnds = [];
     // ingresso principale: centro del lato lungo verso z+ (davanti al basamento)
     const mid = shape.runs.flatMap(run => run.pts.filter(p => onLongSide(p) && p.z > 0 && Math.abs(p.x) < 3).map(() => run))[0];
@@ -2723,18 +2928,21 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       extrude(THREE, run, rect(o - 0.1, o + 0.3, 0, H, 0), pos, idx);                          // parete chiara
       extrude(THREE, run, rect(o + 0.3, o + 0.6, H - CH, H, 1), pos, idx);                     // cornicione
       extrude(THREE, run, rect(o + 0.6, o + 0.68, H - CH - 1, H - CH - 0.1, 0), glowPos, glowIdx);
-      for (const [h0, h1] of cladBands(run.tiers)) if (h0 > PH + 1) extrude(THREE, run, rect(o + 0.3, o + 0.4, h0, h1, 0), winPos, winIdx);
+      for (const [h0, h1] of cladBands(run.tiers)) {
+        if (h0 <= PH + 1) continue;
+        extrude(THREE, run, rect(o + 0.3, o + 0.4, h0, h1, 0), winPos, winIdx);
+        stripUV(run, [{ d: o + 0.41, h: h0 }, { d: o + 0.41, h: h1 }], glassFace, GLASS_TILE, h1 - h0);
+      }
       extrude(THREE, run, rect(o + 0.3, W, 0, PH, 2), pos, idx);                               // basamento
       extrude(THREE, run, rect(W - 0.3, W + 0.05, PH, PH + 1.1, 0), pos, idx);                 // parapetto della terrazza
       extrude(THREE, run, rect(W, W + 0.15, 3.6, 4.2, 1), pos, idx);                           // fascia tra i due piani
       extrude(THREE, run, rect(W, W + 0.06, 0.5, 3.6, 0), winPos, winIdx);                     // vetrine al piano terra
-      // posizioni misurate lungo la facciata (agli angoli è molto più lunga del bordo degli spalti)
-      const wall = offsetRun(run, o + 0.32), wc = runLengths(wall);
-      for (const u of stations(wall, wc, 4.5)) {
-        // giunture dei pannelli sulla parete sopra il basamento
-        const [x, z] = pointAt(wall, wc, u, 0), [tx, tz] = tangentAt(wall, wc, u, 0), h0 = PH + 1.1, h1 = H - CH;
-        boxAt(windows, x, (h0 + h1) / 2, z, [tx * 0.12, 0, tz * 0.12], [0, h1 - h0, 0], [-tz * 0.06, 0, tx * 0.06]);
-      }
+      // facce con le texture: pannelli della parete, pietra del basamento (fronte, zoccolo e terrazza), vetrine
+      stripUV(run, [{ d: o + 0.32, h: PH }, { d: o + 0.32, h: H - CH }], panelFace, CLAD_TILE[0], CLAD_TILE[1]);
+      stripUV(run, [{ d: W + 0.01, h: 4.2 }, { d: W + 0.01, h: PH }], stoneFace, STONE_TILE, STONE_TILE);
+      stripUV(run, [{ d: W + 0.01, h: 0 }, { d: W + 0.01, h: 0.5 }], stoneFace, STONE_TILE, STONE_TILE);
+      stripUV(run, [{ d: o + 0.3, h: PH + 0.01 }, { d: W - 0.3, h: PH + 0.01 }], stoneFace, STONE_TILE, STONE_TILE);
+      stripUV(run, [{ d: W + 0.07, h: 0.5 }, { d: W + 0.07, h: 3.6 }], glassFace, GLASS_TILE, 3.1);
       // moduli del basamento: pinna colorata ogni CLAD_MODULE metri, manifesto al centro e tornelli un modulo sì e uno no
       // (solo dove il basamento è dritto: non sugli spigoli degli angoli)
       const front = offsetRun(run, W), cum = runLengths(front), total = cum[cum.length - 1];
@@ -2877,10 +3085,38 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     inst(winMat, winBoxes);
     inst(paveMat, paveBoxes);
     inst(lamp, flatLamps);
-    inst(podiumMat, drumBody, cylinder);
-    inst(winMat, drumWin, cylinder);
+    // texture: pannelli, pietra e vetrate (le facce strisce hanno le coordinate in metri, i cilindri le ripetono)
+    const [pc, pb] = claddingCanvases(), [sc, sb] = stoneCanvases(), [gc, ge] = glassCanvases();
+    // una texture per tela (caricata una volta), copie con la loro ripetizione per i cilindri
+    const base = new Map(), tex = (c, color, rep) => {
+      if (!base.has(c)) { const t = canvasTex(THREE, c, color); base.set(c, t); own.push(t); }
+      const t = base.get(c).clone();
+      t.repeat.set(...rep);
+      own.push(t);
+      return t;
+    };
+    const panelMat = (rep) => new THREE.MeshStandardMaterial({ map: tex(pc, true, rep), bumpMap: tex(pb, false, rep), bumpScale: 0.7, roughness: 0.45, metalness: 0.1, side: THREE.DoubleSide });
+    const stoneMat = (rep) => new THREE.MeshStandardMaterial({ map: tex(sc, true, rep), bumpMap: tex(sb, false, rep), bumpScale: 0.8, roughness: 0.85, side: THREE.DoubleSide });
+    const glassMat = (rep) => new THREE.MeshStandardMaterial({ map: tex(gc, true, rep), emissive: 0xffffff, emissiveMap: tex(ge, true, rep), roughness: 0.12, metalness: 0.5, side: THREE.DoubleSide });
+    const faces = [[panelFace, panelMat([1, 1]), 'cladding'], [stoneFace, stoneMat([1, 1]), 'podium'], [glassFace, glassMat([1, 1]), null]];
+    for (const [acc, mat, key] of faces) {
+      const fg = uvGeometry(THREE, acc);
+      own.push(mat);
+      if (key) tints.push([mat, key]); else nightGlow.push([mat, 0.02, 1]);
+      if (!fg) continue;
+      const m = new THREE.Mesh(fg, mat);
+      m.receiveShadow = true;
+      group.add(m);
+      own.push(fg);
+    }
+    const drumStone = stoneMat([2 * Math.PI * CLAD_DRUM_R / STONE_TILE, 2.6]), drumGlass = glassMat([5, 1]), endPanels = panelMat([1, 3]);
+    own.push(drumStone, drumGlass, endPanels);
+    tints.push([drumStone, 'podium'], [endPanels, 'cladding']);
+    nightGlow.push([drumGlass, 0.02, 1]);
+    inst(drumStone, drumBody, cylinder);
+    inst(drumGlass, drumWin, cylinder);
     inst(accent, drumTop, cylinder);
-    inst(cladMat, cladEnds, cylinder);
+    inst(endPanels, cladEnds, cylinder);
   }
 
   if (st.facade === 'panels') {
@@ -3230,7 +3466,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   inst(girderMat, girderBeams);
   inst([steel, steel, steel, steel, lamp, steel], lamps); // la faccia +z del proiettore è quella accesa
 
-  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, cladding: cladMat, podium: podiumMat, roofTop: roofTopMat, nightGlow, repaint };
+  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, nightGlow, repaint, tints };
 }
 
 /* --------------------------------------------------------------- scena */
@@ -3363,10 +3599,8 @@ function buildStadium(L, st) {
       outside.dark.color.set(shade(c.structure, 0.62));
       outside.girder.color.set(c.girder);
       if (outside.deckMat) outside.deckMat.color.set(c.roof);
-      if (outside.roofTop) outside.roofTop.color.set(c.roof);
       outside.glow.color.set(c.glow); outside.glow.emissive.set(c.glow);
-      outside.cladding.color.set(c.cladding);
-      outside.podium.color.set(c.podium);
+      outside.tints.forEach(([m, k]) => m.color.set(c[k]));
       outside.repaint.forEach(f => f(s));
       if (outside.roofDecor) {
         outside.roofDecor.tubes.color.set(c.steel);
