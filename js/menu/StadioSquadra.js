@@ -3,7 +3,8 @@ import { uploadPngToImgBB } from '../services/integrationImgBB.js';
 import { dataUrlToBlob } from '../components/Kit3D.js';
 import {
   createStadiumViewer, renderStadiumImage, stadiumCapacity, shownCapacity, normalizeStadium, defaultStadium, applyPreset,
-  RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY
+  RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY,
+  SEAT_SIDES, TEXT_SIDES, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom
 } from '../components/Stadium3D.js';
 import { injectStyle, parseColor, SWATCHES } from './DivisaSquadra.js';
 import { esc } from './menuUtils.js';
@@ -35,6 +36,10 @@ function injectStadiumStyle() {
     .std-preset b { display: block; font-size: .85rem; }
     .std-preset span { display: block; font-size: .72rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-top: .15rem; line-height: 1.35; }
     .std-preset:active { border-color: var(--accent); }
+    .std-grid { display: grid; grid-template-columns: minmax(0, 1fr) repeat(var(--rings), 46px); gap: .35rem .5rem; align-items: center; }
+    .std-grid .hd { font-size: .62rem; font-weight: 700; color: var(--label, var(--text2)); text-align: center; text-transform: uppercase; }
+    .std-grid .nm { font-size: .8rem; font-weight: 600; color: var(--text); }
+    .std-grid .kit-color { width: 46px; }
   `;
   document.head.appendChild(style);
 }
@@ -100,7 +105,8 @@ export const StadioSquadra = {
       ['exterior',  'FASE 4: Copertura, fari ed esterno'],
       ['pitch',     'FASE 5: Campo'],
       ['seats',     'FASE 6: Colore dei seggiolini'],
-      ['walls',     'FASE 7: Parapetti e cemento']
+      ['texts',     'FASE 7: Scritte'],
+      ['walls',     'FASE 8: Parapetti e cemento']
     ];
     this._root.innerHTML = `
       <div class="kit-stage">
@@ -163,7 +169,7 @@ export const StadioSquadra = {
     if (!box) return;
     const fn = {
       styles: this._secStyles, structure: this._secStructure, exterior: this._secExterior, pitch: this._secPitch,
-      seats: this._secSeats, walls: this._secWalls, name: this._secName
+      seats: this._secSeats, texts: this._secTexts, walls: this._secWalls, name: this._secName
     }[key];
     box.innerHTML = fn.call(this);
   },
@@ -232,6 +238,9 @@ export const StadioSquadra = {
         girders: 'Tetto chiaro a botti con la struttura scura sotto, appeso a quattro grandi travi reticolari che poggiano su quattro torri agli angoli.',
         shell: 'Un unico involucro a cuscini che avvolge lo stadio: si gonfia verso fuori, copre gli spalti e diventa trasparente verso il campo. Di notte si illumina.'
       }[s.roof] || 'Spalti scoperti.'}</div>
+      ${s.roof === 'shell' ? `
+      <div class="kit-sub">Disegno dell'involucro</div>
+      <div class="kit-chips">${SHELL_PATTERNS.map(o => this._chip('shellPattern', o.id, o.label, s.shellPattern === o.id)).join('')}</div>` : ''}
       <div class="kit-sub">Fari</div>
       <div class="kit-chips">${LIGHTS.map(o => this._chip('lights', o.id, o.label, s.lights === o.id)).join('')}</div>
       ${roofLights ? `<div class="mp-muted" style="margin-top:.3rem;">Senza copertura i fari vanno sulle quattro torri.</div>` : ''}
@@ -241,12 +250,18 @@ export const StadioSquadra = {
       <div class="kit-sub">Torri delle rampe a spirale</div>
       <div class="kit-chips">${this._chip('ramps', '1', 'Sì', s.ramps)}${this._chip('ramps', '0', 'No', !s.ramps)}</div>
       <div class="mp-muted" style="margin-top:.3rem;">Torri cilindriche lungo il perimetro, con le rampe che salgono a spirale.</div>
+      <div class="kit-sub">Maxischermo</div>
+      <div class="kit-chips">${SCREENS.map(o => this._chip('screen', o.id, o.label, s.screen === o.id)).join('')}</div>
+      ${s.screen !== 'none' ? `<div class="mp-muted" style="margin-top:.3rem;">${s.roof === 'none'
+        ? 'Senza copertura lo schermo sta in cima agli spalti.'
+        : 'Appeso sotto il bordo del tetto.'} Mostra il nome dello stadio, il risultato e il minuto.</div>` : ''}
       <div class="kit-sub">Colori</div>
       ${s.roof !== 'none' ? this._colorRow(s.roof === 'shell' ? 'Involucro' : 'Tetto', 'colors.roof', s.colors.roof) : ''}
       ${s.roof === 'shell' ? this._colorRow('Luce dell\'involucro di notte', 'colors.glow', s.colors.glow) : ''}
       ${s.roof !== 'none' || s.lights !== 'none' ? this._colorRow('Acciaio (tralicci, pilastri, torri)', 'colors.steel', s.colors.steel) : ''}
       ${s.roof === 'girders' ? this._colorRow('Travi principali', 'colors.girder', s.colors.girder) : ''}
       ${s.facade === 'struts' ? this._colorRow('Fasce del basamento', 'colors.accent', s.colors.accent) : ''}
+      ${s.screen !== 'none' ? this._colorRow('Sfondo del maxischermo', 'colors.screen', s.colors.screen) : ''}
       <div class="mp-muted" style="margin-top:.6rem;">Prova il pulsante Notte sull'anteprima per vedere i fari accesi.</div>`;
   },
 
@@ -262,13 +277,42 @@ export const StadioSquadra = {
 
   _secSeats() {
     const s = this._st;
+    const grid = s.seatMode === 'grid';
     return `
       <div class="kit-sub">Come colorarli</div>
       <div class="kit-chips">${SEAT_MODES.map(o => this._chip('seatMode', o.id, o.label, s.seatMode === o.id)).join('')}</div>
-      ${s.seatMode === 'rings' && s.rings === 1 ? `<div class="mp-muted" style="margin-top:.3rem;">Lo stadio ha un solo anello: aggiungine altri nella FASE 1 per colorarli in modo diverso.</div>` : ''}
+      ${(s.seatMode === 'rings' || grid) && s.rings === 1 ? `<div class="mp-muted" style="margin-top:.3rem;">Lo stadio ha un solo anello: aggiungine altri in "Anelli, curve e pista" per colorarli in modo diverso.</div>` : ''}
       ${s.seatMode === 'mosaic' ? `<div class="mp-muted" style="margin-top:.3rem;">Seggiolini mescolati a caso: tanti del colore principale, meno degli altri due.</div>` : ''}
+      ${grid ? `<div class="mp-muted" style="margin-top:.3rem;">Un colore per ogni tribuna e curva, anello per anello.</div>` : ''}
+      ${s.seatMode !== 'mosaic' ? `
+      <div class="kit-sub">Effetto mosaico</div>
+      <div class="kit-chips">${this._chip('seatMosaic', '1', 'Sì', s.seatMosaic)}${this._chip('seatMosaic', '0', 'No', !s.seatMosaic)}</div>
+      <div class="mp-muted" style="margin-top:.3rem;">Ogni settore resta del suo colore, con posti più chiari e più scuri sparsi a caso.</div>` : ''}
       <div class="kit-sub">Colori</div>
-      ${seatFields(s).map(([k, label]) => this._colorRow(label, `colors.${k}`, s.colors[k])).join('')}`;
+      ${grid ? `
+      <div class="std-grid" style="--rings:${s.rings}">
+        <span></span>${Array.from({ length: s.rings }, (_, r) => `<span class="hd">${r + 1}° anello</span>`).join('')}
+        ${SEAT_SIDES.map(sd => `<span class="nm">${esc(sd.label)}</span>${Array.from({ length: s.rings }, (_, r) => {
+          const path = `seatGrid.${gridKey(sd.id, r)}`;
+          return `<input type="color" class="kit-color" data-color="${path}" value="${esc(s.seatGrid[gridKey(sd.id, r)])}" aria-label="${esc(sd.label)}, ${r + 1}° anello">`;
+        }).join('')}`).join('')}
+      </div>` : seatFields(s).map(([k, label]) => this._colorRow(label, `colors.${k}`, s.colors[k])).join('')}`;
+  },
+
+  _secTexts() {
+    const s = this._st;
+    const rings = [[0, 'Tutti']].concat(Array.from({ length: s.rings }, (_, r) => [r + 1, `${r + 1}° anello`]));
+    return `
+      <div class="kit-sub">Scritta sugli spalti</div>
+      <label class="kit-field"><span>Testo</span><input type="text" data-text="standText" value="${esc(s.standText)}" maxlength="${MAX_STAND_TEXT}" placeholder="Es. FORZA RAGAZZI"></label>
+      <div class="kit-chips">${TEXT_SIDES.map(o => this._chip('standTextSide', o.id, o.label, s.standTextSide === o.id)).join('')}</div>
+      <div class="kit-chips" style="margin-top:.4rem;">${rings.map(([v, l]) => this._chip('standTextRing', v, l, Math.min(s.standTextRing, s.rings) === v)).join('')}</div>
+      ${this._colorRow('Colore della scritta', 'colors.standText', s.colors.standText)}
+      <div class="mp-muted" style="margin-top:.3rem;">Fatta con i seggiolini, centrata sul settore scelto e leggibile dal campo. Prova la vista Tribuna.</div>
+      <div class="kit-sub">Scritta sull'esterno</div>
+      <label class="kit-field"><span>Testo</span><input type="text" data-text="outerText" value="${esc(s.outerText)}" maxlength="${MAX_OUTER_TEXT}" placeholder="Es. ${esc(s.name.trim() || 'Stadio Comunale')}"></label>
+      ${this._colorRow('Colore della scritta', 'colors.outerText', s.colors.outerText)}
+      <div class="mp-muted" style="margin-top:.3rem;">Sui due lati lunghi, al centro, dove l'esterno la mostra meglio: sull'involucro, sul cornicione, sulla ringhiera o sul muro. Di notte si accende. Prova la vista Esterno.</div>`;
   },
 
   _secWalls() {
@@ -376,8 +420,10 @@ export const StadioSquadra = {
           if (inp) { inp.focus(); inp.select(); }
           return;
         }
-        const value = k === 'rings' ? Number(v) : k === 'track' || k === 'ramps' ? v === '1' : v;
-        this._update(st => { st[k] = value; });
+        const value = k === 'rings' || k === 'standTextRing' ? Number(v) : k === 'track' || k === 'ramps' || k === 'seatMosaic' ? v === '1' : v;
+        // "Ogni settore e anello": si parte dai colori che lo stadio ha adesso
+        if (k === 'seatMode' && v === 'grid' && this._st.seatMode !== 'grid') this._update(st => { st.seatGrid = seatGridFrom(st); st.seatMode = 'grid'; });
+        else this._update(st => { st[k] = value; });
         return;
       }
       case 'swatch':
@@ -400,7 +446,7 @@ export const StadioSquadra = {
       t.classList.toggle('bad', !parseColor(t.value) && t.value.trim().length >= 7);
       if (c) { this._set(t.dataset.hex, c); const ci = t.parentElement.querySelector(`.kit-color[data-color="${t.dataset.hex}"]`); if (ci) ci.value = c; this._schedulePreview(); }
     } else if (t.dataset.text) {
-      this._set(t.dataset.text, t.value.slice(0, MAX_NAME));
+      this._set(t.dataset.text, t.value.slice(0, t.maxLength > 0 ? t.maxLength : MAX_NAME));
       this._schedulePreview();
     } else if (t.dataset.num) {
       // capienza: solo cifre (anche scritta con i punti delle migliaia)
@@ -420,7 +466,7 @@ export const StadioSquadra = {
       // a fine scelta ridisegno la sezione (pallini dei colori)
       this._renderSection();
     } else if (t.dataset.text) {
-      this._set(t.dataset.text, t.value.trim().slice(0, MAX_NAME));
+      this._set(t.dataset.text, t.value.trim().slice(0, t.maxLength > 0 ? t.maxLength : MAX_NAME));
       this._renderPreview();
     } else if (t.dataset.num) {
       const n = Math.min(MAX_CAPACITY, Number(t.value.replace(/\D/g, '')) || 0);
