@@ -164,7 +164,8 @@ export const FACADES = [
   { id: 'bands',   label: 'Fasce orizzontali' },
   { id: 'esplanade', label: 'Spianata rialzata' },
   { id: 'glass',   label: 'Vetrate scure' },
-  { id: 'panels',  label: 'Rivestimento a pannelli' }
+  { id: 'panels',  label: 'Rivestimento a pannelli' },
+  { id: 'cladding', label: 'Pannelli chiari e zoccolo colorato' }
 ];
 export const TEXT_PLACES = [
   { id: 'facade', label: 'Sulla facciata' },
@@ -180,7 +181,7 @@ const DEFAULT = {
     grass: '#3d8b37', track: '#b4452f', seatA: '#1e5bb8', seatB: '#ffffff', seatC: '#c62828', seatD: '#ffd400', parapet: '#e6e6e6', structure: '#a5a5a5',
     roof: '#5b6169', steel: '#767d86', accent: '#1e5bb8', girder: '#c0392b', glow: '#e30613',
     standText: '#ffffff', outerText: '#1d3f8f', outerPanel: '#ffffff', screen: '#152c78', trackLines: '#ffffff',
-    mosaicB: '#ffffff', mosaicC: '#9e9e9e', aisle: '#c4c7cb', apron: '#b24f3c'
+    mosaicB: '#ffffff', mosaicC: '#9e9e9e', aisle: '#c4c7cb', apron: '#b24f3c', cladding: '#e9ecef'
   }
 };
 
@@ -269,11 +270,12 @@ export const PRESETS = [
   },
   {
     id: 'english', label: 'Stile inglese (Stamford Bridge)',
-    desc: 'Quattro tribune squadrate vicine al campo, palchi vetrati tra gli anelli, ogni tribuna col suo tetto (pannelli traslucidi in una griglia di travi blu, trave reticolare davanti con le luci), piloni blu, scalette gialle.',
+    desc: 'Quattro tribune squadrate vicine al campo con gli angoli chiusi e palchi vetrati tra gli anelli; ogni tribuna ha il suo tetto scuro con le travi bianche sopra e la fascia chiara davanti, piloni blu agli angoli con i tiranti, facciata bianca con lo zoccolo blu e le luci blu di notte.',
     st: {
-      rings: 3, ringsEnds: 2, track: false, shape: 'rect', corners: 'closed', mowing: 'stripes', seatMode: 'single', seatMosaic: 'none', roof: 'stands', lights: 'roof', facade: 'panels', ramps: false, boxes: true,
+      rings: 3, ringsEnds: 2, track: false, shape: 'rect', corners: 'closed', mowing: 'stripes', seatMode: 'single', seatMosaic: 'none', roof: 'stands', roofCover: 'all', roofReach: 'normal', lights: 'roof', facade: 'cladding', ramps: false, boxes: true, screen: 'none',
       colors: {
-        grass: '#3d9a43', seatA: '#1d4fb8', parapet: '#1c3f94', structure: '#a4abb5', roof: '#8cc4ee', steel: '#1f5fc4', accent: '#1b2f6b', aisle: '#f2c200'
+        grass: '#3d9a43', seatA: '#1d4fb8', parapet: '#1c3f94', structure: '#a4abb5', roof: '#4f565f', girder: '#eef1f4', steel: '#1f5fc4',
+        accent: '#1d4fb8', cladding: '#e9ecef', glow: '#2b6bff', aisle: '#f2c200'
       }
     }
   },
@@ -906,6 +908,19 @@ function roofOf(shape, roof, shift = 0) {
   return { dIn, dOut, h: (d) => hIn - (d - dIn) * 0.04, depth: (d) => 1.4 + 3.6 * (d - dIn) / (dOut - dIn) };
 }
 
+const STANDS_FASCIA = 2.6;                       // tetto per tribuna: altezza della fascia davanti
+const STANDS_MAST_R = 0.75, STANDS_MAST_OUT = 3;  // piloni agli angoli: raggio e distanza dal bordo esterno del tetto
+
+/** Piloni del tetto per tribuna: uno per angolo, fuori dagli spalti sulla diagonale, più alti del tetto più alto. */
+function mastsOf(shape, st) {
+  const R = roofOf(shape, 'stands', reachOf_(st)), top = R.h(R.dIn) + 13, d = R.dOut + STANDS_MAST_OUT;
+  return [[1, 1], [-1, 1], [-1, -1], [1, -1]].map(([sx, sz]) => {
+    const p = shape.path.filter(q => Math.sign(q.x) === sx && Math.sign(q.z) === sz)
+      .reduce((m, q) => (Math.abs(q.mx * q.mz) > Math.abs(m.mx * m.mz) ? q : m));
+    return { sx, sz, x: p.x + p.mx * d, z: p.z + p.mz * d, top, long: sz > 0 ? 0 : 2, end: sx > 0 ? 1 : 3 };
+  });
+}
+
 /**
  * Copertura "drago" (stile Kaohsiung): nastro che parte da terra fuori dagli spalti (traliccio di tubi a spirale), sale,
  * gira sopra gli spalti e arriva al bordo davanti (pannelli solari). Profilo (d, h); split = fine del traliccio.
@@ -1017,7 +1032,10 @@ const pylonDist = (R) => R.dOut + 1.5;
 const pylonHeight = (R) => R.h(R.dOut) + 7;
 
 /** Distanza dal bordo occupata dal muro esterno (con basamento o fasce). */
-const footOf = (shape, st) => shape.outer + ({ struts: PLATFORM_OUT + 0.2, bands: 1.8, columns: 0.8, esplanade: esplanadeW(st) + 0.2 }[st.facade] || 0);
+const footOf = (shape, st) => shape.outer + ({ struts: PLATFORM_OUT + 0.2, bands: 1.8, columns: 0.8, cladding: 0.7, esplanade: esplanadeW(st) + 0.2 }[st.facade] || 0);
+const CLAD_PLINTH = 5.5, CLAD_CORNICE = 2.2; // facciata inglese: zoccolo e cornicione
+/** Facciata inglese: nastri di vetrate [da, a] all'altezza del corridoio sotto ogni anello superiore. */
+const cladBands = (tiers) => tiers.slice(1).map(t => [t.H - 4.2, t.H - 1.6]);
 
 /** Larghezza della spianata: sotto l'involucro a cuscini (molto gonfio verso fuori) è più larga. */
 const esplanadeW = (st) => (st.roof === 'shell' ? ESPLANADE_W + 12 : ESPLANADE_W);
@@ -1349,7 +1367,7 @@ function reachOf(shape, st) {
   else if (st.roof === 'crown') { const C = crownOf(shape, st); d = Math.max(d, C.out + 1); h = Math.max(h, C.hR + 2); }
   else if (st.roof !== 'none') { const R = roofOf(shape, st.roof, reachOf_(st)); d = Math.max(d, st.roof === 'truss' ? pylonDist(R) + 2.5 : R.dOut); h = Math.max(R.h(R.dIn), st.roof === 'truss' ? pylonHeight(R) : 0) + 1; }
   if (st.ramps) d = Math.max(d, foot + RAMP_R * 2);
-  if (st.roof === 'stands') { const R = roofOf(shape, 'stands', reachOf_(st)); d = Math.max(d, R.dOut + 11); h = Math.max(h, R.h(R.dIn) + 17); }
+  if (st.roof === 'stands') { const R = roofOf(shape, 'stands', reachOf_(st)); d = Math.max(d, R.dOut + STANDS_MAST_OUT + 10); h = Math.max(h, R.h(R.dIn) + 18); }
   if (st.roof === 'girders') {
     const G = girdersOf(shape, st);
     d = Math.max(d, foot + CORNER_R * 2 + 2);
@@ -1400,7 +1418,8 @@ function screenOf(shape, st) {
   }
   if (st.roof !== 'none') {
     const R = roofOf(shape, st.roof, reachOf_(st)), ds = R.dIn + 0.9, ribbed = st.roof === 'truss' || st.roof === 'girders';
-    return { ds, hang: true, y: R.h(R.dIn) - 3.2, roofY: R.h(ds) - (ribbed ? R.depth(ds) : 0.4) };
+    // tetto per tribuna: sotto la fascia con la riga colorata
+    return { ds, hang: true, y: R.h(R.dIn) - (st.roof === 'stands' ? STANDS_FASCIA + 0.8 : 3.2), roofY: R.h(ds) - (ribbed ? R.depth(ds) : 0.4) };
   }
   return { ds: T.back + WALL / 2, hang: false, y: T.top + 2.2 };
 }
@@ -1473,6 +1492,13 @@ function signOf(shape, st) {
     return { hc: best.h, maxH: 8.5, standOn: 0, dAt, outline: S.rowAt, rows: 8 };
   }
   const outline = (d) => { const pts = shape.path.map(p => [p.x + p.mx * d, p.z + p.mz * d]); pts.push(pts[0]); return pts; };
+  if (st.facade === 'cladding') {
+    // sui pannelli chiari, nella fascia libera più alta tra zoccolo, vetrate e cornicione
+    const cuts = [[0, CLAD_PLINTH], ...cladBands(shape.tiers), [Ht - CLAD_CORNICE - 0.6, Ht]];
+    let best = [0, 0];
+    for (let i = 1; i < cuts.length; i++) if (cuts[i][0] - cuts[i - 1][1] > best[1] - best[0]) best = [cuts[i - 1][1], cuts[i][0]];
+    return { hc: (best[0] + best[1]) / 2, maxH: Math.max(2, Math.min(7, best[1] - best[0] - 1.2)), standOn: 0, dAt: () => o + 0.45, outline, rows: 1 };
+  }
   const free = Math.min(6, Math.max(3, Ht * 0.2));
   const [d, hc, maxH, standOn] = {
     struts: [o + PLATFORM_OUT + 0.12, 0, 4.2, PLATFORM_H + 1.15],              // in piedi sulla ringhiera della piattaforma, davanti ai piloni
@@ -1680,6 +1706,21 @@ function beam(out, x1, y1, z1, x2, y2, z2, t) {
   ax /= al; az /= al;
   const bx = -az * dy, by = az * dx - ax * dz, bz = ax * dy;
   boxAt(out, (x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2, [dx * len, dy * len, dz * len], [bx * t, by * t, bz * t], [ax * t, 0, az * t]);
+}
+
+/** Trave reticolare piana da (x1, z1) a (x2, z2): correnti a quota yb(f) e yt(f) (f da 0 a 1), montanti e diagonali alternate. */
+function truss(out, x1, z1, x2, z2, yb, yt, panels, tc, tm) {
+  let prev = null;
+  for (let k = 0; k <= panels; k++) {
+    const f = k / panels, x = x1 + (x2 - x1) * f, z = z1 + (z2 - z1) * f, b = yb(f), tp = yt(f);
+    beam(out, x, b, z, x, tp, z, tm);
+    if (prev) {
+      beam(out, prev.x, prev.b, prev.z, x, b, z, tc);
+      beam(out, prev.x, prev.tp, prev.z, x, tp, z, tc);
+      if (k % 2) beam(out, prev.x, prev.b, prev.z, x, tp, z, tm); else beam(out, prev.x, prev.tp, prev.z, x, b, z, tm);
+    }
+    prev = { x, z, b, tp };
+  }
 }
 
 /** Proiettore largo w e alto h in (x, y, z), rivolto verso il centro del campo (la faccia accesa è +z). */
@@ -2040,6 +2081,12 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   const glassWall = new THREE.MeshStandardMaterial({ color: 0x2a323c, roughness: 0.25, metalness: 0.3, side: THREE.DoubleSide });
   own.push(screenFrame, glassWall);
   const bandPos = [], bandIdx = [[], [], []];
+  // righe luminose: del colore scelto di giorno, accese di notte (bordi del tetto per tribuna, cima della facciata inglese)
+  const glowMat = new THREE.MeshStandardMaterial({ roughness: 0.4, side: THREE.DoubleSide });
+  const cladMat = new THREE.MeshStandardMaterial({ roughness: 0.55, side: THREE.DoubleSide });
+  own.push(glowMat, cladMat);
+  const glowPos = [], glowIdx = [[], [], []];
+  let roofTopMat = null;
   const ramps = surface(), wedges = surface();
   const lights = lightsOf(st);
   let deckMat = null;
@@ -2492,49 +2539,55 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   }
 
   if (st.roof === 'stands') {
-    // ogni tribuna ha il suo tetto (gli angoli restano aperti): sopra scuro, sotto pannelli traslucidi in una griglia di
-    // travi del colore dell'acciaio, davanti una trave reticolare sottile con le luci; dietro la tribuna di fronte i piloni
-    const Rs = roofOf(shape, 'stands', reachOf_(st)), T = shape.tiers[shape.tiers.length - 1], pos = [], idx = [[], [], []];
-    const slabProf = [[Rs.dIn, Rs.h(Rs.dIn) - 0.25, 2], [Rs.dOut, Rs.h(Rs.dOut) - 0.25, 2], [Rs.dOut, Rs.h(Rs.dOut), 0], [Rs.dIn, Rs.h(Rs.dIn), 2]]
-      .map(([d, h, m]) => ({ d, h, m }));
-    const bar = (d, h, w, t) => [[d - w / 2, h - t / 2], [d + w / 2, h - t / 2], [d + w / 2, h + t / 2], [d - w / 2, h + t / 2]].map(([dd, hh]) => ({ d: dd, h: hh, m: 1 }));
-    const under = [], underUv = [], underIdx = [];
-    // un tetto per lato, staccato dagli altri agli angoli
+    // stile inglese (Stamford Bridge): ogni tribuna ha il suo tetto alla sua altezza, anche sugli angoli. Sopra lamiera
+    // scura con la struttura a vista (travi reticolari a sbalzo, più alte dietro, e correnti lungo la tribuna), davanti
+    // la fascia chiara con la riga colorata e le luci, sotto pannelli chiari; agli angoli i piloni con i tiranti
+    const pos = [], idx = [[], [], []], under = [], underUv = [], underIdx = [], covered = [];
+    const rect = (d0, d1, h0, h1, m) => [[d0, h0], [d1, h0], [d1, h1], [d0, h1]].map(([d, h]) => ({ d, h, m }));
+    // tratti dritti dei lati (fuori dagli angoli): lì stanno le travi sopra il tetto
     const gapA = shape.a - Math.max(shape.r, 4), gapB = shape.b - Math.max(shape.r, 4);
     const straight = (p) => (Math.abs(p.mz) > 0.995 && Math.abs(p.x) < gapA) || (Math.abs(p.mx) > 0.995 && Math.abs(p.z) < gapB);
-    const TH = 2.4; // altezza della trave reticolare davanti
     for (const run of roofRuns) {
-      // ogni tratto ha il suo tetto alla sua altezza (tribune e curve possono avere anelli diversi)
-      const Rs = roofOf({ ...shape, tiers: run.tiers }, 'stands', reachOf_(st));
-      const slabProf = [[Rs.dIn, Rs.h(Rs.dIn) - 0.25, 2], [Rs.dOut, Rs.h(Rs.dOut) - 0.25, 2], [Rs.dOut, Rs.h(Rs.dOut), 0], [Rs.dIn, Rs.h(Rs.dIn), 2]]
-        .map(([d, h, m]) => ({ d, h, m }));
+      const Rs = roofOf({ ...shape, tiers: run.tiers }, 'stands', reachOf_(st)), hI = Rs.h(Rs.dIn);
+      const d0 = Rs.dIn + 0.6, span = Rs.dOut - 0.5 - d0, yb = (d) => Rs.h(d) + 0.1;
+      const yt = (d) => yb(d) + 1 + 4.5 * (d - d0) / span; // sopra le travi: 1 m sulla punta, 5,5 m sull'appoggio dietro
+      // lastra (sopra lamiera, bordi chiari) e fascia davanti
+      extrude(THREE, run, [[Rs.dIn, hI - 0.25, 1], [Rs.dOut, Rs.h(Rs.dOut) - 0.25, 1], [Rs.dOut, Rs.h(Rs.dOut), 0], [Rs.dIn, hI, 1]]
+        .map(([d, h, m]) => ({ d, h, m })), pos, idx);
+      extrude(THREE, run, rect(Rs.dIn - 0.05, Rs.dIn + 0.35, hI - STANDS_FASCIA, hI + 0.15, 1), pos, idx);
+      extrude(THREE, run, rect(Rs.dIn - 0.1, Rs.dIn + 0.35, hI - STANDS_FASCIA - 0.5, hI - STANDS_FASCIA, 0), glowPos, glowIdx);
+      extrude(THREE, run, rect(Rs.dOut, Rs.dOut + 0.08, Rs.h(Rs.dOut) - 1.05, Rs.h(Rs.dOut) - 0.3, 0), glowPos, glowIdx);
+      // correnti lungo il tetto: in cima alle travi sulla punta, a metà e sull'appoggio, più quelli in basso
+      for (const f of [0, 0.5, 1]) {
+        const d = d0 + span * f;
+        extrude(THREE, run, rect(d - 0.18, d + 0.18, yt(d) - 0.36, yt(d), 1), pos, idx);
+        if (f > 0) extrude(THREE, run, rect(d - 0.15, d + 0.15, yb(d), yb(d) + 0.3, 1), pos, idx);
+      }
+      const cum = runLengths(run), total = cum[cum.length - 1];
+      // pannelli chiari sotto il tetto (con coordinate per la griglia)
+      const P = run.pts, n = P.length, b0 = under.length / 3, dU = Rs.dIn + 0.35;
+      for (let k = 0; k < n; k++) {
+        for (const d of [dU, Rs.dOut]) { under.push(P[k].x + P[k].mx * d, Rs.h(d) - 0.3, P[k].z + P[k].mz * d); underUv.push(cum[k] / 6, (d - dU) / 6); }
+        if (k) { const a = b0 + (k - 1) * 2, c = a + 2; underIdx.push(a, c, a + 1, a + 1, c, c + 1); }
+      }
+      if (run.closed) { const a = b0 + (n - 1) * 2; underIdx.push(a, b0, a + 1, a + 1, b0, b0 + 1); }
+      // travi a sbalzo sopra il tetto, dal muro alla punta: sui lati ogni 9 m, sugli angoli una sola lungo la diagonale
+      const across = (side, sc, u) => {
+        const [xa, za] = pointAt(side, sc, u, d0), [xb, zb] = pointAt(side, sc, u, d0 + span);
+        truss(girderBeams, xa, za, xb, zb, (f) => yb(d0 + span * f), (f) => yt(d0 + span * f), Math.max(2, Math.round(span / 3.4)), 0.36, 0.22);
+      };
       for (const side of subRuns(run, straight)) {
-        extrude(THREE, side, slabProf, pos, idx);
-        // travi lungo la tribuna sotto il tetto (correnti della trave davanti e due arcarecci)
-        for (const [d, h, w] of [[Rs.dIn + 0.3, Rs.h(Rs.dIn) - 0.4, 0.35], [Rs.dIn + 0.3, Rs.h(Rs.dIn) - TH, 0.35],
-          [Rs.dIn + (Rs.dOut - Rs.dIn) * 0.4, Rs.h(Rs.dIn + (Rs.dOut - Rs.dIn) * 0.4) - 0.6, 0.3], [Rs.dIn + (Rs.dOut - Rs.dIn) * 0.75, Rs.h(Rs.dIn + (Rs.dOut - Rs.dIn) * 0.75) - 0.6, 0.3]]) {
-          extrude(THREE, side, bar(d, h, w, w), pos, idx);
-        }
-        const cum = runLengths(side), total = cum[cum.length - 1];
-        // pannelli traslucidi sotto il tetto (con coordinate per la griglia)
-        const P = side.pts, b0 = under.length / 3;
-        for (let k = 0; k < P.length; k++) {
-          for (const d of [Rs.dIn, Rs.dOut]) { under.push(P[k].x + P[k].mx * d, Rs.h(d) - 0.3, P[k].z + P[k].mz * d); underUv.push(cum[k] / 6, (d - Rs.dIn) / 6); }
-          if (k) { const a = b0 + (k - 1) * 2, c = a + 2; underIdx.push(a, c, a + 1, a + 1, c, c + 1); }
-        }
-        for (const u of stations(side, cum, 6)) {
-          // trave a sbalzo dal muro al bordo davanti, con la saetta; montanti e diagonali della trave davanti
-          const [x0, z0] = pointAt(side, cum, u, Rs.dOut - 0.4), [x1, z1] = pointAt(side, cum, u, Rs.dIn + 0.3), [xm, zm] = pointAt(side, cum, u, (Rs.dIn + Rs.dOut) / 2);
-          beam(beams, x0, Rs.h(Rs.dOut) - 0.7, z0, x1, Rs.h(Rs.dIn) - 0.7, z1, 0.45);
-          beam(beams, x0, Rs.h(Rs.dOut) - 4, z0, xm, Rs.h((Rs.dIn + Rs.dOut) / 2) - 0.8, zm, 0.3);
-          beam(beams, x1, Rs.h(Rs.dIn) - 0.4, z1, x1, Rs.h(Rs.dIn) - TH, z1, 0.22);
-          const [x2, z2] = pointAt(side, cum, Math.min(total, u + 3), Rs.dIn + 0.3);
-          beam(beams, x1, Rs.h(Rs.dIn) - TH, z1, x2, Rs.h(Rs.dIn) - 0.4, z2, 0.18);
-        }
-        if (lights === 'roof') {
-          for (const u of stations(side, cum, 4)) { const [x, z] = pointAt(side, cum, u, Rs.dIn + 0.9); lampAt(lamps, x, Rs.h(Rs.dIn) - TH - 0.3, z, 1.4, 0.8); }
-          for (const f of [0.25, 0.75]) { const [x, z] = pointAt(side, cum, total * f, Rs.dIn); spots.push([x, Rs.h(Rs.dIn) - 2, z]); }
-        }
+        const sc = runLengths(side), len = sc[sc.length - 1];
+        for (const u of stations(side, sc, 9)) across(side, sc, u);
+        covered.push({ side: sideOfPoint(side.pts[Math.floor(side.pts.length / 2)]), Rs, d0, span, yt });
+        if (lights === 'roof') for (const f of [0.25, 0.75]) { const [x, z] = pointAt(side, sc, len * f, Rs.dIn); spots.push([x, hI - 3, z]); }
+      }
+      for (const corner of subRuns(run, (p) => !straight(p))) {
+        const p = corner.pts.reduce((m, q) => (Math.abs(q.mx * q.mz) > Math.abs(m.mx * m.mz) ? q : m));
+        if (Math.abs(p.mx * p.mz) > 0.1) across({ pts: [p, p], closed: false }, [0, 0], 0);
+      }
+      if (lights === 'roof') {
+        for (const u of stations(run, cum, 4)) { const [x, z] = pointAt(run, cum, Math.min(u, total - 0.01), Rs.dIn + 0.9); lampAt(lamps, x, hI - STANDS_FASCIA - 0.9, z, 1.4, 0.8); }
       }
     }
     const g = new THREE.BufferGeometry();
@@ -2543,38 +2596,79 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     idx.forEach((list, m) => { g.addGroup(start, list.length, m); start += list.length; });
     g.setIndex(idx.flat());
     g.computeVertexNormals();
-    const topMat = new THREE.MeshStandardMaterial({ color: 0x8d949c, roughness: 0.7, side: THREE.DoubleSide });
-    const roof = new THREE.Mesh(g, [topMat, steel, steel]);
+    const panels = new THREE.CanvasTexture(roofPanelCanvas('corrugated'));
+    panels.wrapS = panels.wrapT = THREE.RepeatWrapping; panels.colorSpace = THREE.SRGBColorSpace; panels.anisotropy = 4;
+    panels.repeat.set(0.25, 0.25);
+    roofTopMat = new THREE.MeshStandardMaterial({ map: panels, roughness: 0.65, metalness: 0.15, side: THREE.DoubleSide });
+    const roof = new THREE.Mesh(g, [roofTopMat, girderMat, girderMat]);
     roof.castShadow = true;
     roof.receiveShadow = true;
     group.add(roof);
-    // pannelli traslucidi: lasciano passare la luce (un po' di luce propria) e mostrano la griglia
+    // pannelli chiari sotto, con la griglia delle travi
     const gridC = document.createElement('canvas'); gridC.width = gridC.height = 128;
     const gx = gridC.getContext('2d');
-    gx.fillStyle = '#ffffff'; gx.fillRect(0, 0, 128, 128);
-    gx.fillStyle = 'rgba(0,0,0,.08)'; for (let i = 0; i < 128; i += 16) gx.fillRect(i, 0, 2, 128);
-    gx.fillStyle = '#5c6b80'; gx.fillRect(0, 0, 128, 7); gx.fillRect(0, 0, 7, 128);
+    gx.fillStyle = '#e3e6ea'; gx.fillRect(0, 0, 128, 128);
+    gx.fillStyle = 'rgba(0,0,0,.06)'; for (let i = 0; i < 128; i += 16) gx.fillRect(i, 0, 2, 128);
+    gx.fillStyle = '#8a95a3'; gx.fillRect(0, 0, 128, 6); gx.fillRect(0, 0, 6, 128);
     const gridTex = new THREE.CanvasTexture(gridC);
     gridTex.wrapS = gridTex.wrapT = THREE.RepeatWrapping; gridTex.colorSpace = THREE.SRGBColorSpace; gridTex.anisotropy = 4;
-    deckMat = new THREE.MeshStandardMaterial({ map: gridTex, emissive: 0xffffff, emissiveMap: gridTex, emissiveIntensity: 0.35, roughness: 0.5, side: THREE.DoubleSide });
+    const underMat = new THREE.MeshStandardMaterial({ map: gridTex, emissive: 0xffffff, emissiveMap: gridTex, emissiveIntensity: 0.12, roughness: 0.6, side: THREE.DoubleSide });
     const ug = new THREE.BufferGeometry();
     ug.setAttribute('position', new THREE.Float32BufferAttribute(under, 3));
     ug.setAttribute('uv', new THREE.Float32BufferAttribute(underUv, 2));
     ug.setIndex(underIdx);
     ug.computeVertexNormals();
-    group.add(new THREE.Mesh(ug, deckMat));
-    own.push(g, ug, topMat, deckMat, gridTex);
-    // due piloni a traliccio dietro la tribuna di fronte, con i tiranti verso il tetto
-    const far = shape.path.filter(p => p.mz < -0.995), xs = far.map(p => p.x);
-    if (xs.length) {
-      const hx = Math.max(...xs) * 0.9, zb = -(shape.b + Rs.dOut + 5), top = Rs.h(Rs.dIn) + 14;
-      for (const sx of [-1, 1]) {
-        const x = sx * hx;
-        beam(beams, x, T.top * 0.5, zb, x, top, zb + 3, 1);
-        beam(beams, x - sx * 4, top - 6, zb + 2, x, top, zb + 3, 0.6);
-        for (const f of [0.12, 0.3]) beam(beams, x, top, zb + 3, x - sx * hx * f * 2, Rs.h(Rs.dIn) - 0.3, -(shape.b + Rs.dIn + 0.5), 0.12);
+    group.add(new THREE.Mesh(ug, underMat));
+    own.push(g, ug, panels, roofTopMat, underMat, gridTex);
+    // piloni tubolari agli angoli, fuori dagli spalti, con i tiranti verso le travi dei due tetti vicini e il puntone dietro
+    const M = mastsOf(shape, st);
+    for (const m of M) {
+      const near = covered.filter(c => c.side === m.long || c.side === m.end);
+      if (!near.length) continue;
+      boxAt(drums, m.x, m.top / 2, m.z, [STANDS_MAST_R, 0, 0], [0, m.top, 0], [0, 0, STANDS_MAST_R]);
+      beam(beams, m.x, m.top - 1, m.z, m.x + m.sx * 7, 0, m.z + m.sz * 7, 0.3);
+      for (const c of near) {
+        const d = c.d0 + c.span * 0.15;
+        for (const f of [0.35, 0.7]) {
+          const [x, z] = c.side === m.long ? [m.sx * (shape.a - shape.r) * (1 - f), m.sz * (shape.b + d)] : [m.sx * (shape.a + d), m.sz * (shape.b - shape.r) * (1 - f)];
+          beam(beams, m.x, m.top - 0.5, m.z, x, c.yt(d), z, 0.14);
+        }
       }
     }
+  }
+
+  if (st.facade === 'cladding') {
+    // stile inglese: pannelli chiari con le giunture, zoccolo e cornicione del colore delle fasce, nastri di vetrate
+    // all'altezza dei corridoi tra un anello e l'altro e la riga luminosa sotto il cornicione
+    const rect = (d0, d1, h0, h1, m) => [[d0, h0], [d1, h0], [d1, h1], [d0, h1]].map(([d, h]) => ({ d, h, m }));
+    const pos = [], idx = [[], [], []], glassPos = [], glassIdx = [[], [], []];
+    for (const ring of shape.runs) {
+      const o = runOuter(ring), H = runTop(ring).top + 2.2;
+      extrude(THREE, ring, rect(o - 0.1, o + 0.3, 0, H, 0), pos, idx);
+      extrude(THREE, ring, rect(o + 0.3, o + 0.7, 0, CLAD_PLINTH, 1), pos, idx);
+      extrude(THREE, ring, rect(o + 0.3, o + 0.6, H - CLAD_CORNICE, H, 1), pos, idx);
+      extrude(THREE, ring, rect(o + 0.6, o + 0.68, H - CLAD_CORNICE - 1, H - CLAD_CORNICE - 0.1, 0), glowPos, glowIdx);
+      for (const [h0, h1] of cladBands(ring.tiers)) extrude(THREE, ring, rect(o + 0.3, o + 0.4, h0, h1, 0), glassPos, glassIdx);
+      const cum = runLengths(ring);
+      for (const u of stations(ring, cum, 4.5)) {
+        const [x, z] = pointAt(ring, cum, u, o + 0.32), [tx, tz] = tangentAt(ring, cum, u, o + 0.32), h0 = CLAD_PLINTH, h1 = H - CLAD_CORNICE;
+        boxAt(windows, x, (h0 + h1) / 2, z, [tx * 0.12, 0, tz * 0.12], [0, h1 - h0, 0], [-tz * 0.06, 0, tx * 0.06]);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    let start = 0;
+    idx.forEach((list, m) => { g.addGroup(start, list.length, m); start += list.length; });
+    g.setIndex(idx.flat());
+    g.computeVertexNormals();
+    const wall = new THREE.Mesh(g, [cladMat, accent, structMat]);
+    wall.castShadow = wall.receiveShadow = true;
+    const gg = new THREE.BufferGeometry();
+    gg.setAttribute('position', new THREE.Float32BufferAttribute(glassPos, 3));
+    gg.setIndex(glassIdx.flat());
+    gg.computeVertexNormals();
+    group.add(wall, new THREE.Mesh(gg, glassWall));
+    own.push(g, gg);
   }
 
   if (st.facade === 'panels') {
@@ -2733,20 +2827,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   if (G) {
     const Hs = shape.tiers[shape.tiers.length - 1].top + 2.2;
     for (const [x, z] of G.towers) spiralTower(x, z, CORNER_R, Hs, G.top + TOWER_OVER);
-    // trave reticolare piana da (x1, z1) a (x2, z2): correnti a quota yb(s) e yt(s), montanti e diagonali alternate
-    const planeTruss = (x1, z1, x2, z2, yb, yt, panels, tc, tm) => {
-      let prev = null;
-      for (let k = 0; k <= panels; k++) {
-        const f = k / panels, x = x1 + (x2 - x1) * f, z = z1 + (z2 - z1) * f, b = yb(f), tp = yt(f);
-        beam(girderBeams, x, b, z, x, tp, z, tm);
-        if (prev) {
-          beam(girderBeams, prev.x, prev.b, prev.z, x, b, z, tc);
-          beam(girderBeams, prev.x, prev.tp, prev.z, x, tp, z, tc);
-          if (k % 2) beam(girderBeams, prev.x, prev.b, prev.z, x, tp, z, tm); else beam(girderBeams, prev.x, prev.tp, prev.z, x, b, z, tm);
-        }
-        prev = { x, z, b, tp };
-      }
-    };
+    const planeTruss = (...a) => truss(girderBeams, ...a);
     // travi principali: due pareti reticolari unite da traversi, da una torre all'altra
     const girder = (x1, z1, x2, z2) => {
       const len = Math.hypot(x2 - x1, z2 - z1), nx = -(z2 - z1) / len, nz = (x2 - x1) / len;
@@ -2925,6 +3006,14 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     group.add(new THREE.Mesh(g, structMat));
     own.push(g);
   }
+  if (glowPos.length) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(glowPos, 3));
+    g.setIndex(glowIdx.flat());
+    g.computeVertexNormals();
+    group.add(new THREE.Mesh(g, glowMat));
+    own.push(g);
+  }
   inst(dark, towerCores, cylinder);
   inst(parapetMat, towerCaps, cylinder);
   inst(steel, drums, cylinder);
@@ -2939,7 +3028,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   inst(girderMat, girderBeams);
   inst([steel, steel, steel, steel, lamp, steel], lamps); // la faccia +z del proiettore è quella accesa
 
-  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor };
+  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, cladding: cladMat, roofTop: roofTopMat };
 }
 
 /* --------------------------------------------------------------- scena */
@@ -3062,6 +3151,7 @@ function buildStadium(L, st) {
       if (sign) sign.glow(on); // la scritta si accende
       outside.lamp.emissiveIntensity = on ? 5 : 0.6;
       if (outside.shellMat) outside.shellMat.emissiveIntensity = on ? 0.85 : 0; // l'involucro si accende
+      outside.glow.emissiveIntensity = on ? 1.6 : 0.15;
       nightLights.forEach(l => { l.visible = on; });
     },
     recolor(s) {
@@ -3071,6 +3161,9 @@ function buildStadium(L, st) {
       outside.dark.color.set(shade(c.structure, 0.62));
       outside.girder.color.set(c.girder);
       if (outside.deckMat) outside.deckMat.color.set(c.roof);
+      if (outside.roofTop) outside.roofTop.color.set(c.roof);
+      outside.glow.color.set(c.glow); outside.glow.emissive.set(c.glow);
+      outside.cladding.color.set(c.cladding);
       if (outside.roofDecor) {
         outside.roofDecor.tubes.color.set(c.steel);
         if (outside.roofDecor.floor) outside.roofDecor.floor.color.set(shade(c.structure, 0.85));

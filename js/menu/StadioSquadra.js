@@ -258,7 +258,7 @@ export const StadioSquadra = {
         truss: 'Tetto in lamiera sopra l\'anello più alto, con tralicci sotto e piloni in acciaio fuori che reggono una trave tutto intorno.',
         membrane: 'Tetto chiaro e liscio, con le costole sotto.',
         girders: 'Tetto chiaro a botti con la struttura scura sotto, appeso a quattro grandi travi reticolari che poggiano su quattro torri agli angoli.',
-        stands: 'Ogni tribuna ha il suo tetto piatto: sotto pannelli traslucidi e travi, davanti la fascia con le luci; dietro la tribuna di fronte due piloni con i tiranti. Gli angoli restano scoperti.',
+        stands: 'Ogni tribuna ha il suo tetto alla sua altezza, come a Stamford Bridge: sopra lamiera con le travi reticolari a vista, davanti la fascia chiara con la riga colorata e le luci, agli angoli i piloni con i tiranti.',
         wave: 'Copertura bianca a sella, alta sopra le curve e più bassa sui lati lunghi, con il traliccio a triangoli sotto e una fascia bianca che scende all\'esterno.',
         dome: 'Cupola bianca a raggiera che sale dal basso fino all\'apertura, con i denti a punta tutto attorno alla base.',
         tent: 'Membrana tesa da sei pennoni altissimi, con le punte sopra lo stadio. Di notte si illumina.',
@@ -294,11 +294,14 @@ export const StadioSquadra = {
         ? 'Senza copertura lo schermo sta in cima agli spalti.'
         : 'Appeso sotto il bordo del tetto.'} Mostra il nome dello stadio, il risultato e il minuto.</div>` : ''}
       <div class="kit-sub">Colori</div>
-      ${s.roof !== 'none' ? this._colorRow(['shell', 'tent', 'petals'].includes(s.roof) ? 'Involucro' : s.roof === 'stands' ? 'Pannelli sotto il tetto' : s.roof === 'dragon' ? 'Pannelli solari' : s.roof === 'crown' ? 'Vele' : 'Tetto', 'colors.roof', s.colors.roof) : ''}
+      ${s.roof !== 'none' ? this._colorRow(['shell', 'tent', 'petals'].includes(s.roof) ? 'Involucro' : s.roof === 'dragon' ? 'Pannelli solari' : s.roof === 'crown' ? 'Vele' : 'Tetto', 'colors.roof', s.colors.roof) : ''}
       ${['shell', 'tent', 'petals'].includes(s.roof) ? this._colorRow('Luce dell\'involucro di notte', 'colors.glow', s.colors.glow) : ''}
-      ${s.roof !== 'none' || s.lights !== 'none' ? this._colorRow(s.roof === 'dragon' ? 'Acciaio (tubi a spirale, tralicci, torri)' : s.roof === 'crown' ? 'Acciaio (colonne, anello, passerella)' : 'Acciaio (tralicci, pilastri, torri)', 'colors.steel', s.colors.steel) : ''}
+      ${s.roof === 'stands' || s.facade === 'cladding' ? this._colorRow('Righe luminose (accese di notte)', 'colors.glow', s.colors.glow) : ''}
+      ${s.roof !== 'none' || s.lights !== 'none' ? this._colorRow(s.roof === 'dragon' ? 'Acciaio (tubi a spirale, tralicci, torri)' : s.roof === 'crown' ? 'Acciaio (colonne, anello, passerella)' : s.roof === 'stands' ? 'Acciaio (piloni e tiranti)' : 'Acciaio (tralicci, pilastri, torri)', 'colors.steel', s.colors.steel) : ''}
       ${s.roof === 'girders' ? this._colorRow('Reticolato sopra il tetto (travi e sbalzi)', 'colors.girder', s.colors.girder) : ''}
-      ${s.facade === 'struts' || s.facade === 'panels' ? this._colorRow(s.facade === 'panels' ? 'Rivestimento esterno' : 'Fasce del basamento', 'colors.accent', s.colors.accent) : ''}
+      ${s.roof === 'stands' ? this._colorRow('Travi sopra il tetto e fascia davanti', 'colors.girder', s.colors.girder) : ''}
+      ${s.facade === 'cladding' ? this._colorRow('Pannelli della facciata', 'colors.cladding', s.colors.cladding) : ''}
+      ${s.facade === 'struts' || s.facade === 'panels' || s.facade === 'cladding' ? this._colorRow({ panels: 'Rivestimento esterno', cladding: 'Zoccolo e cornicione' }[s.facade] || 'Fasce del basamento', 'colors.accent', s.colors.accent) : ''}
       ${s.screen !== 'none' ? this._colorRow('Sfondo del maxischermo', 'colors.screen', s.colors.screen) : ''}
       <div class="mp-muted" style="margin-top:.6rem;">Prova il pulsante Notte sull'anteprima per vedere i fari accesi.</div>`;
   },
