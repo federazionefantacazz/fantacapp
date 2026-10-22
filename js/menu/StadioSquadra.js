@@ -236,6 +236,7 @@ export const StadioSquadra = {
         truss: 'Tetto in lamiera sopra l\'anello più alto, con tralicci sotto e piloni in acciaio fuori che reggono una trave tutto intorno.',
         membrane: 'Tetto chiaro e liscio, con le costole sotto.',
         girders: 'Tetto chiaro a botti con la struttura scura sotto, appeso a quattro grandi travi reticolari che poggiano su quattro torri agli angoli.',
+        wave: 'Copertura bianca a sella, alta sopra le curve e più bassa sui lati lunghi, con il traliccio a triangoli sotto e una fascia bianca che scende all\'esterno.',
         shell: 'Un unico involucro a cuscini che avvolge lo stadio: si gonfia verso fuori, copre gli spalti e diventa trasparente verso il campo. Di notte si illumina.'
       }[s.roof] || 'Spalti scoperti.'}</div>
       ${s.roof === 'shell' ? `
