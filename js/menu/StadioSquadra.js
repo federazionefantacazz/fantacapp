@@ -4,7 +4,7 @@ import { dataUrlToBlob } from '../components/Kit3D.js';
 import {
   createStadiumViewer, renderStadiumImage, stadiumCapacity, shownCapacity, normalizeStadium, defaultStadium, applyPreset,
   RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY,
-  SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom,
+  SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom, WALL_TEXTURES, WALL_TEX_FACADES, APRON_STYLES, GROUND_STYLES, AD_BOARDS,
   ringsBySide, maxRingsOf, LOGO_PLACES, logoPlacesFor
 } from '../components/Stadium3D.js';
 import { injectStyle, parseColor, SWATCHES } from './DivisaSquadra.js';
@@ -41,9 +41,20 @@ function injectStadiumStyle() {
     .std-grid .hd { font-size: .62rem; font-weight: 700; color: var(--label, var(--text2)); text-align: center; text-transform: uppercase; }
     .std-grid .nm { font-size: .8rem; font-weight: 600; color: var(--text); }
     .std-grid .kit-color { width: 46px; }
-    .std-sides { display: grid; grid-template-columns: minmax(0, 7.2rem) minmax(0, 1fr); gap: .45rem .5rem; align-items: center; margin-top: .35rem; }
+    .std-sides { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 13.5rem); gap: .4rem .6rem; align-items: center; margin-top: .45rem; }
     .std-sides .nm { font-size: .8rem; font-weight: 600; color: var(--text); }
-    .std-sides .kit-chips { margin: 0; }
+    /* selettore compatto a segmenti (una riga sola) */
+    .std-seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); background: var(--bg2); border: 1px solid var(--border); border-radius: 999px; padding: 2px; }
+    .std-seg button { background: transparent; border: 0; border-radius: 999px; color: var(--text2); font-family: inherit; font-size: .72rem; font-weight: 700; padding: .32rem .2rem; cursor: pointer; white-space: nowrap; }
+    .std-seg button.on { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }
+    /* griglia di scelte a due colonne, tutte larghe uguali */
+    .std-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; }
+    #menu-panel .std-opts .lv-chip, .std-opts .lv-chip { width: 100%; border-radius: 10px; padding: .45rem .5rem; text-align: center; line-height: 1.2; white-space: normal; }
+    .std-desc { font-size: .72rem; color: var(--text2); font-family: var(--font-sub, inherit); line-height: 1.35; margin-top: .4rem; background: var(--bg2); border-radius: 10px; padding: .45rem .6rem; }
+    .std-group { border-top: 1px solid var(--border); margin-top: .9rem; padding-top: .1rem; }
+    .std-group:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+    /* con una fase aperta l'anteprima è un po' più bassa: più spazio per le scelte */
+    .std-editor.has-open .kit-preview { height: 27vh; min-height: 165px; }
   `;
   document.head.appendChild(style);
 }
@@ -70,6 +81,7 @@ export const StadioSquadra = {
     injectStadiumStyle();
     const team = STATE.user;
     const root = document.createElement('div');
+    root.className = 'std-editor';
     body.appendChild(root);
     this._root = root;
     if (!team) {
@@ -111,11 +123,12 @@ export const StadioSquadra = {
       ['name',      'FASE 1: Nome e capienza'],
       ['styles',    'FASE 2: Stili rapidi'],
       ['structure', 'FASE 3: Anelli, curve e pista'],
-      ['exterior',  'FASE 4: Copertura, fari ed esterno'],
-      ['pitch',     'FASE 5: Campo'],
-      ['seats',     'FASE 6: Colore dei seggiolini'],
-      ['texts',     'FASE 7: Scritte e logo'],
-      ['walls',     'FASE 8: Parapetti e cemento']
+      ['exterior',  'FASE 4: Copertura e maxischermo'],
+      ['outside',   'FASE 5: Muro esterno, fari e rampe'],
+      ['pitch',     'FASE 6: Campo, pista e pavimenti'],
+      ['seats',     'FASE 7: Colore dei seggiolini'],
+      ['texts',     'FASE 8: Scritte e logo'],
+      ['walls',     'FASE 9: Parapetti e cemento']
     ];
     this._root.innerHTML = `
       <div class="kit-stage">
@@ -172,12 +185,13 @@ export const StadioSquadra = {
   /** Ridisegna il contenuto della sezione aperta (le altre restano vuote finché non si aprono). */
   _renderSection() {
     if (!this._root) return;
+    this._root.classList.toggle('has-open', !!this._open);
     this._root.querySelectorAll('.kit-acc-body').forEach(b => { b.innerHTML = ''; });
     const key = this._open;
     const box = key && this._root.querySelector(`#std-sec-${key}`);
     if (!box) return;
     const fn = {
-      styles: this._secStyles, structure: this._secStructure, exterior: this._secExterior, pitch: this._secPitch,
+      styles: this._secStyles, structure: this._secStructure, exterior: this._secExterior, outside: this._secOutside, pitch: this._secPitch,
       seats: this._secSeats, texts: this._secTexts, walls: this._secWalls, name: this._secName
     }[key];
     box.innerHTML = fn.call(this);
@@ -203,6 +217,16 @@ export const StadioSquadra = {
     return `<button class="lv-chip ${on ? 'on' : ''}" data-act="set" data-k="${key}" data-v="${esc(value)}">${esc(label)}</button>`;
   },
 
+  /** Scelte in griglia a due colonne (liste lunghe): tutte larghe uguali, niente righe spezzate a caso. */
+  _opts(key, list, current) {
+    return `<div class="std-opts">${list.map(o => this._chip(key, o.id, o.label, current === o.id)).join('')}</div>`;
+  },
+
+  /** Selettore compatto a segmenti su una riga: items = [[valore, etichetta, attivo], ...], act/extra = attributi del pulsante. */
+  _seg(items, attrs) {
+    return `<div class="std-seg">${items.map(([v, l, on]) => `<button class="${on ? 'on' : ''}" ${attrs} data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div>`;
+  },
+
   _colorRow(label, path, value) {
     return `
       <div class="kit-color-row">
@@ -222,45 +246,46 @@ export const StadioSquadra = {
 
   _secStructure() {
     const s = this._st;
+    const yesNo = (k, on, labels = ['No', 'Sì']) => this._seg([['0', labels[0], !on], ['1', labels[1], on]], `data-act="set" data-k="${k}"`);
     return `
+      <div class="std-group">
       <div class="kit-sub">Anelli delle tribune (lati lunghi)</div>
-      <div class="kit-chips">${RINGS.map(r => this._chip('rings', r.id, r.label, s.rings === r.id)).join('')}</div>
+      ${this._seg(RINGS.map(r => [r.id, r.label, s.rings === r.id]), 'data-act="set" data-k="rings"')}
       <div class="kit-sub">Anelli delle curve</div>
-      <div class="kit-chips">${this._chip('ringsEnds', 0, 'Come le tribune', !s.ringsEnds)}${RINGS.map(r => this._chip('ringsEnds', r.id, r.label, s.ringsEnds === r.id)).join('')}</div>
-      <div class="mp-muted" style="margin-top:.3rem;">Con un numero diverso di anelli tribune e curve hanno altezze diverse: quella più alta sale sopra l'altra.</div>
+      ${this._seg([[0, `Uguali (${s.rings})`, !s.ringsEnds], ...RINGS.map(r => [r.id, String(r.id), s.ringsEnds === r.id])], 'data-act="set" data-k="ringsEnds"')}
       <div class="kit-sub">Anelli settore per settore</div>
-      <div class="mp-muted">Per cambiare un solo settore (per esempio la tribuna principale più alta): "Auto" segue le scelte qui sopra.</div>
+      <div class="mp-muted">Per cambiare un solo settore (per esempio la tribuna principale più alta). "Auto" segue le scelte qui sopra.</div>
       <div class="std-sides">${SEAT_SIDES.filter(sd => !(s.horseshoe && sd.id === 3)).map(sd => {
         const auto = sd.id % 2 ? (s.ringsEnds || s.rings) : s.rings, cur = s.ringsSides[sd.id];
-        return `<span class="nm">${esc(sd.label)}</span><div class="kit-chips">${[[0, `Auto (${auto})`], ...RINGS.map(r => [r.id, String(r.id)])]
-          .map(([n, l]) => `<button class="lv-chip ${cur === n ? 'on' : ''}" data-act="ringsSide" data-side="${sd.id}" data-v="${n}">${esc(l)}</button>`).join('')}</div>`;
+        return `<span class="nm">${esc(sd.label)}</span>${this._seg([[0, `Auto (${auto})`, cur === 0], ...RINGS.map(r => [r.id, String(r.id), cur === r.id])], `data-act="ringsSide" data-side="${sd.id}"`)}`;
       }).join('')}</div>
-      <div class="kit-sub">Pista d'atletica</div>
-      <div class="kit-chips">${this._chip('track', '1', 'Sì', s.track)}${this._chip('track', '0', 'No', !s.track)}</div>
-      ${s.track ? `${this._colorRow('Colore della pista', 'colors.track', s.colors.track)}${this._colorRow('Linee delle corsie', 'colors.trackLines', s.colors.trackLines)}
-      <div class="kit-sub">Fondo intorno alla pista</div>
-      <div class="kit-chips">${this._chip('trackApron', '0', 'Prato', !s.trackApron)}${this._chip('trackApron', '1', 'Colorato', s.trackApron)}</div>
-      ${s.trackApron ? this._colorRow('Colore del fondo (anche ai lati del campo)', 'colors.apron', s.colors.apron) : ''}` : ''}
-      <div class="mp-muted" style="margin-top:.3rem;">Con la pista gli spalti sono più lontani dal campo.</div>
-      ${maxRingsOf(s) > 1 ? `<div class="kit-sub">Palchi vetrati tra gli anelli</div>
-      <div class="kit-chips">${this._chip('boxes', '1', 'Sì', s.boxes)}${this._chip('boxes', '0', 'No', !s.boxes)}</div>` : ''}
+      ${maxRingsOf(s) > 1 ? `<div class="kit-sub">Palchi vetrati tra gli anelli</div>${yesNo('boxes', s.boxes)}` : ''}
+      </div>
+      <div class="std-group">
       <div class="kit-sub">Forma delle curve</div>
-      <div class="kit-chips">${SHAPES.map(o => this._chip('shape', o.id, o.label, s.shape === o.id)).join('')}</div>
+      ${this._opts('shape', SHAPES, s.shape)}
       <div class="kit-sub">Curve e tribune</div>
-      <div class="kit-chips">${CORNERS.map(o => this._chip('corners', o.id, o.label, s.corners === o.id)).join('')}</div>
-      <div class="mp-muted" style="margin-top:.3rem;">${s.corners === 'open' ? 'Quattro settori separati, con gli angoli aperti.' : 'Un unico anello di spalti tutto intorno al campo.'}</div>
+      ${this._seg(CORNERS.map(o => [o.id, o.label, s.corners === o.id]), 'data-act="set" data-k="corners"')}
+      <div class="std-desc">${s.corners === 'open' ? 'Quattro settori separati, con gli angoli aperti.' : 'Un unico anello di spalti tutto intorno al campo.'}</div>
       <div class="kit-sub">Una curva aperta (ferro di cavallo)</div>
-      <div class="kit-chips">${this._chip('horseshoe', '0', 'No', !s.horseshoe)}${this._chip('horseshoe', '1', 'Sì', s.horseshoe)}</div>
-      <div class="mp-muted" style="margin-top:.3rem;">${s.horseshoe ? 'Al posto di una curva un piazzale con le sculture bianche; con lo schermo sulle curve, lì c\'è un maxischermo su pali.' : 'Spalti anche su tutte e due le curve.'}</div>`;
+      ${yesNo('horseshoe', s.horseshoe)}
+      ${s.horseshoe ? `<div class="std-desc">Al posto di una curva un piazzale con le sculture bianche; con lo schermo sulle curve, lì c'è un maxischermo su pali.</div>` : ''}
+      </div>
+      <div class="std-group">
+      <div class="kit-sub">Pista d'atletica</div>
+      ${yesNo('track', s.track)}
+      <div class="std-desc">Con la pista gli spalti sono più lontani dal campo. Colori e pavimenti nella fase "Campo, pista e pavimenti".</div>
+      </div>`;
   },
 
+  /** FASE 4: copertura (tipo, dove, quanto copre, disegno, colori) e maxischermo. */
   _secExterior() {
     const s = this._st;
-    const roofLights = s.lights === 'roof' && s.roof === 'none';
     return `
-      <div class="kit-sub">Copertura</div>
-      <div class="kit-chips">${ROOFS.map(o => this._chip('roof', o.id, o.label, s.roof === o.id)).join('')}</div>
-      <div class="mp-muted" style="margin-top:.3rem;">${{
+      <div class="std-group">
+      <div class="kit-sub">Tipo di copertura</div>
+      ${this._opts('roof', ROOFS, s.roof)}
+      <div class="std-desc">${{
         truss: 'Tetto in lamiera sopra l\'anello più alto, con tralicci sotto e piloni in acciaio fuori che reggono una trave tutto intorno.',
         membrane: 'Tetto chiaro e liscio, con le costole sotto.',
         girders: 'Tetto chiaro a botti con la struttura scura sotto, appeso a quattro grandi travi reticolari che poggiano su quattro torri agli angoli.',
@@ -269,58 +294,110 @@ export const StadioSquadra = {
         dome: 'Cupola bianca a raggiera che sale dal basso fino all\'apertura, con i denti a punta tutto attorno alla base.',
         tent: 'Membrana tesa da sei pennoni altissimi, con le punte sopra lo stadio. Di notte si illumina.',
         petals: 'Involucro a petali con le costole, diviso in quattro lobi da valli sulle diagonali. Di notte si illumina.',
-        crown: 'Corona di vele bianche piegate a zig-zag: da fuori triangoli con la punta in giù sulle colonne inclinate e l\'anello bianco in cima; dentro le travi sotto le creste, la passerella ad anello e il bordo a denti verso il campo. Di notte le vele si illuminano.',
-        dragon: 'Nastro di pannelli solari a scaglie retto da tubi bianchi a spirale che scendono fino a terra. Con una curva aperta (ferro di cavallo) il nastro esce dallo stadio e scende a terra come la coda di un drago.',
+        crown: 'Corona quasi tonda di vele bianche piegate a zig-zag tra due anelli di tubi bianchi: da fuori triangoli con la punta in giù su colonne a lama inclinate; dentro le travi sotto le creste, la passerella ad anello e il bordo a denti verso il campo. Di notte le vele si illuminano.',
+        blades: 'Come il Bernabéu: pianta quasi quadrata, basamento vetrato scuro, facciata di grandi lame d\'acciaio orizzontali che si gonfia verso fuori con il bordo ondulato, camminamento scuro e tetto a lame concentriche fino all\'apertura, con le travi bianche sotto. Di notte la facciata si illumina.',
+        dragon: 'Nastro largo di pannelli solari a scaglie retto da grandi tubi bianchi a spirale che salgono da terra. Dove la copertura finisce il nastro scende a terra; con una curva aperta (ferro di cavallo) esce dallo stadio come la coda di un drago.',
         shell: 'Un unico involucro a cuscini che avvolge lo stadio: si gonfia verso fuori, copre gli spalti e diventa trasparente verso il campo. Di notte si illumina.'
       }[s.roof] || 'Spalti scoperti.'}</div>
+      </div>
       ${s.roof !== 'none' ? `
+      <div class="std-group">
       <div class="kit-sub">Dove mettere la copertura</div>
-      ${WRAP_ROOFS.includes(s.roof) ? `<div class="mp-muted">Questa copertura avvolge tutto lo stadio.</div>` : `
-      <div class="kit-chips">${ROOF_COVERS.map(o => this._chip('roofCover', o.id, o.label, s.roofCover === o.id)).join('')}</div>
+      ${WRAP_ROOFS.includes(s.roof) ? `<div class="std-desc">Questa copertura avvolge tutto lo stadio.</div>` : `
+      ${this._opts('roofCover', ROOF_COVERS, s.roofCover)}
       ${s.roofCover === 'pick' ? `
-      <div class="kit-chips" style="margin-top:.45rem;">${SEAT_SIDES.map(sd => `<button class="lv-chip ${s.roofSectors[sd.id] ? 'on' : ''}" data-act="roofSide" data-v="${sd.id}">${esc(sd.label)}</button>`).join('')}</div>
-      <div class="mp-muted" style="margin-top:.3rem;">${s.roofSectors.some(Boolean) ? 'Tocca i settori da coprire o scoprire: anche uno solo, come la tribuna del Camp Nou.' : 'Nessun settore scelto: tocca quelli da coprire.'}</div>` : ''}`}
+      <div class="std-opts" style="margin-top:.45rem;">${SEAT_SIDES.map(sd => `<button class="lv-chip ${s.roofSectors[sd.id] ? 'on' : ''}" data-act="roofSide" data-v="${sd.id}">${s.roofSectors[sd.id] ? '✓ ' : ''}${esc(sd.label)}</button>`).join('')}</div>
+      <div class="std-desc">${s.roofSectors.some(Boolean) ? 'Tocca i settori da coprire o scoprire: anche uno solo, come la tribuna del Camp Nou.' : 'Nessun settore scelto: tocca quelli da coprire.'}</div>` : ''}`}
       <div class="kit-sub">Quanto copre verso il campo</div>
-      <div class="kit-chips">${ROOF_REACHES.map(o => this._chip('roofReach', o.id, o.label, s.roofReach === o.id)).join('')}</div>` : ''}
+      ${this._opts('roofReach', ROOF_REACHES, s.roofReach)}
       ${s.roof === 'shell' ? `
       <div class="kit-sub">Disegno dell'involucro</div>
-      <div class="kit-chips">${SHELL_PATTERNS.map(o => this._chip('shellPattern', o.id, o.label, s.shellPattern === o.id)).join('')}</div>` : ''}
-      <div class="kit-sub">Fari</div>
-      <div class="kit-chips">${LIGHTS.map(o => this._chip('lights', o.id, o.label, s.lights === o.id)).join('')}</div>
-      ${roofLights ? `<div class="mp-muted" style="margin-top:.3rem;">Senza copertura i fari vanno sulle quattro torri.</div>` : ''}
-      ${s.lights === 'towers' && s.roof === 'girders' ? `<div class="mp-muted" style="margin-top:.3rem;">Con le travi rosse i fari vanno in cima alle torri d'angolo.</div>` : ''}
-      <div class="kit-sub">Muro esterno</div>
-      <div class="kit-chips">${FACADES.map(o => this._chip('facade', o.id, o.label, s.facade === o.id)).join('')}</div>
-      <div class="kit-sub">Torri delle rampe a spirale</div>
-      <div class="kit-chips">${this._chip('ramps', '1', 'Sì', s.ramps)}${this._chip('ramps', '0', 'No', !s.ramps)}</div>
-      <div class="mp-muted" style="margin-top:.3rem;">Torri cilindriche lungo il perimetro, con le rampe che salgono a spirale.</div>
-      <div class="kit-sub">Maxischermo</div>
-      <div class="kit-chips">${SCREENS.map(o => this._chip('screen', o.id, o.label, s.screen === o.id)).join('')}</div>
-      ${s.screen !== 'none' ? `<div class="mp-muted" style="margin-top:.3rem;">${s.roof === 'none'
-        ? 'Senza copertura lo schermo sta in cima agli spalti.'
-        : 'Appeso sotto il bordo del tetto.'} Mostra il nome dello stadio, il risultato e il minuto.</div>` : ''}
-      <div class="kit-sub">Colori</div>
-      ${s.roof !== 'none' ? this._colorRow(['shell', 'tent', 'petals'].includes(s.roof) ? 'Involucro' : s.roof === 'dragon' ? 'Pannelli solari' : s.roof === 'crown' ? 'Vele' : 'Tetto', 'colors.roof', s.colors.roof) : ''}
+      ${this._opts('shellPattern', SHELL_PATTERNS, s.shellPattern)}` : ''}
+      <div class="kit-sub">Colori della copertura</div>
+      ${this._colorRow(['shell', 'tent', 'petals'].includes(s.roof) ? 'Involucro' : s.roof === 'dragon' ? 'Pannelli solari' : s.roof === 'crown' ? 'Vele' : s.roof === 'blades' ? 'Lame d\'acciaio (tetto e facciata)' : 'Tetto', 'colors.roof', s.colors.roof)}
       ${['shell', 'tent', 'petals'].includes(s.roof) ? this._colorRow('Luce dell\'involucro di notte', 'colors.glow', s.colors.glow) : ''}
-      ${s.roof === 'stands' || s.facade === 'cladding' ? this._colorRow('Righe luminose (accese di notte)', 'colors.glow', s.colors.glow) : ''}
-      ${s.roof !== 'none' || s.lights !== 'none' ? this._colorRow(s.roof === 'dragon' ? 'Acciaio (tubi a spirale, tralicci, torri)' : s.roof === 'crown' ? 'Acciaio (colonne, anello, passerella)' : s.roof === 'stands' ? 'Acciaio (piloni e tiranti)' : 'Acciaio (tralicci, pilastri, torri)', 'colors.steel', s.colors.steel) : ''}
+      ${s.roof === 'stands' ? this._colorRow('Righe luminose (accese di notte)', 'colors.glow', s.colors.glow) : ''}
+      ${this._colorRow(s.roof === 'dragon' ? 'Acciaio (tubi a spirale e tralicci)' : s.roof === 'crown' ? 'Acciaio (colonne, anelli, passerella)' : s.roof === 'stands' ? 'Acciaio (piloni e tiranti)' : s.roof === 'blades' ? 'Travi sotto il tetto' : 'Acciaio (tralicci, pilastri, piloni)', 'colors.steel', s.colors.steel)}
       ${s.roof === 'girders' ? this._colorRow('Reticolato sopra il tetto (travi e sbalzi)', 'colors.girder', s.colors.girder) : ''}
       ${s.roof === 'stands' ? this._colorRow('Travi sopra il tetto e fascia davanti', 'colors.girder', s.colors.girder) : ''}
-      ${s.facade === 'cladding' ? `${this._colorRow('Pannelli della facciata', 'colors.cladding', s.colors.cladding)}${this._colorRow('Basamento e torri d\'angolo', 'colors.podium', s.colors.podium)}` : ''}
+      </div>` : ''}
+      <div class="std-group">
+      <div class="kit-sub">Maxischermo</div>
+      ${this._opts('screen', SCREENS, s.screen)}
+      ${s.screen !== 'none' ? `<div class="std-desc">${s.roof === 'none'
+        ? 'Senza copertura lo schermo sta in cima agli spalti.'
+        : 'Appeso sotto il bordo del tetto.'} Mostra il nome dello stadio, il risultato e il minuto.</div>
+      ${this._colorRow('Sfondo del maxischermo', 'colors.screen', s.colors.screen)}` : ''}
+      </div>`;
+  },
+
+  /** FASE 5: muro esterno (tipo, texture, colori), torri delle rampe e fari. */
+  _secOutside() {
+    const s = this._st;
+    const roofLights = s.lights === 'roof' && s.roof === 'none';
+    return `
+      <div class="std-group">
+      <div class="kit-sub">Muro esterno</div>
+      ${this._opts('facade', FACADES, s.facade)}
+      ${WALL_TEX_FACADES.includes(s.facade) ? `
+      <div class="kit-sub">Texture del muro</div>
+      ${this._opts('wallTexture', WALL_TEXTURES, s.wallTexture)}
+      ${this._colorRow('Colore del muro esterno', 'colors.wall', s.colors.wall || s.colors.structure)}` : ''}
+      ${s.facade === 'cladding' ? `${this._colorRow('Pannelli della facciata', 'colors.cladding', s.colors.cladding)}${this._colorRow('Basamento e torri d\'angolo', 'colors.podium', s.colors.podium)}${this._colorRow('Righe luminose (accese di notte)', 'colors.glow', s.colors.glow)}` : ''}
       ${s.facade === 'struts' || s.facade === 'panels' || s.facade === 'cladding' ? this._colorRow({ panels: 'Rivestimento esterno', cladding: 'Cornicione, pinne, tornelli e portale' }[s.facade] || 'Fasce del basamento', 'colors.accent', s.colors.accent) : ''}
-      ${s.screen !== 'none' ? this._colorRow('Sfondo del maxischermo', 'colors.screen', s.colors.screen) : ''}
-      <div class="mp-muted" style="margin-top:.6rem;">Prova il pulsante Notte sull'anteprima per vedere i fari accesi.</div>`;
+      </div>
+      <div class="std-group">
+      <div class="kit-sub">Torri delle rampe a spirale</div>
+      ${this._seg([['0', 'No', !s.ramps], ['1', 'Sì', s.ramps]], 'data-act="set" data-k="ramps"')}
+      <div class="std-desc">Torri cilindriche lungo il perimetro, a distanza regolare, con le rampe che salgono a spirale.</div>
+      </div>
+      <div class="std-group">
+      <div class="kit-sub">Fari</div>
+      ${this._opts('lights', LIGHTS, s.lights)}
+      ${roofLights ? `<div class="std-desc">Senza copertura i fari vanno sulle quattro torri.</div>` : ''}
+      ${s.lights === 'towers' && s.roof === 'girders' ? `<div class="std-desc">Con le travi rosse i fari vanno in cima alle torri d'angolo.</div>` : ''}
+      ${s.roof === 'none' && (s.lights !== 'none' || s.ramps) ? this._colorRow('Acciaio (torri faro)', 'colors.steel', s.colors.steel) : ''}
+      <div class="std-desc">Prova il pulsante Notte sull'anteprima per vedere i fari accesi.</div>
+      </div>`;
   },
 
   _secPitch() {
-    const s = this._st;
+    const s = this._st, c = s.colors;
     return `
+      <div class="std-group">
       <div class="kit-sub">Taglio dell'erba</div>
-      <div class="kit-chips">${MOWING.map(o => this._chip('mowing', o.id, o.label, s.mowing === o.id)).join('')}</div>
-      <div class="kit-sub">Colori</div>
-      ${this._colorRow('Erba', 'colors.grass', s.colors.grass)}
-      ${s.track ? `${this._colorRow('Pista', 'colors.track', s.colors.track)}${this._colorRow('Linee delle corsie', 'colors.trackLines', s.colors.trackLines)}` : ''}
-      ${s.track && s.trackApron ? this._colorRow('Fondo intorno alla pista', 'colors.apron', s.colors.apron) : ''}`;
+      ${this._seg(MOWING.map(o => [o.id, o.label, s.mowing === o.id]), 'data-act="set" data-k="mowing"')}
+      ${this._colorRow('Erba', 'colors.grass', c.grass)}
+      </div>
+      ${s.track ? `
+      <div class="std-group">
+      <div class="kit-sub">Pista d'atletica</div>
+      ${this._colorRow('Gomma della pista', 'colors.track', c.track)}
+      ${this._colorRow('Linee delle corsie', 'colors.trackLines', c.trackLines)}
+      </div>` : ''}
+      <div class="std-group">
+      <div class="kit-sub">Pavimento intorno al campo</div>
+      ${this._opts('apronStyle', APRON_STYLES, s.apronStyle)}
+      <div class="std-desc">${{
+        grass: s.track ? 'Prato anche dentro la pista, dietro le porte.' : 'Prato fino agli spalti.',
+        tartan: 'La stessa gomma della pista, a 2,5 m dalle linee del campo fino agli spalti (come al Maradona).',
+        color: 'Resina liscia del colore che vuoi, a 2,5 m dalle linee del campo fino agli spalti.',
+        concrete: 'Cemento a lastre, a 2,5 m dalle linee del campo fino agli spalti.'
+      }[s.apronStyle]}</div>
+      ${s.apronStyle === 'color' ? this._colorRow('Colore della resina', 'colors.apron', c.apron) : ''}
+      ${s.apronStyle === 'tartan' && !s.track ? this._colorRow('Colore della gomma', 'colors.track', c.track) : ''}
+      </div>
+      <div class="std-group">
+      <div class="kit-sub">Pavimento fuori dallo stadio</div>
+      ${this._opts('groundStyle', GROUND_STYLES, s.groundStyle)}
+      ${this._colorRow('Colore del pavimento fuori', 'colors.ground', c.ground || ({ grass: c.grass, asphalt: '#6a6e73', cobbles: '#8f8a84' }[s.groundStyle] || c.structure))}
+      </div>
+      <div class="std-group">
+      <div class="kit-sub">Cartelloni LED</div>
+      ${this._opts('adBoards', AD_BOARDS, s.adBoards)}
+      ${s.adBoards !== 'none' ? `<div class="std-desc">Mostrano il nome dello stadio${s.adBoards === 'both' ? ', anche sul fronte degli anelli più alti' : ''}. Di notte si accendono.</div>
+      ${this._colorRow('Colore dei cartelloni', 'colors.ads', c.ads)}` : ''}
+      </div>`;
   },
 
   _secSeats() {
@@ -336,7 +413,10 @@ export const StadioSquadra = {
       }[s.seatMosaic]} Vale con qualsiasi colorazione qui sotto.</div>
       ${s.seatMosaic === 'mix' ? `
       ${this._colorRow('Secondo colore sparso', 'colors.mosaicB', s.colors.mosaicB)}
-      ${this._colorRow('Terzo colore sparso', 'colors.mosaicC', s.colors.mosaicC)}` : ''}
+      ${this._colorRow('Terzo colore sparso', 'colors.mosaicC', s.colors.mosaicC)}
+      <div class="kit-sub">Quarto colore sparso</div>
+      ${this._seg([['0', 'No', !s.colors.mosaicD], ['1', 'Sì', !!s.colors.mosaicD]], 'data-act="mosaicD"')}
+      ${s.colors.mosaicD ? this._colorRow('Quarto colore sparso', 'colors.mosaicD', s.colors.mosaicD) : ''}` : ''}
       <div class="kit-sub">Come colorarli</div>
       <div class="kit-chips">${SEAT_MODES.map(o => this._chip('seatMode', o.id, o.label, s.seatMode === o.id)).join('')}</div>
       ${(s.seatMode === 'rings' || grid) && maxRingsOf(s) === 1 ? `<div class="mp-muted" style="margin-top:.3rem;">Lo stadio ha un solo anello: aggiungine altri in "Anelli, curve e pista" per colorarli in modo diverso.</div>` : ''}
@@ -497,7 +577,7 @@ export const StadioSquadra = {
           if (inp) { inp.focus(); inp.select(); }
           return;
         }
-        const value = k === 'rings' || k === 'ringsEnds' || k === 'standTextRing' ? Number(v) : ['track', 'ramps', 'boxes', 'horseshoe', 'trackApron'].includes(k) ? v === '1' : v;
+        const value = k === 'rings' || k === 'ringsEnds' || k === 'standTextRing' ? Number(v) : ['track', 'ramps', 'boxes', 'horseshoe'].includes(k) ? v === '1' : v;
         // "Ogni settore e anello": si parte dai colori che lo stadio ha adesso
         if (k === 'seatMode' && v === 'grid' && this._st.seatMode !== 'grid') this._update(st => { st.seatGrid = seatGridFrom(st); st.seatMode = 'grid'; });
         else this._update(st => { st[k] = value; });
@@ -508,6 +588,9 @@ export const StadioSquadra = {
         return;
       case 'ringsSide':
         this._update(st => { st.ringsSides[Number(btn.dataset.side)] = Number(v); });
+        return;
+      case 'mosaicD':
+        this._update(st => { st.colors.mosaicD = v === '1' ? (st.colors.mosaicD || '#ffd400') : ''; });
         return;
       case 'roofSide':
         this._update(st => { st.roofSectors[Number(v)] = !st.roofSectors[Number(v)]; });
