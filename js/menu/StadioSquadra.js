@@ -4,7 +4,7 @@ import { dataUrlToBlob } from '../components/Kit3D.js';
 import {
   createStadiumViewer, renderStadiumImage, stadiumCapacity, shownCapacity, normalizeStadium, defaultStadium, applyPreset,
   RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY,
-  SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom, WALL_TEXTURES, WALL_TEX_FACADES, APRON_STYLES, GROUND_STYLES, AD_BOARDS,
+  SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom, WALL_TEXTURES, WALL_TEX_FACADES, APRON_STYLES, GROUND_STYLES, AD_BOARDS, ROOF_GLOWS,
   ringsBySide, maxRingsOf, LOGO_PLACES, logoPlacesFor
 } from '../components/Stadium3D.js';
 import { injectStyle, parseColor, SWATCHES } from './DivisaSquadra.js';
@@ -260,6 +260,9 @@ export const StadioSquadra = {
         return `<span class="nm">${esc(sd.label)}</span>${this._seg([[0, `Auto (${auto})`, cur === 0], ...RINGS.map(r => [r.id, String(r.id), cur === r.id])], `data-act="ringsSide" data-side="${sd.id}"`)}`;
       }).join('')}</div>
       ${maxRingsOf(s) > 1 ? `<div class="kit-sub">Palchi vetrati tra gli anelli</div>${yesNo('boxes', s.boxes)}` : ''}
+      <div class="kit-sub">Vomitori (ingressi sugli spalti)</div>
+      ${yesNo('vomitories', s.vomitories)}
+      <div class="std-desc">Aperture scure a metà degli anelli più grandi, tra una scaletta e l'altra, con i muretti ai lati (come al Vélodrome).</div>
       </div>
       <div class="std-group">
       <div class="kit-sub">Forma delle curve</div>
@@ -292,7 +295,7 @@ export const StadioSquadra = {
         stands: 'Ogni tribuna ha il suo tetto alla sua altezza, come a Stamford Bridge: sopra lamiera con le travi reticolari a vista, davanti la fascia chiara con la riga colorata e le luci, agli angoli i piloni con i tiranti.',
         wave: 'Copertura bianca quasi tonda a cuscini radiali, alta sopra le curve e più bassa sui lati lunghi, con le travi d\'acciaio sotto. Fuori una fascia bianca che sui lati lunghi scende quasi a terra; sulle curve resta alta, sotto si vedono i piani in cemento e al centro di una curva c\'è l\'ingresso principale con la vetrata a lamelle e gli schermi.',
         dome: 'Cupola bianca a raggiera che sale dal basso fino all\'apertura, con i denti a punta tutto attorno alla base.',
-        tent: 'Membrana tesa da sei pennoni altissimi, con le punte sopra lo stadio. Di notte si illumina.',
+        tent: 'Membrana a rete mezza trasparente tirata su da tre pennoni altissimi (su uno l\'anello panoramico): in basso scende fino a terra con una fila di grandi archi, sotto si vede la struttura vetrata. Di notte si illumina del colore scelto.',
         petals: 'Involucro a petali con le costole, diviso in quattro lobi da valli sulle diagonali. Di notte si illumina.',
         crown: 'Corona quasi tonda di vele bianche piegate a zig-zag tra due anelli di tubi bianchi: da fuori triangoli con la punta in giù su colonne a lama inclinate; dentro le travi sotto le creste, la passerella ad anello e il bordo a denti verso il campo. Di notte le vele si illuminano.',
         blades: 'Come il Bernabéu: pianta quasi quadrata, basamento vetrato scuro, facciata di grandi lame d\'acciaio orizzontali che si gonfia verso fuori con il bordo ondulato, camminamento scuro e tetto a lame concentriche fino all\'apertura, con le travi bianche sotto. Di notte la facciata si illumina.',
@@ -315,7 +318,8 @@ export const StadioSquadra = {
       ${this._opts('shellPattern', SHELL_PATTERNS, s.shellPattern)}` : ''}
       <div class="kit-sub">Colori della copertura</div>
       ${this._colorRow(['shell', 'tent', 'petals'].includes(s.roof) ? 'Involucro' : s.roof === 'dragon' ? 'Pannelli solari' : s.roof === 'crown' ? 'Vele' : s.roof === 'blades' ? 'Lame d\'acciaio (tetto e facciata)' : 'Tetto', 'colors.roof', s.colors.roof)}
-      ${['shell', 'tent', 'petals'].includes(s.roof) ? this._colorRow('Luce dell\'involucro di notte', 'colors.glow', s.colors.glow) : ''}
+      ${['shell', 'tent', 'petals'].includes(s.roof) ? this._colorRow(s.roof === 'tent' ? 'Luce della tenda e delle vetrate di notte' : 'Luce dell\'involucro di notte', 'colors.glow', s.colors.glow) : ''}
+      ${ROOF_GLOWS[s.roof] ? this._colorRow('Luce della copertura di notte', 'colors.roofLight', s.colors.roofLight || ROOF_GLOWS[s.roof]) : ''}
       ${s.roof === 'stands' ? this._colorRow('Righe luminose (accese di notte)', 'colors.glow', s.colors.glow) : ''}
       ${this._colorRow(s.roof === 'dragon' ? 'Acciaio (tubi a spirale e tralicci)' : s.roof === 'crown' ? 'Acciaio (colonne, anelli, passerella)' : s.roof === 'stands' ? 'Acciaio (piloni e tiranti)' : s.roof === 'blades' ? 'Travi sotto il tetto' : 'Acciaio (tralicci, pilastri, piloni)', 'colors.steel', s.colors.steel)}
       ${s.roof === 'girders' ? this._colorRow('Reticolato sopra il tetto (travi e sbalzi)', 'colors.girder', s.colors.girder) : ''}
@@ -577,7 +581,7 @@ export const StadioSquadra = {
           if (inp) { inp.focus(); inp.select(); }
           return;
         }
-        const value = k === 'rings' || k === 'ringsEnds' || k === 'standTextRing' ? Number(v) : ['track', 'ramps', 'boxes', 'horseshoe'].includes(k) ? v === '1' : v;
+        const value = k === 'rings' || k === 'ringsEnds' || k === 'standTextRing' ? Number(v) : ['track', 'ramps', 'boxes', 'horseshoe', 'vomitories'].includes(k) ? v === '1' : v;
         // "Ogni settore e anello": si parte dai colori che lo stadio ha adesso
         if (k === 'seatMode' && v === 'grid' && this._st.seatMode !== 'grid') this._update(st => { st.seatGrid = seatGridFrom(st); st.seatMode = 'grid'; });
         else this._update(st => { st[k] = value; });
