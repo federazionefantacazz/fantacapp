@@ -299,6 +299,7 @@ export const StadioSquadra = {
         tent: 'Membrana tesa da sei pennoni altissimi, con le punte sopra lo stadio. Di notte si illumina.',
         petals: 'Involucro a petali con le costole, diviso in quattro lobi da valli sulle diagonali. Di notte si illumina.',
         crown: 'Corona quasi tonda di vele bianche piegate a zig-zag tra due anelli di tubi bianchi: da fuori triangoli con la punta in giù su colonne a lama inclinate; dentro le travi sotto le creste, la passerella ad anello e il bordo a denti verso il campo. Di notte le vele si illuminano.',
+        blades: 'Come il Bernabéu: pianta quasi quadrata, basamento vetrato scuro, facciata di grandi lame d\'acciaio orizzontali che si gonfia verso fuori con il bordo ondulato, camminamento scuro e tetto a lame concentriche fino all\'apertura, con le travi bianche sotto. Di notte la facciata si illumina.',
         dragon: 'Nastro largo di pannelli solari a scaglie retto da grandi tubi bianchi a spirale che salgono da terra. Dove la copertura finisce il nastro scende a terra; con una curva aperta (ferro di cavallo) esce dallo stadio come la coda di un drago.',
         shell: 'Un unico involucro a cuscini che avvolge lo stadio: si gonfia verso fuori, copre gli spalti e diventa trasparente verso il campo. Di notte si illumina.'
       }[s.roof] || 'Spalti scoperti.'}</div>
@@ -317,10 +318,10 @@ export const StadioSquadra = {
       <div class="kit-sub">Disegno dell'involucro</div>
       ${this._opts('shellPattern', SHELL_PATTERNS, s.shellPattern)}` : ''}
       <div class="kit-sub">Colori della copertura</div>
-      ${this._colorRow(['shell', 'tent', 'petals'].includes(s.roof) ? 'Involucro' : s.roof === 'dragon' ? 'Pannelli solari' : s.roof === 'crown' ? 'Vele' : 'Tetto', 'colors.roof', s.colors.roof)}
+      ${this._colorRow(['shell', 'tent', 'petals'].includes(s.roof) ? 'Involucro' : s.roof === 'dragon' ? 'Pannelli solari' : s.roof === 'crown' ? 'Vele' : s.roof === 'blades' ? 'Lame d\'acciaio (tetto e facciata)' : 'Tetto', 'colors.roof', s.colors.roof)}
       ${['shell', 'tent', 'petals'].includes(s.roof) ? this._colorRow('Luce dell\'involucro di notte', 'colors.glow', s.colors.glow) : ''}
       ${s.roof === 'stands' ? this._colorRow('Righe luminose (accese di notte)', 'colors.glow', s.colors.glow) : ''}
-      ${this._colorRow(s.roof === 'dragon' ? 'Acciaio (tubi a spirale e tralicci)' : s.roof === 'crown' ? 'Acciaio (colonne, anelli, passerella)' : s.roof === 'stands' ? 'Acciaio (piloni e tiranti)' : 'Acciaio (tralicci, pilastri, piloni)', 'colors.steel', s.colors.steel)}
+      ${this._colorRow(s.roof === 'dragon' ? 'Acciaio (tubi a spirale e tralicci)' : s.roof === 'crown' ? 'Acciaio (colonne, anelli, passerella)' : s.roof === 'stands' ? 'Acciaio (piloni e tiranti)' : s.roof === 'blades' ? 'Travi sotto il tetto' : 'Acciaio (tralicci, pilastri, piloni)', 'colors.steel', s.colors.steel)}
       ${s.roof === 'girders' ? this._colorRow('Reticolato sopra il tetto (travi e sbalzi)', 'colors.girder', s.colors.girder) : ''}
       ${s.roof === 'stands' ? this._colorRow('Travi sopra il tetto e fascia davanti', 'colors.girder', s.colors.girder) : ''}
       </div>` : ''}

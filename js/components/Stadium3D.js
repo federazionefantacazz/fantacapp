@@ -146,10 +146,11 @@ export const ROOFS = [
   { id: 'tent',     label: 'Tenda con pennoni' },
   { id: 'petals',   label: 'Petali' },
   { id: 'dragon',   label: 'Drago a pannelli solari' },
-  { id: 'crown',    label: 'Corona di vele piegate' }
+  { id: 'crown',    label: 'Corona di vele piegate' },
+  { id: 'blades',   label: 'Lame d\'acciaio (Bernabéu)' }
 ];
 /** Coperture che avvolgono tutto lo stadio con un'unica superficie (si estendono sempre tutto intorno). */
-export const WRAP_ROOFS = ['shell', 'wave', 'dome', 'tent', 'petals', 'crown'];
+export const WRAP_ROOFS = ['shell', 'wave', 'dome', 'tent', 'petals', 'crown', 'blades'];
 const SHELLISH = ['shell', 'tent', 'petals'];
 export const ROOF_COVERS = [
   { id: 'all',     label: 'Tutto unito' },
@@ -299,6 +300,17 @@ export const PRESETS = [
       colors: {
         grass: '#3d9a43', seatA: '#1d4fb8', parapet: '#1c3f94', structure: '#a4abb5', roof: '#4f565f', girder: '#eef1f4', steel: '#1f5fc4',
         accent: '#1d4fb8', cladding: '#e9ecef', podium: '#d8c7a0', glow: '#2b6bff', aisle: '#f2c200'
+      }
+    }
+  },
+  {
+    id: 'bernabeu', label: 'Stile Bernabéu',
+    desc: 'Tre anelli di seggiolini blu in una pianta quasi quadrata; facciata di grandi lame d\'acciaio orizzontali con il bordo ondulato sopra il basamento vetrato, tetto a lame concentriche, travi bianche sotto e maxischermo a 360°. Di notte la facciata si illumina.',
+    st: {
+      rings: 3, ringsEnds: 0, track: false, shape: 'soft', corners: 'closed', mowing: 'stripes', seatMode: 'single', seatMosaic: 'shades',
+      roof: 'blades', roofReach: 'normal', lights: 'roof', facade: 'wall', ramps: false, boxes: true, screen: 'ring',
+      colors: {
+        grass: '#3f8f3c', seatA: '#24418f', parapet: '#1d2846', structure: '#5c6168', roof: '#cfd3d8', steel: '#eef0f2', screen: '#0d2a7a', aisle: '#2b3654'
       }
     }
   },
@@ -1212,8 +1224,8 @@ function sweepRun(THREE, run, prof, j0, j1, uScale, vScale) {
   return g;
 }
 
-const towerHeight = (shape, st) => (st.roof === 'wave' ? waveOf(shape, st).top : st.roof !== 'none' ? roofOf(shape, st.roof, reachOf_(st)).h(0) : shape.height) + 18;
-const towerDist = (shape, st) => Math.max(shape.outer, st.roof === 'crown' ? crownOf(shape, st).out : st.roof === 'wave' ? waveOf(shape, st).out : st.roof !== 'none' ? roofOf(shape, st.roof, reachOf_(st)).dOut : 0) + 6;
+const towerHeight = (shape, st) => (st.roof === 'wave' ? waveOf(shape, st).top : st.roof === 'blades' ? bladesOf(shape, st).top : st.roof !== 'none' ? roofOf(shape, st.roof, reachOf_(st)).h(0) : shape.height) + 18;
+const towerDist = (shape, st) => Math.max(shape.outer, st.roof === 'crown' ? crownOf(shape, st).out : st.roof === 'wave' ? waveOf(shape, st).out : st.roof === 'blades' ? bladesOf(shape, st).out : st.roof !== 'none' ? roofOf(shape, st.roof, reachOf_(st)).dOut : 0) + 6;
 
 /** Centro di una torre delle rampe: appena fuori dal muro (con la copertura ondulata fuori dalla sua fascia). */
 function rampTowerAt(shape, st, run, cum, u, foot) {
@@ -1221,6 +1233,7 @@ function rampTowerAt(shape, st, run, cum, u, foot) {
   const ux = (x1 - x0) / l, uz = (z1 - z0) / l, s = l / 10; // s: metri per unità di d (sugli angoli vivi più di 1)
   let d = (foot + RAMP_R - 0.4) * s;
   if (st.roof === 'wave') d = Math.max(d, waveOf(shape, st).beyond(x0, z0, ux, uz) + RAMP_R + 0.8);
+  if (st.roof === 'blades') d = Math.max(d, (bladesOf(shape, st).out + RAMP_R + 0.5) * s); // fuori dalla facciata a lame
   return [x0 + ux * d, z0 + uz * d];
 }
 
@@ -1242,6 +1255,42 @@ const esplanadeW = (st) => (st.roof === 'shell' ? ESPLANADE_W + 12 : ESPLANADE_W
 /** Muro esterno e altezza di un tratto: i settori possono avere anelli diversi, la facciata segue ognuno. */
 const runOuter = (run) => Math.max(...run.tiers.map(t => t.back)) + WALL;
 const runTop = (run) => run.tiers[run.tiers.length - 1];
+
+/**
+ * Lame d'acciaio (stile Bernabéu): pianta quasi quadrata, basamento vetrato scuro, facciata di grandi lame orizzontali
+ * che si gonfia verso fuori con il bordo alto ondulato (alto al centro dei lati, basso agli angoli), camminamento scuro
+ * e sopra il tetto a lame concentriche che sale piano fino all'apertura. edge(x, z) = quota del bordo della facciata;
+ * rowAt(d) = pianta a distanza d (a passi uguali).
+ */
+const BLADES_ROW = 240, BLADES_BASE = 7;
+const bladesCache = new WeakMap();
+function bladesOf(shape, st) {
+  const key = st.roofReach, memo = bladesCache.get(shape) || new Map();
+  bladesCache.set(shape, memo);
+  if (memo.has(key)) return memo.get(key);
+  const T = shape.tiers[shape.tiers.length - 1], o = shape.outer;
+  const H0 = T.top + 3, A = 4.5, hIn = T.top + 14, dIn = Math.min(o - 12, Math.max(-12, 1 - reachOf_(st)));
+  const edge = (x, z) => H0 + A * Math.cos(4 * Math.atan2(Math.abs(z) / shape.b, Math.abs(x) / shape.a));
+  const rows = new Map(), rowAt = (d) => {
+    const k = d.toFixed(3);
+    if (!rows.has(k)) rows.set(k, evenOutline(shellOutline(shape, d, BLADES_ROW * 4), BLADES_ROW));
+    return rows.get(k);
+  };
+  const B = BLADES_BASE, out = { o, T, H0, A, hIn, dIn, edge, rowAt, base: B, top: hIn + 1.5 };
+  // facciata (dal basamento al bordo ondulato), poi il tetto: [d, quota come funzione di (x, z)]
+  out.facade = [[o + 7.4, () => B], [o + 8.8, (x, z) => B + (edge(x, z) - B) * 0.35], [o + 9.3, (x, z) => B + (edge(x, z) - B) * 0.68],
+    [o + 8.9, (x, z) => edge(x, z) - 0.7], [o + 8.3, edge]];
+  out.roof = [[o + 8.6, (x, z) => edge(x, z) + 2.2], [o + 9, (x, z) => edge(x, z) + 2.9], [o + 8.4, (x, z) => edge(x, z) + 3.6], [o + 6.6, (x, z) => edge(x, z) + 4.1]];
+  const n = 12;
+  for (let i = 1; i <= n; i++) {
+    const f = i / n, d = o + 6.6 + (dIn - o - 6.6) * f, w = f * f * (3 - 2 * f);
+    out.roof.push([d, (x, z) => edge(x, z) + 4.1 + (hIn - edge(x, z) - 4.1) * w]);
+  }
+  out.roof.push([dIn - 0.6, () => hIn - 1.3]);
+  out.out = o + 10.5;
+  memo.set(key, out);
+  return out;
+}
 
 /**
  * Profilo dell'involucro a cuscini (stile Allianz Arena), come punti (d, h): parte poco sopra la base, si gonfia
@@ -1686,6 +1735,7 @@ function reachOf(shape, st) {
   else if (st.roof === 'wave') { const V = waveOf(shape, st); d = Math.max(d, V.out + 1); h = Math.max(h, V.top + 1); }
   else if (st.roof === 'dome') { const D = domeOf(shape, st); d = Math.max(d, D.out + 1); h = Math.max(h, D.top + 3); }
   else if (st.roof === 'crown') { const C = crownOf(shape, st); d = Math.max(d, C.out + 1); h = Math.max(h, C.hR + 2); }
+  else if (st.roof === 'blades') { const L = bladesOf(shape, st); d = Math.max(d, L.out + 1); h = Math.max(h, L.top + 1); }
   else if (st.roof !== 'none') { const R = roofOf(shape, st.roof, reachOf_(st)); d = Math.max(d, st.roof === 'truss' ? pylonDist(R) + 2.5 : R.dOut); h = Math.max(R.h(R.dIn), st.roof === 'truss' ? pylonHeight(R) : 0) + 1; }
   if (st.ramps) d = Math.max(d, foot + RAMP_R * 2);
   if (st.facade === 'cladding') d = Math.max(d, foot + 12); // torri d'angolo, pensilina e gradini dell'ingresso
@@ -1715,6 +1765,11 @@ const ENDS_W = 26, ENDS_H = 7;                       // schermi sopra le curve
  */
 function screenOf(shape, st) {
   const T = shape.tiers[shape.tiers.length - 1];
+  if (st.roof === 'blades') {
+    // sotto il bordo dell'apertura del tetto a lame
+    const L = bladesOf(shape, st), ds = L.dIn + 2.2;
+    return { ds, hang: true, y: L.hIn - 2.4, roofY: L.hIn - 1 };
+  }
   if (st.roof === 'wave') {
     // sotto il bordo dell'apertura: l'anello alla quota più bassa (sui lati lunghi), gli schermi delle curve più in alto
     const V = waveOf(shape, st), ds = V.dIn + 1.5;
@@ -1802,6 +1857,15 @@ function signOf(shape, st) {
     };
     const outline = (dd) => { const pts = shape.path.map(p => [p.x + p.mx * dd, p.z + p.mz * dd]); pts.push(pts[0]); return pts; };
     return { hc: D.hC * 0.77, maxH: D.hC * 0.2, standOn: 0, dAt, outline, rows: 6 };
+  }
+  if (st.roof === 'blades') {
+    // sulle lame della facciata, al centro dei lati lunghi (lì il bordo è più alto)
+    const L = bladesOf(shape, st), E = L.H0 + L.A, f = L.facade.map(([d, h]) => ({ d, h: h(0, shape.b) }));
+    const dAt = (h) => {
+      for (let j = 1; j < f.length; j++) if (f[j].h >= h) { const a = f[j - 1], b = f[j]; return a.d + (b.d - a.d) * (h - a.h) / ((b.h - a.h) || 1) + 0.3; }
+      return f[f.length - 1].d + 0.3;
+    };
+    return { hc: L.base + (E - L.base) * 0.5, maxH: Math.min(7, (E - L.base) * 0.35), standOn: 0, dAt, outline: L.rowAt, rows: 6 };
   }
   if (st.roof === 'wave') {
     // sulla fascia bianca della copertura, al centro dei lati lunghi (sopra l'ingresso, dove la fascia è più bassa)
@@ -2372,6 +2436,31 @@ function facadeTexture(kind) {
     });
   }
   facadeTexCache.set(kind, out);
+  return out;
+}
+
+/** Lame del Bernabéu: tetto (lame concentriche) e facciata (lame orizzontali larghe con lo scuro tra una e l'altra). */
+const bladesTexCache = new Map();
+function bladesTexture(kind) {
+  if (bladesTexCache.has(kind)) return bladesTexCache.get(kind);
+  let out;
+  if (kind === 'roof') {
+    // lame da 1 m che girano tutto intorno, fuga sottile scura
+    out = bakeTexture(16, 256, 2, 3, 0.1, (x, y) => {
+      const t = (y / 256 * 3) % 1, gap = t > 0.9;
+      const h = gap ? 0 : Math.sin(Math.PI * t / 0.9);
+      return [gap ? 90 : 180 + 72 * h, h];
+    });
+  } else {
+    // lame da 1 m con 35 cm di scuro tra una e l'altra (si vede la struttura dietro); giunto leggero ogni 3 m
+    out = bakeTexture(96, 256, 3, 1.35, 0.25, (x, y) => {
+      const t = (1 - y / 256) * 1.35, gap = t > 1.0, joint = (x % 96) < 1.2;
+      if (gap) return [78, 84, 92, 0];
+      const k = t / 1.0, h = Math.sin(Math.PI * k);
+      return [(178 + 77 * (0.45 + 0.55 * k) * (0.7 + 0.3 * h)) * (joint ? 0.88 : 1), h];
+    });
+  }
+  bladesTexCache.set(kind, out);
   return out;
 }
 
@@ -3080,6 +3169,63 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       sg.computeVertexNormals();
       group.add(new THREE.Mesh(sg, scMat));
       own.push(scTex, scMat, sg);
+    }
+  }
+  if (st.roof === 'blades') {
+    // stile Bernabéu: basamento vetrato, facciata a lame orizzontali che si gonfia, camminamento scuro, tetto a lame
+    // concentriche fino all'apertura; sotto il tetto le travi bianche; di notte facciata e vetri si accendono
+    const L = bladesOf(shape, st), N = BLADES_ROW;
+    const rowsOf = (list) => list.map(([d, h]) => L.rowAt(d).map(([x, z]) => [x, h(x, z), z]));
+    const texOf = (T) => { const a = new THREE.CanvasTexture(T.canvas), b = new THREE.CanvasTexture(T.normal); for (const t of [a, b]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; } a.colorSpace = THREE.SRGBColorSpace; own.push(a, b); return [a, b]; };
+    const [rMap, rNrm] = texOf(bladesTexture('roof')), [fMap, fNrm] = texOf(bladesTexture('facade'));
+    shellMat = new THREE.MeshStandardMaterial({ map: rMap, normalMap: rNrm, roughness: 0.3, metalness: 0.55, side: THREE.FrontSide });
+    const underMat = new THREE.MeshStandardMaterial({ color: 0xd6dadf, roughness: 0.8, side: THREE.BackSide });
+    const facMat = new THREE.MeshStandardMaterial({ map: fMap, normalMap: fNrm, roughness: 0.3, metalness: 0.55, side: THREE.DoubleSide, emissive: 0xffe2b8, emissiveMap: fMap, emissiveIntensity: 0 });
+    const darkGlass = new THREE.MeshStandardMaterial({ color: 0x1c2229, roughness: 0.2, metalness: 0.4, side: THREE.DoubleSide, emissive: 0xffd9a0, emissiveIntensity: 0.02 });
+    own.push(shellMat, underMat, facMat, darkGlass);
+    nightGlow.push([facMat, 0, 0.32], [darkGlass, 0.02, 0.6]);
+    roofDecor = { band: facMat };
+    const len = outlineLength(L.rowAt(L.o + 8.6));
+    const gRoof = sweepRows(THREE, rowsOf(L.roof), Math.round(len / 2), 3);
+    const gFac = sweepRows(THREE, rowsOf(L.facade), Math.round(len / 3), 1.35);
+    const sky = sweepRows(THREE, rowsOf([[L.o + 7, L.edge], [L.o + 7, (x, z) => L.edge(x, z) + 2.2]]), 1, 50);
+    const skyCeil = sweepRows(THREE, rowsOf([[L.o + 7, (x, z) => L.edge(x, z) + 2.2], [L.o + 8.6, (x, z) => L.edge(x, z) + 2.2]]), 1, 50);
+    const skyFloor = sweepRows(THREE, rowsOf([[L.o + 7, L.edge], [L.o + 8.3, L.edge]]), 1, 50);
+    const soffit = sweepRows(THREE, rowsOf([[L.o + 6, () => L.base], [L.o + 7.4, () => L.base]]), 1, 50);
+    const G = facadeTexture('glass'), gMap = new THREE.CanvasTexture(G.canvas);
+    gMap.wrapS = gMap.wrapT = THREE.RepeatWrapping; gMap.colorSpace = THREE.SRGBColorSpace;
+    const baseMat = new THREE.MeshStandardMaterial({ map: gMap, roughness: 0.15, metalness: 0.45, side: THREE.DoubleSide, emissive: 0xffd9a0, emissiveMap: gMap, emissiveIntensity: 0 });
+    nightGlow.push([baseMat, 0, 0.45]);
+    own.push(gMap, baseMat);
+    const gBase = sweepRows(THREE, rowsOf([[L.o + 6, () => 0], [L.o + 6, () => L.base]]), Math.round(outlineLength(L.rowAt(L.o + 6)) / G.tileU), G.tileV);
+    for (const [g, m, sh] of [[gRoof, shellMat, true], [gRoof, underMat, false], [gFac, facMat, true], [sky, darkGlass, false], [skyCeil, dark, false],
+      [skyFloor, dark, false], [soffit, dark, false], [gBase, baseMat, false]]) {
+      const mesh = new THREE.Mesh(g, m);
+      mesh.castShadow = sh; mesh.receiveShadow = true;
+      group.add(mesh);
+    }
+    own.push(gRoof, gFac, sky, skyCeil, skyFloor, soffit, gBase);
+    // travi bianche sotto il tetto: radiali dal bordo dell'apertura fino al camminamento, e due anelli
+    const R = L.roof.map(([d, h]) => ({ d, h, row: L.rowAt(d) })), i0 = 3;
+    for (let i = 0; i < N; i += 6) {
+      let prev = null;
+      for (let j = i0; j < R.length - 1; j++) {
+        const [x, z] = R[j].row[i], y = R[j].h(x, z) - 0.6, f = (j - i0) / (R.length - 2 - i0), dep = 0.8 + 2.4 * Math.sin(Math.PI * f);
+        const cur = [x, y, z, y - dep];
+        beam(beams, x, y, z, x, y - dep, z, 0.16);
+        if (prev) { beam(beams, prev[0], prev[1], prev[2], x, y, z, 0.3); beam(beams, prev[0], prev[3], prev[2], x, y - dep, z, 0.26); beam(beams, prev[0], prev[1], prev[2], x, y - dep, z, 0.14); }
+        prev = cur;
+      }
+    }
+    const rim = R[R.length - 2];
+    for (let i = 0; i < N; i += 2) {
+      const [x0, z0] = rim.row[i], [x1, z1] = rim.row[(i + 2) % N], y0 = rim.h(x0, z0) - 0.6, y1 = rim.h(x1, z1) - 0.6;
+      beam(beams, x0, y0, z0, x1, y1, z1, 0.4); beam(beams, x0, y0 - 2.6, z0, x1, y1 - 2.6, z1, 0.34); beam(beams, x0, y0, z0, x1, y1 - 2.6, z1, 0.15);
+    }
+    if (lights === 'roof') {
+      const edge = L.rowAt(L.dIn + 1);
+      for (let i = 0; i < N; i += 8) lampAt(lamps, edge[i][0], L.hIn - 3.6, edge[i][1], 2.4, 1.3);
+      for (let k = 0; k < 6; k++) { const [x, z] = edge[Math.floor((k + 0.5) / 6 * N)]; spots.push([x, L.hIn - 3.8, z]); }
     }
   }
   if (st.roof === 'dragon') {
