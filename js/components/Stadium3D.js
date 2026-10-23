@@ -1825,7 +1825,8 @@ function shellOf(shape, st) {
   // sull'involucro a cuscini la pianta è ripresa a passi uguali: i rombi restano dritti tutto intorno
   // petali: tonda fuori e a rettangolo arrotondato verso l'apertura (stessi punti per tutte le file: le pieghe restano
   // allineate)
-  const outline = (d) => (petals ? shellOutline(shape, d, PETAL_COLS, 2.05 + 0.5 * Math.min(1, Math.max(0, (o - d) / (o - dIn))) ** 2, true)
+  const nAt = (d) => 2.05 + 0.5 * Math.min(1, Math.max(0, (o - d) / (o - dIn))) ** 2;
+  const outline = (d) => (petals ? shellOutline(shape, d, PETAL_COLS, nAt(d), true)
     : shell || tent ? evenOutline(shellOutline(shape, d, 960), 240) : shellOutline(shape, d));
   const rows = new Map(), rowAt = (d) => { const key = d.toFixed(3); if (!rows.has(key)) rows.set(key, outline(d)); return rows.get(key); };
   // tenda: la membrana è tirata su dai pennoni; petali: quattro lobi separati da valli sulle diagonali
@@ -1847,7 +1848,7 @@ function shellOf(shape, st) {
     arches = 32;
     archQ = Math.max(1, pts.findIndex(p => p.h >= base + 10)); // archi alti circa 10 m
   }
-  return { pts, split: tent ? pts.length - 1 : split, base, dIn, hIn: petals ? crest : crest - drop, top: crest + extra + (petals ? 14 : 0), out: Math.max(o + 12, ...pts.map(p => p.d + 1)), rowAt, yFn, masts, arches, archQ };
+  return { pts, nAt, split: tent ? pts.length - 1 : split, base, dIn, hIn: petals ? crest : crest - drop, top: crest + extra + (petals ? 14 : 0), out: Math.max(o + 12, ...pts.map(p => p.d + 1)), rowAt, yFn, masts, arches, archQ };
 }
 
 const WAVE_ROW = 240; // punti della pianta della copertura ondulata
@@ -2234,13 +2235,18 @@ function domeSoffitTexture() {
  */
 const PB = 0.1, PF = 0.24, PV = 0.2, PVW = 0.36, PLQ = 1.6;
 /**
- * Quanto il guscio vicino all'apertura rientra verso il centro (m): molto al centro dei lati lunghi (le lingue chiudono
- * l'apertura a mandorla), poco sulle curve.
+ * Vicino all'apertura il guscio si chiude a mandorla: al centro dei lati lunghi rientra di PULL metri (le lingue), verso
+ * le curve la larghezza va a zero e l'apertura finisce a punta. R = fila della pianta (semiassi Ar, Br, esponente n).
  */
 const PULL = 19;
-const petalPull = (tau, t) => PULL * Math.min(1, Math.max(0, (t - 0.5) / 0.5)) ** 1.6 * (0.18 + 0.82 * Math.sin(2 * Math.PI * tau) ** 2);
-/** Punto (x, z) del guscio spostato verso il centro di petalPull. */
-const pulled = (x, z, tau, t) => { const l = Math.hypot(x, z) || 1, k = Math.max(0.2, 1 - petalPull(tau, t) / l); return [x * k, z * k]; };
+const petalRow = (row, n) => ({ Ar: Math.max(...row.map(p => Math.abs(p[0]))), Br: Math.max(...row.map(p => Math.abs(p[1]))), n });
+const pulled = (x, z, t, R) => {
+  const s = Math.min(1, Math.max(0, (t - 0.45) / 0.55)) ** 1.5;
+  if (s <= 0) return [x, z];
+  const u = Math.min(1, Math.abs(x) / R.Ar), lo = R.Br * Math.max(0, 1 - u ** R.n) ** (1 / R.n);
+  const L = Math.max(4, R.Br - PULL) * (1 - u * u) ** 0.85, k = lo > 1e-3 ? Math.min(1, L / lo) : 0;
+  return [x, z * (1 + (k - 1) * s)];
+};
 /** Quanto si gonfia il guscio verso fuori (m): zero sulle giunture, di più al centro di ogni petalo. */
 function petalBulge(tau, t) {
   if (t < PB) return 0.25 * Math.sin(Math.PI * t / PB) ** 2;
@@ -2266,10 +2272,10 @@ function petalShader(mat, under) {
     float vw = t > ${PV.toFixed(3)} ? (t - ${PV.toFixed(3)}) / ${(1 - PV).toFixed(3)} * ${PVW.toFixed(3)} : 0.0;
     if (dl < vw) {
       seam = 1.0 - smoothstep(0.0, 0.01, vw - dl);
-      r = atan(dl * ${PLQ.toFixed(2)}, t - ${PV.toFixed(3)}) * 12.0;
+      r = atan(dl * ${PLQ.toFixed(2)}, t - ${PV.toFixed(3)}) * 9.5;
     } else {
       seam = max(1.0 - smoothstep(0.0, 0.006, phi), t < ${PV.toFixed(3)} ? 1.0 - smoothstep(0.0, 0.006, dl) : 1.0 - smoothstep(0.0, 0.01, dl - vw));
-      r = atan(t - ${PF.toFixed(3)}, phi * ${PLQ.toFixed(2)}) * 11.5;
+      r = atan(t - ${PF.toFixed(3)}, phi * ${PLQ.toFixed(2)}) * 9.0;
     }
   }
   // piega: una faccia che prende la luce, l'altra in ombra, il solco tra le due
@@ -2278,16 +2284,18 @@ function petalShader(mat, under) {
   float lit = 1.0 - smoothstep(0.5, 0.68, sp), shadow = smoothstep(0.5, 0.68, sp) * (1.0 - smoothstep(0.9, 1.0, sp));
   float pleat = lit * mix(0.95, 1.04, sp / 0.6) + shadow * mix(0.74, 0.86, (sp - 0.6) / 0.4);
   float groove = 1.0 - smoothstep(0.0, 0.04, min(sp, 1.0 - sp));
-  float pShade = mix(pleat * (1.0 - 0.08 * groove), 0.95, clamp((w - 0.35) * 1.6, 0.0, 1.0)) * (1.0 - 0.6 * seam);
-  pShade = mix(1.0, pShade, 0.55); // il chiaroscuro vero lo fa il rilievo (sotto)
+  float pShade = mix(pleat * (1.0 - 0.05 * groove), 0.97, clamp((w - 0.35) * 1.6, 0.0, 1.0)) * (1.0 - 0.12 * seam);
+  pShade = mix(1.0, pShade, 0.3); // il chiaroscuro vero lo fa il rilievo (sotto): niente righe scure disegnate
   diffuseColor.rgb *= pShade;`;
     // rilievo: ogni piega è un dente (sale piano, scende ripida) alto PA metri; la normale segue la pendenza
     const relief = under ? '' : `
   {
     vec3 sx = dFdx(-vViewPosition), sy = dFdy(-vViewPosition), nN = normal;
     vec3 R1 = cross(sy, nN), R2 = cross(nN, sx);
-    float fDet = dot(sx, R1), fade = 1.0 - clamp((w - 0.4) * 2.0, 0.0, 1.0);
-    float slope = (sp < 0.66 ? 1.0 / 0.66 : -1.0 / 0.34) * 0.75 * fade * (1.0 - seam);
+    float fDet = dot(sx, R1), fade = 1.0 - clamp((w - 0.5) * 1.6, 0.0, 1.0);
+    // piega a spigolo vivo (come la carta piegata): faccia dritta che sale fino al colmo a punta (a 0,55), faccia dritta
+    // che scende nel solco a punta; alta 1 m, così una faccia prende la luce e l'altra resta in ombra
+    float slope = (sp < 0.55 ? 1.0 / 0.55 : -1.0 / 0.45) * 1.0 * fade * (1.0 - seam);
     vec2 dH = slope * vec2(dFdx(r), dFdy(r));
     normal = normalize(abs(fDet) * nN - sign(fDet) * (dH.x * R1 + dH.y * R2));
   }`;
@@ -2311,15 +2319,15 @@ function petalsGeometry(THREE, S, seamsOut) {
   let N = 0;
   const lift = (x, z, y, b) => { const l = Math.hypot(x, z) || 1; return [x + x / l * b, y + b * 0.3, z + z / l * b]; };
   S.pts.forEach((p, j) => {
-    const row = S.rowAt(p.d), t = T[j];
+    const row = S.rowAt(p.d), t = T[j], R = petalRow(row, S.nAt(p.d));
     N = row.length - 1;
-    row.forEach(([x0, z0], i) => { const tau = i / N, [x, z] = pulled(x0, z0, tau, t); pos.push(...lift(x, z, p.h, petalBulge(tau, t))); ap.push(tau, t); });
+    row.forEach(([x0, z0], i) => { const tau = i / N, [x, z] = pulled(x0, z0, t, R); pos.push(...lift(x, z, p.h, petalBulge(tau, t))); ap.push(tau, t); });
   });
   for (let j = 0; j < rows - 1; j++) for (let i = 0; i < N; i++) { const a = j * (N + 1) + i, b = a + N + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
   // giunture: centro delle curve (sopra le fasce), centro dei lati lunghi (fino alla punta della V), bordi della lingua
   const at = (j, tau) => {
     const row = S.rowAt(S.pts[j].d), f = (((tau % 1) + 1) % 1) * N, i = Math.floor(f), k = f - i, A = row[i], B = row[Math.min(N, i + 1)];
-    const [x, z] = pulled(A[0] + (B[0] - A[0]) * k, A[1] + (B[1] - A[1]) * k, tau, T[j]);
+    const [x, z] = pulled(A[0] + (B[0] - A[0]) * k, A[1] + (B[1] - A[1]) * k, T[j], petalRow(row, S.nAt(S.pts[j].d)));
     return lift(x, z, S.pts[j].h + 0.08, 0);
   };
   const line = (tauOf, j0, j1) => { for (let j = j0; j < j1; j++) { const a = tauOf(j), b = tauOf(j + 1); if (a !== null && b !== null) beam(seamsOut, ...at(j, a), ...at(j + 1, b), 0.32); } };
@@ -4563,7 +4571,8 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       shellMat.roughness = 0.62; shellMat.metalness = 0.05; shellMat.side = THREE.FrontSide;
       petalShader(shellMat, false);
     }
-    const outer = new THREE.Mesh(petals ? petalsGeometry(THREE, S, seams) : tent ? tentGeometry(THREE, S, cells) : sweepAround(THREE, S.rowAt, S.pts, 0, S.split, S.yFn, cells), shellMat);
+    const petalSeams = [];
+    const outer = new THREE.Mesh(petals ? petalsGeometry(THREE, S, petalSeams) : tent ? tentGeometry(THREE, S, cells) : sweepAround(THREE, S.rowAt, S.pts, 0, S.split, S.yFn, cells), shellMat);
     if (petals) {
       const underMat = new THREE.MeshStandardMaterial({ color: 0x737a83, roughness: 0.85, side: THREE.BackSide, emissive: 0x9aa1a9, emissiveIntensity: 0.1 });
       nightGlow.push([underMat, 0.1, 0.2]);
@@ -4575,6 +4584,12 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       und.receiveShadow = true;
       group.add(und);
       own.push(underMat);
+      // giunture tra un petalo e l'altro: profilo chiaro appena più scuro del guscio (niente righe nere)
+      const seamMat = new THREE.MeshStandardMaterial({ roughness: 0.55 });
+      tints.push([seamMat, 'roof']);
+      seamMat.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb *= 0.78;'); };
+      own.push(seamMat);
+      inst(seamMat, petalSeams);
     }
     const clear = new THREE.Mesh(petals || tent ? new THREE.BufferGeometry() : sweepAround(THREE, S.rowAt, S.pts, S.split, S.pts.length - 1, S.yFn ? (x, z, j) => S.yFn(x, z, j + S.split) : null, cells), clearMat);
     // pennoni della tenda: altissimi, avvolti dalla membrana (la tromba) fin quasi in cima; sopra resta la punta sottile
@@ -4619,7 +4634,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       own.push(gm, glass, bandG);
       for (let i = 0; i < ring.length - 1; i += 6) beam(beams, ring[i][0], S.base, ring[i][1], ring[i][0], S.pts[0].h + 0.4, ring[i][1], 0.35);
       // sopra l'apertura: due grandi travi reticolari ad arco lungo i lati lunghi, una che la attraversa e i cavi
-      const raw = S.rowAt(S.dIn), edge = raw.map(([x, z], i) => pulled(x, z, i / (raw.length - 1), 1));
+      const raw = S.rowAt(S.dIn), RR = petalRow(raw, S.nAt(S.dIn)), edge = raw.map(([x, z]) => pulled(x, z, 1, RR));
       const Ain = Math.max(...edge.map(p => Math.abs(p[0])));
       // bordo dell'apertura (a mandorla) sul lato sg alla x data
       const zAt = (x, sg) => {
@@ -4671,7 +4686,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     }
     if (lights === 'roof') {
       // proiettori sotto il bordo dell'apertura
-      const raw = S.rowAt(S.dIn + 0.8), edge = st.roof === 'petals' ? raw.map(([x, z], i) => pulled(x, z, i / (raw.length - 1), 1)) : raw;
+      const raw = S.rowAt(S.dIn + 0.8), RR = st.roof === 'petals' ? petalRow(raw, S.nAt(S.dIn + 0.8)) : null, edge = RR ? raw.map(([x, z]) => pulled(x, z, 1, RR)) : raw;
       for (let i = 0; i < edge.length - 1; i += 8) lampAt(lamps, edge[i][0], S.hIn - 1.4, edge[i][1], 2.4, 1.3);
       for (let k = 0; k < 6; k++) { const [x, z] = edge[Math.floor((k + 0.5) / 6 * (edge.length - 1))]; spots.push([x, S.hIn - 1.5, z]); }
     }
