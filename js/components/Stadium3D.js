@@ -238,7 +238,7 @@ export const TEXT_PLACES = [
 
 const DEFAULT = {
   name: '', rings: 2, ringsEnds: 0, ringsSides: [0, 0, 0, 0], horseshoe: false, vomitories: false, standGap: 0, endGap: 0, rake: 100, rakeEach: false, rakeSides: [100, 100, 100, 100], cornerGap: 18, apronStyle: 'grass', groundStyle: 'concrete', adBoards: 'none', track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single',
-  roof: 'none', roofCover: 'all', roofSectors: [true, false, false, false], roofReach: 'normal', lights: 'towers', facade: 'wall', ramps: false, boxes: false, shellPattern: 'rhombus', screen: 'none',
+  roof: 'none', roofCover: 'all', roofSectors: [true, false, false, false], roofReach: 'normal', lights: 'towers', facade: 'wall', ramps: false, boxes: false, shellPattern: 'rhombus', domeTeeth: true, screen: 'none',
   seatMosaic: 'none', standText: '', standTextSide: 'far', standTextRing: 1, standTextFont: 'black',
   outerText: '', outerTextFont: 'black', outerTextStyle: 'outline', outerTextSize: 'M', outerTextPlace: 'facade', logoPlaces: [], wallTexture: 'concrete',
   entrance: 'none', entranceSides: [true, false, false, false], entranceWidth: 26, entranceHeight: 14, entranceLogo: 100, entranceImage: '', entranceImageFit: 'fill',
@@ -447,6 +447,7 @@ export function normalizeStadium(s) {
     ramps: !!src.ramps,
     boxes: !!src.boxes,
     shellPattern: oneOf(SHELL_PATTERNS, src.shellPattern, DEFAULT.shellPattern),
+    domeTeeth: src.domeTeeth === undefined ? DEFAULT.domeTeeth : !!src.domeTeeth,
     screen: oneOf(SCREENS, src.screen, DEFAULT.screen),
     seatMosaic: oneOf(MOSAICS, seatMosaic, DEFAULT.seatMosaic),
     standText: String(src.standText || '').slice(0, MAX_STAND_TEXT),
@@ -510,7 +511,7 @@ const M_PARAPET = 0, M_STEPS = 1, M_STRUCT = 2, M_BOX = 3;
 const seatKey = (st) => [ringsBySide(st).join(','), st.track ? 1 : 0, st.shape, st.corners, st.horseshoe ? 1 : 0, st.vomitories ? 1 : 0,
   st.standGap || 0, st.endGap || 0, rakesBySide(st).join(','), st.corners === 'open' ? st.cornerGap || 18 : ''].join('|');
 const geomKey = (st) => [seatKey(st), st.roof, st.roofCover, st.roofCover === 'pick' ? st.roofSectors.map(Number).join('') : '', st.roofReach, st.lights, st.facade, WALL_TEX_FACADES.includes(st.facade) ? st.wallTexture : '', st.adBoards,
-  st.entrance, st.entrance !== 'none' || st.roof === 'wave' ? [st.entranceSides.map(Number).join(''), st.entranceWidth, st.entranceHeight, st.entranceLogo].join(',') : '', st.ramps ? 1 : 0, st.shellPattern, st.screen, st.boxes ? 1 : 0, (st.logoPlaces || []).join(',')].join('|');
+  st.entrance, st.entrance !== 'none' || st.roof === 'wave' ? [st.entranceSides.map(Number).join(''), st.entranceWidth, st.entranceHeight, st.entranceLogo].join(',') : '', st.ramps ? 1 : 0, st.shellPattern, st.roof === 'dome' && !st.domeTeeth ? 'noteeth' : '', st.screen, st.boxes ? 1 : 0, (st.logoPlaces || []).join(',')].join('|');
 
 /** Punto del bordo su un lato lungo (tribune), non sulle curve: gli angoli smussati vanno con le tribune (come quelli squadrati). */
 const onLongSide = (p) => !!p.corner || Math.abs(p.mz) > 0.995;
@@ -4215,32 +4216,42 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     rim.castShadow = true;
     group.add(rim);
     own.push(lg, rim.material);
-    // denti: triangoli piegati (due facce) dal bordo della cupola giù quasi a terra
-    const ring = D.rowAt(D.dOut), tipRing = D.rowAt(D.dOut + 2.6), foldRing = D.rowAt(D.dOut + 1.8), N = ring.length - 1, TEETH = 34, tp = [], tuv = [];
-    for (let k = 0; k < TEETH; k++) {
-      const a = ring[Math.round(k / TEETH * N)], b = ring[Math.round((k + 1) / TEETH * N) % N];
-      const m = tipRing[Math.round((k + 0.5) / TEETH * N) % N], f = foldRing[Math.round((k + 0.5) / TEETH * N) % N];
-      const A = [a[0], D.hb + 0.4, a[1]], B = [b[0], D.hb + 0.4, b[1]], M = [m[0], 2.2, m[1]], F = [f[0], D.hb - 1.2, f[1]];
-      tp.push(...A, ...F, ...M, ...F, ...B, ...M);
-      // le nervature della lamiera convergono verso la punta del dente
-      const len = Math.hypot(M[0] - (A[0] + B[0]) / 2, M[1] - A[1], M[2] - (A[2] + B[2]) / 2) / 9;
-      tuv.push(0, 0, 0.5, 0, 0.5, len, 0.5, 0, 1, 0, 0.5, len);
-      beam(beams, m[0], 0, m[1], m[0], 2.3, m[1], 0.45);
-    }
-    const tg = new THREE.BufferGeometry();
-    tg.setAttribute('position', new THREE.Float32BufferAttribute(tp, 3));
-    tg.setAttribute('uv', new THREE.Float32BufferAttribute(tuv, 2));
-    tg.computeVertexNormals();
-    // stessa lamiera della cupola, del colore della copertura
+    // stessa lamiera della cupola, del colore della copertura, per i denti (o la fascia del bordo)
     const teethMat = new THREE.MeshStandardMaterial({ map: topTex, normalMap: topNrm, normalScale: new THREE.Vector2(0.8, 0.8), roughness: 0.32, metalness: 0.25, side: THREE.DoubleSide });
     tints.push([teethMat, 'roof']);
     // di notte si accendono come la cupola (stessa luce)
     teethMat.emissive = shellMat.emissive; teethMat.emissiveMap = topTex;
     nightGlow.push([teethMat, 0, 0.85]);
-    const teeth = new THREE.Mesh(tg, teethMat);
-    teeth.castShadow = teeth.receiveShadow = true;
-    group.add(teeth);
-    own.push(tg, teeth.material);
+    own.push(teethMat);
+    if (st.domeTeeth) {
+      // denti: triangoli piegati (due facce) dal bordo della cupola giù quasi a terra, con il piede d'acciaio
+      const ring = D.rowAt(D.dOut), tipRing = D.rowAt(D.dOut + 2.6), foldRing = D.rowAt(D.dOut + 1.8), N = ring.length - 1, TEETH = 34, tp = [], tuv = [];
+      for (let k = 0; k < TEETH; k++) {
+        const a = ring[Math.round(k / TEETH * N)], b = ring[Math.round((k + 1) / TEETH * N) % N];
+        const m = tipRing[Math.round((k + 0.5) / TEETH * N) % N], f = foldRing[Math.round((k + 0.5) / TEETH * N) % N];
+        const A = [a[0], D.hb + 0.4, a[1]], B = [b[0], D.hb + 0.4, b[1]], M = [m[0], 2.2, m[1]], F = [f[0], D.hb - 1.2, f[1]];
+        tp.push(...A, ...F, ...M, ...F, ...B, ...M);
+        // le nervature della lamiera convergono verso la punta del dente
+        const len = Math.hypot(M[0] - (A[0] + B[0]) / 2, M[1] - A[1], M[2] - (A[2] + B[2]) / 2) / 9;
+        tuv.push(0, 0, 0.5, 0, 0.5, len, 0.5, 0, 1, 0, 0.5, len);
+        beam(beams, m[0], 0, m[1], m[0], 2.3, m[1], 0.45);
+      }
+      const tg = new THREE.BufferGeometry();
+      tg.setAttribute('position', new THREE.Float32BufferAttribute(tp, 3));
+      tg.setAttribute('uv', new THREE.Float32BufferAttribute(tuv, 2));
+      tg.computeVertexNormals();
+      const teeth = new THREE.Mesh(tg, teethMat);
+      teeth.castShadow = teeth.receiveShadow = true;
+      group.add(teeth);
+      own.push(tg);
+    } else {
+      // senza denti: il bordo della cupola chiuso da una fascia di lamiera
+      const fg = sweepGrid(THREE, D.rowAt, [{ d: D.dOut, h: D.hb + 0.4 }, { d: D.dOut, h: D.hb - 1.6 }, { d: D.dOut - 1.2, h: D.hb - 1.6 }], SECT, 9);
+      const fascia = new THREE.Mesh(fg, teethMat);
+      fascia.castShadow = fascia.receiveShadow = true;
+      group.add(fascia);
+      own.push(fg);
+    }
     // dietro ai denti le vetrate dell'atrio a piani (di notte accese), con i pilastri d'acciaio
     const GT = facadeTexture('glass'), gMap = new THREE.CanvasTexture(GT.canvas);
     gMap.wrapS = gMap.wrapT = THREE.RepeatWrapping; gMap.colorSpace = THREE.SRGBColorSpace; gMap.anisotropy = 4;
