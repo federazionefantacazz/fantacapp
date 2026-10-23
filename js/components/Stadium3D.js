@@ -209,6 +209,21 @@ export const FACADES = [
   { id: 'panels',  label: 'Rivestimento a pannelli' },
   { id: 'cladding', label: 'Inglese con ingresso' }
 ];
+/** Ingressi monumentali fuori dallo stadio (al centro dei lati scelti). */
+export const ENTRANCES = [
+  { id: 'none',   label: 'Nessuno' },
+  { id: 'portal', label: 'Portale vetrato' },
+  { id: 'arch',   label: 'Arco monumentale' },
+  { id: 'canopy', label: 'Pensilina a sbalzo' },
+  { id: 'towers', label: 'Torri gemelle' }
+];
+export const ENTRANCE_W = [14, 44], ENTRANCE_H = [8, 24]; // larghezza e altezza (m) dei cursori
+export const ENTRANCE_LOGO = [60, 150];                      // grandezza del logo sopra l'ingresso (% della misura normale)
+export const ENTRANCE_FITS = [
+  { id: 'fill', label: 'Riempie il pannello' },
+  { id: 'fit',  label: 'Intera' }
+];
+
 /** Dove mettere il logo della squadra (anche più posti insieme). */
 export const LOGO_PLACES = [
   { id: 'entrance', label: 'Sull\'ingresso' },
@@ -226,11 +241,12 @@ const DEFAULT = {
   roof: 'none', roofCover: 'all', roofSectors: [true, false, false, false], roofReach: 'normal', lights: 'towers', facade: 'wall', ramps: false, boxes: false, shellPattern: 'rhombus', screen: 'none',
   seatMosaic: 'none', standText: '', standTextSide: 'far', standTextRing: 1, standTextFont: 'black',
   outerText: '', outerTextFont: 'black', outerTextStyle: 'outline', outerTextSize: 'M', outerTextPlace: 'facade', logoPlaces: [], wallTexture: 'concrete',
+  entrance: 'none', entranceSides: [true, false, false, false], entranceWidth: 26, entranceHeight: 14, entranceLogo: 100, entranceImage: '', entranceImageFit: 'fill',
   colors: {
     grass: '#3d8b37', track: '#b4452f', seatA: '#1e5bb8', seatB: '#ffffff', seatC: '#c62828', seatD: '#ffd400', parapet: '#e6e6e6', structure: '#a5a5a5',
     roof: '#cfd4da', steel: '#767d86', accent: '#1e5bb8', girder: '#c0392b', glow: '#e30613',
     standText: '#ffffff', outerText: '#1d3f8f', outerPanel: '#ffffff', screen: '#152c78', trackLines: '#ffffff',
-    mosaicB: '#ffffff', mosaicC: '#9e9e9e', aisle: '#c4c7cb', apron: '#b24f3c', wall: '', ground: '', ads: '#c8102e', mosaicD: '', roofLight: '', cladding: '#e9ecef', podium: '#d8c7a0'
+    mosaicB: '#ffffff', mosaicC: '#9e9e9e', aisle: '#c4c7cb', apron: '#b24f3c', wall: '', ground: '', ads: '#c8102e', mosaicD: '', roofLight: '', entrance: '#1e5bb8', entranceStone: '#e9e4da', cladding: '#e9ecef', podium: '#d8c7a0'
   }
 };
 
@@ -419,6 +435,15 @@ export function normalizeStadium(s) {
     lights: oneOf(LIGHTS, src.lights, DEFAULT.lights),
     facade: oneOf(FACADES, src.facade, DEFAULT.facade),
     wallTexture: oneOf(WALL_TEXTURES, src.wallTexture, DEFAULT.wallTexture),
+    entrance: oneOf(ENTRANCES, src.entrance, DEFAULT.entrance),
+    entranceSides: Array.isArray(src.entranceSides) || (src.entranceSides && typeof src.entranceSides === 'object')
+      ? [0, 1, 2, 3].map(i => !!src.entranceSides[i]) : [...DEFAULT.entranceSides],
+    entranceWidth: Math.round(Math.min(ENTRANCE_W[1], Math.max(ENTRANCE_W[0], Number(src.entranceWidth) || DEFAULT.entranceWidth))),
+    entranceHeight: Math.round(Math.min(ENTRANCE_H[1], Math.max(ENTRANCE_H[0], Number(src.entranceHeight) || DEFAULT.entranceHeight))),
+    entranceLogo: Math.round(Math.min(ENTRANCE_LOGO[1], Math.max(ENTRANCE_LOGO[0], Number(src.entranceLogo) || DEFAULT.entranceLogo))),
+    // immagine personale sui pannelli dell'ingresso (indirizzo dell'immagine caricata, o anteprima locale)
+    entranceImage: /^(https?:|data:image\/)/.test(String(src.entranceImage || '')) ? String(src.entranceImage) : '',
+    entranceImageFit: oneOf(ENTRANCE_FITS, src.entranceImageFit, DEFAULT.entranceImageFit),
     ramps: !!src.ramps,
     boxes: !!src.boxes,
     shellPattern: oneOf(SHELL_PATTERNS, src.shellPattern, DEFAULT.shellPattern),
@@ -484,7 +509,8 @@ const M_PARAPET = 0, M_STEPS = 1, M_STRUCT = 2, M_BOX = 3;
 
 const seatKey = (st) => [ringsBySide(st).join(','), st.track ? 1 : 0, st.shape, st.corners, st.horseshoe ? 1 : 0, st.vomitories ? 1 : 0,
   st.standGap || 0, st.endGap || 0, rakesBySide(st).join(','), st.corners === 'open' ? st.cornerGap || 18 : ''].join('|');
-const geomKey = (st) => [seatKey(st), st.roof, st.roofCover, st.roofCover === 'pick' ? st.roofSectors.map(Number).join('') : '', st.roofReach, st.lights, st.facade, WALL_TEX_FACADES.includes(st.facade) ? st.wallTexture : '', st.adBoards, st.ramps ? 1 : 0, st.shellPattern, st.screen, st.boxes ? 1 : 0, (st.logoPlaces || []).join(',')].join('|');
+const geomKey = (st) => [seatKey(st), st.roof, st.roofCover, st.roofCover === 'pick' ? st.roofSectors.map(Number).join('') : '', st.roofReach, st.lights, st.facade, WALL_TEX_FACADES.includes(st.facade) ? st.wallTexture : '', st.adBoards,
+  st.entrance, st.entrance !== 'none' || st.roof === 'wave' ? [st.entranceSides.map(Number).join(''), st.entranceWidth, st.entranceHeight, st.entranceLogo].join(',') : '', st.ramps ? 1 : 0, st.shellPattern, st.screen, st.boxes ? 1 : 0, (st.logoPlaces || []).join(',')].join('|');
 
 /** Punto del bordo su un lato lungo (tribune), non sulle curve: gli angoli smussati vanno con le tribune (come quelli squadrati). */
 const onLongSide = (p) => !!p.corner || Math.abs(p.mz) > 0.995;
@@ -1084,10 +1110,207 @@ function entranceOf(shape) {
   return { run, o, PH, z0: shape.b + o + CLAD_PODIUM_W, top: PH + 1 };
 }
 
+/**
+ * Misure di un tipo di ingresso largo W e alto H (logo grande k volte il normale), in coordinate locali (u verso destra
+ * guardando da fuori, v in alto, w verso fuori dal muro): profondità, dove va il logo (centro v, w, lato s e base
+ * dell'insegna che lo regge, se c'è), i pannelli con l'immagine personale e la sagoma (sil: tratti [w0, w1, quota in
+ * cima]) per non sbattere contro la copertura che sporge sopra. wallLogo: l'insegna appoggiata al muro dietro (quando
+ * davanti la copertura è troppo bassa).
+ */
+function entranceGeom(type, W, H, k = 1, wallLogo = false) {
+  // insegna: lastra larga 1,2 volte il logo, su due montanti alti 0,5 m appoggiati su base
+  const plate = (s, w, base) => ({ v: base + 0.5 + s * 0.6, w, s, base });
+  const sign = (L) => [L.w - 0.5, L.w - 0.1, L.v + L.s * 0.6];
+  if (type === 'arch') {
+    const Wa = Math.min(W * 0.56, 2 * (H * 0.86 - H * 0.52)), hs = H * 0.52, s = Math.min(7, W * 0.3) * k, At = s + 1.6;
+    const bw = (W - Wa) / 2 * 0.6, bu = Wa / 2 + (W - Wa) / 4;
+    return { depth: 5, Wa, hs, At, logo: { v: H + 0.5 + At / 2, w: 4.25, s },
+      panels: [-1, 1].map(k => ({ u0: k * bu - bw / 2, u1: k * bu + bw / 2, v0: H * 0.14, v1: H * 0.84, w: 4.06 })),
+      sil: [[-0.4, 4.4, H + 0.9 + At], [6.8, 7.2, 5.5]] };
+  }
+  if (type === 'canopy') {
+    const s = Math.min(8, W * 0.3) * k, sw = W * 0.6, top = H * 0.92, bot = top - Math.min(H * 0.4, sw / 2), rise = 3.5, lw = 14.2;
+    const logo = wallLogo ? plate(s, 0.55, H + 0.65) : plate(s, lw, H + 0.6 + rise * lw / 16);
+    return { depth: 16, rise, logo,
+      panels: [{ u0: -sw / 2, u1: sw / 2, v0: bot, v1: top, w: 8.15 }],
+      sil: [[0, 2, H], ...Array.from({ length: 16 }, (_, i) => [i, i + 1, H + 0.9 + rise * (i + 1) / 16]), sign(logo)] };
+  }
+  if (type === 'towers') {
+    const s = Math.min(8, W * 0.34) * k, bw = W * 0.3, TW = 6, TH = H + 9;
+    const logo = plate(s, wallLogo ? 0.55 : 5.6, H + 3.2);
+    return { depth: 7, TW, TH, logo,
+      panels: [-1, 1].map(k => ({ u0: k * W / 4 - bw / 2, u1: k * W / 4 + bw / 2, v0: H * 0.3, v1: H - 0.3, w: 5.7 })),
+      sil: [[-0.4, 6.4, TH + 3.45 + TW * 0.38], [2.7, 3.3, TH + 10], [0, 6, H + 3.2], sign(logo)] };
+  }
+  // portale vetrato
+  const s = Math.min(10, W * 0.4) * k, logo = plate(s, wallLogo ? 0.55 : 4.9, H);
+  return { depth: 12, logo,
+    panels: [{ u0: -W * 0.32, u1: W * 0.32, v0: H * 0.42 + 0.7, v1: H - 2.9, w: 0.8 }],
+    sil: [[0, 5.6, H], [1.5, 10.6, H * 0.42 + 0.6], [12.2, 12.8, H + 7], sign(logo)] };
+}
+
+/**
+ * Quota libera sotto la copertura che sporge fuori dal muro (involucro a cuscini, petali, corona di vele): funzione
+ * della distanza dal bordo degli spalti lungo la normale (Infinity dove sopra non c'è niente), o null.
+ */
+function overheadOf(shape, st) {
+  if (st.roof === 'shell' || st.roof === 'petals') {
+    // la parte che sale e si gonfia verso fuori, fino al punto più largo
+    const P = shellOf(shape, st).pts, top = P.reduce((m, p, i) => (p.d > P[m].d ? i : m), 0), up = P.slice(0, top + 1);
+    return (dd) => {
+      if (dd <= up[0].d) return up[0].h - 0.4;
+      for (let i = 1; i < up.length; i++) {
+        const a = up[i - 1], b = up[i];
+        if (dd <= b.d && b.d > a.d) return a.h + (b.h - a.h) * (dd - a.d) / (b.d - a.d) - 0.4;
+      }
+      return Infinity;
+    };
+  }
+  if (st.roof === 'crown') {
+    // verso il muro la valle delle vele (che sale verso gli spalti), poi il bordo fuori delle vele fino all'anello in cima
+    const C = crownOf(shape, st);
+    return (dd) => dd <= C.dV ? C.hAt(C.valley, dd) - 0.9
+      : dd < C.dR + 1.2 ? C.hV + (C.hR - C.hV) * (dd - C.dV) / (C.dR - C.dV) - 0.7 : Infinity;
+  }
+  return null;
+}
+
+/**
+ * Ingressi monumentali: uno al centro di ogni lato scelto, attaccato al muro (sulla spianata, se c'è) o fuori
+ * dall'involucro, dalla fascia, dalle lame... Sotto le coperture che sporgono sopra l'ingresso (cuscini, petali,
+ * vele) resta attaccato: se serve l'insegna del logo va sul muro e l'ingresso si abbassa, se no si allontana quanto
+ * basta. Ognuno con il punto del bordo degli spalti (px, pz), il centro del retro (x, z) e la quota del piano (base),
+ * la normale verso fuori (nx, nz), la destra vista da fuori (rx, rz), le misure (W, H, g), quanto può essere profonda
+ * la piazzetta (pdMax) e at(u, v, w) → punto nel mondo.
+ */
+const entranceCache = new WeakMap();
+function entrancesOf(shape, st) {
+  if (!st.entrance || st.entrance === 'none') return [];
+  const key = [st.entrance, st.entranceSides.map(Number).join(''), st.entranceWidth, st.entranceHeight, st.entranceLogo, st.facade, st.roof, st.roofReach, st.horseshoe ? 1 : 0].join('|');
+  const memo = entranceCache.get(shape) || new Map();
+  entranceCache.set(shape, memo);
+  if (!memo.has(key)) memo.set(key, entrancesBuild(shape, st));
+  return memo.get(key);
+}
+/** Lati dove non può andare un ingresso monumentale (e perché): ci sono già quelli della facciata inglese e del Vélodrome. */
+export function entranceSkips(st) {
+  const out = {};
+  if (st.facade === 'cladding') out[0] = 'c\'è già l\'ingresso della facciata inglese';
+  if (st.roof === 'wave') {
+    out[1] = 'c\'è già l\'ingresso del Vélodrome (lo personalizzi qui sotto)';
+    out[0] = out[2] = 'la fascia del Vélodrome scende quasi a terra';
+  }
+  if (st.horseshoe) out[3] = 'la curva è aperta';
+  return out;
+}
+function entrancesBuild(shape, st) {
+  const out = [], skip = entranceSkips(st), clear = overheadOf(shape, st);
+  const env = clear ? null : envelopeRow(shape, st), esp = st.facade === 'esplanade', deck = shape.outer + esplanadeW(st);
+  [[0, 0, 1], [1, 1, 0], [2, 0, -1], [3, -1, 0]].forEach(([side, nx, nz]) => {
+    if (!st.entranceSides[side] || skip[side]) return;
+    const tx = nx * shape.a, tz = nz * shape.b;
+    let best = null, bd = Infinity, run = null;
+    for (const r of shape.runs) for (const q of r.pts) { const dd = (q.x - tx) ** 2 + (q.z - tz) ** 2; if (dd < bd) { bd = dd; best = q; run = r; } }
+    if (!best || bd > 4) return; // lì non ci sono spalti (ferro di cavallo, curve staccate...)
+    // attaccato al muro: sulla spianata appena fuori dal muro, se no davanti al basamento, alle colonne...
+    let d = esp ? runOuter(run) + 0.3 : footOf({ ...shape, outer: runOuter(run) }, st) + 0.3;
+    if (env) d = Math.max(d, beyondRow(env, best.x, best.z, nx, nz) + 0.5);
+    if (st.roof === 'wave') d = Math.max(d, waveOf(shape, st).beyond(best.x, best.z, nx, nz) + 0.5);
+    if (st.roof === 'blades') d = Math.max(d, bladesOf(shape, st).out + 0.5);
+    if (st.roof === 'dragon') d = Math.max(d, dragonOf(shape, st).out + 0.5);
+    if (st.roof === 'stands' && st.facade === 'wall') d = Math.max(d, shape.outer + 1.4);
+    const W = st.entranceWidth, k = st.entranceLogo / 100, base = esp ? ESPLANADE_H : 0;
+    let H = st.entranceHeight, g = entranceGeom(st.entrance, W, H, k);
+    if (clear) {
+      // la sagoma sta sotto la copertura? (con mezzo metro di margine); prima l'altezza scelta con il logo davanti o
+      // sul muro, poi il logo un po' più piccolo, poi l'ingresso più basso finché resta attaccato al muro; se no il più
+      // vicino con l'altezza scelta
+      const fits = (G, d) => G.sil.every(([w0, w1, v]) => {
+        for (let w = w0; w <= w1 + 1e-6; w += Math.max(0.3, (w1 - w0) / 6)) if (base + v + 0.5 > clear(d + w)) return false;
+        return true;
+      });
+      const push = (G) => { let dd = d; while (!fits(G, dd) && dd < d + 90) dd += 0.5; return dd; };
+      const tries = [[H, false, 1], [H, true, 1]];
+      for (let h = H; h >= ENTRANCE_H[0]; h--) for (const f of [0.85, 0.7]) tries.push([h, true, f]);
+      let pick = null;
+      for (const [h, wl, f] of tries) {
+        const G = entranceGeom(st.entrance, W, h, k * f, wl), dd = push(G);
+        if (dd - d <= 1) { pick = [G, h, dd]; break; }
+        if (h === H && f === 1 && (!pick || dd < pick[2])) pick = [G, h, dd, true];
+      }
+      [g, H, d] = pick;
+    }
+    const x = best.x + nx * d, z = best.z + nz * d, rx = nz, rz = -nx, onDeck = esp && d < deck - 2;
+    const b0 = onDeck ? base : 0, pdMax = onDeck ? deck - 0.8 - d : Infinity;
+    out.push({ side, px: best.x, pz: best.z, d, x, z, nx, nz, rx, rz, W, H, g, base: b0, pdMax,
+      at: (u, v, w) => [x + rx * u + nx * w, v + b0, z + rz * u + nz * w] });
+  });
+  return out;
+}
+
+/** Il punto (x, z) sta nella fascia davanti a un ingresso (larga quanto l'ingresso più margin)? (colonne, piloni...) */
+const inEntranceBand = (shape, st, x, z, margin) => entrancesOf(shape, st).some(e =>
+  Math.abs((x - e.px) * e.rx + (z - e.pz) * e.rz) < e.W / 2 + (e.g.TW || 0) + margin && (x - e.px) * e.nx + (z - e.pz) * e.nz > 0);
+
+/** C'è un ingresso vicino al punto del bordo (x, z)? (per non mettere torri, piloni e pilastri davanti all'ingresso) */
+const nearEntrance = (shape, st, x, z, margin) => entrancesOf(shape, st).some(e => Math.hypot(x - e.px, z - e.pz) < e.W / 2 + margin);
+
+const entranceImageCache = new Map();
+/** Tela con l'immagine personale dell'ingresso (al massimo 1024 px); null se manca o non si può usare in WebGL. */
+function entranceImageCanvas(url) {
+  if (!url) return Promise.resolve(null);
+  if (!entranceImageCache.has(url)) {
+    entranceImageCache.set(url, new Promise(resolve => {
+      const img = new Image();
+      if (!/^data:/i.test(url)) img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const k = Math.min(1, 1024 / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        try { ctx.getImageData(0, 0, 1, 1); resolve(c); } catch (e) { resolve(null); }
+      };
+      img.onerror = () => resolve(null);
+      img.src = url;
+    }));
+  }
+  return entranceImageCache.get(url);
+}
+
+/** Pannello di partenza dell'ingresso (senza immagine personale): colore dell'ingresso, nome dello stadio e la scritta. */
+function paintEntranceDefault(canvas, name, color, aspect) {
+  const W = canvas.width = 512, H = canvas.height = Math.max(64, Math.round(512 / aspect)), ctx = canvas.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, shade(color, 1.25)); g.addColorStop(1, shade(color, 0.7));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = Math.max(3, Math.min(W, H) * 0.025);
+  ctx.strokeRect(ctx.lineWidth, ctx.lineWidth, W - ctx.lineWidth * 2, H - ctx.lineWidth * 2);
+  ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const font = (px) => `900 ${px}px "Arial Black", "Helvetica Neue", Arial, sans-serif`;
+  const lines = aspect >= 1 ? [name] : name.split(/\s+/).filter(Boolean).slice(0, 4);
+  const px = Math.min(H / (lines.length + 1.5), W * 0.2);
+  lines.forEach((t, i) => {
+    ctx.font = font(px);
+    const w = ctx.measureText(t).width;
+    if (w > W * 0.86) ctx.font = font(px * W * 0.86 / w);
+    ctx.fillText(t, W / 2, H / 2 + (i - (lines.length - 1) / 2) * px * 1.15);
+  });
+}
+
+/** Pannello con l'immagine personale intera (senza tagli) al centro, sul fondo sfumato del colore dell'ingresso. */
+function paintEntranceFit(canvas, img, color, aspect) {
+  const W = canvas.width = aspect >= 1 ? 1024 : Math.max(64, Math.round(1024 * aspect)), H = canvas.height = aspect >= 1 ? Math.max(64, Math.round(1024 / aspect)) : 1024;
+  const ctx = canvas.getContext('2d'), g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, shade(color, 1.2)); g.addColorStop(1, shade(color, 0.65));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const k = Math.min(W * 0.92 / img.width, H * 0.92 / img.height), w = img.width * k, h = img.height * k;
+  ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
+}
+
 /** Posti del logo possibili con questa struttura (l'ingresso c'è solo con la facciata inglese, il tetto deve essere piatto). */
 export function logoPlacesFor(st) {
   const wrapped = WRAP_ROOFS.includes(st.roof) || st.roof === 'dragon';
-  const ok = { entrance: st.facade === 'cladding', roof: st.roof !== 'none' && !wrapped, facade: !wrapped, pitch: true };
+  const ok = { entrance: st.facade === 'cladding' || st.entrance !== 'none' || st.roof === 'wave', roof: st.roof !== 'none' && !wrapped, facade: !wrapped, pitch: true };
   return LOGO_PLACES.map(o => o.id).filter(id => ok[id]);
 }
 
@@ -1102,8 +1325,19 @@ function logoSpots(shape, st) {
   const sq = (c, r, u, s) => [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([i, j]) => c.map((v, k) => v + (r[k] * i + u[k] * j) * s / 2));
   if (places.includes('entrance')) {
     // sopra il portale, appoggiato a metà dell'architrave
-    const E = entranceOf(shape);
+    const E = st.facade === 'cladding' ? entranceOf(shape) : null;
     if (E) out.push({ place: 'entrance', s: LOGO_ENTRANCE, pts: sq([0, E.top + 0.6 + LOGO_ENTRANCE / 2, E.z0 + 4.45], [1, 0, 0], [0, 1, 0], LOGO_ENTRANCE) });
+    // sulla fascia del Vélodrome, sopra il suo ingresso
+    const VE = veloEntryOf(shape, st);
+    if (VE && VE.ent.length > 1) {
+      const [fx, fz] = VE.face, room = VE.hi - VE.lo, s = Math.min(room * 0.9, Math.min(16, room * 0.72) * (st.entranceLogo || 100) / 100);
+      if (s > 3) out.push({ place: 'entrance', s, pts: sq([fx + 0.35, (VE.lo + VE.hi) / 2, fz], [0, 0, -1], [0, 1, 0], s) });
+    }
+    // sopra ogni ingresso monumentale
+    for (const e of entrancesOf(shape, st)) {
+      const L = e.g.logo, c = e.at(0, L.v, L.w);
+      out.push({ place: 'entrance', s: L.s, pts: sq(c, [e.rx, 0, e.rz], [0, 1, 0], L.s) });
+    }
   }
   if (places.includes('roof')) {
     // dipinto sul tetto dei due lati lunghi, a metà profondità
@@ -1340,14 +1574,15 @@ const towerDist = (shape, st) => Math.max(shape.outer, st.roof === 'crown' ? cro
  * travi rosse (San Siro) solo tre al centro di ogni lato lungo (agli angoli ci sono le torri d'angolo).
  */
 function rampUs(shape, st, run, cum) {
-  if (st.roof !== 'girders') return stations(run, cum, RAMP_EVERY, footOf({ ...shape, outer: runOuter(run) }, st) + RAMP_R);
+  const free = (u) => { const [x, z] = pointAt(run, cum, u, 0); return !nearEntrance(shape, st, x, z, RAMP_R + 2); };
+  if (st.roof !== 'girders') return stations(run, cum, RAMP_EVERY, footOf({ ...shape, outer: runOuter(run) }, st) + RAMP_R).filter(free);
   const P = run.pts, n = P.length, segs = run.closed ? n : n - 1, out = new Set(), k = shape.a * 0.5;
   for (let i = 0; i < segs; i++) {
     const p = P[i], q = P[(i + 1) % n];
     if (!onLongSide(p) || !onLongSide(q) || p.x === q.x) continue;
     for (const tx of [-k, 0, k]) if ((p.x - tx) * (q.x - tx) <= 0) out.add(+(cum[i] + (cum[i + 1] - cum[i]) * (tx - p.x) / (q.x - p.x)).toFixed(4));
   }
-  return [...out].sort((a, b) => a - b);
+  return [...out].sort((a, b) => a - b).filter(free);
 }
 
 /** Centro di una torre delle rampe: appena fuori dal muro (con la copertura ondulata fuori dalla sua fascia). */
@@ -1562,6 +1797,35 @@ function waveBuild(shape, st) {
 }
 
 /**
+ * Ingresso principale del Vélodrome, al centro della curva verso +x sotto la fascia che sale: indici in fila dei punti
+ * del portale (ent), retro (back, la vetrata), fuori (outer, sotto la fascia) e quota sotto la fascia (bb) per ogni
+ * punto, normale verso fuori di ogni punto (nrm); sulla fascia sopra il portale il posto del logo (face, lo, hi).
+ */
+const veloCache = new WeakMap();
+function veloEntryOf(shape, st) {
+  if (st.roof !== 'wave') return null;
+  const key = [st.facade, st.roofReach].join('|'), memo = veloCache.get(shape) || new Map();
+  veloCache.set(shape, memo);
+  if (!memo.has(key)) {
+    const V = waveOf(shape, st), N = WAVE_ROW;
+    const outer = V.rowAt(V.dE - 0.7), bb = outer.map(([x, z]) => V.bandBottom(x, z)), entry = outer.map(([x, z]) => V.inEntry(x, z));
+    const back = evenOutline(shellOutline(shape, shape.outer + 1.2, N * 4), N);
+    // punti del portale in fila (il portale può stare a cavallo dell'inizio della pianta)
+    const ent = [], s0 = entry.findIndex((on, i) => on && !entry[(i - 1 + N) % N]);
+    if (s0 >= 0) for (let k = 0; k < N && entry[(s0 + k) % N]; k++) ent.push((s0 + k) % N);
+    const nrm = back.map(([x, z], i) => { const l = Math.hypot(outer[i][0] - x, outer[i][1] - z) || 1; return [(outer[i][0] - x) / l, (outer[i][1] - z) / l]; });
+    // fascia sopra il portale: il punto più vicino all'asse x+
+    const F = V.rowAt(V.dE);
+    let fi = 0;
+    F.forEach(([x, z], i) => { if (x > 0 && Math.abs(z) < Math.abs(F[fi][1])) fi = i; });
+    const face = F[fi];
+    memo.set(key, ent.length > 1 ? { V, outer, bb, entry, back, ent, nrm, face, lo: V.bandBottom(...face), hi: V.edge(...face) - 1.2 } : { V, outer, bb, entry, back, ent: [] });
+  }
+  const E = memo.get(key);
+  return E;
+}
+
+/**
  * Pianta tonda (superellisse vicina al cerchio) che contiene gli spalti a distanza d. pull: quanto il lato corto si
  * avvicina a quello lungo (1 = cerchio); n: esponente (2 = ellisse). Punti chiusi [x, z].
  */
@@ -1614,27 +1878,6 @@ function waveBandCanvas() {
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#f5f7f9'; ctx.fillRect(0, 0, 64, 8);
   ctx.fillStyle = '#d5dade'; ctx.fillRect(0, 0, 1.5, 8);
-  return c;
-}
-
-/** Ingresso: vetrata scura con le lamelle orizzontali chiare. */
-function louvreCanvas() {
-  const c = document.createElement('canvas'); c.width = 16; c.height = 64;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#1d232b'; ctx.fillRect(0, 0, 16, 64);
-  for (let y = 0; y < 64; y += 8) { ctx.fillStyle = '#8f99a4'; ctx.fillRect(0, y, 16, 2.5); ctx.fillStyle = '#5c6670'; ctx.fillRect(0, y + 2.5, 16, 1); }
-  ctx.fillStyle = '#3b444e'; ctx.fillRect(0, 0, 1, 64);
-  return c;
-}
-
-/** Schermi dell'ingresso: immagine luminosa azzurra. */
-function entryScreenCanvas() {
-  const c = document.createElement('canvas'); c.width = 128; c.height = 192;
-  const ctx = c.getContext('2d'), g = ctx.createLinearGradient(0, 0, 128, 192);
-  g.addColorStop(0, '#7fe3ff'); g.addColorStop(0.5, '#1f8fd6'); g.addColorStop(1, '#0b3f8a');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, 128, 192);
-  ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillRect(14, 120, 100, 10); ctx.fillRect(14, 140, 70, 8);
-  ctx.beginPath(); ctx.arc(64, 64, 30, 0, Math.PI * 2); ctx.fill();
   return c;
 }
 
@@ -1882,7 +2125,13 @@ function reachOf(shape, st) {
   const foot = footOf(shape, st);
   let d = foot + 0.5, h = shape.height, x = 0, z = 0;
   if (SHELLISH.includes(st.roof)) { const S = shellOf(shape, st); d = Math.max(d, S.out + 1); h = Math.max(h, S.top + 1); }
-  else if (st.roof === 'wave') { const V = waveOf(shape, st); d = Math.max(d, V.out + 1); h = Math.max(h, V.top + 1); }
+  else if (st.roof === 'wave') {
+    const V = waveOf(shape, st), VE = veloEntryOf(shape, st);
+    d = Math.max(d, V.out + 1);
+    h = Math.max(h, V.top + 1);
+    // piazzetta davanti all'ingresso del Vélodrome
+    if (VE && VE.ent.length > 1) { const c = VE.ent[Math.floor(VE.ent.length / 2)]; d = Math.max(d, shape.outer + 1.2 + Math.hypot(VE.outer[c][0] - VE.back[c][0], VE.outer[c][1] - VE.back[c][1]) + 19); }
+  }
   else if (st.roof === 'dome') { const D = domeOf(shape, st); d = Math.max(d, D.out + 1); h = Math.max(h, D.top + 3); }
   else if (st.roof === 'crown') { const C = crownOf(shape, st); d = Math.max(d, C.out + 1); h = Math.max(h, C.hR + 2); }
   else if (st.roof === 'blades') { const L = bladesOf(shape, st); d = Math.max(d, L.out + 1); h = Math.max(h, L.top + 1); }
@@ -1903,6 +2152,7 @@ function reachOf(shape, st) {
     d = Math.max(d, D.out + 1); h = Math.max(h, D.hC + 3);
     if (hasDragonTail(shape, st)) for (const p of dragonTail(shape).pts) { x = Math.max(x, Math.abs(p.x) + D.out + 4); z = Math.max(z, Math.abs(p.z) + D.out + 4); }
   }
+  for (const e of entrancesOf(shape, st)) { d = Math.max(d, e.d + e.g.depth + 14); h = Math.max(h, e.g.TH ? e.g.TH + 10 : e.H + 6, e.g.logo.v + e.g.logo.s / 2 + 1); }
   return { d: d + 1.5, h, x, z };
 }
 
@@ -2100,6 +2350,8 @@ function signObstacles(shape, st, d) {
     }
   }
   for (const [x, z, r] of towers) if (Math.abs(z) > shape.b * 0.6) out[Math.sign(z)].push([x - r, x + r]);
+  // gli ingressi sui lati lunghi: la scritta va di lato
+  for (const e of entrancesOf(shape, st)) if (e.side === 0 || e.side === 2) out[e.side === 0 ? 1 : -1].push([-e.W / 2 - 3, e.W / 2 + 3]);
   return out;
 }
 
@@ -2715,6 +2967,16 @@ function floorTexture(kind) {
       const h = sm(0.0, 0.05, edge), v = cellRnd(col, row, 47);
       return [(150 + 80 * v) * (0.55 + 0.45 * h), h];
     });
+  } else if (kind === 'plaza') {
+    // lastre di granito 1,2 x 0,6 m a correre (file sfalsate), toni appena diversi, fughe sottili e una fascia più scura
+    // ogni 4,8 m
+    out = bakeTexture(256, 256, 4.8, 4.8, 0.008, (x, y) => {
+      const mx = x / 256 * 4.8, my = y / 256 * 4.8, row = Math.floor(my / 0.6), off = (row % 2) * 0.6;
+      const px = ((mx + off) % 1.2 + 1.2) % 1.2, py = my % 0.6, edge = Math.min(px, 1.2 - px, py, 0.6 - py);
+      const joint = 1 - sm(0.008, 0.02, edge), v = cellRnd(Math.floor((mx + off) / 1.2), row, 52);
+      const band = row % 8 === 0 ? 0.82 : 1, speck = cellRnd(x | 0, y | 0, 53) > 0.9 ? 0.94 : 1;
+      return [(214 + 30 * v) * band * speck * (1 - 0.3 * joint), 1 - joint];
+    });
   } else if (kind === 'asphalt') {
     out = bakeTexture(256, 256, 3, 3, 0.004, (x, y) => {
       const n = cellRnd(x | 0, y | 0, 48), g = grain(x, y, 12, 256, 256, 49);
@@ -2729,6 +2991,113 @@ function floorTexture(kind) {
   }
   floorTexCache.set(kind, out);
   return out;
+}
+
+/**
+ * Texture degli ingressi in coordinate del mondo (triplanar, chiare attorno a 1 da moltiplicare sul colore): pietra a
+ * blocchi (arco e torri), pannelli di cemento prefabbricato (portale e pensilina), pannelli di metallo verniciato (parti
+ * del colore dell'ingresso). Lato della ripetizione in metri: tile.
+ */
+const entTexCache = new Map();
+function entranceTexture(kind) {
+  if (entTexCache.has(kind)) return entTexCache.get(kind);
+  const sm = (a, b, t) => { const k = Math.min(1, Math.max(0, (t - a) / (b - a))); return k * k * (3 - 2 * k); };
+  let out;
+  if (kind === 'ashlar') {
+    // blocchi 1,2 x 0,6 m a corsi sfalsati: toni diversi per blocco, bordi appena smussati, fughe di malta incassate,
+    // grana fine, qualche venatura e lo sporco che cola sotto ogni corso
+    out = bakeTexture(256, 256, 4.8, 4.8, 0, (x, y) => {
+      const mx = x / 256 * 4.8, my = y / 256 * 4.8, row = Math.floor(my / 0.6), off = (row % 2) * 0.6;
+      const px = ((mx + off) % 1.2 + 1.2) % 1.2, py = my % 0.6, edge = Math.min(px, 1.2 - px, py, 0.6 - py);
+      const joint = 1 - sm(0.012, 0.03, edge), bevel = 1 - sm(0.03, 0.07, edge), v = cellRnd(Math.floor((mx + off) / 1.2), row, 71);
+      const g = grain(x, y, 24, 256, 256, 72), fine = cellRnd(x | 0, y | 0, 73), vein = grain(x * 0.6 + y * 0.3, y, 10, 256, 256, 74);
+      const dirt = sm(0.35, 0.6, py / 0.6) * 0.05;
+      const tone = 0.86 + 0.14 * v + 0.07 * (g - 0.5) + 0.05 * (fine - 0.5) - 0.06 * Math.max(0, vein - 0.62) - dirt - 0.05 * bevel;
+      return [Math.min(255, 240 * tone * (1 - 0.3 * joint)), 1 - joint];
+    });
+  } else if (kind === 'precast') {
+    // lastre di cemento prefabbricato 3 x 1,5 m con le fughe scure, toni appena diversi, i fori dei distanziatori e
+    // le macchie dell'acqua
+    out = bakeTexture(256, 256, 6, 6, 0, (x, y) => {
+      const mx = x / 256 * 6, my = y / 256 * 6, px = mx % 3, py = my % 1.5, edge = Math.min(px, 3 - px, py, 1.5 - py);
+      const joint = 1 - sm(0.01, 0.028, edge), v = cellRnd(Math.floor(mx / 3), Math.floor(my / 1.5), 75);
+      const hx = (px % 0.75) - 0.375, hy = (py % 0.75) - 0.375, hole = Math.hypot(hx, hy) < 0.03 ? 0.75 : 1;
+      const blot = grain(x, y, 6, 256, 256, 76), fine = cellRnd(x | 0, y | 0, 77), streak = grain(x, y * 0.1, 32, 256, 256, 78);
+      const tone = 0.92 + 0.06 * v + 0.08 * (blot - 0.5) + 0.05 * (fine - 0.5) - 0.07 * Math.max(0, streak - 0.6);
+      return [Math.min(255, 242 * tone * hole * (1 - 0.4 * joint)), 1 - joint];
+    });
+  } else {
+    // pannelli di metallo 2,4 x 1,2 m: giunti scuri sottili, riflesso un po' diverso da un pannello all'altro e la
+    // spazzolatura orizzontale
+    out = bakeTexture(256, 256, 4.8, 4.8, 0, (x, y) => {
+      const mx = x / 256 * 4.8, my = y / 256 * 4.8, px = mx % 2.4, py = my % 1.2, edge = Math.min(px, 2.4 - px, py, 1.2 - py);
+      const joint = 1 - sm(0.008, 0.022, edge), v = cellRnd(Math.floor(mx / 2.4), Math.floor(my / 1.2), 79);
+      const brush = grain(x * 0.05, y, 64, 256, 256, 80);
+      const tone = 0.93 + 0.08 * v + 0.04 * (brush - 0.5) + 0.03 * (py / 1.2 - 0.5);
+      return [Math.min(255, 245 * tone * (1 - 0.5 * joint)), 1 - joint];
+    });
+  }
+  entTexCache.set(kind, out);
+  return out;
+}
+
+/**
+ * Vetrata dell'atrio (3 x 6 m): lastre larghe 1,5 m con i montanti in alluminio, il traverso a 3 m e sotto le porte con
+ * le maniglie; il vetro riflette il cielo (più chiaro in alto) e lascia vedere l'atrio. glow: quanto si accende di notte
+ * (l'atrio illuminato sotto, più tenue sopra).
+ */
+let lobbyCache = null;
+function lobbyGlassCanvas() {
+  if (lobbyCache) return lobbyCache;
+  const W = 128, H = 256, px = W / 3, mk = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
+  const map = mk(), glow = mk(), m = map.getContext('2d'), g = glow.getContext('2d');
+  for (let i = 0; i < 2; i++) {
+    const x0 = i * 1.5 * px, w = 1.5 * px;
+    // sopra: vetro che riflette il cielo, con un riflesso obliquo
+    const sky = m.createLinearGradient(0, 0, 0, H / 2);
+    sky.addColorStop(0, '#a9bccb'); sky.addColorStop(1, '#4e6070');
+    m.fillStyle = sky; m.fillRect(x0, 0, w, H / 2);
+    m.fillStyle = 'rgba(255,255,255,0.10)';
+    m.beginPath(); m.moveTo(x0 + w * 0.15, 0); m.lineTo(x0 + w * 0.45, 0); m.lineTo(x0 + w * 0.05, H / 2); m.lineTo(x0 - w * 0.25, H / 2); m.fill();
+    // sotto: l'atrio (più scuro e caldo) con le sagome dei pilastri dentro
+    const lob = m.createLinearGradient(0, H / 2, 0, H);
+    lob.addColorStop(0, '#3e4650'); lob.addColorStop(0.75, '#2a2f36'); lob.addColorStop(1, '#22262b');
+    m.fillStyle = lob; m.fillRect(x0, H / 2, w, H / 2);
+    m.fillStyle = 'rgba(15,18,22,0.55)'; m.fillRect(x0 + w * (0.2 + 0.4 * i), H / 2 + 4, 5, H / 2 - 4);
+    m.fillStyle = 'rgba(255,240,215,0.18)'; m.fillRect(x0, H / 2 + 6, w, 4); // luci del soffitto dell'atrio
+    // porte: divisione a metà e maniglie
+    m.fillStyle = '#9aa2aa'; m.fillRect(x0 + w / 2 - 1, H / 2, 2, H / 2);
+    m.fillStyle = '#d7dbdf'; m.fillRect(x0 + w / 2 - 6, H * 0.76, 2, 18); m.fillRect(x0 + w / 2 + 4, H * 0.76, 2, 18);
+    g.fillStyle = '#6a6a6a'; g.fillRect(x0, 0, w, H / 2);
+    const gl = g.createLinearGradient(0, H / 2, 0, H);
+    gl.addColorStop(0, '#ffffff'); gl.addColorStop(1, '#b8b8b8');
+    g.fillStyle = gl; g.fillRect(x0, H / 2, w, H / 2);
+  }
+  // montanti, traverso e zoccolo in alluminio (spenti di notte)
+  for (const [c, col] of [[m, '#c3c9cf'], [g, '#000000']]) {
+    c.fillStyle = col;
+    for (const x of [0, 1.5 * px, W]) c.fillRect(x - 2, 0, 4, H);
+    c.fillRect(0, H / 2 - 3, W, 6); c.fillRect(0, 0, W, 2); c.fillRect(0, H - 4, W, 4);
+  }
+  lobbyCache = { map, glow, tileU: 3, tileV: 6 };
+  return lobbyCache;
+}
+
+/** Lamelle d'alluminio orizzontali (passo 0,4 m) davanti al vetro scuro, con i montanti ogni 1,5 m: 3 x 2,4 m. */
+let louvreTexCache = null;
+function louvreTexture() {
+  if (louvreTexCache) return louvreTexCache;
+  const sm = (a, b, t) => { const k = Math.min(1, Math.max(0, (t - a) / (b - a))); return k * k * (3 - 2 * k); };
+  louvreTexCache = bakeTexture(96, 192, 3, 2.4, 0.06, (x, y) => {
+    const mx = x / 96 * 3, my = y / 192 * 2.4, f = (my % 0.4) / 0.4, mull = Math.min(mx % 1.5, 1.5 - (mx % 1.5)) < 0.04;
+    if (mull) return [150, 158, 166, 0.9];
+    // lamella: in alto la faccia chiara che prende la luce, sotto l'ombra, poi il vetro scuro
+    const fin = f < 0.55, h = fin ? Math.sin(f / 0.55 * Math.PI) : 0;
+    const v = cellRnd(Math.floor(my / 0.4), Math.floor(mx / 1.5), 81) * 10;
+    if (fin) { const t = 1 - f / 0.55; return [128 + 70 * t + v, 136 + 70 * t + v, 145 + 70 * t + v, h]; }
+    return [26 + 10 * sm(0.55, 1, f), 31 + 10 * sm(0.55, 1, f), 38 + 12 * sm(0.55, 1, f), 0];
+  });
+  return louvreTexCache;
 }
 
 /**
@@ -3460,8 +3829,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
 
     // sotto la fascia: piani in cemento a vista (solette con il bordo chiaro) e pilastri, tra gli spalti e la fascia;
     // al centro della curva il portale dell'ingresso, alto fino alla fascia, con la vetrata a lamelle e gli schermi
-    const inner = evenOutline(shellOutline(shape, shape.outer - 0.3, N * 4), N), outer = V.rowAt(V.dE - 0.7);
-    const bb = outer.map(([x, z]) => V.bandBottom(x, z)), entry = outer.map(([x, z]) => V.inEntry(x, z));
+    const inner = evenOutline(shellOutline(shape, shape.outer - 0.3, N * 4), N), VE = veloEntryOf(shape, st), { outer, bb, entry } = VE;
     const dpos = [], quad = (a, b, c, d) => dpos.push(...a, ...b, ...c, ...a, ...c, ...d);
     for (let L = V.base + 5.2; L < Math.max(...bb) - 2; L += 5.2) {
       for (let i = 0; i < N; i++) {
@@ -3487,56 +3855,10 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       const [x, z] = outer[i];
       beam(pilasters, x, V.base, z, x, bb[i] - 0.1, z, 1);
     }
-    // portale: vetrata a lamelle in fondo, due grandi pilastri ai lati, due schermi luminosi
-    // punti del portale in fila (il portale può stare a cavallo dell'inizio della pianta)
-    const ent = [], s0 = entry.findIndex((on, i) => on && !entry[(i - 1 + N) % N]);
-    if (s0 >= 0) for (let k = 0; k < N && entry[(s0 + k) % N]; k++) ent.push((s0 + k) % N);
-    if (ent.length > 1) {
-      const lou = new THREE.CanvasTexture(louvreCanvas());
-      lou.wrapS = lou.wrapT = THREE.RepeatWrapping; lou.colorSpace = THREE.SRGBColorSpace; lou.anisotropy = 4;
-      const louMat = new THREE.MeshStandardMaterial({ map: lou, roughness: 0.35, metalness: 0.3, side: THREE.DoubleSide });
-      const lpos = [], luv = [];
-      const back = evenOutline(shellOutline(shape, shape.outer + 1.2, N * 4), N);
-      let u = 0;
-      for (let k = 0; k < ent.length - 1; k++) {
-        const i = ent[k], j = ent[k + 1];
-        const [x0, z0] = back[i], [x1, z1] = back[j], top0 = bb[i] - 0.2, top1 = bb[j] - 0.2, du = Math.hypot(x1 - x0, z1 - z0) / 3;
-        lpos.push(x0, V.base, z0, x1, V.base, z1, x1, top1, z1, x0, V.base, z0, x1, top1, z1, x0, top0, z0);
-        luv.push(u, 0, u + du, 0, u + du, top1 / 4, u, 0, u + du, top1 / 4, u, top0 / 4);
-        u += du;
-        // soffitto del portale (sotto la fascia)
-        const [ox0, oz0] = outer[i], [ox1, oz1] = outer[j];
-        lpos.push(x0, top0, z0, ox0, top0, oz0, ox1, top1, oz1, x0, top0, z0, ox1, top1, oz1, x1, top1, z1);
-        luv.push(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-      }
-      const lg = new THREE.BufferGeometry();
-      lg.setAttribute('position', new THREE.Float32BufferAttribute(lpos, 3));
-      lg.setAttribute('uv', new THREE.Float32BufferAttribute(luv, 2));
-      lg.computeVertexNormals();
-      group.add(new THREE.Mesh(lg, louMat));
-      own.push(lou, louMat, lg);
-      for (const i of [ent[0], ent[ent.length - 1]]) {
-        const [x, z] = outer[i], [xb, zb] = back[i];
-        beam(pilasters, (x + xb) / 2, V.base, (z + zb) / 2, (x + xb) / 2, bb[i], (z + zb) / 2, 2.6);
-      }
-      const scTex = new THREE.CanvasTexture(entryScreenCanvas());
-      scTex.colorSpace = THREE.SRGBColorSpace;
-      const scMat = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xffffff, emissiveMap: scTex, emissiveIntensity: 0.9, side: THREE.DoubleSide });
-      const spos = [], suv = [], top = Math.min(...ent.map(i => bb[i])) - 1.5, H = Math.min(9, top - V.base - 3);
-      for (const f of [0.28, 0.72]) {
-        const c = ent[Math.round(f * (ent.length - 1))], [x, z] = back[c], [xo, zo] = outer[c], l = Math.hypot(xo - x, zo - z) || 1;
-        const nx = (xo - x) / l, nz = (zo - z) / l, px = x + nx * 0.8, pz = z + nz * 0.8, tx = -nz, tz = nx, w = 3.2;
-        const y0 = top - H, y1 = top;
-        spos.push(px - tx * w, y0, pz - tz * w, px + tx * w, y0, pz + tz * w, px + tx * w, y1, pz + tz * w,
-          px - tx * w, y0, pz - tz * w, px + tx * w, y1, pz + tz * w, px - tx * w, y1, pz - tz * w);
-        suv.push(0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1);
-      }
-      const sg = new THREE.BufferGeometry();
-      sg.setAttribute('position', new THREE.Float32BufferAttribute(spos, 3));
-      sg.setAttribute('uv', new THREE.Float32BufferAttribute(suv, 2));
-      sg.computeVertexNormals();
-      group.add(new THREE.Mesh(sg, scMat));
-      own.push(scTex, scMat, sg);
+    // portale: i due grandi pilastri ai lati (vetrate, pensilina, schermi e logo con gli altri ingressi, più sotto)
+    if (VE.ent.length > 1) for (const i of [VE.ent[0], VE.ent[VE.ent.length - 1]]) {
+      const [x, z] = outer[i], [xb, zb] = VE.back[i];
+      beam(pilasters, (x + xb) / 2, V.base, (z + zb) / 2, (x + xb) / 2, bb[i], (z + zb) / 2, 2.6);
     }
   }
   if (st.roof === 'blades') {
@@ -3738,7 +4060,8 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       const R0 = P(C.ridge, r, 0), V0 = P(C.valley, v, 0), R1 = P(C.ridge, r2, 0), [fx, fz] = C.rowAt(C.dFoot)[v];
       tubeAt(tubes, ...R0, ...V0, 0.5); tubeAt(tubes, ...V0, ...R1, 0.5);
       const [ta, tb] = [C.rowAt(C.dV)[(v + CROWN_ROW - 1) % CROWN_ROW], C.rowAt(C.dV)[(v + 1) % CROWN_ROW]];
-      posts.push([[fx, C.base, fz], [V0[0], V0[1] - 0.4, V0[2]], [tb[0] - ta[0], tb[1] - ta[1]]]);
+      // niente colonne davanti agli ingressi (l'anello e le vele restano)
+      if (!inEntranceBand(shape, st, fx, fz, 2.5)) posts.push([[fx, C.base, fz], [V0[0], V0[1] - 0.4, V0[2]], [tb[0] - ta[0], tb[1] - ta[1]]]);
       // bordo verso il campo a denti
       const Ri = P(C.ridge, r, 1), Vi = P(C.valley, v, 1), Ri2 = P(C.ridge, r2, 1);
       tubeAt(tubes, ...Ri, ...Vi, 0.3); tubeAt(tubes, ...Vi, ...Ri2, 0.3);
@@ -3994,7 +4317,8 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
         // piloni a traliccio che reggono il tetto da fuori, e croci della trave perimetrale tra un pilone e l'altro
         // niente piloni addosso alle torri delle rampe (se ci sono)
         const towersAt = st.ramps ? rampStations(run, cum) : [];
-        const nearTower = (u) => towersAt.some(t => Math.min(Math.abs(u - t), run.closed ? total - Math.abs(u - t) : Infinity) < 8);
+        const nearTower = (u) => towersAt.some(t => Math.min(Math.abs(u - t), run.closed ? total - Math.abs(u - t) : Infinity) < 8)
+          || nearEntrance(shape, st, ...pointAt(run, cum, u, 0), 4);
         for (const u of stations(run, cum, PYLON_EVERY, PD)) {
           if (nearTower(u)) continue;
           pylon(beams, run, cum, u, PD, PH);
@@ -4019,6 +4343,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       } else if (!girders) {
         // moderna: pilastri che reggono il tetto da fuori (con le travi rosse il tetto è appeso a loro)
         for (const u of stations(run, cum, SUPPORT_EVERY, R.dOut - 1.5)) {
+          if (nearEntrance(shape, st, ...pointAt(run, cum, u, 0), 2)) continue;
           const d = R.dOut - 1.5, [x, z] = pointAt(run, cum, u, d);
           beam(beams, x, 0, z, x, R.h(d) - 0.1, z, 0.7);
         }
@@ -4900,6 +5225,329 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   inst(screenFrame, frames);
   inst(dark, seams);
   inst(sculptMat, sculpt);
+
+  // ingressi monumentali (portale vetrato, arco, pensilina, torri gemelle) al centro dei lati scelti, con il logo sopra
+  // (logoSpots, sull'insegna che lo regge) e l'immagine personale sui pannelli; davanti la piazzetta lastricata con le
+  // aiuole. Sul Vélodrome anche il suo ingresso sulla curva (atrio vetrato, lamelle, pensilina, schermi). Di notte vetri,
+  // faretti, lanterne, strisce LED (del colore dell'ingresso) e pannelli si accendono
+  let entrance = null;
+  const ents = entrancesOf(shape, st), VE = veloEntryOf(shape, st), velo = VE && VE.ent.length > 1 ? VE : null;
+  if (ents.length || velo) {
+    // texture vere in coordinate del mondo: pannelli di metallo sulle parti colorate, pietra a blocchi (arco, torri) o
+    // cemento prefabbricato (portale, pensilina, Vélodrome) sulle parti chiare
+    const triTex = (T) => { const t = new THREE.CanvasTexture(T.canvas); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; own.push(t); return t; };
+    const stoneKind = st.entrance === 'arch' || st.entrance === 'towers' ? 'ashlar' : 'precast';
+    const frameMat = new THREE.MeshStandardMaterial({ roughness: 0.36, metalness: 0.35, side: THREE.DoubleSide });
+    triplanar(frameMat, triTex(entranceTexture('metal')), 1 / 4.8);
+    const stoneMat = new THREE.MeshStandardMaterial({ roughness: 0.82, side: THREE.DoubleSide });
+    triplanar(stoneMat, triTex(entranceTexture(stoneKind)), stoneKind === 'ashlar' ? 1 / 4.8 : 1 / 6);
+    // vetrate dell'atrio: porte in basso, vetro che riflette il cielo sopra; di notte l'atrio acceso
+    const LG = lobbyGlassCanvas(), gm = new THREE.CanvasTexture(LG.map), gg = new THREE.CanvasTexture(LG.glow);
+    for (const t of [gm, gg]) { t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.ClampToEdgeWrapping; t.anisotropy = 4; t.colorSpace = THREE.SRGBColorSpace; }
+    const entGlass = new THREE.MeshStandardMaterial({ map: gm, roughness: 0.12, metalness: 0.5, side: THREE.DoubleSide, emissive: 0xffd9a0, emissiveMap: gg, emissiveIntensity: 0.04 });
+    // pannelli con l'immagine personale: uno per forma (ingressi e schermi del Vélodrome)
+    const panelMat = (aspect) => {
+      const canvas = document.createElement('canvas'), tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+      const mat = new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.15, roughness: 0.5, side: THREE.DoubleSide });
+      own.push(mat); nightGlow.push([mat, 0.15, 0.9]);
+      return { mat, tex, canvas, aspect, shown: null, key: '' };
+    };
+    const ledMat = new THREE.MeshStandardMaterial({ roughness: 0.3, emissiveIntensity: 0.35 });
+    // lastricato in metri, tinto col colore della pietra
+    const PV = floorTexture('plaza'), pvMap = new THREE.CanvasTexture(PV.canvas), pvNrm = new THREE.CanvasTexture(PV.normal);
+    for (const t of [pvMap, pvNrm]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; t.repeat.set(1 / PV.tileU, 1 / PV.tileV); }
+    pvMap.colorSpace = THREE.SRGBColorSpace;
+    const paveMat = new THREE.MeshStandardMaterial({ map: pvMap, normalMap: pvNrm, roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x4d7d38, roughness: 0.9, flatShading: true });
+    const ico = new THREE.IcosahedronGeometry(0.5, 1);
+    own.push(frameMat, stoneMat, gm, gg, entGlass, ledMat, pvMap, pvNrm, paveMat, leafMat, ico);
+    // di notte pietra e parti colorate sono illuminate dal basso (un velo del loro colore)
+    nightGlow.push([entGlass, 0.04, 0.8], [ledMat, 0.35, 2.4], [stoneMat, 0, 0.16], [frameMat, 0, 0.1]);
+    const fr = [], stn = [], drk = [], stl = [], lmp = [], led = [], leaf = [], plateFr = [], plateLed = [];
+    const gpos = [], guv = [], ppos = [], puv = [], panels = [], extra = [];
+    const quad = (pos, uv, a, b, c, d, uvs) => { pos.push(...a, ...b, ...c, ...a, ...c, ...d); uv.push(...uvs[0], ...uvs[1], ...uvs[2], ...uvs[0], ...uvs[2], ...uvs[3]); };
+    // strisce di vetrata (v in metri dal piano): fino a 3 m le porte (metà bassa della texture), sopra il vetro a
+    // lastre alte 3 m (metà alta, ripetuta)
+    const glassStrips = (v0, v1) => {
+      const out = [];
+      for (let v = v0; v < v1 - 1e-6;) {
+        const low = v < 3 - 1e-6, k = low ? 0 : Math.floor((v - 3) / 3 + 1e-6), top = Math.min(v1, low ? 3 : 6 + k * 3);
+        out.push([v, top, low ? v / 6 : 0.5 + (v - 3 - k * 3) / 6, low ? top / 6 : 0.5 + (top - 3 - k * 3) / 6]);
+        v = top;
+      }
+      return out;
+    };
+    // sistema di riferimento di un ingresso: at(u, v, w) → mondo, R destra vista da fuori, N verso fuori
+    const frameOf = (at, R, N) => {
+      const bx = (list, u, v, w, su, sv, sw) => boxAt(list, ...at(u, v, w), R.map(k => k * su), [0, sv, 0], N.map(k => k * sw));
+      const bm = (list, a, b, t) => beam(list, ...at(...a), ...at(...b), t);
+      const glassWall = (u0, u1, v0, v1, w) => {
+        for (const [a, b, ta, tb] of glassStrips(v0, v1)) quad(gpos, guv, at(u0, a, w), at(u1, a, w), at(u1, b, w), at(u0, b, w),
+          [[u0 / LG.tileU, ta], [u1 / LG.tileU, ta], [u1 / LG.tileU, tb], [u0 / LG.tileU, tb]]);
+      };
+      // vetrata con i montanti in rilievo ogni 3 m (come le lastre della texture) e il traverso sopra le porte
+      const curtain = (u0, u1, v1, w) => {
+        glassWall(u0, u1, 0, v1, w);
+        for (let u = Math.ceil(u0 / 3 + 0.01) * 3; u < u1 - 0.1; u += 3) bx(stl, u, v1 / 2, w + 0.1, 0.16, v1, 0.22);
+        bx(stl, (u0 + u1) / 2, 3, w + 0.1, u1 - u0, 0.16, 0.22);
+      };
+      // piazzetta lastricata (da w0 a pd, larga pw) con il bordo, i paletti e due aiuole con gli alberi ai lati
+      const plaza = (pw, w0, pd) => {
+        bx(stn, 0, 0.04, (w0 + pd) / 2, pw, 0.08, pd - w0);
+        quad(ppos, puv, at(-pw / 2, 0.085, w0), at(-pw / 2, 0.085, pd), at(pw / 2, 0.085, pd), at(pw / 2, 0.085, w0), [[-pw / 2, w0], [-pw / 2, pd], [pw / 2, pd], [pw / 2, w0]]);
+        bx(fr, 0, 0.06, pd, pw, 0.1, 0.4);
+        for (let u = -(pw - 2) / 2; u <= (pw - 2) / 2 + 0.01; u += 2.5) if (Math.abs(u) > 3) bx(drk, u, 0.5, pd - 0.6, 0.25, 1, 0.25);
+        for (const k of [-1, 1]) {
+          const u = k * (pw / 2 - 2.6), w = pd - 3.4;
+          bx(stn, u, 0.4, w, 3.2, 0.8, 3.2);
+          bx(drk, u, 0.82, w, 2.8, 0.06, 2.8);
+          bm(drk, [u, 0.8, w], [u, 3.6, w], 0.32);
+          boxAt(leaf, ...at(u, 4.6, w), R.map(c => c * 3.6), [0, 3.2, 0], N.map(c => c * 3.6));
+          boxAt(leaf, ...at(u + 0.5, 5.9, w - 0.4), R.map(c => c * 2.6), [0, 2.4, 0], N.map(c => c * 2.6));
+        }
+      };
+      // pannello con l'immagine (e la cornice scura dietro)
+      const panel = (P, pm) => {
+        quad(pm.pos, pm.uv, at(P.u0, P.v0, P.w), at(P.u1, P.v0, P.w), at(P.u1, P.v1, P.w), at(P.u0, P.v1, P.w), [[0, 0], [1, 0], [1, 1], [0, 1]]);
+        bx(drk, (P.u0 + P.u1) / 2, (P.v0 + P.v1) / 2, P.w - 0.06, P.u1 - P.u0 + 0.4, P.v1 - P.v0 + 0.4, 0.08);
+      };
+      return { bx, bm, glassWall, curtain, plaza, panel };
+    };
+    if (ents.length) {
+      const P0 = ents[0].g.panels[0], pm = panelMat((P0.u1 - P0.u0) / (P0.v1 - P0.v0));
+      pm.pos = []; pm.uv = []; panels.push(pm);
+      for (const e of ents) {
+        const { W, H, g, at } = e, R = [e.rx, 0, e.rz], N = [e.nx, 0, e.nz], L = g.logo;
+        const { bx, bm, glassWall, curtain, plaza, panel } = frameOf(at, R, N);
+        // da (u, v, w) locali al mondo: x = u lungo R, y = v, z = w lungo N (per le forme estruse)
+        const toWorld = (geo, w = 0) => geo.applyMatrix4(new THREE.Matrix4().makeBasis(new THREE.Vector3(...R), new THREE.Vector3(0, 1, 0), new THREE.Vector3(...N)).setPosition(...at(0, 0, w)));
+        for (const P of g.panels) panel(P, pm);
+        // insegna che regge il logo: lastra del colore dell'ingresso col bordo LED, su due montanti
+        if (L.base !== undefined) {
+          const ps = L.s * 1.2;
+          bx(plateFr, 0, L.v, L.w - 0.3, ps, ps, 0.4);
+          for (const k of [-1, 1]) bx(plateFr, k * ps * 0.3, L.base + 0.25, L.w - 0.3, 0.4, 0.5, 0.3);
+          for (const k of [-1, 1]) {
+            bx(plateLed, 0, L.v + k * (ps / 2 - 0.2), L.w - 0.08, ps - 0.3, 0.12, 0.05);
+            bx(plateLed, k * (ps / 2 - 0.2), L.v, L.w - 0.08, 0.12, ps - 0.3, 0.05);
+          }
+        }
+        plaza(W + 16, 0, Math.min(g.depth + 10, e.pdMax));
+        if (st.entrance === 'portal') {
+          // portale: due grandi pilastri e l'architrave del colore dell'ingresso con le strisce LED, vetrata a tutta
+          // altezza, pensilina chiara con il bordo colorato, i faretti e le colonnine, gradini, tornelli, due pennoni
+          const cy = H * 0.42;
+          curtain(-W / 2 + 1.2, W / 2 - 1.2, H - 2.4, 0.6);
+          for (const k of [-1, 1]) {
+            bx(fr, k * W / 2, H / 2, 2.5, 2.4, H, 5);
+            bx(led, k * W / 2, (H - 2.4) / 2 + 0.3, 5.03, 0.35, H - 3.6, 0.06);
+          }
+          bx(fr, 0, H - 1.2, 2.8, W + 2.4, 2.4, 5.6);
+          bx(led, 0, H - 2.2, 5.63, W + 2.4, 0.12, 0.06);
+          bx(stn, 0, cy, 6, W + 1, 0.5, 9);
+          bx(fr, 0, cy, 10.53, W + 1.1, 0.7, 0.12);
+          for (let u = -W / 2 + 2; u <= W / 2 - 1.9; u += 3) for (const w of [4, 8]) bx(lmp, u, cy - 0.27, w, 0.6, 0.04, 0.6);
+          for (const k of [-1, 1]) bm(stl, [k * W * 0.4, 0, 10], [k * W * 0.4, cy - 0.25, 10], 0.35);
+          for (let i = 0; i < 3; i++) bx(stn, 0, (3 - i) * 0.09, 11 + i * 0.9, W + 1, (3 - i) * 0.18, 0.9);
+          const n = Math.max(3, Math.floor((W - 4) / 2.6));
+          for (let i = 0; i < n; i++) {
+            const u = -W / 2 + 2 + (i + 0.5) * (W - 4) / n;
+            bx(drk, u, 0.55, 8, 0.6, 1.1, 0.9);
+            bx(stl, u + 0.5, 0.9, 8, 0.5, 0.06, 0.06);
+          }
+          for (const k of [-1, 1]) {
+            const u = k * (W / 2 + 1.8);
+            bm(stl, [u, 0, 12.5], [u, H + 7, 12.5], 0.25);
+            bx(fr, u + k * 1.6, H + 5.6, 12.5, 3, 2, 0.06);
+          }
+        } else if (st.entrance === 'arch') {
+          // arco monumentale in pietra su zoccolo, con l'archivolto in rilievo, la chiave di volta, le lesene agli angoli,
+          // la cornice e l'attico del colore dell'ingresso (il logo sull'attico), il cancello in ferro e due lanterne
+          const r = g.Wa / 2, pier = W / 2 - r, t = Math.min(0.8, pier * 0.12), pwl = Math.min(1.1, pier * 0.16);
+          const shp = new THREE.Shape();
+          shp.moveTo(-W / 2, 0); shp.lineTo(W / 2, 0); shp.lineTo(W / 2, H); shp.lineTo(-W / 2, H); shp.lineTo(-W / 2, 0);
+          const hole = new THREE.Path();
+          hole.moveTo(-r, 0); hole.lineTo(-r, g.hs); hole.absarc(0, g.hs, r, Math.PI, 0, true); hole.lineTo(r, 0); hole.lineTo(-r, 0);
+          shp.holes.push(hole);
+          extra.push(toWorld(new THREE.ExtrudeGeometry(shp, { depth: 4, bevelEnabled: false, curveSegments: 24 })));
+          const av = new THREE.Shape();
+          av.moveTo(-r - t, 0); av.lineTo(-r - t, g.hs); av.absarc(0, g.hs, r + t, Math.PI, 0, true); av.lineTo(r + t, 0);
+          av.lineTo(r, 0); av.lineTo(r, g.hs); av.absarc(0, g.hs, r, 0, Math.PI, false); av.lineTo(-r, 0); av.lineTo(-r - t, 0);
+          extra.push(toWorld(new THREE.ExtrudeGeometry(av, { depth: 0.25, bevelEnabled: false, curveSegments: 24 }), 4));
+          bx(fr, 0, g.hs + r + t / 2, 4.2, 1.3, t + 1, 0.45);
+          for (const k of [-1, 1]) {
+            bx(stn, k * (r + (pier + 0.2) / 2), 0.7, 2.1, pier + 0.2, 1.4, 4.4);
+            const u = k * (W / 2 - pwl / 2 - 0.05);
+            bx(stn, u, (1.4 + H - 0.4) / 2, 4.15, pwl, H - 1.8, 0.3);
+            bx(stn, u, H - 0.2, 4.2, pwl + 0.3, 0.4, 0.45);
+          }
+          bx(fr, 0, H + 0.25, 2, W + 0.8, 0.5, 4.8);
+          bx(stn, 0, H + 0.5 + g.At / 2, 2.05, W * 0.86, g.At, 4.2);
+          bx(fr, 0, H + 0.5 + g.At + 0.2, 2, W * 0.9, 0.4, 4.6);
+          bx(drk, 0, (g.hs + r) / 2, 1.8, g.Wa, g.hs + r, 0.12);
+          for (let u = -r + 0.3; u < r; u += 0.45) bm(stl, [u, 0, 1.95], [u, g.hs + Math.sqrt(Math.max(0, r * r - u * u)) - 0.1, 1.95], 0.07);
+          for (const v of [1.2, g.hs * 0.6]) bx(stl, 0, v, 1.95, g.Wa - 0.2, 0.12, 0.1);
+          for (const k of [-1, 1]) {
+            const u = k * (W / 2 + 1.5);
+            bm(stl, [u, 0, 7], [u, 4.6, 7], 0.22);
+            lampAt(lmp, ...at(u, 5, 7), 0.8, 0.8);
+          }
+        } else if (st.entrance === 'canopy') {
+          // pensilina a sbalzo: grande lastra inclinata (sopra del colore dell'ingresso, sotto chiara con i faretti) con il
+          // frontale e la striscia LED, retta da due colonne a V; vetrata d'ingresso con le pinne, maxischermo appeso con
+          // l'immagine; il logo sull'insegna in piedi verso il bordo davanti
+          curtain(-W / 2, W / 2, H, 0.6);
+          for (const k of [-1, 1]) bx(fr, k * W / 2, H / 2, 1, 0.8, H, 2);
+          slab(fr, ...at(0, H + 0.3, 0), ...at(0, H + g.rise + 0.3, g.depth), e.rx, e.rz, W + 6, 0.6);
+          slab(stn, ...at(0, H - 0.25, 0), ...at(0, H + g.rise - 0.25, g.depth), e.rx, e.rz, W + 6, 0.5);
+          bx(fr, 0, H + g.rise + 0.05, g.depth + 0.1, W + 6, 1.3, 0.2);
+          bx(led, 0, H + g.rise - 0.5, g.depth + 0.22, W + 6, 0.1, 0.04);
+          const vy = (w) => H + g.rise * w / g.depth - 0.5;
+          for (let u = -W / 2 - 1.5; u <= W / 2 + 1.6; u += 3.2) for (const w of [3, 6.5, 10, 13.5]) bx(lmp, u, vy(w) - 0.03, w, 0.7, 0.05, 0.7);
+          for (const k of [-1, 1]) {
+            const u = k * (W / 2 - 1);
+            bm(stl, [u, 0, 10], [u - 2.4, vy(12), 12], 0.55);
+            bm(stl, [u, 0, 10], [u + 2.4, vy(12), 12], 0.55);
+          }
+          const P = g.panels[0];
+          bx(drk, 0, (P.v0 + P.v1) / 2, 7.95, P.u1 - P.u0 + 0.6, P.v1 - P.v0 + 0.6, 0.35);
+          for (const k of [-1, 1]) bm(stl, [k * (P.u1 - 1), P.v1, 8], [k * (P.u1 - 1), vy(8), 8], 0.1);
+        } else {
+          // torri gemelle in pietra su zoccolo, con le feritoie, il tamburo, la cupola e il pennone in cima (come il vecchio
+          // Wembley); ponte del colore dell'ingresso con la striscia LED, cancellata sotto, stendardi appesi
+          for (const k of [-1, 1]) {
+            const u = k * (W / 2 + g.TW / 2);
+            bx(stn, u, 0.75, 3, g.TW + 0.8, 1.5, g.TW + 0.8);
+            bx(stn, u, g.TH / 2, 3, g.TW, g.TH, g.TW);
+            bx(fr, u, g.TH + 0.4, 3, g.TW + 0.6, 0.8, g.TW + 0.6);
+            bx(stn, u, g.TH + 2, 3, g.TW * 0.78, 2.4, g.TW * 0.78);
+            bx(fr, u, g.TH + 3.3, 3, g.TW * 0.86, 0.3, g.TW * 0.86);
+            const dome = new THREE.SphereGeometry(g.TW * 0.38, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+            dome.translate(...at(u, g.TH + 3.45, 3));
+            extra.push(dome);
+            bm(stl, [u, g.TH + 3.45 + g.TW * 0.38, 3], [u, g.TH + 10, 3], 0.18);
+            bx(fr, u + k * 1.3, g.TH + 9, 3, 2.6, 1.6, 0.06);
+            for (let v = 3; v < g.TH - 2; v += 3) for (const w of [6.03, -0.03]) glassWall(u - 0.5, u + 0.5, v, v + 1.8, w);
+          }
+          bx(fr, 0, H + 1.6, 3, W, 3.2, 6);
+          bx(stn, 0, H + 0.15, 3, W, 0.3, 6.1);
+          bx(led, 0, H + 2.9, 6.03, W, 0.12, 0.06);
+          bx(drk, 0, H / 2, 1.5, W, H, 0.12);
+          for (let u = -W / 2 + 0.4; u < W / 2; u += 0.5) bm(stl, [u, 0, 1.6], [u, H, 1.6], 0.07);
+          for (const P of g.panels) for (const u of [P.u0 + 0.3, P.u1 - 0.3]) bm(stl, [u, P.v1, 5.6], [u, H, 5.6], 0.06);
+        }
+      }
+    }
+    if (velo) {
+      // ingresso del Vélodrome sotto la fascia che sale al centro della curva: in basso l'atrio vetrato con le porte,
+      // sopra le lamelle d'alluminio fino alla fascia (col soffitto), la pensilina a sbalzo del colore dell'ingresso con
+      // i faretti, i tiranti e la striscia LED, i due schermi con l'immagine personale, il podio con i gradini e i
+      // tornelli, la striscia LED sul bordo della fascia e davanti la piazzetta con i pennoni
+      const { V, ent, back, outer, bb, nrm } = velo, b0 = V.base, GL = 6;
+      const LT = louvreTexture(), lMap = new THREE.CanvasTexture(LT.canvas), lNrm = new THREE.CanvasTexture(LT.normal);
+      for (const t of [lMap, lNrm]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; }
+      lMap.colorSpace = THREE.SRGBColorSpace;
+      const louMat = new THREE.MeshStandardMaterial({ map: lMap, normalMap: lNrm, roughness: 0.35, metalness: 0.45, side: THREE.DoubleSide });
+      own.push(lMap, lNrm, louMat);
+      const lpos = [], luv = [], cpos = [];
+      // pezzo dritto tra due punti del portale, spostato verso fuori di off: lungo il tratto, alto sv, profondo sw
+      const segBox = (list, i, j, off, v, sv, sw) => {
+        const [x0, z0] = back[i], [x1, z1] = back[j], len = Math.hypot(x1 - x0, z1 - z0) || 1, ax = (x1 - x0) / len, az = (z1 - z0) / len;
+        const nx = (nrm[i][0] + nrm[j][0]) / 2, nz = (nrm[i][1] + nrm[j][1]) / 2;
+        boxAt(list, (x0 + x1) / 2 + nx * off, v, (z0 + z1) / 2 + nz * off, [ax * (len + 0.08), 0, az * (len + 0.08)], [0, sv, 0], [-az * sw, 0, ax * sw]);
+      };
+      let u = 0;
+      for (let k = 0; k < ent.length - 1; k++) {
+        const i = ent[k], j = ent[k + 1], [x0, z0] = back[i], [x1, z1] = back[j], len = Math.hypot(x1 - x0, z1 - z0);
+        const t0 = bb[i] - 0.2, t1 = bb[j] - 0.2, U = (a) => a / LG.tileU;
+        for (const [a, b, ta, tb] of glassStrips(0, GL)) quad(gpos, guv, [x0, b0 + a, z0], [x1, b0 + a, z1], [x1, b0 + b, z1], [x0, b0 + b, z0], [[U(u), ta], [U(u + len), ta], [U(u + len), tb], [U(u), tb]]);
+        quad(lpos, luv, [x0, b0 + GL, z0], [x1, b0 + GL, z1], [x1, t1, z1], [x0, t0, z0],
+          [[u / LT.tileU, 0], [(u + len) / LT.tileU, 0], [(u + len) / LT.tileU, (t1 - b0 - GL) / LT.tileV], [u / LT.tileU, (t0 - b0 - GL) / LT.tileV]]);
+        const [ox0, oz0] = outer[i], [ox1, oz1] = outer[j];
+        cpos.push(x0, t0, z0, ox0, t0, oz0, ox1, t1, oz1, x0, t0, z0, ox1, t1, oz1, x1, t1, z1);
+        // montanti della vetrata e delle lamelle, traverso sopra le porte
+        beam(stl, x0, b0, z0, x0, t0, z0, 0.18);
+        beam(stl, x0, b0 + 3, z0, x1, b0 + 3, z1, 0.14);
+        // pensilina: lastra colorata, faretti sotto, striscia LED sul bordo davanti, tiranti verso le lamelle
+        segBox(fr, i, j, 2.6, b0 + GL + 0.35, 0.7, 5.2);
+        segBox(led, i, j, 5.22, b0 + GL + 0.08, 0.12, 0.06);
+        for (const off of [1.6, 3.9]) segBox(lmp, i, j, off, b0 + GL - 0.02, 0.04, 0.6);
+        if (k % 2 === 0) {
+          const nx = nrm[i][0], nz = nrm[i][1];
+          beam(stl, x0 + nx * 4.9, b0 + GL + 0.7, z0 + nz * 4.9, x0 + nx * 0.2, b0 + GL + 5.5, z0 + nz * 0.2, 0.09);
+        }
+        // striscia LED sul bordo basso della fascia
+        beam(led, ox0, bb[i] - 0.12, oz0, ox1, bb[j] - 0.12, oz1, 0.16);
+        u += len;
+      }
+      const last = ent[ent.length - 1];
+      beam(stl, ...[back[last][0], b0, back[last][1]], back[last][0], bb[last] - 0.2, back[last][1], 0.18);
+      for (const [pos, uv, mat] of [[lpos, luv, louMat], [cpos, null, dark]]) {
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        if (uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+        g.computeVertexNormals();
+        const m = new THREE.Mesh(g, mat);
+        m.receiveShadow = true;
+        group.add(m); own.push(g);
+      }
+      // schermi con l'immagine personale, sopra la pensilina davanti alle lamelle
+      const top = Math.min(...ent.map(i => bb[i])) - 1.5, y0 = b0 + GL + 1.8, Hs = Math.min(9, top - y0);
+      if (Hs > 3) {
+        const pmV = panelMat(6.4 / Hs);
+        pmV.pos = []; pmV.uv = []; panels.push(pmV);
+        for (const f of [0.28, 0.72]) {
+          const c = ent[Math.round(f * (ent.length - 1))], [x, z] = back[c], [nx, nz] = nrm[c], tx = -nz, tz = nx, w = 3.2;
+          const px = x + nx * 0.8, pz = z + nz * 0.8, y1 = y0 + Hs;
+          quad(pmV.pos, pmV.uv, [px - tx * w, y0, pz - tz * w], [px + tx * w, y0, pz + tz * w], [px + tx * w, y1, pz + tz * w], [px - tx * w, y1, pz - tz * w], [[1, 0], [0, 0], [0, 1], [1, 1]]);
+          boxAt(drk, px - nx * 0.08, (y0 + y1) / 2, pz - nz * 0.08, [tx * 6.9, 0, tz * 6.9], [0, Hs + 0.5, 0], [nx * 0.12, 0, nz * 0.12]);
+          beam(stl, px - nx * 0.1, y1 + 0.2, pz - nz * 0.1, x + nx * 0.05, top + 1.2, z + nz * 0.05, 0.08);
+        }
+      }
+      // davanti, in un riferimento dritto al centro del portale: podio con i gradini e i tornelli, piazzetta, pennoni
+      const c = ent[Math.floor(ent.length / 2)], [ox, oz] = back[c], N = [nrm[c][0], 0, nrm[c][1]], R = [N[2], 0, -N[0]];
+      const at = (u, v, w) => [ox + R[0] * u + N[0] * w, v + b0, oz + R[2] * u + N[2] * w];
+      const { bx, bm, plaza } = frameOf(at, R, N);
+      const wE = Math.hypot(outer[c][0] - ox, outer[c][1] - oz) + 0.7, PW = V.ENTRY_W + 16;
+      bx(stn, 0, 0.18, 2.1, V.ENTRY_W - 2, 0.36, 6.2);
+      bx(stn, 0, 0.12, 5.65, V.ENTRY_W - 2, 0.24, 0.9);
+      bx(stn, 0, 0.06, 6.55, V.ENTRY_W - 2, 0.12, 0.9);
+      for (let uu = -9; uu <= 9.01; uu += 2) { bx(drk, uu, 0.9, 3.4, 0.6, 1.1, 0.9); bx(stl, uu + 0.5, 1.25, 3.4, 0.5, 0.06, 0.06); }
+      const pd = Math.min(wE + 16, st.facade === 'esplanade' ? esplanadeW(st) - 2 : Infinity);
+      plaza(PW, 0, pd);
+      for (const k of [-1, 1]) {
+        const uu = k * (PW / 2 - 6.5);
+        bm(stl, [uu, 0, pd - 2], [uu, 14, pd - 2], 0.25);
+        bx(fr, uu + k * 1.6, 12.6, pd - 2, 3, 2, 0.06);
+      }
+    }
+    const instL = (mat, list, geo = box, into = group) => {
+      if (!list.length) return;
+      const m = new THREE.InstancedMesh(geo, mat, list.length / 16);
+      m.instanceMatrix.array.set(list); m.instanceMatrix.needsUpdate = true;
+      m.frustumCulled = false; m.castShadow = m.receiveShadow = true;
+      into.add(m); own.push(m);
+    };
+    instL(frameMat, fr); instL(stoneMat, stn); instL(dark, drk); instL(steel, stl); instL(lamp, lmp); instL(ledMat, led); instL(leafMat, leaf, ico);
+    // l'insegna si vede solo se c'è il logo da metterci sopra (setLogo)
+    const plates = new THREE.Group();
+    plates.visible = false;
+    instL(frameMat, plateFr, box, plates); instL(ledMat, plateLed, box, plates);
+    group.add(plates);
+    for (const eg of extra) { const m = new THREE.Mesh(eg, stoneMat); m.castShadow = m.receiveShadow = true; group.add(m); own.push(eg); }
+    for (const [pos, uv, mat] of [[gpos, guv, entGlass], [ppos, puv, paveMat], ...panels.map(pm => [pm.pos, pm.uv, pm.mat])]) {
+      if (!pos.length) continue;
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+      g.computeVertexNormals();
+      const m = new THREE.Mesh(g, mat);
+      m.receiveShadow = true;
+      group.add(m); own.push(g);
+    }
+    entrance = { frameMat, stoneMat, ledMat, paveMat, plates, panels };
+  }
   if (bandPos.length) {
     // fasce orizzontali dei piani sulle vetrate
     const g = new THREE.BufferGeometry();
@@ -4931,7 +5579,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   inst(girderMat, girderBeams);
   inst([steel, steel, steel, steel, lamp, steel], lamps); // la faccia +z del proiettore è quella accesa
 
-  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, nightGlow, repaint, tints, badge, wallMat, panelSkinMat, stoneLight, stoneDark, tentGlass };
+  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, nightGlow, repaint, tints, badge, wallMat, panelSkinMat, stoneLight, stoneDark, tentGlass, entrance };
 }
 
 /* --------------------------------------------------------------- scena */
@@ -5196,6 +5844,30 @@ function buildStadium(L, st) {
   own.push(logoGeo, logoMat);
   let logoSrc = null, logoTex = null;
 
+  // immagine dei pannelli degli ingressi: quella personale (tela) o il pannello col nome dello stadio
+  let entImg = null, entName = 'FANTACAZZ', entColor = '#1e5bb8', entFit = 'fill';
+  const applyEntranceImage = () => {
+    if (!outside.entrance) return;
+    const fit = !!entImg && entFit === 'fit';
+    const key = entImg ? (fit ? `fit|${entColor}` : 'fill') : `${entName}|${entColor}`;
+    // un pannello per forma (ingressi, schermi del Vélodrome): ognuno col suo taglio
+    for (const E of outside.entrance.panels) {
+      if (key === E.key && E.shown === entImg) continue;
+      E.key = key; E.shown = entImg;
+      if (!entImg) paintEntranceDefault(E.canvas, entName, entColor, E.aspect);
+      else if (fit) paintEntranceFit(E.canvas, entImg, entColor, E.aspect);
+      const src = entImg && !fit ? entImg : E.canvas, tex = new THREE.CanvasTexture(src);
+      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+      // "riempie": l'immagine copre il pannello senza deformarsi (si taglia quello che avanza)
+      const ia = src.width / src.height;
+      if (src === entImg && ia > E.aspect) { tex.repeat.set(E.aspect / ia, 1); tex.offset.set((1 - E.aspect / ia) / 2, 0); }
+      else if (src === entImg) { tex.repeat.set(1, ia / E.aspect); tex.offset.set(0, (1 - ia / E.aspect) / 2); }
+      E.tex.dispose();
+      E.tex = tex;
+      E.mat.map = E.mat.emissiveMap = tex;
+      E.mat.needsUpdate = true;
+    }
+  };
   let adsKey = '', paintKey = '', seatColorKey = '', signKey = '', screenKey = '', sign = null, night = false;
   return {
     key: geomKey(st), group, shape, ext, height: reach.h, capacity: seats.count,
@@ -5234,6 +5906,16 @@ function buildStadium(L, st) {
       if (roofLight && outside.shellMat && s.roof !== 'blades') outside.shellMat.emissive.set(roofLight);
       if (roofLight && s.roof === 'blades' && outside.roofDecor && outside.roofDecor.band) outside.roofDecor.band.emissive.set(roofLight);
       if (outside.tentGlass) outside.tentGlass.emissive.set(c.glow);
+      if (outside.entrance) {
+        outside.entrance.frameMat.color.set(c.entrance);
+        outside.entrance.stoneMat.color.set(c.entranceStone); outside.entrance.stoneMat.emissive.set(c.entranceStone);
+        outside.entrance.frameMat.emissive.set(c.entrance);
+        outside.entrance.paveMat.color.set(shade(c.entranceStone, 0.86));
+        const ledCol = new THREE.Color(c.entrance).lerp(new THREE.Color(0xffffff), 0.3);
+        outside.entrance.ledMat.color.copy(ledCol); outside.entrance.ledMat.emissive.copy(ledCol);
+        entName = (s.name.trim() || 'FANTACAZZ').toUpperCase(); entColor = c.entrance; entFit = s.entranceImageFit;
+        applyEntranceImage();
+      }
       // scritta sull'esterno: si ricostruisce solo se cambiano testo o colore
       const sgk = [s.outerText.trim(), c.outerText, c.outerPanel, s.outerTextFont, s.outerTextStyle, s.outerTextSize, s.outerTextPlace].join('|');
       if (sgk !== signKey) {
@@ -5310,8 +5992,14 @@ function buildStadium(L, st) {
       logoMat.needsUpdate = true;
       logoMesh.visible = !!logoTex && spots.length > 0;
       if (outside.badge) outside.badge.visible = !(logoTex && spots.some(sp => sp.place === 'entrance'));
+      if (outside.entrance) outside.entrance.plates.visible = !!logoTex && spots.some(sp => sp.place === 'entrance');
     },
-    dispose() { own.forEach(o => o.dispose()); seatMesh.dispose(); if (sign) sign.dispose(); if (logoTex) logoTex.dispose(); }
+    /** Immagine personale degli ingressi (tela di entranceImageCanvas, null = pannello col nome dello stadio). */
+    setEntranceImage(c) {
+      entImg = c || null;
+      applyEntranceImage();
+    },
+    dispose() { own.forEach(o => o.dispose()); seatMesh.dispose(); if (sign) sign.dispose(); if (logoTex) logoTex.dispose(); if (outside.entrance) outside.entrance.panels.forEach(E => E.tex.dispose()); }
   };
 }
 
@@ -5374,7 +6062,7 @@ class Stage {
   }
 
   /** Mostra lo stadio: ricostruisce la geometria solo se cambia la struttura, altrimenti cambia i colori (logo: tela o null). */
-  setStadium(st, logo = null) {
+  setStadium(st, logo = null, entranceImg = null) {
     if (!this.built || this.built.key !== geomKey(st)) {
       if (this.built) { this.scene.remove(this.built.group); this.built.dispose(); }
       this.built = buildStadium(this.L, st);
@@ -5384,6 +6072,7 @@ class Stage {
     }
     this.built.recolor(st);
     this.built.setLogo(logo);
+    this.built.setEntranceImage(entranceImg);
     return this.built.capacity;
   }
 
@@ -5510,9 +6199,10 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
     ready,
     async update(st, { logo = '' } = {}) {
       const my = ++token, n = normalizeStadium(st);
-      const [s, , lc] = await Promise.all([ready, loadTextFonts(n), n.logoPlaces.length ? stadiumLogo(logo) : null]);
+      const [s, , lc, ec] = await Promise.all([ready, loadTextFonts(n), n.logoPlaces.length ? stadiumLogo(logo) : null,
+        n.entrance !== 'none' || n.roof === 'wave' ? entranceImageCanvas(n.entranceImage) : null]);
       if (!s || disposed || my !== token) return 0;
-      const capacity = s.setStadium(n, lc);
+      const capacity = s.setStadium(n, lc, ec);
       s.render();
       return capacity;
     },
@@ -5575,7 +6265,7 @@ export function renderStadiumImage(st, opts = {}) {
     shot.setNight(false);
     const n = normalizeStadium(st);
     await loadTextFonts(n);
-    shot.setStadium(n, n.logoPlaces.length ? await stadiumLogo(opts.logo) : null);
+    shot.setStadium(n, n.logoPlaces.length ? await stadiumLogo(opts.logo) : null, n.entrance !== 'none' || n.roof === 'wave' ? await entranceImageCanvas(n.entranceImage) : null);
     shot.setView(opts.view || 'aerial');
     shot.render();
     return cropToContent(shot.renderer.domElement);
