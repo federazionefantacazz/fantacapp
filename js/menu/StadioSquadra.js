@@ -4,7 +4,7 @@ import { dataUrlToBlob } from '../components/Kit3D.js';
 import {
   createStadiumViewer, renderStadiumImage, stadiumCapacity, shownCapacity, normalizeStadium, defaultStadium, applyPreset,
   RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY,
-  SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom, WALL_TEXTURES, WALL_TEX_FACADES, APRON_STYLES, GROUND_STYLES, AD_BOARDS, ROOF_GLOWS,
+  SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom, STAND_GAP_MAX, RAKE_MIN, RAKE_MAX, CORNER_GAP_MIN, CORNER_GAP_MAX, WALL_TEXTURES, WALL_TEX_FACADES, APRON_STYLES, GROUND_STYLES, AD_BOARDS, ROOF_GLOWS,
   ringsBySide, maxRingsOf, LOGO_PLACES, logoPlacesFor
 } from '../components/Stadium3D.js';
 import { injectStyle, parseColor, SWATCHES } from './DivisaSquadra.js';
@@ -51,6 +51,10 @@ function injectStadiumStyle() {
     .std-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; }
     #menu-panel .std-opts .lv-chip, .std-opts .lv-chip { width: 100%; border-radius: 10px; padding: .45rem .5rem; text-align: center; line-height: 1.2; white-space: normal; }
     .std-desc { font-size: .72rem; color: var(--text2); font-family: var(--font-sub, inherit); line-height: 1.35; margin-top: .4rem; background: var(--bg2); border-radius: 10px; padding: .45rem .6rem; }
+    .std-range { display: grid; grid-template-columns: minmax(0, 5.5rem) minmax(0, 1fr) 3.4rem; gap: .6rem; align-items: center; margin: .45rem 0; }
+    .std-range .nm { font-size: .8rem; font-weight: 600; color: var(--text); }
+    .std-range input { width: 100%; accent-color: var(--accent); }
+    .std-range b { font-size: .78rem; color: var(--accent); text-align: right; font-variant-numeric: tabular-nums; }
     .std-group { border-top: 1px solid var(--border); margin-top: .9rem; padding-top: .1rem; }
     .std-group:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
     /* con una fase aperta l'anteprima è un po' più bassa: più spazio per le scelte */
@@ -227,6 +231,13 @@ export const StadioSquadra = {
     return `<div class="std-seg">${items.map(([v, l, on]) => `<button class="${on ? 'on' : ''}" ${attrs} data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div>`;
   },
 
+  /** Cursore: il valore si vede mentre si trascina, lo stadio si ricostruisce quando si lascia. fmt(v) = testo del valore. */
+  _range(label, key, min, max, value, fmt) {
+    return `<label class="std-range"><span class="nm">${esc(label)}</span>
+      <input type="range" min="${min}" max="${max}" step="1" value="${value}" data-range="${key}">
+      <b data-range-out="${key}">${esc(fmt(value))}</b></label>`;
+  },
+
   _colorRow(label, path, value) {
     return `
       <div class="kit-color-row">
@@ -270,6 +281,16 @@ export const StadioSquadra = {
       <div class="kit-sub">Curve e tribune</div>
       ${this._seg(CORNERS.map(o => [o.id, o.label, s.corners === o.id]), 'data-act="set" data-k="corners"')}
       <div class="std-desc">${s.corners === 'open' ? 'Quattro settori separati, con gli angoli aperti.' : 'Un unico anello di spalti tutto intorno al campo.'}</div>
+      ${s.corners === 'open' ? this._range('Apertura agli angoli', 'cornerGap', CORNER_GAP_MIN, CORNER_GAP_MAX, s.cornerGap, v => `${Math.round(v / 18 * 100)}%`) : ''}
+      <div class="kit-sub">Distanza degli spalti dal campo</div>
+      ${this._range('Tribune', 'standGap', 0, STAND_GAP_MAX, s.standGap, v => `+${v} m`)}
+      ${this._range('Curve', 'endGap', 0, STAND_GAP_MAX, s.endGap, v => `+${v} m`)}
+      <div class="kit-sub">Pendenza degli spalti</div>
+      ${this._seg([['0', 'Uguale per tutti', !s.rakeEach], ['1', 'Settore per settore', s.rakeEach]], 'data-act="rakeEach"')}
+      ${s.rakeEach
+        ? SEAT_SIDES.filter(sd => !(s.horseshoe && sd.id === 3)).map(sd => this._range(sd.label, `rakeSides.${sd.id}`, RAKE_MIN, RAKE_MAX, s.rakeSides[sd.id], v => `${v}%`)).join('')
+        : this._range('Pendenza', 'rake', RAKE_MIN, RAKE_MAX, s.rake, v => `${v}%`)}
+      <div class="std-desc">Più bassa: spalti schiacciati, più larghi che alti (come all'Olimpico). Più alta: spalti ripidi e alti.</div>
       <div class="kit-sub">Una curva aperta (ferro di cavallo)</div>
       ${yesNo('horseshoe', s.horseshoe)}
       ${s.horseshoe ? `<div class="std-desc">Al posto di una curva un piazzale con le sculture bianche; con lo schermo sulle curve, lì c'è un maxischermo su pali.</div>` : ''}
@@ -593,6 +614,10 @@ export const StadioSquadra = {
       case 'ringsSide':
         this._update(st => { st.ringsSides[Number(btn.dataset.side)] = Number(v); });
         return;
+      case 'rakeEach':
+        // settore per settore: si parte dalla pendenza di adesso
+        this._update(st => { st.rakeEach = v === '1'; if (st.rakeEach) st.rakeSides = st.rakeSides.map(() => st.rake); });
+        return;
       case 'mosaicD':
         this._update(st => { st.colors.mosaicD = v === '1' ? (st.colors.mosaicD || '#ffd400') : ''; });
         return;
@@ -625,6 +650,10 @@ export const StadioSquadra = {
     } else if (t.dataset.text) {
       this._set(t.dataset.text, t.value.slice(0, t.maxLength > 0 ? t.maxLength : MAX_NAME));
       this._schedulePreview();
+    } else if (t.dataset.range) {
+      // mentre trascino aggiorno solo il numero accanto al cursore (lo stadio si ricostruisce quando lascio)
+      const out = this._root.querySelector(`[data-range-out="${t.dataset.range}"]`), v = Number(t.value);
+      if (out) out.textContent = { standGap: `+${v} m`, endGap: `+${v} m`, cornerGap: `${Math.round(v / 18 * 100)}%` }[t.dataset.range] || `${v}%`;
     } else if (t.dataset.num) {
       // capienza: solo cifre (anche scritta con i punti delle migliaia)
       const n = Math.min(MAX_CAPACITY, Number(t.value.replace(/\D/g, '')) || 0);
@@ -634,6 +663,11 @@ export const StadioSquadra = {
 
   _onChange(e) {
     const t = e.target;
+    if (t.dataset.range) {
+      const k = t.dataset.range, v = Number(t.value);
+      this._update(() => this._set(k, v), { section: false });
+      return;
+    }
     if (t.dataset.hex) {
       const c = parseColor(t.value);
       if (!c) { window.showToast('Codice non valido: usa #1e5bb8 oppure 30, 91, 184', 'err'); return; }

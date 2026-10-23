@@ -222,7 +222,7 @@ export const TEXT_PLACES = [
 ];
 
 const DEFAULT = {
-  name: '', rings: 2, ringsEnds: 0, ringsSides: [0, 0, 0, 0], horseshoe: false, vomitories: false, apronStyle: 'grass', groundStyle: 'concrete', adBoards: 'none', track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single',
+  name: '', rings: 2, ringsEnds: 0, ringsSides: [0, 0, 0, 0], horseshoe: false, vomitories: false, standGap: 0, endGap: 0, rake: 100, rakeEach: false, rakeSides: [100, 100, 100, 100], cornerGap: 18, apronStyle: 'grass', groundStyle: 'concrete', adBoards: 'none', track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single',
   roof: 'none', roofCover: 'all', roofSectors: [true, false, false, false], roofReach: 'normal', lights: 'towers', facade: 'wall', ramps: false, boxes: false, shellPattern: 'rhombus', screen: 'none',
   seatMosaic: 'none', standText: '', standTextSide: 'far', standTextRing: 1, standTextFont: 'black',
   outerText: '', outerTextFont: 'black', outerTextStyle: 'outline', outerTextSize: 'M', outerTextPlace: 'facade', logoPlaces: [], wallTexture: 'concrete',
@@ -394,6 +394,13 @@ export function normalizeStadium(s) {
     ringsSides: [0, 1, 2, 3].map(i => ([1, 2, 3].includes(Number((src.ringsSides || [])[i])) ? Number(src.ringsSides[i]) : 0)),
     horseshoe: !!src.horseshoe,
     vomitories: !!src.vomitories,
+    // spalti: metri in più tra il campo e le tribune / le curve, pendenza (100 = normale) e apertura agli angoli
+    standGap: Math.round(Math.min(STAND_GAP_MAX, Math.max(0, Number(src.standGap) || 0))),
+    endGap: Math.round(Math.min(STAND_GAP_MAX, Math.max(0, Number(src.endGap) || 0))),
+    rake: Math.round(Math.min(RAKE_MAX, Math.max(RAKE_MIN, Number(src.rake) || 100))),
+    rakeEach: !!src.rakeEach,
+    rakeSides: [0, 1, 2, 3].map(i => Math.round(Math.min(RAKE_MAX, Math.max(RAKE_MIN, Number((src.rakeSides || [])[i]) || Number(src.rake) || 100)))),
+    cornerGap: Math.round(Math.min(CORNER_GAP_MAX, Math.max(CORNER_GAP_MIN, Number(src.cornerGap) || 18))),
     // stadi salvati prima: "fondo colorato intorno alla pista" (trackApron) = resina colorata
     apronStyle: oneOf(APRON_STYLES, src.apronStyle, src.trackApron ? 'color' : DEFAULT.apronStyle),
     groundStyle: oneOf(GROUND_STYLES, src.groundStyle, DEFAULT.groundStyle),
@@ -446,6 +453,12 @@ export function ringsBySide(st) {
   return [0, 1, 2, 3].map(i => sides[i] || (i % 2 ? ends : st.rings));
 }
 
+/** Pendenza di ogni lato (come ringsBySide): uguale per tutti o settore per settore. */
+export function rakesBySide(st) {
+  const base = st.rake || 100;
+  return [0, 1, 2, 3].map(i => (st.rakeEach && st.rakeSides ? st.rakeSides[i] || base : base));
+}
+
 /** Anelli del settore più alto. */
 export const maxRingsOf = (st) => Math.max(...ringsBySide(st));
 
@@ -463,10 +476,14 @@ const SEAT_W = 0.5;       // larghezza di un posto
 const AISLE_EVERY = 14;   // una scaletta ogni ~14 m di fronte del primo anello
 const AISLE_HALF = 0.55;
 const SOFT_R = 3, SOFT_N = 4; // angoli smussati: raggio vicino al campo ed esponente della superellisse verso fuori
-const GAP = 0.18;         // curve staccate: apertura intorno agli angoli (radianti, in coordinate normalizzate)
+// curve staccate: apertura intorno agli angoli (centesimi di radiante, in coordinate normalizzate; 18 di partenza)
+export const CORNER_GAP_MIN = 6, CORNER_GAP_MAX = 40;
+export const STAND_GAP_MAX = 20;            // metri in più al massimo tra il campo e gli spalti
+export const RAKE_MIN = 50, RAKE_MAX = 130; // pendenza degli spalti in percentuale (100 = normale)
 const M_PARAPET = 0, M_STEPS = 1, M_STRUCT = 2, M_BOX = 3;
 
-const seatKey = (st) => [ringsBySide(st).join(','), st.track ? 1 : 0, st.shape, st.corners, st.horseshoe ? 1 : 0, st.vomitories ? 1 : 0].join('|');
+const seatKey = (st) => [ringsBySide(st).join(','), st.track ? 1 : 0, st.shape, st.corners, st.horseshoe ? 1 : 0, st.vomitories ? 1 : 0,
+  st.standGap || 0, st.endGap || 0, rakesBySide(st).join(','), st.corners === 'open' ? st.cornerGap || 18 : ''].join('|');
 const geomKey = (st) => [seatKey(st), st.roof, st.roofCover, st.roofCover === 'pick' ? st.roofSectors.map(Number).join('') : '', st.roofReach, st.lights, st.facade, WALL_TEX_FACADES.includes(st.facade) ? st.wallTexture : '', st.adBoards, st.ramps ? 1 : 0, st.shellPattern, st.screen, st.boxes ? 1 : 0, (st.logoPlaces || []).join(',')].join('|');
 
 /** Punto del bordo su un lato lungo (tribune), non sulle curve: gli angoli smussati vanno con le tribune (come quelli squadrati). */
@@ -513,9 +530,9 @@ function buildPath(a, b, r, soft = 0) {
 }
 
 /** Tratti di spalti: uno solo chiuso (curve attaccate) o quattro aperti, tagliati vicino agli angoli (staccate). */
-function buildRuns(path, a, b, corners) {
+function buildRuns(path, a, b, corners, gap = 0.18) {
   if (corners !== 'open') return [{ pts: path, closed: true }];
-  const keep = path.map(p => Math.abs(Math.atan2(Math.abs(p.z) / b, Math.abs(p.x) / a) - Math.PI / 4) > GAP);
+  const keep = path.map(p => Math.abs(Math.atan2(Math.abs(p.z) / b, Math.abs(p.x) / a) - Math.PI / 4) > gap);
   const start = keep.findIndex(k => !k);
   const runs = [];
   let cur = null;
@@ -537,38 +554,49 @@ function shapeOf(st) {
   } else {
     a = PITCH.l / 2 + 9; b = PITCH.w / 2 + 7;
   }
+  // spalti più lontani dal campo (tribune sui lati lunghi, curve in fondo)
+  a += st.endGap || 0; b += st.standGap || 0;
+  if (b > a) a = b; // la pianta resta più lunga che larga
   const r = st.shape === 'oval' ? b : st.shape === 'rounded' ? b * 0.42 : st.shape === 'soft' ? SOFT_R : 0;
-  const tiers = [];
-  let D = 0, H = 1.2;
-  // anelli delle tribune (lati lunghi) e delle curve: gli anelli in comune sono identici, quelli in più salgono sopra
-  const counts = ringsBySide(st), maxRings = Math.max(...counts);
-  ROWS[maxRings].forEach((rows, i) => {
-    const R = RISERS[i], depth = rows * TREAD;
-    const t = { i, rows, R, D, H, back: D + depth, top: H + (rows - 1) * R };
-    t.soffit = (d) => t.H - 1.6 + (d - t.D) / TREAD * t.R; // sotto dell'anello (parallelo ai gradoni)
-    // struttura a vista: anche il primo anello è sollevato da terra verso fuori (si vede il sotto)
-    t.under = i === 0 ? (d) => Math.max(0, (d - t.D - 6) * t.R / TREAD) : t.soffit;
-    tiers.push(t);
-    D += depth * 0.55;           // l'anello sopra sporge sopra quello sotto
-    H = t.top + R + 4.5;
-  });
+  // anelli delle tribune (lati lunghi) e delle curve: gli anelli in comune sono larghi uguali, quelli in più salgono
+  // sopra; la pendenza (gradoni più bassi = spalti schiacciati, più larghi che alti) può cambiare da un settore all'altro
+  const counts = ringsBySide(st), maxRings = Math.max(...counts), rakes = rakesBySide(st);
+  const makeTiers = (rake) => {
+    const out = [];
+    let D = 0, H = 1.2;
+    ROWS[maxRings].forEach((rows, i) => {
+      const R = RISERS[i] * rake / 100, depth = rows * TREAD;
+      const t = { i, rows, R, D, H, back: D + depth, top: H + (rows - 1) * R };
+      t.soffit = (d) => t.H - 1.6 + (d - t.D) / TREAD * t.R; // sotto dell'anello (parallelo ai gradoni)
+      // struttura a vista: anche il primo anello è sollevato da terra verso fuori (si vede il sotto)
+      t.under = i === 0 ? (d) => Math.max(0, (d - t.D - 6) * t.R / TREAD) : t.soffit;
+      out.push(t);
+      D += depth * 0.55;           // l'anello sopra sporge sopra quello sotto
+      H = t.top + R + 4.5;
+    });
+    return out;
+  };
+  const tierSets = new Map(), tiersFor = (rake) => { if (!tierSets.has(rake)) tierSets.set(rake, makeTiers(rake)); return tierSets.get(rake); };
+  const tiers = tiersFor(Math.max(...rakes)); // quelli del settore più ripido (tetti e facciate stanno sopra a tutti)
   const last = tiers[tiers.length - 1];
   const path = buildPath(a, b, r, st.shape === 'soft' ? SOFT_N : 0);
-  let runs = buildRuns(path, a, b, st.corners);
-  if (new Set(counts).size > 1) {
-    // tratti separati dove cambia il numero di anelli (tribune, curve o un solo settore): quello con più anelli
-    // arriva fino al primo punto del settore vicino (niente buchi)
+  let runs = buildRuns(path, a, b, st.corners, (st.cornerGap || 18) / 100);
+  // chiave di un settore: anelli e pendenza (più alto = più anelli, poi più ripido)
+  const keyOf = (side) => counts[side] * 1000 + rakes[side];
+  if (new Set([0, 1, 2, 3].map(keyOf)).size > 1) {
+    // tratti separati dove cambiano anelli o pendenza (tribune, curve o un solo settore): quello più alto arriva fino al
+    // primo punto del settore vicino (niente buchi)
     const split = [];
     for (const run of runs) {
-      const P = run.pts, n = P.length, cnt = P.map(p => counts[sideOfPoint(p)]);
-      const at = (i) => (run.closed ? cnt[(i + n) % n] : i >= 0 && i < n ? cnt[i] : 0);
-      for (const c of new Set(cnt)) {
-        const mine = new Set(P.filter((p, i) => cnt[i] === c || cnt[i] < c && (at(i - 1) === c || at(i + 1) === c)));
-        for (const sub of subRuns(run, p => mine.has(p))) split.push({ ...sub, tiers: tiers.slice(0, c) });
+      const P = run.pts, n = P.length, key = P.map(p => keyOf(sideOfPoint(p)));
+      const at = (i) => (run.closed ? key[(i + n) % n] : i >= 0 && i < n ? key[i] : 0);
+      for (const k of new Set(key)) {
+        const mine = new Set(P.filter((p, i) => key[i] === k || key[i] < k && (at(i - 1) === k || at(i + 1) === k)));
+        for (const sub of subRuns(run, p => mine.has(p))) split.push({ ...sub, tiers: tiersFor(k % 1000).slice(0, Math.floor(k / 1000)) });
       }
     }
     runs = split;
-  } else runs.forEach(run => { run.tiers = tiers; });
+  } else runs.forEach(run => { run.tiers = tiersFor(rakes[0]).slice(0, counts[0]); });
   if (st.horseshoe) {
     // ferro di cavallo: niente spalti sulla curva verso -x
     // fino all'inizio della curva (lì parte la coda del drago); con gli angoli vivi resta l'angolo, via il lato in fondo
