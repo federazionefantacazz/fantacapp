@@ -638,26 +638,36 @@ function shapeOf(st) {
 
 /**
  * Sotto la copertura ondulata (Vélodrome) l'ultimo anello sale fino alla copertura: file in più (più ripide, Rx) dove
- * il tetto è alto, cioè sulle curve, e quasi niente dove è basso (sui lati); resta dentro la fascia e sotto le travi.
- * run.ext[i] = file in più nel punto i del tratto, run.E = il massimo del tratto.
+ * il tetto è alto, cioè sulle curve, e quasi niente dove è basso (sui lati); restano dentro la fascia e poco sotto il
+ * tetto, il muro dietro sale fino al tetto (wallFill). Le file in più cambiano poco a poco lungo il giro (anche a metà
+ * di una fila), così la cima degli spalti è una linea morbida. run.ext[i] = file in più nel punto i del tratto (con la
+ * virgola), run.E = il massimo arrotondato in su; run.roof(i) = quota sotto il tetto dietro l'ultima fila del punto i.
  */
-const EXT_MAX = 26;
+const EXT_MAX = 30, EXT_CLEAR = 2.4;
+const extTop = (T, e) => T.top + e * T.Rx;            // quota dell'ultima fila (anche a metà)
+const extWall = (T, e) => extTop(T, e) + T.Rx + 1.2;   // cima del muretto dietro l'ultima fila
 function roofRows(shape, st) {
   const V = waveOf(shape, st);
   for (const run of shape.runs) {
-    const T = run.tiers[run.tiers.length - 1];
-    run.ext = run.pts.map(p => {
+    const T = run.tiers[run.tiers.length - 1], P = run.pts, n = P.length;
+    const under = (p, e) => { const d = T.back + e * TREAD + WALL; return V.roofAt(p.x + p.mx * d, p.z + p.mz * d, d) - 0.45; };
+    const raw = P.map(p => {
       const l = Math.hypot(p.mx, p.mz) || 1, lim = V.beyond(p.x, p.z, p.mx / l, p.mz / l) - 2.4;
-      let e = 0;
-      while (e < EXT_MAX) {
-        const k = e + 1, dB = T.back + k * TREAD, top = T.top + k * T.Rx;
-        if ((dB + WALL) * l > lim) break;
-        if (top + 2.2 > V.roofAt(p.x + p.mx * dB, p.z + p.mz * dB, dB) - 3.4) break;
-        e = k;
-      }
-      return e;
+      const fits = (e) => extWall(T, e) + EXT_CLEAR <= under(p, e);
+      let hi = Math.min(EXT_MAX, Math.max(0, (lim / l - WALL - T.back) / TREAD));
+      if (fits(hi)) return hi;
+      if (!fits(0)) return 0;
+      let lo = 0;
+      for (let k = 0; k < 18; k++) { const m = (lo + hi) / 2; if (fits(m)) lo = m; else hi = m; }
+      return lo;
     });
-    run.E = Math.max(0, ...run.ext);
+    // morbida lungo il giro: prima il minimo dei vicini (non esce mai dai limiti), poi la media
+    const at = (i) => raw[run.closed ? (i + n) % n : Math.min(n - 1, Math.max(0, i))], W = 3;
+    const low = P.map((_, i) => { let m = Infinity; for (let k = -W; k <= W; k++) m = Math.min(m, at(i + k)); return m; });
+    const lat = (i) => low[run.closed ? (i + n) % n : Math.min(n - 1, Math.max(0, i))];
+    run.ext = P.map((_, i) => { let s = 0; for (let k = -W; k <= W; k++) s += lat(i + k); const e = s / (2 * W + 1); return e < 0.25 ? 0 : e; });
+    run.E = Math.ceil(Math.max(0, ...run.ext));
+    run.roof = (i) => under(P[i], run.ext[i]);
   }
 }
 
@@ -674,17 +684,19 @@ function extTopAt(shape, x, z) {
   if (!best) return 0;
   const [run, i, d] = best, e = run.ext[i], T = run.tiers[run.tiers.length - 1];
   if (!e || d < T.back - 0.5 || d > T.back + e * TREAD + WALL + 0.5) return 0;
-  return T.top + Math.min(e, Math.max(0, (d - T.back) / TREAD + 1)) * T.Rx + 2.2;
+  return extWall(T, Math.min(e, Math.max(0, (d - T.back) / TREAD + 1)));
 }
 
 /**
  * Profilo di un anello (d = distanza dal bordo, h = altezza): parapetto, gradoni, muro dietro, sotto. e = file in più
- * (sotto la copertura ondulata, più ripide), E = file in più del punto che ne ha di più: le mancanti restano schiacciate
- * sull'ultima fila, così tutti i profili del tratto hanno gli stessi punti.
+ * (sotto la copertura ondulata, più ripide; anche a metà: l'ultima fila è più corta), E = file in più del punto che ne
+ * ha di più: le mancanti restano schiacciate sull'ultima fila, così tutti i profili del tratto hanno gli stessi punti.
  */
-function tierProfile(t, next, exposed, boxes, e = 0, E = e) {
-  const pts = [], rows = t.rows + e, back = t.D + rows * TREAD;
+function tierProfile(t, next, exposed, boxes, e = 0, E = Math.ceil(e)) {
+  const pts = [], whole = Math.floor(e + 1e-6), part = e - whole > 0.02 ? e - whole : 0;
+  const rows = t.rows + whole + (part ? 1 : 0), back = t.D + (t.rows + whole + part) * TREAD, wave = E > 0;
   const rowH = (k) => (k < t.rows ? t.H + k * t.R : t.top + (k - t.rows + 1) * t.Rx), top = rowH(rows - 1);
+  const tread = (k) => t.D + (k + 1) * TREAD - (part && k === rows - 1 ? (1 - part) * TREAD : 0);
   const add = (d, h, m) => pts.push({ d, h, m }); // m = materiale del lato che parte da questo punto
   const pad = (n) => { const q = pts[pts.length - 1]; for (let k = 0; k < n; k++) pts.push({ ...q }); };
   add(t.D, t.i === 0 ? 0 : t.H - 1.6, M_PARAPET);
@@ -694,13 +706,14 @@ function tierProfile(t, next, exposed, boxes, e = 0, E = e) {
   for (let k = 0; k < rows; k++) {
     const last = k === rows - 1;
     // sopra l'ultima fila, fino all'anello di sopra: muro o fascia dei palchi vetrati
-    add(t.D + (k + 1) * TREAD, rowH(k), last ? (boxes && next && !exposed ? M_BOX : M_STRUCT) : M_STEPS);
+    add(tread(k), rowH(k), last ? (boxes && next && !exposed ? M_BOX : M_STRUCT) : M_STEPS);
     if (!last) add(t.D + (k + 1) * TREAD, rowH(k + 1), M_STEPS);
   }
-  pad((E - e) * 2);
-  // muro dietro: sale fino sotto l'anello di sopra (niente buchi tra un anello e l'altro) o fa da bordo in cima;
-  // con la struttura a vista tra un anello e l'altro resta aperto (si vede il sotto a gradoni dell'anello sopra)
-  const wallTop = next && !exposed ? next.soffit(back + WALL) : top + (next ? 1.2 : 2.2);
+  pad(2 * (t.rows + E) - 1 - (2 * rows - 1));
+  // muro dietro: sale fino sotto l'anello di sopra (niente buchi tra un anello e l'altro) o fa da bordo in cima
+  // (sotto la copertura ondulata un muretto che segue le file, sopra sale la fascia fino al tetto); con la struttura a
+  // vista tra un anello e l'altro resta aperto (si vede il sotto a gradoni dell'anello sopra)
+  const wallTop = next && !exposed ? next.soffit(back + WALL) : wave ? extWall(t, e) : top + (next ? 1.2 : 2.2);
   add(back, wallTop, M_STRUCT);
   add(back + WALL, wallTop, M_STRUCT);
   if (!exposed) {
@@ -708,15 +721,21 @@ function tierProfile(t, next, exposed, boxes, e = 0, E = e) {
     return pts;
   }
   // struttura a vista: il sotto degli spalti segue i gradoni, così da fuori si vedono le "scale" inclinate
-  const y = (k) => t.under(t.D + (k + 1) * TREAD);
-  add(back + WALL, y(rows - 1), M_STRUCT);
-  pad((E - e) * 2);
-  for (let k = rows - 1; k >= 0; k--) {
-    const dk = t.D + k * TREAD, yn = k > 0 ? y(k - 1) : null;
-    add(dk, y(k), M_STRUCT);
-    if (t.i === 0 && (yn === null || yn <= 0.3)) { add(dk, 0, M_STRUCT); break; } // il primo anello poggia a terra
-    if (yn !== null) add(dk, yn, M_STRUCT);
-  }
+  const under = (R, b) => {
+    const u = [], y = (k) => t.under(Math.min(b, t.D + (k + 1) * TREAD));
+    u.push([b + WALL, y(R - 1)]);
+    for (let k = R - 1; k >= 0; k--) {
+      const dk = t.D + k * TREAD, yn = k > 0 ? y(k - 1) : null;
+      u.push([dk, y(k)]);
+      if (t.i === 0 && (yn === null || yn <= 0.3)) { u.push([dk, 0]); break; } // il primo anello poggia a terra
+      if (yn !== null) u.push([dk, yn]);
+    }
+    return u;
+  };
+  const mine = under(rows, back), full = under(t.rows + E, t.D + (t.rows + E) * TREAD);
+  add(...mine[0], M_STRUCT);
+  pad(full.length - mine.length);
+  for (const q of mine.slice(1)) add(...q, M_STRUCT);
   return pts;
 }
 
@@ -840,7 +859,13 @@ function seatsOf(st) {
         let carry = 0.25;
         for (let i = 0; i < segs; i++) {
           const j = (i + 1) % n;
-          if (up > 0 && (run.ext[i] < up || run.ext[j] < up)) { carry = 0.25; continue; }
+          // fila in più: solo dove c'è tutta (le file finiscono a metà del tratto, seguendo la cima)
+          let sLo = 0, sHi = Infinity;
+          if (up > 0) {
+            const ei = run.ext[i], ej = run.ext[j];
+            if (ei < up && ej < up) { carry = 0.25; continue; }
+            if (ei < up) sLo = (up - ei) / (ej - ei); else if (ej < up) sHi = (ei - up) / (ei - ej);
+          }
           const x0 = P[i].x + P[i].mx * d, z0 = P[i].z + P[i].mz * d;
           const x1 = P[j].x + P[j].mx * d, z1 = P[j].z + P[j].mz * d;
           const l = Math.hypot(x1 - x0, z1 - z0);
@@ -848,6 +873,7 @@ function seatsOf(st) {
           const tx = (x1 - x0) / l, tz = (z1 - z0) / l, scale = l / Li[i];
           let s = carry;
           for (; s < l; s += SEAT_W) {
+            if (s < sLo * l || s > sHi * l) continue;
             const u = U[i] + (s / l) * Li[i];
             if (aisles.some(au => Math.abs(u - au) * scale < AISLE_HALF)) continue;
             if (inVom && voms.some(vu => Math.abs(u - vu) * scale < VOM_HALF)) continue;
@@ -3907,6 +3933,36 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     group.add(roofTop, roofUnder, band);
     own.push(gTop, gBand);
     roofDecor = { band: bandMat };
+    // dietro l'ultima fila la fascia chiara a pannelli sale fino al tetto: niente vuoto tra gli spalti e la copertura
+    const fpos = [], fuv = [];
+    for (const run of shape.runs) {
+      if (!run.ext) continue;
+      const T = run.tiers[run.tiers.length - 1], P = run.pts, n = P.length, segs = run.closed ? n : n - 1;
+      const pt = (i) => {
+        const p = P[i], e = run.ext[i], d = T.back + e * TREAD + WALL * 0.5, y0 = extWall(T, e) - 0.05;
+        return [p.x + p.mx * d, y0, p.z + p.mz * d, Math.max(y0, run.roof(i))];
+      };
+      let u = 0;
+      for (let i = 0; i < segs; i++) {
+        const a = pt(i), b = pt((i + 1) % n), len = Math.hypot(b[0] - a[0], b[2] - a[2]);
+        fpos.push(a[0], a[1], a[2], b[0], b[1], b[2], b[0], b[3], b[2], a[0], a[1], a[2], b[0], b[3], b[2], a[0], a[3], a[2]);
+        fuv.push(u / 2.4, a[1] / 40, (u + len) / 2.4, b[1] / 40, (u + len) / 2.4, b[3] / 40, u / 2.4, a[1] / 40, (u + len) / 2.4, b[3] / 40, u / 2.4, a[3] / 40);
+        u += len;
+      }
+    }
+    if (fpos.length) {
+      const fillMat = new THREE.MeshStandardMaterial({ map: bandTex, color: 0xe9edf0, roughness: 0.5, side: THREE.DoubleSide, emissive: 0xffffff, emissiveMap: bandTex, emissiveIntensity: 0.1 });
+      tints.push([fillMat, 'roof']);
+      nightGlow.push([fillMat, 0.1, 0.3]);
+      const fg = new THREE.BufferGeometry();
+      fg.setAttribute('position', new THREE.Float32BufferAttribute(fpos, 3));
+      fg.setAttribute('uv', new THREE.Float32BufferAttribute(fuv, 2));
+      fg.computeVertexNormals();
+      const fill = new THREE.Mesh(fg, fillMat);
+      fill.receiveShadow = true;
+      group.add(fill);
+      own.push(fillMat, fg);
+    }
 
     // travi reticolari radiali sotto il tetto (più alte a metà, sempre sopra gli spalti), anelli e trave lungo l'apertura
     const standTop = (d, x, z) => Math.max(standTopAt(shape, d), extTopAt(shape, x, z));
@@ -5796,6 +5852,11 @@ function buildStadium(L, st) {
   const mats = [0, 1, 2].map(() => new THREE.MeshStandardMaterial({ roughness: 0.9, side: THREE.DoubleSide }));
   // palchi: vetri scuri con le luci accese dentro
   mats.push(new THREE.MeshStandardMaterial({ color: 0x27313d, roughness: 0.2, metalness: 0.3, emissive: 0xffe2b0, emissiveIntensity: 0.12, side: THREE.DoubleSide }));
+  // cemento vero (macchie, colature, grana) su parapetti, gradoni e muri, in coordinate del mondo
+  const standTex = new THREE.CanvasTexture(stoneTexture().canvas);
+  standTex.wrapS = standTex.wrapT = THREE.RepeatWrapping; standTex.anisotropy = 4;
+  for (const m of [mats[M_PARAPET], mats[M_STEPS], mats[M_STRUCT]]) triplanar(m, standTex, 0.22);
+  own.push(standTex);
   const stands = new THREE.Mesh(standsGeometry(THREE, shape, st.facade === 'struts', st.boxes), mats);
   stands.castShadow = stands.receiveShadow = true;
   group.add(stands);
@@ -5826,7 +5887,7 @@ function buildStadium(L, st) {
         slab(aisles, x0, t.H + 0.04, z0, x1, t.top + t.R * 0.5 + 0.04, z1, tx, tz, AISLE_HALF * 1.6, 0.12);
         // file in più dell'ultimo anello: la scaletta continua, più ripida
         if (run.E && t === run.tiers[run.tiers.length - 1]) {
-          const k = Math.max(0, cum.findIndex(c => c > uu) - 1), e = Math.min(run.ext[k], run.ext[(k + 1) % run.pts.length]);
+          const k = Math.max(0, cum.findIndex(c => c > uu) - 1), e = Math.floor(Math.min(run.ext[k], run.ext[(k + 1) % run.pts.length]));
           if (e > 0) {
             const [x2, z2] = pointAt(run, cum, uu, t.back + e * TREAD - 0.1);
             slab(aisles, x1, t.top + t.R * 0.5 + 0.04, z1, x2, t.top + e * t.Rx + t.Rx * 0.5 + 0.04, z2, tx, tz, AISLE_HALF * 1.6, 0.12);
