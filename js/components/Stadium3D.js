@@ -1428,7 +1428,7 @@ function shellOf(shape, st) {
     ? [[o + 0.6, h0], [o + 11, k(0.18)], [o + 18, k(0.42)], [o + 18.5, k(0.64)], [o + 14, k(0.85)], [o + 6, crest - 0.4], [o - 3, crest]]
     : tent
       // tenda: la membrana scende larga fino a terra come la falda di una tenda (concava), poi copre gli spalti
-      ? [[o + 24, base], [o + 18, kt(0.2)], [o + 12, kt(0.48)], [o + 6.5, kt(0.76)], [o + 2, kt(0.94)], [o - 4, crest], [o - 10, crest - 0.8]]
+      ? [[o + 38, base], [o + 27, kt(0.13)], [o + 17, kt(0.36)], [o + 9, kt(0.66)], [o + 3, kt(0.92)], [o - 3, crest], [o - 10, crest - 0.8]]
       : [[o + 0.6, h0], [o + 5.2, k(0.22)], [o + 7, k(0.48)], [o + 5.6, k(0.74)], [o + 2.2, k(0.92)], [o - 3, crest], [o - 10, crest - 0.8]];
   // poi il tetto scende curvo (convesso) fino all'apertura e si arrotonda verso il basso sul bordo
   const d0 = key[key.length - 1][0], n = Math.max(3, Math.round((d0 - dIn) / 4));
@@ -1454,16 +1454,17 @@ function shellOf(shape, st) {
   if (tent) {
     // tenda: tre pennoni altissimi (uno su una curva, due verso gli angoli dell'altra) tirano su la membrana a punta;
     // in basso la membrana tocca terra solo nei piedi tra un arco e l'altro
-    const ring = rowAt(o + 6), N = ring.length - 1;
+    const ring = rowAt(o + 1), N = ring.length - 1;
     masts = [0.5, 0.17, 0.83].map(f => ring[Math.round(f * N) % N]);
-    const P = 58, w = 14, jCrest = Math.max(1, pts.findIndex(p => p.h >= crest - 1));
+    // la membrana sale un poco intorno ai pennoni; poi la avvolge la "tromba" (tentTrumpet) fin quasi in cima
+    const P = 14, w = 11, jCrest = Math.max(1, pts.findIndex(p => p.h >= crest - 1));
     yFn = (x, z, j) => {
       const wj = Math.min(1, j / jCrest) * (j > jCrest ? Math.max(0.25, 1 - (j - jCrest) / (pts.length - jCrest)) : 1);
       let up = 0;
       for (const [mx, mz] of masts) up += P * Math.exp(-Math.hypot(x - mx, z - mz) / w);
       return up * wj;
     };
-    extra = P + 16;
+    extra = 58; // pennoni (fin dove arriva l'inquadratura)
     arches = 32;
     archQ = Math.max(1, pts.findIndex(p => p.h >= base + 10)); // archi alti circa 10 m
   }
@@ -2365,6 +2366,7 @@ function subRuns(run, pred) {
  * Membrana della tenda: le file del profilo, ma in ogni colonna il bordo in basso parte più in alto dove c'è un arco
  * (la membrana tocca terra solo nei piedi tra un arco e l'altro). Coordinate per la texture lungo il giro e il profilo.
  */
+const TENT_FLARE = 18; // raggio della tromba dove parte dalla membrana
 function tentGeometry(THREE, S, cells) {
   const Q = S.pts.length - 1, rows = S.pts.map(p => S.rowAt(p.d)), N = rows[0].length - 1, K = Q;
   const L = [0];
@@ -2379,7 +2381,45 @@ function tentGeometry(THREE, S, cells) {
       uv.push(t * cells, (L[j0] + (L[j0 + 1] - L[j0]) * f) / SHELL_CELL_V);
     }
   }
-  for (let i = 0; i < N; i++) for (let k = 0; k < K; k++) { const a = i * (K + 1) + k, b = a + K + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+  // intorno ai pennoni la membrana diventa la tromba: lì si toglie (niente doppio strato)
+  const R2 = (TENT_FLARE - 1.2) ** 2;
+  const hole = (a, b, c) => S.masts.some(([mx, mz]) => {
+    const x = (pos[a * 3] + pos[b * 3] + pos[c * 3]) / 3 - mx, z = (pos[a * 3 + 2] + pos[b * 3 + 2] + pos[c * 3 + 2]) / 3 - mz;
+    return x * x + z * z < R2;
+  });
+  for (let i = 0; i < N; i++) for (let k = 0; k < K; k++) {
+    const a = i * (K + 1) + k, b = a + K + 1;
+    if (!hole(a, b, a + 1)) idx.push(a, b, a + 1);
+    if (!hole(a + 1, b, b + 1)) idx.push(a + 1, b, b + 1);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+/**
+ * "Tromba" di membrana che avvolge un pennone: parte larga sulla membrana (a raggio rb, alle quote trovate sulla
+ * membrana con baseY) e si stringe fino al pennone a quota yt. Coordinate per la texture come la membrana (maglie che
+ * convergono sul pennone).
+ */
+function tentTrumpet(THREE, mx, mz, baseY, yt, rb, rm) {
+  const NA = 48, K = 28, pos = [], uv = [], idx = [], cells = Math.max(4, Math.round(Math.PI * 2 * rb / SHELL_CELL_U));
+  const yb = Array.from({ length: NA + 1 }, (_, i) => baseY(mx + Math.cos(i / NA * Math.PI * 2) * rb, mz + Math.sin(i / NA * Math.PI * 2) * rb));
+  for (let i = 0; i <= NA; i++) {
+    const a = i / NA * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a);
+    let v = 0, prev = null;
+    for (let k = 0; k <= K; k++) {
+      const t = k / K, r = rm + (rb - rm) * (1 - t) ** 3, y = yb[i] + (yt - yb[i]) * t ** 0.9;
+      const p = [mx + c * r, y, mz + sn * r];
+      if (prev) v += Math.hypot(p[0] - prev[0], p[1] - prev[1], p[2] - prev[2]) / SHELL_CELL_V;
+      pos.push(...p); uv.push(i / NA * cells, v);
+      prev = p;
+    }
+  }
+  for (let i = 0; i < NA; i++) for (let k = 0; k < K; k++) { const a = i * (K + 1) + k, b = a + K + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
@@ -3808,12 +3848,28 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     const petals = st.roof === 'petals';
     const outer = new THREE.Mesh(petals ? petalsGeometry(THREE, S, beams, seams) : tent ? tentGeometry(THREE, S, cells) : sweepAround(THREE, S.rowAt, S.pts, 0, S.split, S.yFn, cells), shellMat);
     const clear = new THREE.Mesh(petals || tent ? new THREE.BufferGeometry() : sweepAround(THREE, S.rowAt, S.pts, S.split, S.pts.length - 1, S.yFn ? (x, z, j) => S.yFn(x, z, j + S.split) : null, cells), clearMat);
-    // pennoni della tenda: altissimi, più sottili verso la punta; sul primo un anello panoramico
-    S.masts.forEach(([mx, mz], k) => {
-      const H = S.top + 22;
-      for (const [y0, y1, r] of [[0, H * 0.55, 1.1], [H * 0.55 - 0.2, H * 0.85, 0.75], [H * 0.85 - 0.2, H, 0.35]]) boxAt(drums, mx, (y0 + y1) / 2, mz, [r, 0, 0], [0, y1 - y0, 0], [0, 0, r]);
-      if (k === 0) boxAt(sculpt, mx, H * 0.82, mz, [7, 0, 0], [0, 1.2, 0], [0, 0, 7]);
-    });
+    // pennoni della tenda: altissimi, avvolti dalla membrana (la tromba) fin quasi in cima; sopra resta la punta sottile
+    // e sul primo l'anello panoramico a due dischi
+    if (tent && S.masts.length) {
+      outer.updateMatrixWorld();
+      const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0);
+      let last = S.base + 10;
+      const baseY = (x, z) => {
+        ray.set(new THREE.Vector3(x, 400, z), down);
+        const hit = ray.intersectObject(outer, false)[0];
+        if (hit) last = hit.point.y - 0.3; // appena sotto la membrana: niente fessure
+        return last;
+      };
+      S.masts.forEach(([mx, mz], k) => {
+        const H = S.top + 10, yt = H * (k === 0 ? 0.74 : 0.8);
+        for (const [y0, y1, r] of [[0, H * 0.55, 1.1], [H * 0.55 - 0.2, H * 0.85, 0.75], [H * 0.85 - 0.2, H, 0.35]]) boxAt(drums, mx, (y0 + y1) / 2, mz, [r, 0, 0], [0, y1 - y0, 0], [0, 0, r]);
+        const tg = tentTrumpet(THREE, mx, mz, baseY, yt, TENT_FLARE, 0.95), tm = new THREE.Mesh(tg, shellMat);
+        tm.receiveShadow = true;
+        group.add(tm);
+        own.push(tg);
+        if (k === 0) for (const [y, r] of [[H * 0.79, 7], [H * 0.765, 6]]) boxAt(sculpt, mx, y, mz, [r, 0, 0], [0, 0.9, 0], [0, 0, r]);
+      });
+    }
     outer.castShadow = !tent; outer.receiveShadow = true;
     clear.receiveShadow = true;
     group.add(outer, clear);
