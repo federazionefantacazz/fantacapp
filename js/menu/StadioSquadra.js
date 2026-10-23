@@ -5,7 +5,7 @@ import {
   createStadiumViewer, renderStadiumImage, stadiumCapacity, shownCapacity, normalizeStadium, defaultStadium, applyPreset,
   RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY,
   SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom, STAND_GAP_MAX, RAKE_MIN, RAKE_MAX, CORNER_GAP_MIN, CORNER_GAP_MAX, WALL_TEXTURES, WALL_TEX_FACADES, APRON_STYLES, GROUND_STYLES, AD_BOARDS, ROOF_GLOWS,
-  ringsBySide, maxRingsOf, LOGO_PLACES, logoPlacesFor, ENTRANCES, ENTRANCE_W, ENTRANCE_H, ENTRANCE_LOGO, ENTRANCE_FITS
+  ringsBySide, maxRingsOf, LOGO_PLACES, logoPlacesFor, ENTRANCES, ENTRANCE_W, ENTRANCE_H, ENTRANCE_LOGO, ENTRANCE_FITS, entranceSkips
 } from '../components/Stadium3D.js';
 import { injectStyle, parseColor, SWATCHES } from './DivisaSquadra.js';
 import { esc } from './menuUtils.js';
@@ -389,28 +389,42 @@ export const StadioSquadra = {
 
   /** FASE 6: ingressi monumentali (tipo, lati, misure, colori, immagine personale e logo sopra). */
   _secEntrances() {
-    const s = this._st, on = s.entrance !== 'none', logo = this._logo();
-    const skip = { 0: s.facade === 'cladding' ? 'c\'è già l\'ingresso della facciata inglese' : '', 1: s.roof === 'wave' ? 'c\'è già l\'ingresso del Vélodrome' : '', 3: s.horseshoe ? 'la curva è aperta' : '' };
+    const s = this._st, on = s.entrance !== 'none', logo = this._logo(), velo = s.roof === 'wave', skip = entranceSkips(s);
+    // copertura che sporge sopra l'ingresso: resta attaccato al muro (o sotto l'involucro) e se serve si adatta
+    const under = { shell: 'l\'involucro a cuscini', petals: 'i petali', crown: 'la corona di vele' }[s.roof];
+    const logoWhere = velo && !on ? 'Sul Vélodrome il logo sta sulla fascia bianca sopra l\'ingresso.'
+      : s.entrance === 'arch' ? 'Il logo sta sull\'attico sopra l\'arco (più è grande, più l\'attico è alto).'
+        : `Il logo sta su un'insegna del colore dell'ingresso con il bordo LED${velo ? '; sul Vélodrome sulla fascia bianca sopra il suo ingresso' : ''}.`;
     return `
+      ${velo ? `
       <div class="std-group">
-      <div class="kit-sub">Tipo di ingresso</div>
+      <div class="kit-sub">Ingresso del Vélodrome</div>
+      <div class="std-desc">L'ingresso principale è sulla curva destra, sotto la fascia bianca che sale: atrio vetrato con le porte, lamelle d'alluminio fino alla fascia, pensilina del colore dell'ingresso con i faretti e la striscia LED, due schermi con la tua immagine, il podio con i tornelli e davanti la piazzetta con gli alberi e i pennoni. Colori, immagine e logo qui sotto valgono anche per lui.</div>
+      </div>` : ''}
+      <div class="std-group">
+      <div class="kit-sub">${velo ? 'Un altro ingresso monumentale (sulla curva sinistra)' : 'Tipo di ingresso'}</div>
       ${this._opts('entrance', ENTRANCES, s.entrance)}
       <div class="std-desc">${{
-        none: 'Nessun ingresso monumentale: si entra dal muro esterno.',
-        portal: 'Portale vetrato con due grandi pilastri e l\'architrave colorati con le strisce LED, vetrata con le porte, pensilina chiara con i faretti e le colonnine, gradini, tornelli e due pennoni con le bandiere. Il pannello sopra la pensilina mostra la tua immagine.',
-        arch: 'Arco monumentale in pietra su zoccolo, con l\'archivolto, la chiave di volta e la cornice colorate, le lesene, l\'attico col logo, il cancello in ferro e due lanterne. I due stendardi ai lati dell\'arco mostrano la tua immagine.',
-        canopy: 'Grande pensilina a sbalzo che sale verso fuori, con i faretti sotto e la striscia LED sul frontale, retta da due colonne a V; vetrata d\'ingresso e maxischermo appeso con la tua immagine.',
-        towers: 'Due torri bianche con le feritoie, la cupola e il pennone in cima (come il vecchio Wembley), unite da un ponte colorato con la striscia LED; cancellata sotto e due stendardi appesi con la tua immagine.'
+        none: velo ? 'Nessun altro ingresso: resta quello del Vélodrome.' : 'Nessun ingresso monumentale: si entra dal muro esterno.',
+        portal: 'Portale vetrato con due grandi pilastri e l\'architrave in pannelli di metallo colorati con le strisce LED, vetrata con le porte, pensilina in cemento con i faretti e le colonnine, gradini, tornelli e due pennoni con le bandiere. Il pannello sopra la pensilina mostra la tua immagine.',
+        arch: 'Arco monumentale in blocchi di pietra su zoccolo, con l\'archivolto, la chiave di volta e la cornice colorate, le lesene, l\'attico col logo, il cancello in ferro e due lanterne. I due stendardi ai lati dell\'arco mostrano la tua immagine.',
+        canopy: 'Grande pensilina a sbalzo che sale verso fuori, con i faretti sotto e la striscia LED sul frontale, retta da due colonne a V; vetrata d\'ingresso con le porte e maxischermo appeso con la tua immagine.',
+        towers: 'Due torri in blocchi di pietra con le feritoie, la cupola e il pennone in cima (come il vecchio Wembley), unite da un ponte colorato con la striscia LED; cancellata sotto e due stendardi appesi con la tua immagine.'
       }[s.entrance]} ${on ? 'Davanti c\'è la piazzetta lastricata con i paletti e due aiuole con gli alberi; di notte vetrate, faretti, LED e pannelli si accendono.' : ''}</div>
+      ${on && under ? `<div class="std-desc">Sotto ${under} l'ingresso resta attaccato allo stadio${s.facade === 'esplanade' ? ', sulla spianata' : ''}: se non c'è spazio l'insegna del logo va sul muro e l'ingresso si abbassa quanto serve.</div>` : ''}
+      ${on && s.facade === 'esplanade' && !under ? '<div class="std-desc">Con la spianata rialzata l\'ingresso sta sopra la spianata, attaccato al muro.</div>' : ''}
       </div>
       ${on ? `
       <div class="std-group">
       <div class="kit-sub">Su quali lati</div>
       <div class="std-opts">${SEAT_SIDES.map(sd => `<button class="lv-chip ${s.entranceSides[sd.id] && !skip[sd.id] ? 'on' : ''}" data-act="entSide" data-v="${sd.id}" ${skip[sd.id] ? 'disabled' : ''}>${s.entranceSides[sd.id] && !skip[sd.id] ? '✓ ' : ''}${esc(sd.label)}</button>`).join('')}</div>
-      ${Object.entries(skip).filter(([, t]) => t).map(([k, t]) => `<div class="std-desc">${esc(SEAT_SIDES.find(sd => sd.id === Number(k)).label)}: ${t}.</div>`).join('')}
+      ${Object.entries(skip).map(([k, t]) => `<div class="std-desc">${esc(SEAT_SIDES.find(sd => sd.id === Number(k)).label)}: ${esc(t)}.</div>`).join('')}
       <div class="kit-sub">Misure</div>
       ${this._range('Larghezza', 'entranceWidth', ENTRANCE_W[0], ENTRANCE_W[1], s.entranceWidth, v => `${v} m`)}
       ${this._range('Altezza', 'entranceHeight', ENTRANCE_H[0], ENTRANCE_H[1], s.entranceHeight, v => `${v} m`)}
+      </div>` : ''}
+      ${on || velo ? `
+      <div class="std-group">
       <div class="kit-sub">Colori</div>
       ${this._colorRow('Colore dell\'ingresso', 'colors.entrance', s.colors.entrance)}
       ${this._colorRow('Pietra e parti chiare', 'colors.entranceStone', s.colors.entranceStone)}
@@ -424,14 +438,14 @@ export const StadioSquadra = {
         ${s.entranceImage ? `<button class="lv-chip" data-act="entImgClear"><i class="ri-delete-bin-line"></i> Togli</button>` : ''}
       </div>
       ${s.entranceImage ? `<div style="margin-top:.5rem;">${this._seg(ENTRANCE_FITS.map(o => [o.id, o.label, s.entranceImageFit === o.id]), 'data-act="set" data-k="entranceImageFit"')}</div>` : ''}
-      <div class="std-desc">Va sui pannelli dell'ingresso senza deformarsi: "Riempie il pannello" taglia quello che avanza, "Intera" la mostra tutta sul fondo del colore dell'ingresso. Senza immagine c'è il nome dello stadio.</div>
+      <div class="std-desc">Va sui pannelli${velo ? ' e sugli schermi del Vélodrome' : ' dell\'ingresso'} senza deformarsi: "Riempie il pannello" taglia quello che avanza, "Intera" la mostra tutta sul fondo del colore dell'ingresso. Senza immagine c'è il nome dello stadio.</div>
       </div>
       <div class="std-group">
       <div class="kit-sub">Logo della squadra sopra ogni ingresso</div>
       ${logo ? this._seg([['0', 'No', !s.logoPlaces.includes('entrance')], ['1', 'Sì', s.logoPlaces.includes('entrance')]], 'data-act="entLogo"')
         : `<div class="std-desc">Carica il logo della squadra in Configurazione squadra per metterlo sopra gli ingressi.</div>`}
       ${logo && s.logoPlaces.includes('entrance') ? `${this._range('Grandezza del logo', 'entranceLogo', ENTRANCE_LOGO[0], ENTRANCE_LOGO[1], s.entranceLogo, v => `${v}%`)}
-      <div class="std-desc">${s.entrance === 'arch' ? 'Il logo sta sull\'attico sopra l\'arco (più è grande, più l\'attico è alto).' : 'Il logo sta su un\'insegna del colore dell\'ingresso con il bordo LED.'}</div>` : ''}
+      <div class="std-desc">${logoWhere}</div>` : ''}
       </div>` : ''}`;
   },
 
@@ -654,10 +668,13 @@ export const StadioSquadra = {
         const value = k === 'rings' || k === 'ringsEnds' || k === 'standTextRing' ? Number(v) : ['track', 'ramps', 'boxes', 'horseshoe', 'vomitories'].includes(k) ? v === '1' : v;
         // "Ogni settore e anello": si parte dai colori che lo stadio ha adesso
         if (k === 'seatMode' && v === 'grid' && this._st.seatMode !== 'grid') this._update(st => { st.seatGrid = seatGridFrom(st); st.seatMode = 'grid'; });
-        // primo ingresso scelto: il logo della squadra va subito sopra (si può togliere)
-        else if (k === 'entrance' && this._st.entrance === 'none' && v !== 'none' && this._logo()) this._update(st => {
+        else if (k === 'entrance' && v !== 'none') this._update(st => {
+          // primo ingresso scelto: il logo della squadra va subito sopra (si può togliere)
+          if (st.entrance === 'none' && this._logo() && !st.logoPlaces.includes('entrance')) st.logoPlaces = LOGO_PLACES.map(o => o.id).filter(id => id === 'entrance' || st.logoPlaces.includes(id));
           st.entrance = v;
-          if (!st.logoPlaces.includes('entrance')) st.logoPlaces = LOGO_PLACES.map(o => o.id).filter(id => id === 'entrance' || st.logoPlaces.includes(id));
+          // almeno un lato dove può stare (sul Vélodrome la curva sinistra)
+          const skip = entranceSkips(st);
+          if (!st.entranceSides.some((on, i) => on && !skip[i])) { const free = SEAT_SIDES.map(sd => sd.id).find(i => !skip[i]); if (free !== undefined) st.entranceSides[free] = true; }
         });
         else this._update(st => { st[k] = value; });
         return;
