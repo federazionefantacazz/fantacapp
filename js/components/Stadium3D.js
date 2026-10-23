@@ -86,6 +86,19 @@ export const TEXT_SIDES = [
   { id: 'left',  side: 3, label: 'Curva sinistra' },
   { id: 'right', side: 1, label: 'Curva destra' }
 ];
+/** Texture del muro esterno (muro liscio, pilastri, spianata): tinte col colore del muro. */
+export const WALL_TEXTURES = [
+  { id: 'plain',    label: 'Intonaco' },
+  { id: 'concrete', label: 'Cemento a pannelli' },
+  { id: 'brick',    label: 'Mattoni' },
+  { id: 'stone',    label: 'Pietra a blocchi' },
+  { id: 'metal',    label: 'Lamiera grecata' },
+  { id: 'louvres',  label: 'Lamelle' },
+  { id: 'windows',  label: 'Finestre a nastro' },
+  { id: 'arches',   label: 'Archi' }
+];
+/** Muri esterni su cui si vede la texture. */
+export const WALL_TEX_FACADES = ['wall', 'columns', 'esplanade'];
 export const SHELL_PATTERNS = [
   { id: 'rhombus', label: 'Rombi' },
   { id: 'hex',     label: 'Esagoni' },
@@ -186,12 +199,12 @@ const DEFAULT = {
   name: '', rings: 2, ringsEnds: 0, ringsSides: [0, 0, 0, 0], horseshoe: false, trackApron: false, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single',
   roof: 'none', roofCover: 'all', roofSectors: [true, false, false, false], roofReach: 'normal', lights: 'towers', facade: 'wall', ramps: false, boxes: false, shellPattern: 'rhombus', screen: 'none',
   seatMosaic: 'none', standText: '', standTextSide: 'far', standTextRing: 1, standTextFont: 'black',
-  outerText: '', outerTextFont: 'black', outerTextStyle: 'outline', outerTextSize: 'M', outerTextPlace: 'facade', logoPlaces: [],
+  outerText: '', outerTextFont: 'black', outerTextStyle: 'outline', outerTextSize: 'M', outerTextPlace: 'facade', logoPlaces: [], wallTexture: 'concrete',
   colors: {
     grass: '#3d8b37', track: '#b4452f', seatA: '#1e5bb8', seatB: '#ffffff', seatC: '#c62828', seatD: '#ffd400', parapet: '#e6e6e6', structure: '#a5a5a5',
-    roof: '#5b6169', steel: '#767d86', accent: '#1e5bb8', girder: '#c0392b', glow: '#e30613',
+    roof: '#cfd4da', steel: '#767d86', accent: '#1e5bb8', girder: '#c0392b', glow: '#e30613',
     standText: '#ffffff', outerText: '#1d3f8f', outerPanel: '#ffffff', screen: '#152c78', trackLines: '#ffffff',
-    mosaicB: '#ffffff', mosaicC: '#9e9e9e', aisle: '#c4c7cb', apron: '#b24f3c', cladding: '#e9ecef', podium: '#d8c7a0'
+    mosaicB: '#ffffff', mosaicC: '#9e9e9e', aisle: '#c4c7cb', apron: '#b24f3c', wall: '', cladding: '#e9ecef', podium: '#d8c7a0'
   }
 };
 
@@ -350,6 +363,7 @@ export function normalizeStadium(s) {
     roofReach: oneOf(ROOF_REACHES, src.roofReach, DEFAULT.roofReach),
     lights: oneOf(LIGHTS, src.lights, DEFAULT.lights),
     facade: oneOf(FACADES, src.facade, DEFAULT.facade),
+    wallTexture: oneOf(WALL_TEXTURES, src.wallTexture, DEFAULT.wallTexture),
     ramps: !!src.ramps,
     boxes: !!src.boxes,
     shellPattern: oneOf(SHELL_PATTERNS, src.shellPattern, DEFAULT.shellPattern),
@@ -405,7 +419,7 @@ const GAP = 0.18;         // curve staccate: apertura intorno agli angoli (radia
 const M_PARAPET = 0, M_STEPS = 1, M_STRUCT = 2, M_BOX = 3;
 
 const seatKey = (st) => [ringsBySide(st).join(','), st.track ? 1 : 0, st.shape, st.corners, st.horseshoe ? 1 : 0].join('|');
-const geomKey = (st) => [seatKey(st), st.roof, st.roofCover, st.roofCover === 'pick' ? st.roofSectors.map(Number).join('') : '', st.roofReach, st.lights, st.facade, st.ramps ? 1 : 0, st.shellPattern, st.screen, st.boxes ? 1 : 0, (st.logoPlaces || []).join(',')].join('|');
+const geomKey = (st) => [seatKey(st), st.roof, st.roofCover, st.roofCover === 'pick' ? st.roofSectors.map(Number).join('') : '', st.roofReach, st.lights, st.facade, WALL_TEX_FACADES.includes(st.facade) ? st.wallTexture : '', st.ramps ? 1 : 0, st.shellPattern, st.screen, st.boxes ? 1 : 0, (st.logoPlaces || []).join(',')].join('|');
 
 /** Punto del bordo su un lato lungo (tribune), non sulle curve: gli angoli smussati vanno con le tribune (come quelli squadrati). */
 const onLongSide = (p) => !!p.corner || Math.abs(p.mz) > 0.995;
@@ -1834,7 +1848,7 @@ function signObstacles(shape, st, d) {
   if (st.ramps) {
     for (const run of shape.runs) {
       const cum = runLengths(run);
-      for (const u of stations(run, cum, RAMP_EVERY)) {
+      for (const u of stations(run, cum, RAMP_EVERY, foot + RAMP_R)) {
         const [px, pz] = pointAt(run, cum, u, 0);
         if (G && Math.abs(Math.atan2(Math.abs(pz) / shape.b, Math.abs(px) / shape.a) - Math.PI / 4) < 0.3) continue;
         const [x, z] = rampTowerAt(shape, st, run, cum, u, foot);
@@ -1847,7 +1861,7 @@ function signObstacles(shape, st, d) {
     if (PD + 1.6 > d) {
       for (const run of shape.runs) {
         const cum = runLengths(run);
-        for (const u of stations(run, cum, PYLON_EVERY)) { const [x, z] = pointAt(run, cum, u, PD); towers.push([x, z, 3.2]); }
+        for (const u of stations(run, cum, PYLON_EVERY, PD)) { const [x, z] = pointAt(run, cum, u, PD); towers.push([x, z, 3.2]); }
       }
     }
   }
@@ -1985,10 +1999,35 @@ function runLengths(run) {
   return cum;
 }
 
-/** Posizioni a passo regolare lungo il tratto (sui tratti aperti anche alle due estremità). */
-function stations(run, cum, step) {
-  const total = cum[cum.length - 1], count = Math.max(1, Math.round(total / step));
-  return Array.from({ length: run.closed ? count : count + 1 }, (_, k) => k * total / count);
+/**
+ * Posizioni a passo regolare lungo il tratto (sui tratti aperti anche alle due estremità), come u (metri lungo il bordo
+ * interno, per pointAt). Il passo è misurato alla distanza d dal bordo, dove le cose vengono disegnate: altrimenti sulle
+ * curve (più lunghe fuori che dentro) si diradano e sui lati si ammassano. Sui giri chiusi il numero è un multiplo di 4 e
+ * si parte dall'asse x: le quattro parti dello stadio sono una lo specchio dell'altra.
+ */
+function stations(run, cum, step, d = 0) {
+  const P = run.pts, n = P.length, segs = run.closed ? n : n - 1, cd = [0];
+  const at = (p) => [p.x + p.mx * d, p.z + p.mz * d];
+  for (let i = 0; i < segs; i++) { const [ax, az] = at(P[i]), [bx, bz] = at(P[(i + 1) % n]); cd.push(cd[i] + Math.hypot(bx - ax, bz - az)); }
+  const total = cd[segs];
+  const toU = (L) => {
+    let lo = 0, hi = segs - 1;
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (cd[mid] <= L) lo = mid; else hi = mid - 1; }
+    const f = cd[lo + 1] > cd[lo] ? Math.min(1, Math.max(0, (L - cd[lo]) / (cd[lo + 1] - cd[lo]))) : 0;
+    return cum[lo] + (cum[lo + 1] - cum[lo]) * f;
+  };
+  if (!run.closed) {
+    const count = Math.max(1, Math.round(total / step));
+    return Array.from({ length: count + 1 }, (_, k) => toU(k * total / count));
+  }
+  let count = Math.max(1, Math.round(total / step));
+  if (count >= 4) count = Math.max(4, Math.round(total / step / 4) * 4);
+  let L0 = 0;
+  for (let i = 0; i < segs; i++) {
+    const [ax, az] = at(P[i]), [bx, bz] = at(P[(i + 1) % n]);
+    if (ax > 0 && (az < 0) !== (bz < 0)) { L0 = cd[i] + (cd[i + 1] - cd[i]) * (-az / ((bz - az) || 1)); break; }
+  }
+  return Array.from({ length: count }, (_, k) => toU((L0 + k * total / count) % total)).sort((a, b) => a - b);
 }
 
 /** Punto [x, z] a distanza d dal bordo, alla posizione u (metri lungo il bordo interno) del tratto. */
@@ -2048,28 +2087,38 @@ function lampAt(out, x, y, z, w, h) {
 }
 
 /**
- * Pannelli del tetto (grigio da moltiplicare per il colore): giunti verso il campo e, a scelta,
- * la lamiera ondulata (righe fitte) o le "botti" di policarbonato (due volte per pannello, chiare al centro).
+ * Pannelli del tetto come texture vera (grigio da moltiplicare per il colore, con il rilievo), una ripetizione ogni
+ * ROOF_PANEL metri: lamiera grecata (reticolare), lamiera aggraffata (moderna) o "botti" di
+ * policarbonato (travi rosse). Le righe corrono verso il campo.
  */
-function roofPanelCanvas(kind) {
-  const c = document.createElement('canvas');
-  c.width = 128; c.height = 64;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 128, 64);
+const roofTexCache = new Map();
+function roofTexture(kind) {
+  if (roofTexCache.has(kind)) return roofTexCache.get(kind);
+  const P = ROOF_PANEL, W = 256, H = 256, sm = (a, b, t) => { const k = Math.min(1, Math.max(0, (t - a) / (b - a))); return k * k * (3 - 2 * k); };
+  let out;
   if (kind === 'corrugated') {
-    ctx.fillStyle = 'rgba(0,0,0,.13)';
-    for (let x = 4; x < 128; x += 8) ctx.fillRect(x, 0, 4, 64);
+    // greche ogni 50 cm e un sormonto ogni 5 m verso il campo
+    out = bakeTexture(W, H, P, P, 0.06, (x, y) => {
+      const t = (x / W * P / 0.5) % 1, rib = sm(0.15, 0.3, t) * (1 - sm(0.55, 0.7, t)), lap = y < 3 ? 0.8 : 1;
+      return [(214 + 30 * rib) * lap * (0.97 + 0.03 * grain(x, y, 8, W, H, 21)), rib];
+    });
   } else if (kind === 'barrel') {
-    for (const x0 of [0, 64]) {
-      const g = ctx.createLinearGradient(x0, 0, x0 + 64, 0);
-      g.addColorStop(0, 'rgba(0,0,0,.42)'); g.addColorStop(0.3, 'rgba(0,0,0,.08)'); g.addColorStop(0.5, 'rgba(0,0,0,0)');
-      g.addColorStop(0.75, 'rgba(0,0,0,.14)'); g.addColorStop(1, 'rgba(0,0,0,.42)');
-      ctx.fillStyle = g; ctx.fillRect(x0, 0, 64, 64);
-    }
+    // due botti di policarbonato per pannello, chiare al centro, con la costola tra una e l'altra
+    out = bakeTexture(W, H, P, P, 0.5, (x) => {
+      const t = (x / W * 2) % 1, h = Math.sin(Math.PI * t), seam = t < 0.04 || t > 0.96;
+      return [seam ? 150 : 175 + 75 * Math.sqrt(h), h];
+    });
+  } else {
+    // lamiera aggraffata: aggraffature ogni 62,5 cm, pannelli con toni appena diversi
+    out = bakeTexture(W, H, P, P, 0.05, (x, y) => {
+      const mx = x / W * P, k = Math.floor(mx / 0.625), t = (mx / 0.625) % 1;
+      const seam = 1 - sm(0.0, 0.08, Math.min(t, 1 - t));
+      const tone = 0.95 + 0.05 * cellRnd(k, 0, 23) + 0.03 * (grain(x, y, 6, W, H, 24) - 0.5);
+      return [238 * tone * (1 - 0.12 * seam), 0.2 + 0.8 * seam];
+    });
   }
-  ctx.fillStyle = 'rgba(0,0,0,.32)'; ctx.fillRect(0, 0, 4, 64);
-  ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.fillRect(0, 0, 128, 2);
-  return c;
+  roofTexCache.set(kind, out);
+  return out;
 }
 
 /**
@@ -2124,6 +2173,208 @@ const CUSHIONS = {
  * da cui il colore (bianco, un po' più scuro verso le giunture, giunture argento) e la mappa del rilievo, così la
  * luce li fa sembrare gonfi da qualsiasi parte li guardi. Senza cuciture: si ripete in tutte e due le direzioni.
  */
+/**
+ * Tela di colore + rilievo (normal map) per pixel: fn(x, y) dà [grigio 0..255, altezza 0..1] (o [r, g, b, altezza]).
+ * tileU / tileV = metri coperti da una ripetizione, bulge = quanto sporge il rilievo (m). Si ripete senza cuciture.
+ */
+function bakeTexture(W, H, tileU, tileV, bulge, fn) {
+  const make = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
+  const map = make(), nrm = make(), mctx = map.getContext('2d'), nctx = nrm.getContext('2d');
+  const mi = mctx.createImageData(W, H), ni = nctx.createImageData(W, H), hgt = new Float32Array(W * H);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const k = y * W + x, v = fn(x + 0.5, y + 0.5);
+      const [r, g, b, h] = v.length === 2 ? [v[0], v[0], v[0], v[1]] : v;
+      mi.data[k * 4] = r; mi.data[k * 4 + 1] = g; mi.data[k * 4 + 2] = b; mi.data[k * 4 + 3] = 255;
+      hgt[k] = h;
+    }
+  }
+  const su = bulge / (2 * tileU / W), sv = bulge / (2 * tileV / H);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const k = y * W + x;
+      const gx = (hgt[y * W + (x + 1) % W] - hgt[y * W + (x - 1 + W) % W]) * su;
+      const gy = (hgt[((y + 1) % H) * W + x] - hgt[((y - 1 + H) % H) * W + x]) * sv;
+      const nx = -gx, ny = gy, l = Math.hypot(nx, ny, 1);
+      ni.data[k * 4] = (nx / l * 0.5 + 0.5) * 255; ni.data[k * 4 + 1] = (ny / l * 0.5 + 0.5) * 255; ni.data[k * 4 + 2] = (1 / l * 0.5 + 0.5) * 255; ni.data[k * 4 + 3] = 255;
+    }
+  }
+  mctx.putImageData(mi, 0, 0); nctx.putImageData(ni, 0, 0);
+  return { canvas: map, normal: nrm, tileU, tileV };
+}
+
+/**
+ * Rivestimento verticale tutto intorno a distanza off dal muro esterno di ogni tratto, da h0 fino in cima al tratto,
+ * con le coordinate per una texture di tileU x tileV metri (sui giri chiusi un numero intero di ripetizioni).
+ */
+function outerSkin(THREE, shape, off, tileU, tileV, h0 = 0) {
+  const pos = [], uv = [], idx = [];
+  for (const run of shape.runs) {
+    const o = runOuter(run) + off, H = runTop(run).top + 2.2, P = run.closed ? [...run.pts, run.pts[0]] : run.pts;
+    const pts = P.map(p => [p.x + p.mx * o, p.z + p.mz * o]), L = [0];
+    for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    const len = L[L.length - 1] || 1, k = run.closed ? Math.max(1, Math.round(len / tileU)) / len : 1 / tileU;
+    const b = pos.length / 3;
+    pts.forEach(([x, z], i) => { pos.push(x, h0, z, x, H, z); uv.push(L[i] * k, h0 / tileV, L[i] * k, H / tileV); });
+    for (let i = 0; i < pts.length - 1; i++) { const a = b + i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+/** Numero pseudo-casuale 0..1 fisso per una cella (i, j) e un seme. */
+const cellRnd = (i, j, seed = 0) => {
+  let h = Math.imul(i * 374761393 + j * 668265263 + seed * 2147483647, 1274126177) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1103515245);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+};
+
+/** Grana fine ripetibile (rumore a valori su una griglia, interpolato): 0..1. */
+function grain(x, y, cells, W, H, seed) {
+  const gx = x / W * cells, gy = y / H * cells, i = Math.floor(gx), j = Math.floor(gy), fx = gx - i, fy = gy - j;
+  const r = (a, b) => cellRnd(((a % cells) + cells) % cells, ((b % cells) + cells) % cells, seed);
+  const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+  return (r(i, j) * (1 - sx) + r(i + 1, j) * sx) * (1 - sy) + (r(i, j + 1) * (1 - sx) + r(i + 1, j + 1) * sx) * sy;
+}
+
+/**
+ * Texture del muro esterno (grigio da tingere col colore del muro, con il rilievo): intonaco, cemento a pannelli,
+ * mattoni, pietra, lamiera grecata, lamelle, finestre a nastro, archi. Dimensioni vere in metri.
+ */
+const wallTexCache = new Map();
+function wallTexture(kind) {
+  if (wallTexCache.has(kind)) return wallTexCache.get(kind);
+  const sm = (a, b, t) => { const k = Math.min(1, Math.max(0, (t - a) / (b - a))); return k * k * (3 - 2 * k); };
+  let out;
+  if (kind === 'concrete') {
+    // pannelli prefabbricati 6 x 3 m allineati, giunti incassati, fori dei distanziatori, macchie
+    const W = 512, H = 512, PU = 6, PV = 3; // la tela copre 12 x 12 m
+    out = bakeTexture(W, H, 12, 12, 0.05, (x, y) => {
+      const mx = x / W * 12, my = y / H * 12, row = Math.floor(my / PV), off = 0;
+      const px = ((mx + off) % PU + PU) % PU, py = my % PV, col = Math.floor((mx + off) / PU);
+      const edge = Math.min(px, PU - px, py, PV - py), joint = 1 - sm(0.035, 0.08, edge);
+      const tone = 0.9 + 0.1 * cellRnd(col, row, 3) + 0.08 * (grain(x, y, 16, W, H, 1) - 0.5) + 0.04 * (grain(x, y, 64, W, H, 2) - 0.5);
+      const hole = [0.5, PU - 0.5].some(hx => [0.5, PV - 0.5].some(hy => Math.hypot(px - hx, py - hy) < 0.05)) ? 0.55 : 1;
+      return [230 * tone * (1 - 0.45 * joint) * hole, 1 - joint];
+    });
+  } else if (kind === 'brick') {
+    // mattoni (un po' più grandi del vero perché si vedano da lontano) sfalsati, malta chiara incassata
+    const W = 512, H = 512, BU = 0.5, BV = 0.17, TU = 4, TV = BV * 24;
+    out = bakeTexture(W, H, TU, TV, 0.025, (x, y) => {
+      const mx = x / W * TU, my = y / H * TV, row = Math.floor(my / BV), off = (row % 2) * BU / 2;
+      const px = ((mx + off) % BU + BU) % BU, py = my % BV, col = Math.floor((mx + off) / BU) % (TU / BU);
+      const edge = Math.min(px, BU - px, py, BV - py), mortar = 1 - sm(0.008, 0.02, edge);
+      const v = cellRnd(col, row, 5), tone = 0.78 + 0.3 * v + 0.08 * (grain(x, y, 48, W, H, 4) - 0.5);
+      const g = 225 * tone;
+      return [g * (1 - mortar) + 245 * mortar, 1 - mortar * 0.9];
+    });
+  } else if (kind === 'stone') {
+    // blocchi di pietra di lunghezza variabile, smussati, toni diversi
+    const W = 512, H = 512, TU = 6.4, TV = 6.4, BV = 0.8;
+    out = bakeTexture(W, H, TU, TV, 0.08, (x, y) => {
+      const mx = x / W * TU, my = y / H * TV, row = Math.floor(my / BV), py = my % BV;
+      // tagli della fila: posizioni fisse per fila (la tela si ripete), larghezze 1,2..2 m
+      let a = 0, b = TU, k = 0, start = cellRnd(row, 0, 9) * 1.2;
+      const cuts = [];
+      for (let u = start; u < TU + start; u += 1.2 + cellRnd(row, ++k, 7) * 0.8) cuts.push(u % TU);
+      cuts.sort((p, q) => p - q);
+      let idx = cuts.length - 1;
+      for (let i = 0; i < cuts.length; i++) if (cuts[i] <= mx) idx = i;
+      a = cuts[idx]; b = cuts[(idx + 1) % cuts.length]; if (b <= a) b += TU;
+      const pxa = ((mx - a) % TU + TU) % TU, w = b - a;
+      const edge = Math.min(pxa, w - pxa, py, BV - py), bevel = sm(0.02, 0.09, edge);
+      const tone = 0.82 + 0.22 * cellRnd(row, idx, 11) + 0.1 * (grain(x, y, 40, W, H, 6) - 0.5);
+      return [235 * tone * (0.62 + 0.38 * bevel), bevel];
+    });
+  } else if (kind === 'metal') {
+    // lamiera grecata verticale: greche trapezoidali ogni 60 cm
+    const W = 256, H = 64, TU = 2.4, TV = 0.6;
+    out = bakeTexture(W, H, TU, TV, 0.08, (x) => {
+      const t = (x / W * TU / 0.6) % 1, ridge = sm(0.12, 0.28, t) * (1 - sm(0.62, 0.78, t));
+      return [205 + 35 * ridge - 18 * (t > 0.28 && t < 0.4 ? 1 : 0), ridge];
+    });
+  } else if (kind === 'louvres') {
+    // lamelle orizzontali inclinate ogni 90 cm, con l'ombra sotto
+    const W = 64, H = 256, TU = 0.8, TV = 3.6;
+    out = bakeTexture(W, H, TU, TV, 0.12, (x, y) => {
+      const t = (y / H * TV / 0.9) % 1;
+      const slat = t < 0.72 ? 0.35 + 0.65 * (t / 0.72) : 0;
+      const g = t < 0.72 ? 200 + 45 * (t / 0.72) : 110;
+      return [g, slat];
+    });
+  } else if (kind === 'windows') {
+    // un piano ogni 4 m: fascia piena e nastro di finestre scure con i montanti ogni 1,5 m
+    const W = 384, H = 256, TU = 6, TV = 4;
+    out = bakeTexture(W, H, TU, TV, 0.06, (x, y) => {
+      const mx = x / W * TU, my = (1 - y / H) * TV, inWin = my > 1.3 && my < 3.1;
+      const mull = Math.min(mx % 1.5, 1.5 - (mx % 1.5)) < 0.06;
+      if (inWin && !mull) {
+        const refl = 0.75 + 0.35 * (my - 1.3) / 1.8;
+        return [52 * refl, 64 * refl, 78 * refl, 0];
+      }
+      const sill = Math.abs(my - 1.3) < 0.08 ? 0.92 : 1;
+      return [228 * sill * (0.95 + 0.05 * grain(x, y, 12, W, H, 8)), inWin ? 0.6 : 1];
+    });
+  } else if (kind === 'arches') {
+    // portico di archi a tutto sesto (5 m) alto 9 m e sopra muro con finestre quadrate; la tela copre un piano alto 12 m
+    const W = 256, H = 512, TU = 5, TV = 12;
+    out = bakeTexture(W, H, TU, TV, 0.25, (x, y) => {
+      const mx = x / W * TU, my = (1 - y / H) * TV, cx = TU / 2, r = 1.9, pier = 0.6;
+      const inArch = Math.abs(mx - cx) < r && (my < 6.5 || Math.hypot(mx - cx, my - 6.5) < r);
+      const win = Math.abs(mx - cx) < 0.7 && my > 9.6 && my < 11.2;
+      if (inArch) return [60, 66, 74, 0];
+      if (win) return [70, 80, 92, 0.2];
+      const cornice = Math.abs(my - 8.9) < 0.18 ? 1 : 0.85, g = 232 * (0.95 + 0.05 * grain(x, y, 8, W, H, 12));
+      return [g * (cornice > 0.9 ? 1.02 : 1), g, g, cornice];
+    });
+  } else {
+    // intonaco: quasi liscio, grana leggera e qualche macchia
+    const W = 256, H = 256;
+    out = bakeTexture(W, H, 6, 6, 0.01, (x, y) => {
+      const n = 0.7 * grain(x, y, 8, W, H, 13) + 0.3 * grain(x, y, 48, W, H, 14);
+      return [222 + 26 * n, n];
+    });
+  }
+  wallTexCache.set(kind, out);
+  return out;
+}
+
+/** Texture delle facciate a vetri e a pannelli (dimensioni vere in metri). */
+const facadeTexCache = new Map();
+function facadeTexture(kind) {
+  if (facadeTexCache.has(kind)) return facadeTexCache.get(kind);
+  const sm = (a, b, t) => { const k = Math.min(1, Math.max(0, (t - a) / (b - a))); return k * k * (3 - 2 * k); };
+  let out;
+  if (kind === 'glass') {
+    // un piano ogni 4 m: parapetto pieno scuro in basso, poi vetro che riflette il cielo (più chiaro in alto),
+    // lastre larghe 1,6 m appena diverse tra loro e un montante sottile
+    const W = 192, H = 256, TU = 4.8, TV = 4;
+    out = bakeTexture(W, H, TU, TV, 0.02, (x, y) => {
+      const mx = x / W * TU, my = (1 - y / H) * TV, pane = Math.floor(mx / 1.6);
+      if (my < 0.95) return [38, 42, 48, 1];
+      const t = (my - 0.95) / (TV - 0.95), v = cellRnd(pane, 0, 31) * 0.12;
+      const mull = Math.min(mx % 1.6, 1.6 - (mx % 1.6)) < 0.035;
+      if (mull) return [120, 128, 136, 1];
+      return [52 + 70 * t + 40 * v, 66 + 82 * t + 40 * v, 82 + 92 * t + 40 * v, 0];
+    });
+  } else {
+    // pannelli compositi 2,5 x 5 m (bianchi, si tingono col colore), giunti scuri incassati e un riflesso diagonale
+    const W = 256, H = 512, TU = 5, TV = 10;
+    out = bakeTexture(W, H, TU, TV, 0.04, (x, y) => {
+      const mx = x / W * TU, my = (1 - y / H) * TV, px = mx % 2.5, py = my % 5;
+      const edge = Math.min(px, 2.5 - px, py, 5 - py), joint = 1 - sm(0.02, 0.06, edge);
+      const sheen = 0.9 + 0.1 * Math.sin((px * 0.36 + py * 0.15) * Math.PI) + 0.05 * cellRnd(Math.floor(mx / 2.5), Math.floor(my / 5), 33);
+      return [238 * sheen * (1 - 0.6 * joint), 1 - joint];
+    });
+  }
+  facadeTexCache.set(kind, out);
+  return out;
+}
+
 const cushionCache = new Map(); // le tele si calcolano una volta sola (le texture si rifanno a ogni ricostruzione)
 function cushionTexture(kind) {
   if (cushionCache.has(kind)) return cushionCache.get(kind);
@@ -2644,6 +2895,22 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   // materiali tinti con un colore dello stadio [materiale, chiave del colore]
   const tints = [[cladMat, 'cladding'], [podiumMat, 'podium']];
   let badge = null; // stemma con le iniziali sul portale (nascosto quando c'è il logo della squadra)
+  // rivestimento del muro esterno con la texture scelta (dimensioni vere: un numero intero di ripetizioni sul giro)
+  let wallMat = null, panelSkinMat = null; // materiali con la texture del muro e dei pannelli (si ricolorano)
+  if (WALL_TEX_FACADES.includes(st.facade)) {
+    const T = wallTexture(st.wallTexture), map = new THREE.CanvasTexture(T.canvas), nmap = new THREE.CanvasTexture(T.normal);
+    for (const t of [map, nmap]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; }
+    map.colorSpace = THREE.SRGBColorSpace;
+    const metal = st.wallTexture === 'metal';
+    wallMat = new THREE.MeshStandardMaterial({ map, normalMap: nmap, roughness: metal ? 0.45 : 0.85, metalness: metal ? 0.3 : 0, side: THREE.DoubleSide });
+    own.push(map, nmap, wallMat);
+    const g = outerSkin(THREE, shape, 0.03, T.tileU, T.tileV);
+    const skin = new THREE.Mesh(g, wallMat);
+    skin.castShadow = skin.receiveShadow = true;
+    group.add(skin);
+    own.push(g);
+  }
+
   const inst = (mat, list, geo = box) => {
     if (!list.length) return;
     const m = new THREE.InstancedMesh(geo, mat, list.length / 16);
@@ -2660,7 +2927,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   let deckMat = null;
   const G = st.roof === 'girders' ? girdersOf(shape, st) : null;
   // dove stanno le torri delle rampe lungo un tratto (agli angoli, con le travi rosse, ci sono già le torri d'angolo)
-  const rampStations = (run, cum) => stations(run, cum, RAMP_EVERY).filter(u => {
+  const rampStations = (run, cum) => stations(run, cum, RAMP_EVERY, footOf({ ...shape, outer: runOuter(run) }, st) + RAMP_R).filter(u => {
     if (!G) return true;
     const [px, pz] = pointAt(run, cum, u, 0);
     return Math.abs(Math.atan2(Math.abs(pz) / shape.b, Math.abs(px) / shape.a) - Math.PI / 4) >= 0.3;
@@ -2893,7 +3160,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     if (lights === 'roof') {
       for (const run of roofRuns) {
         const cum = runLengths(run), total = cum[cum.length - 1];
-        for (const u of stations(run, cum, 8)) { const [x, z] = pointAt(run, cum, u, D.dF + 1.2); lampAt(lamps, x, D.hF - 1.6, z, 2.2, 1.2); }
+        for (const u of stations(run, cum, 8, D.dF + 1.2)) { const [x, z] = pointAt(run, cum, u, D.dF + 1.2); lampAt(lamps, x, D.hF - 1.6, z, 2.2, 1.2); }
         for (const f of [0.2, 0.5, 0.8]) { const [x, z] = pointAt(run, cum, total * f, D.dF + 1); spots.push([x, D.hF - 2, z]); }
       }
     }
@@ -3108,11 +3375,12 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   if (R) {
     const truss = st.roof === 'truss';
     const girders = st.roof === 'girders', ribbed = truss || girders; // girders: struttura nera sotto, come il reticolare
-    const tex = new THREE.CanvasTexture(roofPanelCanvas(truss ? 'corrugated' : girders ? 'barrel' : 'plain'));
-    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    const RT = roofTexture(truss ? 'corrugated' : girders ? 'barrel' : 'plain');
+    const tex = new THREE.CanvasTexture(RT.canvas), rtn = new THREE.CanvasTexture(RT.normal);
+    for (const t of [tex, rtn]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; }
     tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = 4;
-    deckMat = new THREE.MeshStandardMaterial({ map: tex, roughness: truss ? 0.5 : girders ? 0.35 : 0.7, metalness: truss ? 0.25 : 0, side: THREE.DoubleSide });
+    own.push(rtn);
+    deckMat = new THREE.MeshStandardMaterial({ map: tex, normalMap: rtn, roughness: truss ? 0.45 : girders ? 0.35 : 0.55, metalness: truss ? 0.3 : 0.1, side: THREE.DoubleSide });
     const deck = new THREE.Mesh(deckGeometry(THREE, { ...shape, runs: roofRuns }, R), deckMat);
     deck.castShadow = deck.receiveShadow = true;
     group.add(deck);
@@ -3142,7 +3410,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
 
     for (const run of roofRuns) {
       const cum = runLengths(run);
-      for (const u of stations(run, cum, ribbed ? TRUSS_EVERY : TRUSS_EVERY * 1.5)) {
+      for (const u of stations(run, cum, ribbed ? TRUSS_EVERY : TRUSS_EVERY * 1.5, R.dOut)) {
         if (!ribbed) {
           // moderna: una costola sotto il tetto
           const [x0, z0] = pointAt(run, cum, u, R.dIn), [x1, z1] = pointAt(run, cum, u, R.dOut);
@@ -3170,29 +3438,30 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
         // niente piloni addosso alle torri delle rampe (se ci sono)
         const towersAt = st.ramps ? rampStations(run, cum) : [];
         const nearTower = (u) => towersAt.some(t => Math.min(Math.abs(u - t), run.closed ? total - Math.abs(u - t) : Infinity) < 8);
-        for (const u of stations(run, cum, PYLON_EVERY)) {
+        for (const u of stations(run, cum, PYLON_EVERY, PD)) {
           if (nearTower(u)) continue;
           pylon(beams, run, cum, u, PD, PH);
           const [x, z] = pointAt(run, cum, u, PD), [tx, tz] = tangentAt(run, cum, u, PD);
           drumAt(drums, x, PH + 0.9, z, tz, -tx, 1.25, 5.2);
         }
-        const step = 4;
-        for (const u of stations(run, cum, step)) {
-          if (!run.closed && u + step > total + 1e-6) continue;
+        // diagonali della trave reticolare a zig-zag tra posizioni a passo regolare (misurato sulla trave)
+        const S = stations(run, cum, 4, PD), last = run.closed ? S.length : S.length - 1;
+        for (let i = 0; i < last; i++) {
+          const ua = S[i], ub = i + 1 < S.length ? S[i + 1] : S[0] + total, um = wrapU(run, total, (ua + ub) / 2);
           for (const dd of [PD - 1.2, PD + 1.2]) {
-            const [x0, z0] = pointAt(run, cum, u, dd), [x1, z1] = pointAt(run, cum, wrapU(run, total, u + step / 2), dd), [x2, z2] = pointAt(run, cum, wrapU(run, total, u + step), dd);
+            const [x0, z0] = pointAt(run, cum, ua, dd), [x1, z1] = pointAt(run, cum, um, dd), [x2, z2] = pointAt(run, cum, wrapU(run, total, ub), dd);
             beam(beams, x0, chordLow, z0, x1, chordHigh, z1, 0.18);
             beam(beams, x1, chordHigh, z1, x2, chordLow, z2, 0.18);
           }
         }
         // costole in rilievo sopra la lamiera
-        for (const u of stations(run, cum, RIB_EVERY)) {
+        for (const u of stations(run, cum, RIB_EVERY, PD)) {
           const [x0, z0] = pointAt(run, cum, u, R.dIn), [x1, z1] = pointAt(run, cum, u, PD);
           beam(beams, x0, R.h(R.dIn) + 0.45, z0, x1, R.h(PD) + 0.45, z1, 0.9);
         }
       } else if (!girders) {
         // moderna: pilastri che reggono il tetto da fuori (con le travi rosse il tetto è appeso a loro)
-        for (const u of stations(run, cum, SUPPORT_EVERY)) {
+        for (const u of stations(run, cum, SUPPORT_EVERY, R.dOut - 1.5)) {
           const d = R.dOut - 1.5, [x, z] = pointAt(run, cum, u, d);
           beam(beams, x, 0, z, x, R.h(d) - 0.1, z, 0.7);
         }
@@ -3211,6 +3480,22 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     }
   }
 
+  // torre faro: fusto che si assottiglia, testata rivolta verso il centro con file di fari, telaio scuro e passerella
+  const floodTower = (x, z, H) => {
+    for (const [y0, y1, r] of [[0, H * 0.45, 1.25], [H * 0.45 - 0.2, H * 0.8, 0.95], [H * 0.8 - 0.2, H, 0.7]]) {
+      boxAt(drums, x, (y0 + y1) / 2, z, [r, 0, 0], [0, y1 - y0, 0], [0, 0, r]);
+    }
+    const l = Math.hypot(x, z) || 1, fx = -x / l, fz = -z / l, rx = -fz, rz = fx, hy = H + 3, W = 11, Hh = 7;
+    boxAt(frames, x, hy, z, [rx * W, 0, rz * W], [0, Hh, 0], [-fx * 0.6, 0, -fz * 0.6]);
+    boxAt(frames, x + fx * 0.6, hy - Hh / 2 - 0.25, z + fz * 0.6, [rx * W, 0, rz * W], [0, 0.25, 0], [-fx * 1.8, 0, -fz * 1.8]);
+    for (let i = 0; i < 6; i++) {
+      for (let j = 0; j < 4; j++) {
+        const a = (i - 2.5) * 1.75, b = (j - 1.5) * 1.65;
+        lampAt(lamps, x + rx * a + fx * 0.45, hy + b, z + rz * a + fz * 0.45, 1.5, 1.25);
+      }
+    }
+    spots.push([x, hy, z]);
+  };
   if (lights === 'towers' && G) {
     for (const [x, z] of G.towers) { lampAt(lamps, x, G.top + TOWER_OVER + 4, z, 10, 6); spots.push([x, G.top + TOWER_OVER + 4, z]); }
   } else if (lights === 'towers') {
@@ -3223,10 +3508,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
         const e = Math.abs(Math.atan2(Math.abs(p.z) / shape.b, Math.abs(p.x) / shape.a) - Math.PI / 4);
         if (e < err) { err = e; best = p; }
       }
-      const x = best.x + best.mx * d, z = best.z + best.mz * d;
-      beam(beams, x, 0, z, x, H, z, 1.4);
-      lampAt(lamps, x, H + 2.5, z, 10, 6);
-      spots.push([x, H + 2.5, z]);
+      floodTower(best.x + best.mx * d, best.z + best.mz * d, H);
     }
   }
 
@@ -3252,7 +3534,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
         extrude(THREE, side, rect(po - 0.4, po - 0.15, 0, 0.55, 3), pos, idx);          // fascia a terra
         // finestre del basamento
         const scum = runLengths(side), stotal = scum[scum.length - 1];
-        for (const u of stations(side, scum, 4.5)) {
+        for (const u of stations(side, scum, 4.5, po - 0.25)) {
           if (u < 1.8 || u > stotal - 1.8) continue;
           const [x, z] = pointAt(side, scum, u, po - 0.25), [tx, tz] = tangentAt(side, scum, u, po - 0.25);
           boxAt(windows, x, 2.2, z, [tx * 2.6, 0, tz * 2.6], [0, 2.4, 0], [-tz * 0.16, 0, tx * 0.16]);
@@ -3262,7 +3544,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       // sulle curve la piattaforma poggia su pilastri (sotto è aperto)
       for (const curve of subRuns(run, (p) => !onLongSide(p))) {
         const ccum = runLengths(curve);
-        for (const u of stations(curve, ccum, PILASTER_EVERY)) {
+        for (const u of stations(curve, ccum, PILASTER_EVERY, po - 0.6)) {
           for (const dd of [o + 2.4, po - 0.6]) { const [x, z] = pointAt(curve, ccum, u, dd); beam(pilasters, x, 0, z, x, Hp - 0.6, z, 0.75); }
         }
       }
@@ -3270,7 +3552,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       for (const t of run.tiers) {
         const d0 = t.i === 0 ? t.D + 6 : t.D, d1 = t.back + WALL;
         const prevBack = t.i === 0 ? t.D + 6 : tiers[t.i - 1].back + WALL;
-        for (const u of stations(run, cum, PILASTER_EVERY)) {
+        for (const u of stations(run, cum, PILASTER_EVERY, o)) {
           // trave inclinata sotto l'anello e pilastri che la reggono (dove sotto non c'è l'anello di sotto)
           const [x0, z0] = pointAt(run, cum, u, d0), [x1, z1] = pointAt(run, cum, u, d1);
           beam(pilasters, x0, t.under(d0) - 0.6, z0, x1, t.under(d1) - 0.6, z1, 0.9);
@@ -3631,9 +3913,18 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     wall.receiveShadow = true;
     group.add(wall);
     own.push(g);
+    // pannelli compositi con i giunti e il riflesso, tinti col colore del rivestimento
+    const T = facadeTexture('panels'), map = new THREE.CanvasTexture(T.canvas), nmap = new THREE.CanvasTexture(T.normal);
+    for (const t of [map, nmap]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; }
+    map.colorSpace = THREE.SRGBColorSpace;
+    panelSkinMat = new THREE.MeshStandardMaterial({ map, normalMap: nmap, roughness: 0.35, metalness: 0.35, side: THREE.DoubleSide });
+    const pg = outerSkin(THREE, shape, 0.32, T.tileU, T.tileV), skin = new THREE.Mesh(pg, panelSkinMat);
+    skin.receiveShadow = true;
+    group.add(skin);
+    own.push(map, nmap, panelSkinMat, pg);
     for (const ring of shape.runs) {
     const cum = runLengths(ring), o = runOuter(ring), H = runTop(ring).top + 2.2;
-    for (const u of stations(ring, cum, 4.5)) {
+    for (const u of stations(ring, cum, 4.5, o + 0.33)) {
       const [x, z] = pointAt(ring, cum, u, o + 0.33), [tx, tz] = tangentAt(ring, cum, u, o + 0.33);
       boxAt(windows, x, H / 2, z, [tx * 0.18, 0, tz * 0.18], [0, H, 0], [-tz * 0.08, 0, tx * 0.08]);
     }
@@ -3657,9 +3948,17 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     wall.receiveShadow = true;
     group.add(wall);
     own.push(g);
+    // vetro con il riflesso del cielo (più chiaro in alto in ogni piano) e il parapetto pieno in basso
+    const T = facadeTexture('glass'), map = new THREE.CanvasTexture(T.canvas);
+    map.wrapS = map.wrapT = THREE.RepeatWrapping; map.anisotropy = 8; map.colorSpace = THREE.SRGBColorSpace;
+    const gm = new THREE.MeshStandardMaterial({ map, roughness: 0.15, metalness: 0.45, side: THREE.DoubleSide, emissive: 0xffd9a0, emissiveMap: map, emissiveIntensity: 0 });
+    nightGlow.push([gm, 0, 0.35]); // di notte le vetrate si accendono un po'
+    const gg = outerSkin(THREE, shape, 0.27, T.tileU, T.tileV), skin = new THREE.Mesh(gg, gm);
+    group.add(skin);
+    own.push(map, gm, gg);
     for (const ring of shape.runs) {
     const cum = runLengths(ring), o = runOuter(ring), H = runTop(ring).top + 2.2;
-    for (const u of stations(ring, cum, 3.2)) {
+    for (const u of stations(ring, cum, 3.2, o + 0.3)) {
       const [x, z] = pointAt(ring, cum, u, o + 0.3), [tx, tz] = tangentAt(ring, cum, u, o + 0.3);
       boxAt(pilasters, x, H / 2, z, [tx * 0.25, 0, tz * 0.25], [0, H, 0], [-tz * 0.2, 0, tx * 0.2]);
     }
@@ -3689,7 +3988,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     group.add(plaza);
     own.push(g);
     const cum = runLengths(ring);
-    for (const u of stations(ring, cum, 9)) {
+    for (const u of stations(ring, cum, 9, o + W - 1.2)) {
       for (const d of [o + W - 1.2, o + W - 4.5]) { const [x, z] = pointAt(ring, cum, u, d); beam(pilasters, x, 0, z, x, H - 0.8, z, 0.8); }
     }
   }
@@ -3917,7 +4216,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   if (st.facade === 'columns') {
     for (const run of shape.runs) {
       const cum = runLengths(run), total = cum[cum.length - 1], H = runTop(run).top + 2.2, d = runOuter(run) + 0.35;
-      for (const u of stations(run, cum, PILASTER_EVERY)) {
+      for (const u of stations(run, cum, PILASTER_EVERY, d)) {
         const [x, z] = pointAt(run, cum, u, d);
         const [xa, za] = pointAt(run, cum, Math.max(0, u - 0.5), d), [xb, zb] = pointAt(run, cum, Math.min(total, u + 0.5), d);
         const tl = Math.hypot(xb - xa, zb - za) || 1, tx = (xb - xa) / tl, tz = (zb - za) / tl;
@@ -3963,7 +4262,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   inst(girderMat, girderBeams);
   inst([steel, steel, steel, steel, lamp, steel], lamps); // la faccia +z del proiettore è quella accesa
 
-  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, nightGlow, repaint, tints, badge };
+  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, nightGlow, repaint, tints, badge, wallMat, panelSkinMat };
 }
 
 /* --------------------------------------------------------------- scena */
@@ -4115,6 +4414,8 @@ function buildStadium(L, st) {
     recolor(s) {
       const c = s.colors;
       outside.steel.color.set(c.steel);
+      if (outside.wallMat) outside.wallMat.color.set(c.wall || c.structure);
+      if (outside.panelSkinMat) outside.panelSkinMat.color.set(c.accent);
       outside.accent.color.set(c.accent);
       outside.dark.color.set(shade(c.structure, 0.62));
       outside.girder.color.set(c.girder);

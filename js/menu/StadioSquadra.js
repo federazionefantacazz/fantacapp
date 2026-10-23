@@ -4,7 +4,7 @@ import { dataUrlToBlob } from '../components/Kit3D.js';
 import {
   createStadiumViewer, renderStadiumImage, stadiumCapacity, shownCapacity, normalizeStadium, defaultStadium, applyPreset,
   RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY,
-  SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom,
+  SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom, WALL_TEXTURES, WALL_TEX_FACADES,
   ringsBySide, maxRingsOf, LOGO_PLACES, logoPlacesFor
 } from '../components/Stadium3D.js';
 import { injectStyle, parseColor, SWATCHES } from './DivisaSquadra.js';
@@ -291,6 +291,10 @@ export const StadioSquadra = {
       ${s.lights === 'towers' && s.roof === 'girders' ? `<div class="mp-muted" style="margin-top:.3rem;">Con le travi rosse i fari vanno in cima alle torri d'angolo.</div>` : ''}
       <div class="kit-sub">Muro esterno</div>
       <div class="kit-chips">${FACADES.map(o => this._chip('facade', o.id, o.label, s.facade === o.id)).join('')}</div>
+      ${WALL_TEX_FACADES.includes(s.facade) ? `
+      <div class="kit-sub">Texture del muro</div>
+      <div class="kit-chips">${WALL_TEXTURES.map(o => this._chip('wallTexture', o.id, o.label, s.wallTexture === o.id)).join('')}</div>
+      ${this._colorRow('Colore del muro esterno', 'colors.wall', s.colors.wall || s.colors.structure)}` : ''}
       <div class="kit-sub">Torri delle rampe a spirale</div>
       <div class="kit-chips">${this._chip('ramps', '1', 'Sì', s.ramps)}${this._chip('ramps', '0', 'No', !s.ramps)}</div>
       <div class="mp-muted" style="margin-top:.3rem;">Torri cilindriche lungo il perimetro, con le rampe che salgono a spirale.</div>
