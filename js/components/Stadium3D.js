@@ -256,25 +256,25 @@ export const PRESETS = [
   },
   {
     id: 'kaohsiung', label: 'Stile Kaohsiung (drago)',
-    desc: 'Spalti a ferro di cavallo, pista azzurra con il fondo rosso, copertura a pannelli solari su tubi bianchi a spirale che scende fino a terra e continua fuori con la coda del drago.',
+    desc: 'Spalti a ferro di cavallo, pista azzurra con il fondo rosso; nastro largo di pannelli solari a scaglie retto da grandi tubi bianchi a spirale che salgono da terra, che alle estremità scende a terra e continua fuori con la coda del drago.',
     st: {
       rings: 2, ringsEnds: 0, horseshoe: true, track: true, trackApron: true, shape: 'oval', corners: 'closed', mowing: 'stripes', seatMode: 'sectors', seatMosaic: 'shades',
       roof: 'dragon', roofCover: 'all', roofReach: 'normal', lights: 'roof', facade: 'wall', ramps: false, boxes: false, screen: 'ends',
       colors: {
         grass: '#3f8f3a', track: '#6fb3e6', trackLines: '#ffffff', apron: '#b24f3c', seatA: '#2f6fd1', seatB: '#2e9b5e', parapet: '#e8eaec',
-        structure: '#bfc3c8', roof: '#33568f', steel: '#f2f4f6', screen: '#101b33'
+        structure: '#d6ccb9', roof: '#3f5f96', steel: '#f2f4f6', screen: '#101b33'
       }
     }
   },
   {
     id: 'foshan', label: 'Stile Foshan (corona di vele)',
-    desc: 'Ovale con pista rossa e fondo verde, anello basso rosso e alto grigio-blu, corona di vele bianche piegate a zig-zag su colonne inclinate, con l\'anello bianco in cima e la passerella sotto il tetto.',
+    desc: 'Ovale con pista rossa e fondo verde, anello basso rosso e alto grigio-blu; corona quasi tonda di vele bianche piegate a zig-zag tra due anelli di tubi bianchi, su colonne a lama inclinate, con la passerella sotto il tetto.',
     st: {
       rings: 2, ringsEnds: 0, track: true, trackApron: true, shape: 'oval', corners: 'closed', mowing: 'stripes', seatMode: 'rings', seatMosaic: 'none',
-      roof: 'crown', roofReach: 'more', lights: 'roof', facade: 'glass', ramps: false, boxes: false, screen: 'ends',
+      roof: 'crown', roofReach: 'more', lights: 'roof', facade: 'columns', ramps: false, boxes: false, screen: 'ends',
       colors: {
         grass: '#4a8f3c', track: '#9e4634', trackLines: '#ffffff', apron: '#2d6b4f', seatA: '#c63a2e', seatB: '#3c4757', parapet: '#eceef0',
-        structure: '#cfd3d7', roof: '#f6f7f8', steel: '#f3f4f5', screen: '#14181f'
+        structure: '#dcd9d2', roof: '#f6f7f8', steel: '#f3f4f5', screen: '#14181f'
       }
     }
   },
@@ -287,14 +287,6 @@ export const PRESETS = [
         grass: '#3d9a43', seatA: '#1d4fb8', parapet: '#1c3f94', structure: '#a4abb5', roof: '#4f565f', girder: '#eef1f4', steel: '#1f5fc4',
         accent: '#1d4fb8', cladding: '#e9ecef', podium: '#d8c7a0', glow: '#2b6bff', aisle: '#f2c200'
       }
-    }
-  },
-  {
-    id: 'arena', label: 'Arena moderna',
-    desc: 'Tre anelli con angoli arrotondati, seggiolini a mosaico, copertura chiara e maxischermo a 360°.',
-    st: {
-      rings: 3, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single', seatMosaic: 'mix', roof: 'membrane', lights: 'roof', facade: 'columns', screen: 'ring',
-      colors: { grass: '#3d8b37', seatA: '#212121', mosaicB: '#616161', mosaicC: '#ffd400', parapet: '#e0e0e0', structure: '#8d8d8d', roof: '#f1f3f5', steel: '#c8cdd3' }
     }
   },
   {
@@ -1041,16 +1033,21 @@ function stadiumLogo(url) {
  * gira sopra gli spalti e arriva al bordo davanti (pannelli solari). Profilo (d, h); split = fine del traliccio.
  */
 function dragonOf(shape, st) {
-  const T = shape.tiers[shape.tiers.length - 1], o = shape.outer, hF = T.top + 9;
-  const dF = Math.min(o - 6, Math.max(-14, T.D - 2 - reachOf_(st)));
-  // traliccio alto quasi fino al tetto, poi il bordo arrotondato dei pannelli e il tetto che scende piano verso il campo
-  const hL = hF - 3.5;
-  const prof = [{ d: o + 8, h: 0 }, { d: o + 9, h: hL * 0.4 }, { d: o + 8.9, h: hL * 0.75 }, { d: o + 8.2, h: hL },
-    { d: o + 7.1, h: hF - 1.3 }, { d: o + 5.2, h: hF + 0.6 }, { d: o + 2.6, h: hF + 1.5 }, { d: o, h: hF + 1.8 }];
-  const n = Math.max(3, Math.round((o - dF) / 3));
-  for (let i = 1; i <= n; i++) { const f = i / n; prof.push({ d: o + (dF - o) * f, h: hF + 1.8 - 1.8 * f * f }); }
-  prof.push({ d: dF - 0.7, h: hF - 0.9 });
-  return { prof, split: 3, dF, hF, out: o + 9 };
+  const T = shape.tiers[shape.tiers.length - 1], o = shape.outer;
+  const hC = T.top + 12, hF = T.top + 7.5; // cresta e bordo verso il campo
+  const dF = Math.min(o - 8, Math.max(-14, 2 - reachOf_(st))); // il nastro è largo: copre quasi tutti gli spalti
+  // da terra (fuori) il traliccio sale quasi dritto e si gonfia, gira arrotondato in cima e il tetto scende piano verso il campo
+  const prof = [{ d: o + 8, h: 0 }, { d: o + 9.6, h: hC * 0.22 }, { d: o + 9.9, h: hC * 0.42 }, { d: o + 9.3, h: hC * 0.6 },
+    { d: o + 7.8, h: hC * 0.78 }, { d: o + 5.4, h: hC * 0.92 }, { d: o + 2.2, h: hC * 0.99 }, { d: o - 1, h: hC }];
+  const d0 = o - 1, n = Math.max(3, Math.round((d0 - dF) / 3));
+  for (let i = 1; i <= n; i++) { const f = i / n; prof.push({ d: d0 + (dF - d0) * f, h: hC - (hC - hF) * f ** 1.4 }); }
+  prof.push({ d: dF - 0.6, h: hF - 1 });
+  // lo stesso profilo spostato verso l'interno (sotto i pannelli): lì corrono i tubi
+  const inner = prof.map((p, j) => {
+    const a = prof[Math.max(0, j - 1)], b = prof[Math.min(prof.length - 1, j + 1)], l = Math.hypot(b.d - a.d, b.h - a.h) || 1;
+    return { d: p.d - (b.h - a.h) / l * 0.7, h: Math.max(0, p.h + (b.d - a.d) / l * 0.7) };
+  });
+  return { prof, inner, split: 3, dF, hF, hC, out: o + 10.5 };
 }
 
 /**
@@ -1072,6 +1069,108 @@ function dragonTail(shape) {
 /** La coda c'è con il ferro di cavallo, se la copertura arriva fino all'estremità del braccio da cui parte. */
 const hasDragonTail = (shape, st, runs = coveredRuns(shape, st)) => st.horseshoe && runs.some(run => !run.closed &&
   [run.pts[0], run.pts[run.pts.length - 1]].some(p => Math.hypot(p.x + shape.a - shape.r, p.z - shape.b) < 0.5));
+
+/**
+ * Estremità del nastro (dove la copertura finisce: ferro di cavallo, settori scelti...): continua per qualche metro
+ * girando un poco verso fuori e scende fino a terra. Stesso verso del tratto, la scala va a 0 lontano dal tratto.
+ */
+function dragonCaps(shape, runs, withTail) {
+  const caps = [], K = 16, STEP = 3;
+  const isTail = (p) => withTail && Math.hypot(p.x + shape.a - shape.r, p.z - shape.b) < 0.5;
+  for (const run of runs) {
+    if (run.closed || run.pts.length < 2) continue;
+    const P = run.pts, n = P.length;
+    for (const atEnd of [true, false]) {
+      const p = atEnd ? P[n - 1] : P[0], q = atEnd ? P[n - 2] : P[1];
+      if (isTail(p)) continue;
+      let dx = p.x - q.x, dz = p.z - q.z, l = Math.hypot(dx, dz) || 1, x = p.x, z = p.z;
+      dx /= l; dz /= l;
+      const pts = [];
+      for (let k = 0; k <= K; k++) {
+        // normale verso fuori dalla stessa parte di quella degli spalti
+        let mx = dz, mz = -dx;
+        if (mx * p.mx + mz * p.mz < 0) { mx = -mx; mz = -mz; }
+        pts.push({ x, z, mx, mz, scale: Math.cos(Math.PI / 2 * k / K) ** 0.8 });
+        dx += mx * 0.05; dz += mz * 0.05; l = Math.hypot(dx, dz); dx /= l; dz /= l;
+        x += dx * STEP; z += dz * STEP;
+      }
+      caps.push({ pts: atEnd ? pts : pts.reverse(), closed: false });
+    }
+  }
+  return caps;
+}
+
+/** Tubo (cilindro di raggio r) da (x1, y1, z1) a (x2, y2, z2), per i pezzi ripetuti con un cilindro alto 1 e di raggio 1. */
+function tubeAt(out, x1, y1, z1, x2, y2, z2, r) {
+  let dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
+  const len = Math.hypot(dx, dy, dz) || 1;
+  dx /= len; dy /= len; dz /= len;
+  let ax = -dz, ay = 0, az = dx, al = Math.hypot(ax, az);   // perpendicolare orizzontale
+  if (al < 1e-4) { ax = 1; az = 0; al = 1; }
+  ax /= al; az /= al;
+  const cx = ay * dz - az * dy, cy = az * dx - ax * dz, cz = ax * dy - ay * dx; // a × d: terna destra (a, d, c)
+  boxAt(out, (x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2, [ax * r, ay * r, az * r], [dx * len, dy * len, dz * len], [cx * r, cy * r, cz * r]);
+}
+
+/** Punto del nastro lungo un tratto: posizione u (metri lungo il tratto) e punto (d, h) del profilo, con la scala del tratto. */
+function ribbonSampler(run, dc) {
+  const P = run.closed ? [...run.pts, run.pts[0]] : run.pts, cum = [0];
+  for (let i = 1; i < P.length; i++) cum.push(cum[i - 1] + Math.hypot(P[i].x - P[i - 1].x, P[i].z - P[i - 1].z));
+  const total = cum[cum.length - 1];
+  let i = 0;
+  const at = (u, pd, ph) => {
+    if (run.closed) u = ((u % total) + total) % total;
+    else if (u < -1e-6 || u > total + 1e-6) return null;
+    if (cum[i] > u) i = 0;
+    while (i < P.length - 2 && cum[i + 1] < u) i++;
+    const a = P[i], b = P[i + 1], f = Math.min(1, Math.max(0, (u - cum[i]) / ((cum[i + 1] - cum[i]) || 1)));
+    const lerp = (k, def) => (a[k] ?? def) + ((b[k] ?? def) - (a[k] ?? def)) * f;
+    const sc = lerp('scale', 1), d = dc + (pd - dc) * (0.35 + 0.65 * sc);
+    return [lerp('x') + lerp('mx') * d, ph * sc, lerp('z') + lerp('mz') * d];
+  };
+  return { total, at };
+}
+
+/**
+ * Pannelli solari come texture vera (colore + rilievo): file di pannelli lungo il nastro, ognuno inclinato come una scaglia,
+ * vetro chiaro da tingere col colore della copertura, cornici e fughe chiare (si vedono i tubi sotto).
+ * Una ripetizione = 4 pannelli (5 m) x 4 file (3,2 m).
+ */
+let solarCache = null;
+function solarTexture() {
+  if (solarCache) return solarCache;
+  const W = 256, H = 128, make = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
+  const map = make(), nrm = make(), mctx = map.getContext('2d'), nctx = nrm.getContext('2d');
+  const mi = mctx.createImageData(W, H), ni = nctx.createImageData(W, H), hgt = new Float32Array(W * H), inside = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      // pannelli in file dritte lungo il nastro (4 x 4 per ripetizione), ognuno inclinato come una scaglia
+      const yy = y % 32, xx = x % 64, k = y * W + x;
+      const inn = xx >= 2 && xx <= 61 && yy >= 2 && yy <= 29;
+      inside[k] = inn ? 1 : 0;
+      hgt[k] = inn ? 0.2 + 0.8 * (yy - 2) / 27 : 0;
+      let r, g, b;
+      if (!inn) { r = 205; g = 211; b = 218; } // fughe e cornici chiare
+      else {
+        const t = (yy - 2) / 27, cell = (xx % 15 < 1 || yy === 16) ? 0.9 : 1;
+        r = (232 - 62 * t) * cell; g = (236 - 58 * t) * cell; b = (243 - 48 * t) * cell;
+      }
+      mi.data[k * 4] = r; mi.data[k * 4 + 1] = g; mi.data[k * 4 + 2] = b; mi.data[k * 4 + 3] = 255;
+    }
+  }
+  const su = 0.12 / (5 / W), sv = 0.12 / (3.2 / H);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const k = y * W + x;
+      const gx = (hgt[y * W + (x + 1) % W] - hgt[y * W + (x - 1 + W) % W]) * su * 0.5;
+      const gy = (hgt[((y + 1) % H) * W + x] - hgt[((y - 1 + H) % H) * W + x]) * sv * 0.5;
+      const nx = -gx, ny = gy, l = Math.hypot(nx, ny, 1);
+      ni.data[k * 4] = (nx / l * 0.5 + 0.5) * 255; ni.data[k * 4 + 1] = (ny / l * 0.5 + 0.5) * 255; ni.data[k * 4 + 2] = (1 / l * 0.5 + 0.5) * 255; ni.data[k * 4 + 3] = 255;
+    }
+  }
+  mctx.putImageData(mi, 0, 0); nctx.putImageData(ni, 0, 0);
+  return (solarCache = { canvas: map, normal: nrm, tileU: 5, tileV: 3.2 });
+}
 
 /** Superficie lungo un tratto con il profilo prof[j0..j1] (scala per punto se c'è), con le coordinate per la texture. */
 function sweepRun(THREE, run, prof, j0, j1, uScale, vScale) {
@@ -1097,46 +1196,6 @@ function sweepRun(THREE, run, prof, j0, j1, uScale, vScale) {
   g.setIndex(idx);
   g.computeVertexNormals();
   return g;
-}
-
-/**
- * Pannelli solari a scaglie (grigio da tingere col colore della copertura): file allineate, ogni pannello chiaro in alto
- * e scuro in basso dove copre quello dopo, con le celle e la cornice d'alluminio.
- */
-function solarCanvas() {
-  const c = document.createElement('canvas'); c.width = c.height = 256;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#3a4048'; ctx.fillRect(0, 0, 256, 256);
-  for (let r = 0; r < 4; r++) {
-    for (let k = 0; k < 2; k++) {
-      const x = k * 128 + 3, y = r * 64 + 3, w = 122, h = 58, g = ctx.createLinearGradient(0, y, 0, y + h);
-      g.addColorStop(0, '#ffffff'); g.addColorStop(0.55, '#d3d9e0'); g.addColorStop(1, '#8e98a5');
-      ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
-      ctx.strokeStyle = 'rgba(70,82,98,0.45)'; ctx.lineWidth = 1.5;
-      for (let i = 1; i < 6; i++) { ctx.beginPath(); ctx.moveTo(x + i * w / 6, y + 2); ctx.lineTo(x + i * w / 6, y + h - 2); ctx.stroke(); }
-      ctx.beginPath(); ctx.moveTo(x + 2, y + h / 2); ctx.lineTo(x + w - 2, y + h / 2); ctx.stroke();
-      ctx.strokeStyle = '#f4f6f9'; ctx.lineWidth = 2.5; ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
-      ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(x, y + h - 4, w, 4);
-    }
-  }
-  return c;
-}
-
-/** Tubi a spirale: diagonali bianche che si incrociano; `bg` = sfondo (trasparente se nullo). */
-function tubesCanvas(bg) {
-  const c = document.createElement('canvas'); c.width = c.height = 128;
-  const ctx = c.getContext('2d');
-  if (bg) { ctx.fillStyle = bg; ctx.fillRect(0, 0, 128, 128); }
-  // tubi che girano a spirale (curvi) nei due versi; quelli in un verso un po' più grossi
-  ctx.strokeStyle = '#ffffff'; ctx.lineCap = 'round';
-  for (const [w, sgn] of [[10, 1], [7, -1]]) {
-    ctx.lineWidth = w;
-    for (const o of [-128, 0, 128]) {
-      ctx.beginPath(); ctx.moveTo(o + (sgn > 0 ? 0 : 128), 0);
-      ctx.bezierCurveTo(o + 64 + sgn * -18, 30, o + 64 + sgn * 18, 98, o + (sgn > 0 ? 128 : 0), 128); ctx.stroke();
-    }
-  }
-  return c;
 }
 
 const towerHeight = (shape, st) => (st.roof === 'wave' ? waveOf(shape, st).top : st.roof !== 'none' ? roofOf(shape, st.roof, reachOf_(st)).h(0) : shape.height) + 18;
@@ -1290,11 +1349,14 @@ function waveBuild(shape, st) {
   return { dIn, dE, hSide, hEnd, base, edge, hAt, rowAt, bandBottom, entryF, inEntry, ENTRY_W, rimSide, rimEnd, beyond, out: out + 1, top: rimEnd + 1 };
 }
 
-/** Pianta tonda (superellisse vicina al cerchio) che contiene gli spalti a distanza d. Punti chiusi [x, z]. */
-function roundOutline(shape, d, N = 240) {
+/**
+ * Pianta tonda (superellisse vicina al cerchio) che contiene gli spalti a distanza d. pull: quanto il lato corto si
+ * avvicina a quello lungo (1 = cerchio); n: esponente (2 = ellisse). Punti chiusi [x, z].
+ */
+function roundOutline(shape, d, N = 240, pull = 0.3, n = 2.3) {
   const pts = shape.path.map(p => [p.x + p.mx * d, p.z + p.mz * d]);
   const A = Math.max(...pts.map(p => Math.abs(p[0]))), B0 = Math.max(...pts.map(p => Math.abs(p[1])));
-  const B = B0 + (A - B0) * 0.3, n = 2.3;
+  const B = B0 + (A - B0) * pull;
   const k = Math.max(1, ...pts.map(([x, z]) => Math.abs(x / A) ** n + Math.abs(z / B) ** n)) ** (1 / n);
   const out = [];
   for (let i = 0; i <= N; i++) {
@@ -1415,7 +1477,7 @@ function evenOutline(dense, N) {
   return out;
 }
 
-const CROWN_FOLDS = 40, CROWN_ROW = 240; // pieghe e punti della pianta: sei punti per piega
+const CROWN_FOLDS = 44, CROWN_ROW = 264; // pieghe e punti della pianta: sei punti per piega
 function crownOf(shape, st) {
   const T = shape.tiers[shape.tiers.length - 1], o = shape.outer;
   // colonne: a terra fuori dal muro (sulla spianata, se c'è, appena fuori dal muro)
@@ -1442,9 +1504,25 @@ function crownOf(shape, st) {
     for (let j = 1; j < line.length; j++) if (line[j].d <= d) { const a = line[j - 1], b = line[j]; return a.h + (b.h - a.h) * (a.d - d) / (a.d - b.d); }
     return line[line.length - 1].h;
   };
-  // pianta ripresa a passi uguali lungo il giro: tutte le vele larghe uguali (anche sui lati lunghi)
-  const rows = new Map(), rowAt = (d) => { const key = d.toFixed(3); if (!rows.has(key)) rows.set(key, evenOutline(shellOutline(shape, d, CROWN_ROW * 8), CROWN_ROW)); return rows.get(key); };
-  return { ridge, valley, at, hAt, rowAt, o, base, dFoot, dV, hV, dR, hR, dIn, hIn, out: dR + 2 };
+  // pianta: verso il campo segue gli spalti, da sopra il muro in fuori è quasi un cerchio; ripresa a passi uguali
+  // lungo il giro (tutte le vele larghe uguali)
+  const rows = new Map(), rowAt = (d) => {
+    const key = d.toFixed(3);
+    if (!rows.has(key)) {
+      const w = Math.min(1, Math.max(0, (d - dIn) / (o - dIn))) ** 1.2;
+      const a = shellOutline(shape, d, CROWN_ROW * 4), b = roundOutline(shape, d, CROWN_ROW * 4, 0.5, 2.1);
+      rows.set(key, evenOutline(a.map((p, i) => [p[0] + (b[i][0] - p[0]) * w, p[1] + (b[i][1] - p[1]) * w]), CROWN_ROW));
+    }
+    return rows.get(key);
+  };
+  // quanto la pianta esterna esce oltre il bordo degli spalti spostato (per il pavimento e l'inquadratura)
+  let out = dR + 2;
+  for (const [x, z] of rowAt(dR)) {
+    let best = null, bd = Infinity;
+    for (const q of shape.path) { const dd = (x - q.x) ** 2 + (z - q.z) ** 2; if (dd < bd) { bd = dd; best = q; } }
+    out = Math.max(out, (x - best.x) * best.mx + (z - best.z) * best.mz + 2);
+  }
+  return { ridge, valley, at, hAt, rowAt, o, base, dFoot, dV, hV, dR, hR, dIn, hIn, out };
 }
 
 /** Telo della corona: chiaro al centro di ogni falda, più scuro verso le pieghe, con due cuciture. */
@@ -1607,7 +1685,7 @@ function reachOf(shape, st) {
   if (st.screen !== 'none' && st.roof === 'none') h = Math.max(h, screenOf(shape, st).y + (st.screen === 'ends' ? ENDS_H : SCREEN_H) + 1);
   if (st.roof === 'dragon') {
     const D = dragonOf(shape, st);
-    d = Math.max(d, D.out + 1); h = Math.max(h, D.hF + 3);
+    d = Math.max(d, D.out + 1); h = Math.max(h, D.hC + 3);
     if (hasDragonTail(shape, st)) for (const p of dragonTail(shape).pts) { x = Math.max(x, Math.abs(p.x) + D.out + 4); z = Math.max(z, Math.abs(p.z) + D.out + 4); }
   }
   return { d: d + 1.5, h, x, z };
@@ -1702,9 +1780,14 @@ function paintScreen(canvas, kind, name, color) {
 function signOf(shape, st) {
   const T = shape.tiers[shape.tiers.length - 1], o = shape.outer, Ht = T.top + 2.2;
   if (st.roof === 'dragon') {
-    // sul traliccio esterno della copertura, a metà altezza
-    const d = o + 8.8, outline = (dd) => { const pts = shape.path.map(p => [p.x + p.mx * dd, p.z + p.mz * dd]); pts.push(pts[0]); return pts; };
-    return { hc: 8, maxH: 5, standOn: 0, dAt: () => d, outline, rows: 1 };
+    // sui pannelli del lato fuori del nastro (sopra i tubi)
+    const D = dragonOf(shape, st), wall = D.prof.slice(0, D.prof.findIndex(p => p.h >= D.hC * 0.99) + 1);
+    const dAt = (h) => {
+      for (let j = 1; j < wall.length; j++) if (wall[j].h >= h) { const a = wall[j - 1], b = wall[j]; return a.d + (b.d - a.d) * (h - a.h) / (b.h - a.h) + 0.25; }
+      return wall[wall.length - 1].d + 0.25;
+    };
+    const outline = (dd) => { const pts = shape.path.map(p => [p.x + p.mx * dd, p.z + p.mz * dd]); pts.push(pts[0]); return pts; };
+    return { hc: D.hC * 0.77, maxH: D.hC * 0.2, standOn: 0, dAt, outline, rows: 6 };
   }
   if (st.roof === 'wave') {
     // sulla fascia bianca della copertura, al centro dei lati lunghi (sopra l'ingresso, dove la fascia è più bassa)
@@ -2733,35 +2816,80 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     }
   }
   if (st.roof === 'dragon') {
-    // pannelli solari sopra, tubi bianchi sotto e nel traliccio esterno (trasparente tra un tubo e l'altro); con il
-    // ferro di cavallo la copertura continua fuori con la coda del drago
-    const D = dragonOf(shape, st);
-    const solar = new THREE.CanvasTexture(solarCanvas()), tubesA = new THREE.CanvasTexture(tubesCanvas(null)), tubesU = new THREE.CanvasTexture(tubesCanvas('#46505e'));
-    for (const t of [solar, tubesA, tubesU]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; }
-    tubesU.repeat.set(0.7, 0.4);
-    shellMat = new THREE.MeshStandardMaterial({ map: solar, roughness: 0.3, metalness: 0.35 });
-    const underMat = new THREE.MeshStandardMaterial({ map: tubesU, roughness: 0.7 });
-    const latticeMat = new THREE.MeshStandardMaterial({ map: tubesA, alphaTest: 0.5, roughness: 0.5, side: THREE.DoubleSide });
-    own.push(solar, tubesA, tubesU, shellMat, underMat, latticeMat);
-    const tail = hasDragonTail(shape, st, roofRuns) ? dragonTail(shape) : null, runs = [...roofRuns, ...(tail ? [tail] : [])];
+    // nastro del drago: pannelli solari a scaglie sopra (e sulla parte alta del lato fuori), sotto e fuori i grandi tubi
+    // bianchi a spirale nei due versi che salgono da terra; dove la copertura finisce il nastro scende a terra e, con il
+    // ferro di cavallo, continua fuori con la coda
+    const D = dragonOf(shape, st), sol = solarTexture();
+    const solar = new THREE.CanvasTexture(sol.canvas), solarN = new THREE.CanvasTexture(sol.normal);
+    for (const t of [solar, solarN]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; }
+    solar.colorSpace = THREE.SRGBColorSpace;
+    shellMat = new THREE.MeshStandardMaterial({ map: solar, normalMap: solarN, roughness: 0.28, metalness: 0.45 });
+    const underMat = new THREE.MeshStandardMaterial({ color: 0x39414b, roughness: 0.8 });
+    const tubeMat = new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.15 });
+    own.push(solar, solarN, shellMat, underMat, tubeMat);
+    const tail = hasDragonTail(shape, st, roofRuns) ? dragonTail(shape) : null;
+    const runs = [...roofRuns, ...(tail ? [tail] : []), ...dragonCaps(shape, roofRuns, !!tail)];
     let sideSet = false;
     for (const run of runs) {
-      const top = sweepRun(THREE, run, D.prof, D.split, D.prof.length - 1, 5, 4);
-      const lat = sweepRun(THREE, run, D.prof, 0, D.split, 7, 10);
+      const top = sweepRun(THREE, run, D.prof, D.split, D.prof.length - 1, sol.tileU, sol.tileV);
       if (!sideSet) {
         // la faccia di sopra guarda in alto?
-        const nrm = top.getAttribute('normal'), R = D.prof.length - D.split, i = Math.floor(run.pts.length / 2) * R + Math.floor(R / 2);
+        const nrm = top.getAttribute('normal'), R = D.prof.length - D.split, i = Math.floor(run.pts.length / 2) * R + Math.floor(R * 0.6);
         const up = nrm.getY(i) > 0;
         shellMat.side = up ? THREE.FrontSide : THREE.BackSide; underMat.side = up ? THREE.BackSide : THREE.FrontSide;
         sideSet = true;
       }
-      const mt = new THREE.Mesh(top, shellMat), mu = new THREE.Mesh(top, underMat), ml = new THREE.Mesh(lat, latticeMat);
+      const mt = new THREE.Mesh(top, shellMat), mu = new THREE.Mesh(top, underMat);
       mt.castShadow = mt.receiveShadow = true;
-      ml.castShadow = true;
-      group.add(mt, mu, ml);
-      own.push(top, lat);
+      group.add(mt, mu);
+      own.push(top);
     }
-    roofDecor = { solar: shellMat, tubes: latticeMat };
+    // tubi: due famiglie a spirale (salgono da terra e girano sopra fino al bordo verso il campo, avanzando lungo il
+    // nastro), più i tubi lungo il nastro a terra, a metà e sul bordo
+    const tubes = [], PITCH = 38, EVERY = 5.6, K = 20, dc = D.prof[0].d - 5;
+    const pl = [0];
+    for (let j = 1; j < D.inner.length; j++) pl.push(pl[j - 1] + Math.hypot(D.inner[j].d - D.inner[j - 1].d, D.inner[j].h - D.inner[j - 1].h));
+    const profAt = (f) => {
+      const L = f * pl[pl.length - 1];
+      let j = 1;
+      while (j < pl.length - 1 && pl[j] < L) j++;
+      const a = D.inner[j - 1], b = D.inner[j], t = (L - pl[j - 1]) / ((pl[j] - pl[j - 1]) || 1);
+      return [a.d + (b.d - a.d) * t, a.h + (b.h - a.h) * t];
+    };
+    const prof = Array.from({ length: K + 1 }, (_, k) => profAt(k / K));
+    for (const run of runs) {
+      const R = ribbonSampler(run, dc);
+      for (const [sgn, r] of [[1, 0.6], [-1, 0.36]]) {
+        const from = run.closed ? 0 : -PITCH, to = run.closed ? R.total - 0.01 : R.total + PITCH;
+        for (let u0 = from; u0 <= to; u0 += EVERY) {
+          let prev = null;
+          for (let k = 0; k <= K; k++) {
+            const p = R.at(u0 + sgn * PITCH * k / K, prof[k][0], prof[k][1]);
+            if (p && prev) tubeAt(tubes, ...prev, ...p, r);
+            prev = p;
+          }
+        }
+      }
+      for (const f of [0, D.split / (D.prof.length - 1) * 0.9, 1]) {
+        const [pd, ph] = profAt(f);
+        let prev = null;
+        for (let u = 0; u <= R.total + 0.01; u += 3) {
+          const p = R.at(Math.min(u, R.total), pd, ph + (f === 0 ? 0.4 : 0));
+          if (p && prev) tubeAt(tubes, ...prev, ...p, f === 0 ? 0.55 : 0.4);
+          prev = p;
+        }
+      }
+    }
+    if (tubes.length) {
+      const m = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 10), tubeMat, tubes.length / 16);
+      m.instanceMatrix.array.set(tubes);
+      m.instanceMatrix.needsUpdate = true;
+      m.frustumCulled = false;
+      m.castShadow = m.receiveShadow = true;
+      group.add(m);
+      own.push(m.geometry, m);
+    }
+    roofDecor = { solar: shellMat, tubes: tubeMat };
     if (lights === 'roof') {
       for (const run of roofRuns) {
         const cum = runLengths(run), total = cum[cum.length - 1];
@@ -2814,22 +2942,25 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     sails.castShadow = sails.receiveShadow = true;
     group.add(sails);
     own.push(g);
-    // anello bianco in cima, dove arrivano le creste
-    const rg = sweepGrid(THREE, C.rowAt, [[-0.5, -0.5], [0.8, -0.5], [0.8, 0.9], [-0.5, 0.9], [-0.5, -0.5]].map(([d, h]) => ({ d: C.dR + d, h: C.hR + h })), N, 1);
-    const ring = new THREE.Mesh(rg, ringMat);
-    ring.castShadow = true;
-    group.add(ring);
-    own.push(rg);
+    // tubi bianchi: anello in cima (dove arrivano le creste), anello più in basso sulle colonne (dove arrivano le valli),
+    // il zig-zag tra i due lungo i bordi delle vele e i denti verso il campo; colonne a lama, più larghe in alto
+    const tubes = [], top = C.rowAt(C.dR), low = C.rowAt(C.dV);
+    for (let i = 0; i < CROWN_ROW; i += 2) {
+      tubeAt(tubes, top[i][0], C.hR + 0.2, top[i][1], top[i + 2][0], C.hR + 0.2, top[i + 2][1], 0.95);
+      tubeAt(tubes, low[i][0], C.hV, low[i][1], low[i + 2][0], C.hV, low[i + 2][1], 0.7);
+    }
+    const posts = [];
     const dC = C.dIn + (C.o - C.dIn) * 0.32, hC = C.hAt(C.valley, dC) - 1.4, rowC = C.rowAt(dC);
     for (let k = 0; k < N; k++) {
       const r = k * step, v = r + step / 2, r2 = (k + 1) * step;
-      // bordi delle vele verso fuori (la Y con la colonna) e colonna inclinata fino a terra
+      // bordi delle vele verso fuori (la V tra i due anelli) e colonna inclinata fino a terra
       const R0 = P(C.ridge, r, 0), V0 = P(C.valley, v, 0), R1 = P(C.ridge, r2, 0), [fx, fz] = C.rowAt(C.dFoot)[v];
-      beam(beams, ...R0, ...V0, 0.55); beam(beams, ...V0, ...R1, 0.55);
-      beam(beams, fx, C.base, fz, V0[0], V0[1] + 0.3, V0[2], 1.3);
+      tubeAt(tubes, ...R0, ...V0, 0.5); tubeAt(tubes, ...V0, ...R1, 0.5);
+      const [ta, tb] = [C.rowAt(C.dV)[(v + CROWN_ROW - 1) % CROWN_ROW], C.rowAt(C.dV)[(v + 1) % CROWN_ROW]];
+      posts.push([[fx, C.base, fz], [V0[0], V0[1] - 0.4, V0[2]], [tb[0] - ta[0], tb[1] - ta[1]]]);
       // bordo verso il campo a denti
       const Ri = P(C.ridge, r, 1), Vi = P(C.valley, v, 1), Ri2 = P(C.ridge, r2, 1);
-      beam(beams, ...Ri, ...Vi, 0.3); beam(beams, ...Vi, ...Ri2, 0.3);
+      tubeAt(tubes, ...Ri, ...Vi, 0.3); tubeAt(tubes, ...Vi, ...Ri2, 0.3);
       // trave sotto la cresta
       for (let m = 0; m < M; m++) {
         const a = P(C.ridge, r, m / M), b = P(C.ridge, r, (m + 1) / M);
@@ -2846,6 +2977,31 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       beam(beams, x0, hC - 1.3, z0, x1, hC - 1.3, z1, 0.25);
       beam(beams, x0, hC, z0, x1, hC - 1.3, z1, 0.12);
     }
+    const tm = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 14), ringMat, tubes.length / 16);
+    tm.instanceMatrix.array.set(tubes);
+    tm.instanceMatrix.needsUpdate = true;
+    tm.frustumCulled = false;
+    tm.castShadow = tm.receiveShadow = true;
+    group.add(tm);
+    own.push(tm.geometry, tm);
+    // colonne: tronchi di piramide schiacciati (stretti a terra, larghi sotto l'anello), inclinati verso fuori
+    const cpos = [];
+    for (const [a, b, [tx0, tz0]] of posts) {
+      const tl = Math.hypot(tx0, tz0) || 1, tx = tx0 / tl, tz = tz0 / tl;
+      const rx = b[0] - a[0], rz = b[2] - a[2], rl = Math.hypot(rx, rz) || 1, nx = rx / rl, nz = rz / rl;
+      const corner = (p, w, t, sw, st) => [p[0] + tx * w * sw + nx * t * st, p[1], p[2] + tz * w * sw + nz * t * st];
+      const ring4 = (p, w, t) => [corner(p, w, t, -1, -1), corner(p, w, t, 1, -1), corner(p, w, t, 1, 1), corner(p, w, t, -1, 1)];
+      const lo = ring4(a, 0.6, 0.55), hi = ring4(b, 2.1, 0.8);
+      for (let q = 0; q < 4; q++) { const q1 = (q + 1) % 4; cpos.push(...lo[q], ...lo[q1], ...hi[q1], ...lo[q], ...hi[q1], ...hi[q]); }
+      cpos.push(...hi[0], ...hi[1], ...hi[2], ...hi[0], ...hi[2], ...hi[3]);
+    }
+    const cg = new THREE.BufferGeometry();
+    cg.setAttribute('position', new THREE.Float32BufferAttribute(cpos, 3));
+    cg.computeVertexNormals();
+    const cols = new THREE.Mesh(cg, ringMat);
+    cols.castShadow = cols.receiveShadow = true;
+    group.add(cols);
+    own.push(cg);
     roofDecor = { tubes: ringMat };
     if (lights === 'roof') {
       for (let k = 0; k < N; k++) { const [x, y, z] = P(C.ridge, k * step, 0.97); lampAt(lamps, x, y - 1.6, z, 2.4, 1.3); }

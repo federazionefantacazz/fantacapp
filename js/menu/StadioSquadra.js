@@ -269,8 +269,8 @@ export const StadioSquadra = {
         dome: 'Cupola bianca a raggiera che sale dal basso fino all\'apertura, con i denti a punta tutto attorno alla base.',
         tent: 'Membrana tesa da sei pennoni altissimi, con le punte sopra lo stadio. Di notte si illumina.',
         petals: 'Involucro a petali con le costole, diviso in quattro lobi da valli sulle diagonali. Di notte si illumina.',
-        crown: 'Corona di vele bianche piegate a zig-zag: da fuori triangoli con la punta in giù sulle colonne inclinate e l\'anello bianco in cima; dentro le travi sotto le creste, la passerella ad anello e il bordo a denti verso il campo. Di notte le vele si illuminano.',
-        dragon: 'Nastro di pannelli solari a scaglie retto da tubi bianchi a spirale che scendono fino a terra. Con una curva aperta (ferro di cavallo) il nastro esce dallo stadio e scende a terra come la coda di un drago.',
+        crown: 'Corona quasi tonda di vele bianche piegate a zig-zag tra due anelli di tubi bianchi: da fuori triangoli con la punta in giù su colonne a lama inclinate; dentro le travi sotto le creste, la passerella ad anello e il bordo a denti verso il campo. Di notte le vele si illuminano.',
+        dragon: 'Nastro largo di pannelli solari a scaglie retto da grandi tubi bianchi a spirale che salgono da terra. Dove la copertura finisce il nastro scende a terra; con una curva aperta (ferro di cavallo) esce dallo stadio come la coda di un drago.',
         shell: 'Un unico involucro a cuscini che avvolge lo stadio: si gonfia verso fuori, copre gli spalti e diventa trasparente verso il campo. Di notte si illumina.'
       }[s.roof] || 'Spalti scoperti.'}</div>
       ${s.roof !== 'none' ? `
