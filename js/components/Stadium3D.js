@@ -965,8 +965,7 @@ const CORNER_R = 5.5;     // torri d'angolo delle travi rosse (raggio)
 const RAMP_R = 5.2, RAMP_EVERY = 40;   // torri delle rampe a spirale: raggio, passo lungo il bordo
 const RAMP_PITCH = 4.2, RAMP_BAND = 2.9; // rampe: salita a ogni giro e spessore della fascia bianca (la riga scura è la differenza)
 const GIRDER_H = 7.5, GIRDER_W = 2.6, GIRDER_L = 14, GIRDER_PANEL = 5; // travi rosse: altezza, mezza larghezza, sbalzo, campata
-const TOWER_OVER = 5;   // fari sulle torri d'angolo: sopra le travi rosse
-const TOWER_BELOW = 4;  // la cima delle torri d'angolo è sotto le travi rosse (le regge un cavalletto rosso)
+const TOWER_OVER = 5;   // le torri d'angolo salgono sopra le travi rosse (in cima il piccolo traliccio rosso)
 const ESPLANADE_H = 5, ESPLANADE_W = 24;     // spianata rialzata: altezza e larghezza dal muro
 const SHELL_CELL_U = 7, SHELL_CELL_V = 4.4;  // involucro: un cuscino a rombo ogni 7 m in orizzontale e 4,4 m lungo il profilo
 const PLATFORM_H = 5.9, PLATFORM_OUT = 10; // piattaforma intorno allo stadio (struttura a vista): altezza e sporgenza dal muro
@@ -1284,6 +1283,21 @@ const towerHeight = (shape, st) => {
   return (top ? top() : st.roof !== 'none' ? roofOf(shape, st.roof, reachOf_(st)).h(0) : shape.height) + 18;
 };
 const towerDist = (shape, st) => Math.max(shape.outer, st.roof === 'crown' ? crownOf(shape, st).out : st.roof === 'wave' ? waveOf(shape, st).out : st.roof === 'blades' ? bladesOf(shape, st).out : st.roof !== 'none' ? roofOf(shape, st.roof, reachOf_(st)).dOut : 0) + 6;
+
+/**
+ * Dove stanno le torri delle rampe lungo un tratto (u, metri lungo il bordo): a passo regolare tutto intorno; con le
+ * travi rosse (San Siro) solo tre al centro di ogni lato lungo (agli angoli ci sono le torri d'angolo).
+ */
+function rampUs(shape, st, run, cum) {
+  if (st.roof !== 'girders') return stations(run, cum, RAMP_EVERY, footOf({ ...shape, outer: runOuter(run) }, st) + RAMP_R);
+  const P = run.pts, n = P.length, segs = run.closed ? n : n - 1, out = new Set(), k = shape.a * 0.5;
+  for (let i = 0; i < segs; i++) {
+    const p = P[i], q = P[(i + 1) % n];
+    if (!onLongSide(p) || !onLongSide(q) || p.x === q.x) continue;
+    for (const tx of [-k, 0, k]) if ((p.x - tx) * (q.x - tx) <= 0) out.add(+(cum[i] + (cum[i + 1] - cum[i]) * (tx - p.x) / (q.x - p.x)).toFixed(4));
+  }
+  return [...out].sort((a, b) => a - b);
+}
 
 /** Centro di una torre delle rampe: appena fuori dal muro (con la copertura ondulata fuori dalla sua fascia). */
 function rampTowerAt(shape, st, run, cum, u, foot) {
@@ -1801,11 +1815,10 @@ function girdersOf(shape, st) {
   const R = roofOf(shape, st.roof, reachOf_(st)), foot = footOf(shape, st);
   // distanza dal centro dell'angolo, lungo la diagonale, del punto più esterno dell'esterno (angolo vivo: √2 volte)
   const diag = (shape.r > 0 ? shape.r + foot : foot * Math.SQRT2) + CORNER_R + 1;
-  const Tx = shape.a - shape.r + diag / Math.SQRT2, Tz = shape.b - shape.r + diag / Math.SQRT2;
-  // le travi si incrociano appena dentro la torre: la torre resta nell'angolo fuori, sotto il bordo delle due travi
-  const off = GIRDER_W + CORNER_R * 0.35, X = Tx - off, Z = Tz - off;
-  const y0 = R.h(R.dIn) + 2;
-  return { X, Z, y0, top: y0 + GIRDER_H, towerTop: y0 - TOWER_BELOW, towers: [[Tx, Tz], [-Tx, Tz], [-Tx, -Tz], [Tx, -Tz]] };
+  // le due travi si incrociano sulla torre, che sale più in alto di loro
+  const X = shape.a - shape.r + diag / Math.SQRT2, Z = shape.b - shape.r + diag / Math.SQRT2;
+  const y0 = R.h(R.dIn) + 2, top = y0 + GIRDER_H;
+  return { X, Z, y0, top, towerTop: top + TOWER_OVER, towers: [[X, Z], [-X, Z], [-X, -Z], [X, -Z]] };
 }
 
 /** Fin dove arrivano le parti esterne (distanza dal bordo, altezza, estensione): per inquadratura, ombre e pavimento. */
@@ -1825,8 +1838,8 @@ function reachOf(shape, st) {
   if (st.roof === 'girders') {
     const G = girdersOf(shape, st);
     d = Math.max(d, foot + CORNER_R * 2 + 2);
-    h = Math.max(h, G.top + TOWER_OVER + 8);
-    x = G.X + GIRDER_W + CORNER_R * 0.9 + GIRDER_L + 2; z = G.Z + GIRDER_W + CORNER_R * 0.9 + GIRDER_L + 2;
+    h = Math.max(h, G.towerTop + 8);
+    x = G.X + CORNER_R + 3 + GIRDER_L + 2; z = G.Z + CORNER_R + 3 + GIRDER_L + 2;
   } else if (lightsOf(st) === 'towers') { d = Math.max(d, towerDist(shape, st) + 6); h = towerHeight(shape, st) + 6; }
   if (st.screen !== 'none' && st.roof === 'none') h = Math.max(h, screenOf(shape, st).y + (st.screen === 'ends' ? ENDS_H : SCREEN_H) + 1);
   if (st.roof === 'dragon') {
@@ -2013,9 +2026,7 @@ function signObstacles(shape, st, d) {
   if (st.ramps) {
     for (const run of shape.runs) {
       const cum = runLengths(run);
-      for (const u of stations(run, cum, RAMP_EVERY, foot + RAMP_R)) {
-        const [px, pz] = pointAt(run, cum, u, 0);
-        if (G && Math.abs(Math.atan2(Math.abs(pz) / shape.b, Math.abs(px) / shape.a) - Math.PI / 4) < 0.3) continue;
+      for (const u of rampUs(shape, st, run, cum)) {
         const [x, z] = rampTowerAt(shape, st, run, cum, u, foot);
         towers.push([x, z, RAMP_R + 0.6]);
       }
@@ -2579,6 +2590,45 @@ function floorTexture(kind) {
   return out;
 }
 
+/**
+ * Cemento/pietra liscia (grigio chiaro attorno a 1 da moltiplicare): macchie larghe, colature verticali, grana fine e
+ * giunti appena visibili. Si applica in coordinate del mondo (triplanar): va bene su cilindri e rampe senza coordinate.
+ */
+let stoneCache = null;
+function stoneTexture() {
+  if (stoneCache) return stoneCache;
+  stoneCache = bakeTexture(256, 256, 4, 4, 0.01, (x, y) => {
+    const blot = grain(x, y, 4, 256, 256, 61), mid = grain(x, y, 12, 256, 256, 62), fine = cellRnd(x | 0, y | 0, 63);
+    const streak = grain(x, y * 0.08, 24, 256, 256, 64), joint = (y % 128) < 1.2 || (x % 256) < 1.2 ? 0.9 : 1;
+    const v = 236 + 36 * (blot - 0.5) + 18 * (mid - 0.5) + 12 * (fine - 0.5) - 26 * Math.max(0, streak - 0.55);
+    return [Math.min(255, v * joint), 0.5];
+  });
+  return stoneCache;
+}
+
+/** Texture in coordinate del mondo (triplanar), moltiplicata sul colore: una ripetizione ogni 1/scale metri. */
+function triplanar(mat, tex, scale) {
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.triMap = { value: tex };
+    sh.vertexShader = 'varying vec3 vTriPos;\nvarying vec3 vTriNrm;\n' + sh.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+  vec4 triP = vec4(transformed, 1.0);
+  vec3 triN = objectNormal;
+  #ifdef USE_INSTANCING
+    triP = instanceMatrix * triP;
+    triN = mat3(instanceMatrix) * triN;
+  #endif
+  vTriPos = (modelMatrix * triP).xyz;
+  vTriNrm = mat3(modelMatrix) * triN;`);
+    sh.fragmentShader = 'uniform sampler2D triMap;\nvarying vec3 vTriPos;\nvarying vec3 vTriNrm;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+  vec3 triW = pow(abs(normalize(vTriNrm)), vec3(4.0));
+  triW /= (triW.x + triW.y + triW.z + 1e-5);
+  vec3 triQ = vTriPos * ${scale.toFixed(4)};
+  vec3 triC = texture2D(triMap, triQ.zy).rgb * triW.x + texture2D(triMap, triQ.xz).rgb * triW.y + texture2D(triMap, triQ.xy).rgb * triW.z;
+  diffuseColor.rgb *= triC * 1.07;`);
+  };
+  mat.customProgramCacheKey = () => 'tri' + scale;
+}
+
 /** Texture delle facciate a vetri e a pannelli (dimensioni vere in metri). */
 const facadeTexCache = new Map();
 function facadeTexture(kind) {
@@ -3131,6 +3181,13 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   const glass = new THREE.MeshStandardMaterial({ color: 0x1f2730, roughness: 0.95 }); // opaco: lucido rifletterebbe il cielo e sembrerebbe bianco
   own.push(accent, glass);
   const dark = new THREE.MeshStandardMaterial({ roughness: 0.9, side: THREE.DoubleSide });
+  // cemento/pietra liscia delle torri e delle fasce (chiaro col colore dei parapetti, scuro col cemento)
+  const stoneTex = new THREE.CanvasTexture(stoneTexture().canvas);
+  stoneTex.wrapS = stoneTex.wrapT = THREE.RepeatWrapping; stoneTex.anisotropy = 4;
+  const stoneLight = new THREE.MeshStandardMaterial({ roughness: 0.85, side: THREE.DoubleSide });
+  const stoneDark = new THREE.MeshStandardMaterial({ roughness: 0.9, side: THREE.DoubleSide });
+  for (const m of [stoneLight, stoneDark]) triplanar(m, stoneTex, 0.25);
+  own.push(stoneTex, stoneLight, stoneDark);
   const girderMat = new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.2 });
   const cylinder = new THREE.CylinderGeometry(1, 1, 1, 28);
   own.push(dark, girderMat, cylinder);
@@ -3188,11 +3245,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   let deckMat = null;
   const G = st.roof === 'girders' ? girdersOf(shape, st) : null;
   // dove stanno le torri delle rampe lungo un tratto (agli angoli, con le travi rosse, ci sono già le torri d'angolo)
-  const rampStations = (run, cum) => stations(run, cum, RAMP_EVERY, footOf({ ...shape, outer: runOuter(run) }, st) + RAMP_R).filter(u => {
-    if (!G) return true;
-    const [px, pz] = pointAt(run, cum, u, 0);
-    return Math.abs(Math.atan2(Math.abs(pz) / shape.b, Math.abs(px) / shape.a) - Math.PI / 4) >= 0.3;
-  });
+  const rampStations = (run, cum) => rampUs(shape, st, run, cum);
 
   // dove c'è la copertura (tutto unito, per settore, solo tribune, solo curve...)
   const roofRuns = coveredRuns(shape, st);
@@ -3823,7 +3876,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     spots.push([x, hy, z]);
   };
   if (lights === 'towers' && G) {
-    for (const [x, z] of G.towers) { lampBank(lamps, frames, x, G.top + TOWER_OVER, z, 6, 4); spots.push([x, G.top + TOWER_OVER, z]); }
+    for (const [x, z] of G.towers) { lampBank(lamps, frames, x, G.towerTop + 7, z, 6, 4); spots.push([x, G.towerTop + 7, z]); }
   } else if (lights === 'towers') {
     const d = towerDist(shape, st), H = towerHeight(shape, st);
     for (const [sx, sz] of [[1, 1], [-1, 1], [-1, -1], [1, -1]]) {
@@ -4364,7 +4417,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     idx.forEach((list, m) => { g.addGroup(start, list.length, m); start += list.length; });
     g.setIndex(idx.flat());
     g.computeVertexNormals();
-    const bands = new THREE.Mesh(g, [parapetMat, dark, structMat]); // 2 = tappi dei tratti aperti
+    const bands = new THREE.Mesh(g, [stoneLight, stoneDark, structMat]); // 2 = tappi dei tratti aperti
     bands.castShadow = bands.receiveShadow = true;
     group.add(bands);
     own.push(g);
@@ -4375,10 +4428,11 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   let towerCount = 0;
   const spiralTower = (x, z, r, Hs, H = Hs) => {
     const core = r * 0.74, t = RAMP_BAND, SEG = 40, dir = towerCount++ % 2 ? 1 : -1; // le torri vicine girano in versi opposti
-    boxAt(towerCores, x, Hs / 2, z, [core, 0, 0], [0, Hs, 0], [0, 0, core]);
-    if (H > Hs + 0.5) boxAt(towerCaps, x, (Hs + H) / 2, z, [r, 0, 0], [0, H - Hs, 0], [0, 0, r]);
-    else boxAt(towerCaps, x, Hs - 0.3, z, [r, 0, 0], [0, 0.6, 0], [0, 0, r]);
-    const y0 = 1.2 + t / 2, steps = Math.floor((Hs - 0.6 - t / 2 - y0) / RAMP_PITCH * SEG);
+    // anima scura fino a 1 m dalla cima, poi la parte alta piena (parapetto in cima o fusto liscio fino a H)
+    const top = Math.max(H, Hs), y1 = Hs - 1.1;
+    boxAt(towerCores, x, y1 / 2, z, [core, 0, 0], [0, y1, 0], [0, 0, core]);
+    boxAt(towerCaps, x, (y1 + top) / 2, z, [r, 0, 0], [0, top - y1, 0], [0, 0, r]);
+    const y0 = 1.2 + t / 2, steps = Math.floor((y1 - 0.1 - t / 2 - y0) / RAMP_PITCH * SEG);
     if (steps < 2) return;
     const inner = [], outer = [], out = [];
     for (let k = 0; k <= steps; k++) {
@@ -4389,7 +4443,8 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   };
   if (st.ramps) {
     for (const run of shape.runs) {
-      const cum = runLengths(run), foot = footOf({ ...shape, outer: runOuter(run) }, st), H = runTop(run).top + 2.2;
+      // con la copertura le torri finiscono sotto il bordo del tetto
+      const cum = runLengths(run), foot = footOf({ ...shape, outer: runOuter(run) }, st), H = runTop(run).top + 2.2 - (st.roof !== 'none' ? 2.6 : 0);
       for (const u of rampStations(run, cum)) {
         const [x, z] = rampTowerAt(shape, st, run, cum, u, foot);
         spiralTower(x, z, RAMP_R, H);
@@ -4398,21 +4453,27 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   }
 
   if (G) {
-    // torri d'angolo: la rampa a spirale sale fino in cima; sopra il bordo bianco, il fondo scuro e il cavalletto rosso
-    // che regge l'incrocio delle due travi principali
-    const Ht = G.towerTop;
+    // torri d'angolo: la rampa a spirale fino in cima alla facciata, poi il fusto liscio che sale oltre le travi rosse
+    // (le travi si incrociano sulla torre); in cima il bordo bianco, il fondo scuro e il piccolo traliccio rosso
+    const Hs = shape.tiers[shape.tiers.length - 1].top + 2.2, Ht = G.towerTop;
     for (const [x, z] of G.towers) {
-      spiralTower(x, z, CORNER_R, Ht, Ht);
-      boxAt(towerCaps, x, Ht + 0.55, z, [CORNER_R + 0.25, 0, 0], [0, 1.1, 0], [0, 0, CORNER_R + 0.25]);
-      boxAt(towerCores, x, Ht + 0.9, z, [CORNER_R - 0.35, 0, 0], [0, 0.6, 0], [0, 0, CORNER_R - 0.35]);
-      const feet = [0, 1, 2, 3].map(k => { const a = Math.PI / 4 + k * Math.PI / 2; return [x + Math.cos(a) * CORNER_R * 0.7, Ht + 1.2, z + Math.sin(a) * CORNER_R * 0.7]; });
-      // l'incrocio delle travi, verso dentro rispetto al centro della torre
-      const cx = Math.sign(x) * G.X, cz = Math.sign(z) * G.Z;
-      feet.forEach((f, k) => {
-        beam(girderBeams, ...f, (x + cx) / 2, G.y0, (z + cz) / 2, 0.75);
-        beam(girderBeams, ...f, ...feet[(k + 1) % 4], 0.45);
-      });
-      beam(girderBeams, (x + cx) / 2, G.y0, (z + cz) / 2, cx, G.y0, cz, 0.6);
+      spiralTower(x, z, CORNER_R, Hs, Ht);
+      boxAt(towerCaps, x, Ht + 0.15, z, [CORNER_R + 0.3, 0, 0], [0, 1.1, 0], [0, 0, CORNER_R + 0.3]);  // bordo
+      boxAt(towerCores, x, Ht + 0.72, z, [CORNER_R - 0.35, 0, 0], [0, 0.06, 0], [0, 0, CORNER_R - 0.35]); // fondo scuro
+      // traliccio: quattro gambe che salgono a una punta, un braccio inclinato verso il campo e i raggi sul fondo
+      const y = Ht + 0.75, ap = [x, y + 4.2, z], l = Math.hypot(x, z) || 1, ix = -x / l, iz = -z / l;
+      for (let k = 0; k < 4; k++) {
+        const a = Math.PI / 4 + k * Math.PI / 2, f = [x + Math.cos(a) * CORNER_R * 0.55, y, z + Math.sin(a) * CORNER_R * 0.55];
+        beam(girderBeams, ...f, ...ap, 0.32);
+        const g = [x + Math.cos(a + Math.PI / 2) * CORNER_R * 0.55, y, z + Math.sin(a + Math.PI / 2) * CORNER_R * 0.55];
+        beam(girderBeams, ...f, ...g, 0.22);
+      }
+      beam(girderBeams, ...ap, x + ix * CORNER_R * 0.8, y + 2.2, z + iz * CORNER_R * 0.8, 0.28);
+      beam(girderBeams, x - ix * CORNER_R * 0.3, y, z - iz * CORNER_R * 0.3, x + ix * CORNER_R * 0.8, y + 2.2, z + iz * CORNER_R * 0.8, 0.22);
+      for (let k = 0; k < 8; k++) {
+        const a = k * Math.PI / 4;
+        beam(beams, x, y + 0.05, z, x + Math.cos(a) * (CORNER_R - 0.5), y + 0.05, z + Math.sin(a) * (CORNER_R - 0.5), 0.08);
+      }
     }
     const planeTruss = (...a) => truss(girderBeams, ...a);
     // travi principali: trave a cassone (due pareti reticolari, piano sopra a traversi fitti, traversi sotto), da una
@@ -4448,7 +4509,46 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       if (Math.abs(dz) > 1e-6) { const tz = ((dz > 0 ? Zi : -Zi) - pz) / dz; if (tz > 0) t = Math.min(t, tz); }
       return [px + dx * t, pz + dz * t];
     };
-    for (const run of roofRuns) {
+    const yb0 = R2.h(ri[1]) + 0.5, yt0 = yb0 + hRing;
+    const ybZ = (f) => yb0 + (G.y0 - yb0) * f, ytZ = (f) => yt0 + (G.top - yt0) * f;
+    // tetto tutto intorno: l'anello interno è dritto (rettangolo con gli angoli tagliati), come la griglia rossa vera
+    const oct = (d) => {
+      const ax = shape.a - shape.r, bz = shape.b - shape.r, R = shape.r + d, pts = [];
+      for (const [sx, sz] of [[1, 1], [-1, 1], [-1, -1], [1, -1]]) {
+        const p1 = sx * sz > 0 ? [sx * (ax + R), sz * bz] : [sx * ax, sz * (bz + R)];
+        const p2 = sx * sz > 0 ? [sx * ax, sz * (bz + R)] : [sx * (ax + R), sz * bz];
+        for (const q of [p1, p2]) if (!pts.length || Math.hypot(q[0] - pts[pts.length - 1][0], q[1] - pts[pts.length - 1][1]) > 0.5) pts.push(q);
+      }
+      if (Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]) < 0.5) pts.pop();
+      return pts;
+    };
+    const closedRoof = roofRuns.length === 1 && roofRuns[0].closed;
+    if (closedRoof) {
+      const A = oct(ri[0]), B = oct(ri[1]), n = A.length;
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n, len = Math.hypot(B[j][0] - B[i][0], B[j][1] - B[i][1]), m = Math.max(1, Math.round(len / 5));
+        for (const [P, d] of [[A, ri[0]], [B, ri[1]]]) planeTruss(P[i][0], P[i][1], P[j][0], P[j][1], () => R2.h(d) + 0.5, () => R2.h(d) + 0.5 + hRing, m, 0.55, 0.35);
+        for (let k = 0; k <= m; k++) {
+          const f = k / m, xa = A[i][0] + (A[j][0] - A[i][0]) * f, za = A[i][1] + (A[j][1] - A[i][1]) * f, xb = B[i][0] + (B[j][0] - B[i][0]) * f, zb = B[i][1] + (B[j][1] - B[i][1]) * f;
+          beam(girderBeams, xa, R2.h(ri[0]) + 0.5 + hRing, za, xb, R2.h(ri[1]) + 0.5 + hRing, zb, 0.3);
+        }
+        // travi a zig-zag fino alle travi principali (triangoli rossi), simmetriche su ogni lato
+        const nz = Math.max(1, Math.round(len / 18)), dx = (B[j][0] - B[i][0]) / len, dz = (B[j][1] - B[i][1]) / len;
+        let ox = dz, oz = -dx;
+        if (ox * (B[i][0] + B[j][0]) + oz * (B[i][1] + B[j][1]) < 0) { ox = -ox; oz = -oz; }
+        for (let k = 0; k < nz; k++) {
+          const pa = [B[i][0] + dx * len * k / nz, B[i][1] + dz * len * k / nz], pb = [B[i][0] + dx * len * (k + 1) / nz, B[i][1] + dz * len * (k + 1) / nz];
+          const [gx, gz] = toGirder((pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2, ox, oz);
+          for (const [px, pz] of [pa, pb]) planeTruss(px, pz, gx, gz, ybZ, ytZ, Math.max(2, Math.round(Math.hypot(gx - px, gz - pz) / 4)), 0.55, 0.32);
+          // trave dritta perpendicolare fino alla trave principale
+          if (len > 12) {
+            const [hx, hz] = [(pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2];
+            planeTruss(hx, hz, gx, gz, ybZ, ytZ, Math.max(2, Math.round(Math.hypot(gx - hx, gz - hz) / 4)), 0.5, 0.3);
+          }
+        }
+      }
+    }
+    for (const run of closedRoof ? [] : roofRuns) {
       const cum = runLengths(run), total = cum[cum.length - 1], st5 = stations(run, cum, 5, ri[1]), last = run.closed ? st5.length : st5.length - 1;
       for (let i = 0; i < last; i++) {
         const ua = st5[i], ub = i + 1 < st5.length ? st5[i + 1] : st5[0] + total;
@@ -4459,9 +4559,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
         const [xa, za] = pointAt(run, cum, ua, ri[0]), [xb, zb] = pointAt(run, cum, ua, ri[1]);
         beam(girderBeams, xa, R2.h(ri[0]) + 0.5 + hRing, za, xb, R2.h(ri[1]) + 0.5 + hRing, zb, 0.35);
       }
-      const S = stations(run, cum, 18, ri[1]), lastZ = run.closed ? S.length : S.length - 1;
-      const yb0 = R2.h(ri[1]) + 0.5, yt0 = yb0 + hRing;
-      const yb = (f) => yb0 + (G.y0 - yb0) * f, yt = (f) => yt0 + (G.top - yt0) * f;
+      const S = stations(run, cum, 18, ri[1]), lastZ = run.closed ? S.length : S.length - 1, yb = ybZ, yt = ytZ;
       for (let i = 0; i < lastZ; i++) {
         const ua = S[i], ub = i + 1 < S.length ? S[i + 1] : S[0] + total, um = wrapU(run, total, (ua + ub) / 2);
         const [mx0, mz0] = pointAt(run, cum, um, ri[1]), [mx1, mz1] = pointAt(run, cum, um, ri[1] + 10);
@@ -4473,12 +4571,10 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       }
     }
 
-    // sbalzi: le travi continuano oltre l'incrocio, sopra il bordo della torre, e finiscono con un blocco rosso pieno
-    // (sopra piano, sotto inclinato)
-    for (const [ttx, ttz] of G.towers) {
-      const tx0 = Math.sign(ttx) * G.X, tz0 = Math.sign(ttz) * G.Z;
+    // sbalzi: le travi escono dall'altra parte della torre e finiscono con un blocco rosso pieno (sopra piano, sotto inclinato)
+    for (const [tx0, tz0] of G.towers) {
       for (const [dx, dz] of [[Math.sign(tx0), 0], [0, Math.sign(tz0)]]) {
-        const nx = -dz, nz = dx, w = GIRDER_W + 0.3, s0 = GIRDER_W + CORNER_R * 0.9, s1 = s0 + GIRDER_L;
+        const nx = -dz, nz = dx, w = GIRDER_W + 0.3, s0 = CORNER_R + 3, s1 = s0 + GIRDER_L;
         // tratto reticolare tra l'incrocio e il blocco
         for (const side of [-1, 1]) planeTruss(tx0 + nx * GIRDER_W * side, tz0 + nz * GIRDER_W * side, tx0 + dx * s0 + nx * GIRDER_W * side, tz0 + dz * s0 + nz * GIRDER_W * side, () => G.y0, () => G.top, 1, 0.85, 0.42);
         const P = (sv, y, side) => [tx0 + dx * sv + nx * w * side, y, tz0 + dz * sv + nz * w * side];
@@ -4615,10 +4711,10 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     group.add(new THREE.Mesh(g, glowMat));
     own.push(g);
   }
-  inst(dark, towerCores, cylinder);
-  inst(parapetMat, towerCaps, cylinder);
+  inst(stoneDark, towerCores, cylinder);
+  inst(stoneLight, towerCaps, cylinder);
   inst(steel, drums, cylinder);
-  for (const [surf, mat] of [[ramps, parapetMat], [wedges, girderMat]]) {
+  for (const [surf, mat] of [[ramps, stoneLight], [wedges, girderMat]]) {
     const g = surf.geometry(THREE);
     if (!g) continue;
     const m = new THREE.Mesh(g, mat);
@@ -4629,7 +4725,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   inst(girderMat, girderBeams);
   inst([steel, steel, steel, steel, lamp, steel], lamps); // la faccia +z del proiettore è quella accesa
 
-  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, nightGlow, repaint, tints, badge, wallMat, panelSkinMat };
+  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, nightGlow, repaint, tints, badge, wallMat, panelSkinMat, stoneLight, stoneDark };
 }
 
 /* --------------------------------------------------------------- scena */
@@ -4879,6 +4975,8 @@ function buildStadium(L, st) {
       if (outside.panelSkinMat) outside.panelSkinMat.color.set(c.accent);
       outside.accent.color.set(c.accent);
       outside.dark.color.set(shade(c.structure, 0.62));
+      outside.stoneLight.color.set(c.parapet);
+      outside.stoneDark.color.set(shade(c.structure, 0.62));
       outside.girder.color.set(c.girder);
       if (outside.deckMat) outside.deckMat.color.set(c.roof);
       outside.glow.color.set(c.glow); outside.glow.emissive.set(c.glow);
