@@ -509,7 +509,8 @@ export const RAKE_MIN = 50, RAKE_MAX = 130; // pendenza degli spalti in percentu
 const M_PARAPET = 0, M_STEPS = 1, M_STRUCT = 2, M_BOX = 3;
 
 const seatKey = (st) => [ringsBySide(st).join(','), st.track ? 1 : 0, st.shape, st.corners, st.horseshoe ? 1 : 0, st.vomitories ? 1 : 0,
-  st.standGap || 0, st.endGap || 0, rakesBySide(st).join(','), st.corners === 'open' ? st.cornerGap || 18 : ''].join('|');
+  st.standGap || 0, st.endGap || 0, rakesBySide(st).join(','), st.corners === 'open' ? st.cornerGap || 18 : '',
+  st.roof === 'wave' ? ['wave', st.facade, st.roofReach].join(',') : ''].join('|');
 const geomKey = (st) => [seatKey(st), st.roof, st.roofCover, st.roofCover === 'pick' ? st.roofSectors.map(Number).join('') : '', st.roofReach, st.lights, st.facade, WALL_TEX_FACADES.includes(st.facade) ? st.wallTexture : '', st.adBoards,
   st.entrance, st.entrance !== 'none' || st.roof === 'wave' ? [st.entranceSides.map(Number).join(''), st.entranceWidth, st.entranceHeight, st.entranceLogo].join(',') : '', st.ramps ? 1 : 0, st.shellPattern, st.roof === 'dome' && !st.domeTeeth ? 'noteeth' : '', st.screen, st.boxes ? 1 : 0, (st.logoPlaces || []).join(',')].join('|');
 
@@ -593,7 +594,7 @@ function shapeOf(st) {
     let D = 0, H = 1.2;
     ROWS[maxRings].forEach((rows, i) => {
       const R = RISERS[i] * rake / 100, depth = rows * TREAD;
-      const t = { i, rows, R, D, H, back: D + depth, top: H + (rows - 1) * R };
+      const t = { i, rows, R, Rx: R * 1.35, D, H, back: D + depth, top: H + (rows - 1) * R }; // Rx: file in più (sotto la copertura ondulata)
       t.soffit = (d) => t.H - 1.6 + (d - t.D) / TREAD * t.R; // sotto dell'anello (parallelo ai gradoni)
       // struttura a vista: anche il primo anello è sollevato da terra verso fuori (si vede il sotto)
       t.under = i === 0 ? (d) => Math.max(0, (d - t.D - 6) * t.R / TREAD) : t.soffit;
@@ -630,41 +631,110 @@ function shapeOf(st) {
     const keep = (p) => p.x > -(a - r) - 1e-6 && !(p.mx < 0 && Math.abs(p.mz) < 1e-6);
     runs = runs.flatMap(run => subRuns(run, keep).map(sub => ({ ...sub, tiers: run.tiers })));
   }
-  return { a, b, r, tiers, path, runs, outer: Math.max(...tiers.map(t => t.back)) + WALL, height: last.top + 2.2 };
+  const shape = { a, b, r, tiers, path, runs, outer: Math.max(...tiers.map(t => t.back)) + WALL, height: last.top + 2.2 };
+  if (st.roof === 'wave') roofRows(shape, st);
+  return shape;
 }
 
-/** Profilo di un anello (d = distanza dal bordo, h = altezza): parapetto, gradoni, muro dietro, sotto. */
-function tierProfile(t, next, exposed, boxes) {
-  const pts = [];
+/**
+ * Sotto la copertura ondulata (Vélodrome) l'ultimo anello sale fino alla copertura: file in più (più ripide, Rx) dove
+ * il tetto è alto, cioè sulle curve, e quasi niente dove è basso (sui lati); restano dentro la fascia e sotto la
+ * copertura; sotto il tetto il soffitto scende e si appoggia sul muretto dietro l'ultima fila (standLine). Le
+ * file in più cambiano poco a poco lungo il giro (anche a metà di una fila), così la cima degli spalti è una linea
+ * morbida. run.ext[i] = file in più nel punto i del tratto (con la virgola), run.E = il massimo arrotondato in su.
+ */
+const EXT_MAX = 30, EXT_CLEAR = 2.4;
+const extTop = (T, e) => T.top + e * T.Rx;            // quota dell'ultima fila (anche a metà)
+const extWall = (T, e) => extTop(T, e) + 1.1;          // cima del muretto dietro l'ultima fila (ci poggia la copertura)
+function roofRows(shape, st) {
+  const V = waveOf(shape, st);
+  for (const run of shape.runs) {
+    const T = run.tiers[run.tiers.length - 1], P = run.pts, n = P.length;
+    const under = (p, e) => { const d = T.back + e * TREAD + WALL; return V.roofAt(p.x + p.mx * d, p.z + p.mz * d, d) - 0.45; };
+    const raw = P.map(p => {
+      const l = Math.hypot(p.mx, p.mz) || 1, lim = V.beyond(p.x, p.z, p.mx / l, p.mz / l) - 2.4;
+      const fits = (e) => extWall(T, e) + EXT_CLEAR <= under(p, e);
+      let hi = Math.min(EXT_MAX, Math.max(0, (lim / l - WALL - T.back) / TREAD));
+      if (fits(hi)) return hi;
+      if (!fits(0)) return 0;
+      let lo = 0;
+      for (let k = 0; k < 18; k++) { const m = (lo + hi) / 2; if (fits(m)) lo = m; else hi = m; }
+      return lo;
+    });
+    // morbida lungo il giro: prima il minimo dei vicini (non esce mai dai limiti), poi la media
+    const at = (i) => raw[run.closed ? (i + n) % n : Math.min(n - 1, Math.max(0, i))], W = 3;
+    const low = P.map((_, i) => { let m = Infinity; for (let k = -W; k <= W; k++) m = Math.min(m, at(i + k)); return m; });
+    const lat = (i) => low[run.closed ? (i + n) % n : Math.min(n - 1, Math.max(0, i))];
+    run.ext = P.map((_, i) => { let s = 0; for (let k = -W; k <= W; k++) s += lat(i + k); const e = s / (2 * W + 1); return e < 0.25 ? 0 : e; });
+    run.E = Math.ceil(Math.max(0, ...run.ext));
+  }
+}
+
+/** Quota delle file in più dell'ultimo anello (roofRows) sotto il punto (x, z); 0 se lì non ci sono. */
+function extTopAt(shape, x, z) {
+  let best = null, bp = Infinity;
+  for (const run of shape.runs) {
+    if (!run.E) continue;
+    run.pts.forEach((p, i) => {
+      const l = Math.hypot(p.mx, p.mz) || 1, ux = p.mx / l, uz = p.mz / l, t = (x - p.x) * ux + (z - p.z) * uz, perp = Math.abs((x - p.x) * uz - (z - p.z) * ux);
+      if (t > 0 && perp < bp) { bp = perp; best = [run, i, t / l]; }
+    });
+  }
+  if (!best) return 0;
+  const [run, i, d] = best, e = run.ext[i], T = run.tiers[run.tiers.length - 1];
+  if (!e || d < T.back - 0.5 || d > T.back + e * TREAD + WALL + 0.5) return 0;
+  return extWall(T, Math.min(e, Math.max(0, (d - T.back) / TREAD + 1)));
+}
+
+/**
+ * Profilo di un anello (d = distanza dal bordo, h = altezza): parapetto, gradoni, muro dietro, sotto. e = file in più
+ * (sotto la copertura ondulata, più ripide; anche a metà: l'ultima fila è più corta), E = file in più del punto che ne
+ * ha di più: le mancanti restano schiacciate sull'ultima fila, così tutti i profili del tratto hanno gli stessi punti.
+ */
+function tierProfile(t, next, exposed, boxes, e = 0, E = Math.ceil(e)) {
+  const pts = [], whole = Math.floor(e + 1e-6), part = e - whole > 0.02 ? e - whole : 0;
+  const rows = t.rows + whole + (part ? 1 : 0), back = t.D + (t.rows + whole + part) * TREAD, wave = E > 0;
+  const rowH = (k) => (k < t.rows ? t.H + k * t.R : t.top + (k - t.rows + 1) * t.Rx), top = rowH(rows - 1);
+  const tread = (k) => t.D + (k + 1) * TREAD - (part && k === rows - 1 ? (1 - part) * TREAD : 0);
   const add = (d, h, m) => pts.push({ d, h, m }); // m = materiale del lato che parte da questo punto
+  const pad = (n) => { const q = pts[pts.length - 1]; for (let k = 0; k < n; k++) pts.push({ ...q }); };
   add(t.D, t.i === 0 ? 0 : t.H - 1.6, M_PARAPET);
   add(t.D, t.H + 1, M_PARAPET);
   add(t.D + 0.25, t.H + 1, M_PARAPET);
   add(t.D + 0.25, t.H, M_STEPS);
-  for (let k = 0; k < t.rows; k++) {
-    const last = k === t.rows - 1;
+  for (let k = 0; k < rows; k++) {
+    const last = k === rows - 1;
     // sopra l'ultima fila, fino all'anello di sopra: muro o fascia dei palchi vetrati
-    add(t.D + (k + 1) * TREAD, t.H + k * t.R, last ? (boxes && next && !exposed ? M_BOX : M_STRUCT) : M_STEPS);
-    if (!last) add(t.D + (k + 1) * TREAD, t.H + (k + 1) * t.R, M_STEPS);
+    add(tread(k), rowH(k), last ? (boxes && next && !exposed ? M_BOX : M_STRUCT) : M_STEPS);
+    if (!last) add(t.D + (k + 1) * TREAD, rowH(k + 1), M_STEPS);
   }
-  // muro dietro: sale fino sotto l'anello di sopra (niente buchi tra un anello e l'altro) o fa da bordo in cima;
-  // con la struttura a vista tra un anello e l'altro resta aperto (si vede il sotto a gradoni dell'anello sopra)
-  const wallTop = next && !exposed ? next.soffit(t.back + WALL) : t.top + (next ? 1.2 : 2.2);
-  add(t.back, wallTop, M_STRUCT);
-  add(t.back + WALL, wallTop, M_STRUCT);
+  pad(2 * (t.rows + E) - 1 - (2 * rows - 1));
+  // muro dietro: sale fino sotto l'anello di sopra (niente buchi tra un anello e l'altro) o fa da bordo in cima
+  // (sotto la copertura ondulata un muretto che segue le file, sopra sale la fascia fino al tetto); con la struttura a
+  // vista tra un anello e l'altro resta aperto (si vede il sotto a gradoni dell'anello sopra)
+  const wallTop = next && !exposed ? next.soffit(back + WALL) : wave ? extWall(t, e) : top + (next ? 1.2 : 2.2);
+  add(back, wallTop, M_STRUCT);
+  add(back + WALL, wallTop, M_STRUCT);
   if (!exposed) {
-    add(t.back + WALL, t.i > 0 ? t.soffit(t.back + WALL) : 0, M_STRUCT);
+    add(back + WALL, t.i > 0 ? t.soffit(back + WALL) : 0, M_STRUCT);
     return pts;
   }
   // struttura a vista: il sotto degli spalti segue i gradoni, così da fuori si vedono le "scale" inclinate
-  const y = (k) => t.under(t.D + (k + 1) * TREAD);
-  add(t.back + WALL, y(t.rows - 1), M_STRUCT);
-  for (let k = t.rows - 1; k >= 0; k--) {
-    const dk = t.D + k * TREAD, yn = k > 0 ? y(k - 1) : null;
-    add(dk, y(k), M_STRUCT);
-    if (t.i === 0 && (yn === null || yn <= 0.3)) { add(dk, 0, M_STRUCT); break; } // il primo anello poggia a terra
-    if (yn !== null) add(dk, yn, M_STRUCT);
-  }
+  const under = (R, b) => {
+    const u = [], y = (k) => t.under(Math.min(b, t.D + (k + 1) * TREAD));
+    u.push([b + WALL, y(R - 1)]);
+    for (let k = R - 1; k >= 0; k--) {
+      const dk = t.D + k * TREAD, yn = k > 0 ? y(k - 1) : null;
+      u.push([dk, y(k)]);
+      if (t.i === 0 && (yn === null || yn <= 0.3)) { u.push([dk, 0]); break; } // il primo anello poggia a terra
+      if (yn !== null) u.push([dk, yn]);
+    }
+    return u;
+  };
+  const mine = under(rows, back), full = under(t.rows + E, t.D + (t.rows + E) * TREAD);
+  add(...mine[0], M_STRUCT);
+  pad(full.length - mine.length);
+  for (const q of mine.slice(1)) add(...q, M_STRUCT);
   return pts;
 }
 
@@ -700,12 +770,38 @@ function extrude(THREE, run, profile, pos, idx) {
   }
 }
 
+/**
+ * Come extrude, ma con un profilo per punto del tratto (stessi punti, posizioni diverse: le file in più dell'ultimo
+ * anello); i materiali vengono dal profilo ref (quello con tutte le file).
+ */
+function extrudeVar(THREE, run, profiles, ref, pos, idx) {
+  const P = run.pts, n = P.length, segs = run.closed ? n : n - 1, E = ref.length;
+  for (let e = 0; e < E; e++) {
+    const base = pos.length / 3;
+    P.forEach((p, i) => { const a = profiles[i][e], b = profiles[i][(e + 1) % E]; pos.push(p.x + p.mx * a.d, a.h, p.z + p.mz * a.d, p.x + p.mx * b.d, b.h, p.z + p.mz * b.d); });
+    const list = idx[ref[e].m];
+    for (let i = 0; i < segs; i++) { const a0 = base + i * 2, b0 = base + ((i + 1) % n) * 2; list.push(a0, b0, a0 + 1, a0 + 1, b0, b0 + 1); }
+  }
+  if (run.closed) return;
+  for (const i of [0, n - 1]) {
+    const p = P[i], prof = profiles[i].filter((q, k, arr) => !k || q.d !== arr[k - 1].d || q.h !== arr[k - 1].h);
+    const tris = THREE.ShapeUtils.triangulateShape(prof.map(q => new THREE.Vector2(q.d, q.h)), []);
+    const base = pos.length / 3;
+    for (const q of prof) pos.push(p.x + p.mx * q.d, q.h, p.z + p.mz * q.d);
+    for (const [a, b, c] of tris) idx[M_STRUCT].push(base + a, base + b, base + c);
+  }
+}
+
 /** exposed = struttura a vista: niente muri pieni sotto gli anelli (li reggono travi e pilastri). */
 function standsGeometry(THREE, shape, exposed, boxes) {
   const pos = [], idx = [[], [], [], []];
   for (const run of shape.runs) {
     run.tiers.forEach((t, i) => {
-      extrude(THREE, run, tierProfile(t, run.tiers[i + 1], exposed, boxes), pos, idx);
+      if (run.E && i === run.tiers.length - 1) {
+        // ultimo anello con le file in più sotto la copertura ondulata
+        const profiles = run.ext.map(e => tierProfile(t, undefined, exposed, boxes, e, run.E));
+        extrudeVar(THREE, run, profiles, tierProfile(t, undefined, exposed, boxes, run.E, run.E), pos, idx);
+      } else extrude(THREE, run, tierProfile(t, run.tiers[i + 1], exposed, boxes), pos, idx);
       if (i > 0 && !exposed) extrude(THREE, run, supportProfile(t), pos, idx);
     });
   }
@@ -755,13 +851,20 @@ function seatsOf(st) {
     const aisles = Array.from({ length: run.closed ? count : count + 1 }, (_, k) => k * total / count);
     const voms = st.vomitories ? vomitoryUs(run, total, count) : [];
     for (const t of run.tiers) {
-      const vr = voms.length ? vomRows(t) : null;
-      for (let row = 0; row < t.rows; row++) {
-        const inVom = vr && row >= vr[0] && row < vr[1];
-        const d = t.D + row * TREAD + 0.55, h = t.H + row * t.R;
+      const vr = voms.length ? vomRows(t) : null, extra = run.E && t === run.tiers[run.tiers.length - 1] ? run.E : 0;
+      for (let row = 0; row < t.rows + extra; row++) {
+        const inVom = vr && row >= vr[0] && row < vr[1], up = row - t.rows + 1; // up > 0: fila in più
+        const d = t.D + row * TREAD + 0.55, h = up > 0 ? t.top + up * t.Rx : t.H + row * t.R;
         let carry = 0.25;
         for (let i = 0; i < segs; i++) {
           const j = (i + 1) % n;
+          // fila in più: solo dove c'è tutta (le file finiscono a metà del tratto, seguendo la cima)
+          let sLo = 0, sHi = Infinity;
+          if (up > 0) {
+            const ei = run.ext[i], ej = run.ext[j];
+            if (ei < up && ej < up) { carry = 0.25; continue; }
+            if (ei < up) sLo = (up - ei) / (ej - ei); else if (ej < up) sHi = (ei - up) / (ei - ej);
+          }
           const x0 = P[i].x + P[i].mx * d, z0 = P[i].z + P[i].mz * d;
           const x1 = P[j].x + P[j].mx * d, z1 = P[j].z + P[j].mz * d;
           const l = Math.hypot(x1 - x0, z1 - z0);
@@ -769,6 +872,7 @@ function seatsOf(st) {
           const tx = (x1 - x0) / l, tz = (z1 - z0) / l, scale = l / Li[i];
           let s = carry;
           for (; s < l; s += SEAT_W) {
+            if (s < sLo * l || s > sHi * l) continue;
             const u = U[i] + (s / l) * Li[i];
             if (aisles.some(au => Math.abs(u - au) * scale < AISLE_HALF)) continue;
             if (inVom && voms.some(vu => Math.abs(u - vu) * scale < VOM_HALF)) continue;
@@ -1107,7 +1211,7 @@ function roofShapeOf(shape, st, roofRuns) {
 function entranceOf(shape) {
   const run = shape.runs.find(r => r.pts.some(p => onLongSide(p) && p.z > 0 && Math.abs(p.x) < 3));
   if (!run) return null;
-  const o = runOuter(run), PH = cladPodium(runTop(run).top + 2.2);
+  const o = runOuter(run), PH = cladPodium(wallTopOf(run));
   return { run, o, PH, z0: shape.b + o + CLAD_PODIUM_W, top: PH + 1 };
 }
 
@@ -1358,7 +1462,7 @@ function logoSpots(shape, st) {
     for (const sgn of [1, -1]) {
       const run = shape.runs.find(r => r.pts.some(p => !onLongSide(p) && Math.sign(p.x) === sgn && Math.abs(p.z) < 3));
       if (!run) continue;
-      const o = runOuter(run), H = runTop(run).top + 2.2, clad = st.facade === 'cladding';
+      const o = runOuter(run), H = wallTopOf(run), clad = st.facade === 'cladding';
       const lo = clad ? cladPodium(H) + 1.6 : { esplanade: ESPLANADE_H + 1, struts: PLATFORM_H + 1.15 }[st.facade] ?? 1.5;
       const hi = clad ? H - cladCornice(H) - 0.8 : H - 0.5, s = Math.min(LOGO_MAX, hi - lo);
       const d = o + (clad ? 0.95 : { struts: PLATFORM_OUT + 0.35, bands: 2, columns: 1.2 }[st.facade] ?? 0.5);
@@ -1635,6 +1739,8 @@ const esplanadeW = (st) => (st.roof === 'shell' ? ESPLANADE_W + 12 : ESPLANADE_W
 /** Muro esterno e altezza di un tratto: i settori possono avere anelli diversi, la facciata segue ognuno. */
 const runOuter = (run) => Math.max(...run.tiers.map(t => t.back)) + WALL;
 const runTop = (run) => run.tiers[run.tiers.length - 1];
+/** Altezza del muro esterno di un tratto: sotto le file in più dell'ultimo anello (copertura ondulata), se ci sono. */
+const wallTopOf = (run) => { const T = runTop(run); return run.E ? Math.min(T.top + 2.2, T.soffit(runOuter(run)) - 0.3) : T.top + 2.2; };
 
 /**
  * Lame d'acciaio (stile Bernabéu): pianta quasi quadrata, basamento vetrato scuro, facciata di grandi lame orizzontali
@@ -1751,12 +1857,48 @@ function waveOf(shape, st) {
   if (!memo.has(key)) memo.set(key, waveBuild(shape, st));
   return memo.get(key);
 }
+/**
+ * Linea della cima degli spalti sotto la copertura ondulata, per la direzione del punto (x, z) vista dal centro: quota
+ * del muretto dietro l'ultima fila (h, le file in più comprese), distanza dal centro (r) e quanto ci sono spalti (w: 1
+ * dove ci sono, 0 dove no, sfumato tra un tratto e l'altro). Il soffitto della copertura ci si appoggia sopra.
+ */
+function standLine(shape) {
+  const K = 720, H = new Array(K).fill(null), Rr = new Array(K).fill(null), bin = (x, z) => ((Math.atan2(z, x) / (2 * Math.PI)) % 1 + 1) % 1 * K;
+  for (const run of shape.runs) {
+    const T = run.tiers[run.tiers.length - 1];
+    run.pts.forEach((p, i) => {
+      const e = run.ext ? run.ext[i] : 0, d = T.back + e * TREAD + WALL, x = p.x + p.mx * d, z = p.z + p.mz * d, k = Math.round(bin(x, z)) % K;
+      const h = extWall(T, e) + 0.1;
+      if (H[k] === null || h > H[k]) { H[k] = h; Rr[k] = Math.hypot(x, z); }
+    });
+  }
+  const W = H.map(h => (h === null ? 0 : 1));
+  // riempie i buchi (tra un punto e l'altro, o dove non ci sono spalti) passando dolcemente dai vicini
+  const fill = (tab) => {
+    const known = tab.map((v, k) => (v === null ? -1 : k)).filter(k => k >= 0), out = tab.slice();
+    if (!known.length) return out.fill(0);
+    for (let k = 0; k < K; k++) {
+      if (tab[k] !== null) continue;
+      let a = known[known.length - 1] - K, b = known[0] + K;
+      for (const j of known) { if (j < k) a = j; else { b = j; break; } }
+      const va = tab[(a + K) % K], vb = tab[b % K];
+      out[k] = va + (vb - va) * (k - a) / ((b - a) || 1);
+    }
+    return out;
+  };
+  const h = fill(H), r = fill(Rr);
+  // spalti: 1 vicino ai punti, 0 nei buchi larghi (curve staccate, ferro di cavallo)
+  const w = W.map((_, k) => { let near = Infinity; for (let j = -24; j <= 24; j++) if (W[(k + j + K) % K]) near = Math.min(near, Math.abs(j)); return near <= 6 ? 1 : near >= 24 ? 0 : 1 - (near - 6) / 18; });
+  const at = (tab) => (x, z) => { const f = bin(x, z), k = Math.floor(f) % K, t = f - Math.floor(f); return tab[k] * (1 - t) + tab[(k + 1) % K] * t; };
+  return { h: at(h), r: at(r), w: at(w) };
+}
 function waveBuild(shape, st) {
   const T = shape.tiers[shape.tiers.length - 1], o = shape.outer;
   const base = st.facade === 'esplanade' ? ESPLANADE_H : 0;
-  const hSide = T.top + 4, hEnd = T.top + 15, dE = o + 3, dIn = Math.min(o - 8, Math.max(-14, 1 - reachOf_(st)));
+  const hS = T.top + 4, hE = T.top + 15, dE = o + 3, dIn = Math.min(o - 8, Math.max(-14, 1 - reachOf_(st)));
   const endF = (x, z) => Math.cos(Math.atan2(Math.abs(z) / shape.b, Math.abs(x) / shape.a)) ** 2; // 1 sulle curve, 0 sui lati
-  const edge = (x, z) => hSide + (hEnd - hSide) * endF(x, z);
+  // bordo fuori della copertura: alto sulle curve, basso sui lati
+  const hSide = hS, hEnd = hE, edge = (x, z) => hSide + (hEnd - hSide) * endF(x, z);
   const rise = (x, z) => 3.5 + 5.5 * endF(x, z);
   const hAt = (x, z, f) => edge(x, z) + rise(x, z) * (1 - (1 - f) ** 2);
   // ingresso principale al centro della curva verso +x: lì la fascia sale ancora e lascia il portale più alto
@@ -1768,14 +1910,26 @@ function waveBuild(shape, st) {
     return (base + 2.2) * (1 - e) + (base + (hEnd - base) * 0.42) * e + 4 * entryF(x, z);
   };
   // pianta: rettangolare verso l'apertura, molto più tonda verso fuori; ripresa a passi uguali (spicchi regolari)
+  // sulle curve la parte fuori della copertura (sopra il retro degli spalti e la fascia) si allarga verso fuori:
+  // lì gli spalti salgono fino alla copertura (roofRows)
+  const ROOM = 8, d0 = o - 6, push = (d, x, z) => ROOM * Math.min(1, Math.max(0, (d - d0) / (dE - d0))) ** 1.5 * endF(x, z) ** 2;
   const rows = new Map(), rowAt = (d) => {
     const key = d.toFixed(3);
     if (!rows.has(key)) {
       const w = Math.min(1, Math.max(0, (d - dIn) / (dE - dIn))) ** 1.3;
       const a = shellOutline(shape, d, WAVE_ROW * 4), b = roundOutline(shape, d, WAVE_ROW * 4);
-      rows.set(key, evenOutline(a.map((p, i) => [p[0] + (b[i][0] - p[0]) * w, p[1] + (b[i][1] - p[1]) * w]), WAVE_ROW));
+      rows.set(key, evenOutline(a.map((p, i) => {
+        const x = p[0] + (b[i][0] - p[0]) * w, z = p[1] + (b[i][1] - p[1]) * w, l = Math.hypot(x, z) || 1, k = push(d, x, z);
+        return [x + x / l * k, z + z / l * k];
+      }), WAVE_ROW));
     }
     return rows.get(key);
+  };
+  // quota del tetto nel punto (x, z) a distanza dWorld dal bordo degli spalti (tiene conto dell'allargamento)
+  const roofAt = (x, z, dWorld) => {
+    let d = dWorld;
+    for (let k = 0; k < 5; k++) d = dWorld - push(d, x, z);
+    return hAt(x, z, (d - dE + 1.2) / (dIn - dE + 1.2));
   };
   // quanto la pianta esterna esce oltre il bordo degli spalti spostato (per il pavimento e l'inquadratura)
   let out = dE;
@@ -1794,7 +1948,7 @@ function waveBuild(shape, st) {
     }
     return best;
   };
-  return { dIn, dE, hSide, hEnd, base, edge, hAt, rowAt, bandBottom, entryF, inEntry, ENTRY_W, rimSide, rimEnd, beyond, out: out + 1, top: rimEnd + 1 };
+  return { dIn, dE, hSide, hEnd, base, edge, hAt, roofAt, rowAt, bandBottom, entryF, inEntry, ENTRY_W, rimSide, rimEnd, beyond, out: out + 1, top: rimEnd + 1 };
 }
 
 /**
@@ -2818,7 +2972,7 @@ function bakeTexture(W, H, tileU, tileV, bulge, fn) {
 function outerSkin(THREE, shape, off, tileU, tileV, h0 = 0) {
   const pos = [], uv = [], idx = [];
   for (const run of shape.runs) {
-    const o = runOuter(run) + off, H = runTop(run).top + 2.2, P = run.closed ? [...run.pts, run.pts[0]] : run.pts;
+    const o = runOuter(run) + off, H = wallTopOf(run), P = run.closed ? [...run.pts, run.pts[0]] : run.pts;
     const pts = P.map(p => [p.x + p.mx * o, p.z + p.mz * o]), L = [0];
     for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
     const len = L[L.length - 1] || 1, k = run.closed ? Math.max(1, Math.round(len / tileU)) / len : 1 / tileU;
@@ -3815,13 +3969,36 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     own.push(gTop, gBand);
     roofDecor = { band: bandMat };
 
-    // travi reticolari radiali sotto il tetto (più alte a metà, sempre sopra gli spalti), anelli e trave lungo l'apertura
-    const standTop = (d) => standTopAt(shape, d);
-    const under = (r, i, dy) => { const [x, y, z] = r.row[i]; return [x, y + dy, z]; };
+    // soffitto sotto il tetto (fuori non cambia niente): dall'apertura scende fino ad appoggiarsi sul muretto dietro
+    // l'ultima fila, seguendo la cima degli spalti; dietro gli spalti resta piano a quella quota fino alla fascia
+    const standTop = (d, x, z) => Math.max(standTopAt(shape, d), extTopAt(shape, x, z));
+    const SL = standLine(shape);
+    roofRows.forEach(r => {
+      r.ceil = r.row.map(([x, Y, z], i) => {
+        const S = SL.h(x, z), rB = SL.r(x, z), rP = Math.hypot(x, z), rL = Math.hypot(lip[i][0], lip[i][2]), YL = lip[i][1];
+        let C = S;
+        if (rP < rB) { const t = Math.min(1, Math.max(0, (rB - rP) / ((rB - rL) || 1))); C = S + (YL - S) * (1 - (1 - t) ** 1.6); }
+        C = Math.max(C, standTop(r.d, x, z) + 0.4);
+        const w = SL.w(x, z);
+        return [x, Math.min(Y - 0.6, C * w + (Y - 0.6) * (1 - w)), z];
+      });
+    });
+    // membrana chiara che lascia passare un po' di luce (di notte illuminata dai fari)
+    const ceilMat = new THREE.MeshStandardMaterial({ map: tex, color: 0xe2e6ea, roughness: 0.8, side: THREE.DoubleSide, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.16 });
+    nightGlow.push([ceilMat, 0.16, 0.24]);
+    const gCeil = sweepRows(THREE, [...roofRows.map(r => r.ceil), lip], strips, cush.tileV);
+    const ceil = new THREE.Mesh(gCeil, ceilMat);
+    ceil.receiveShadow = true;
+    group.add(ceil);
+    own.push(ceilMat, gCeil);
+
+    // travi reticolari radiali sotto il soffitto (più alte a metà, sempre sopra gli spalti), anelli e trave lungo
+    // l'apertura
+    const under = (r, i, dy) => { const [x, y, z] = r.ceil[i]; return [x, y + dy, z]; };
     for (let i = 0; i < N; i += 6) {
       let prev = null;
       for (const r of roofRows) {
-        const [x, y, z] = under(r, i, -0.5), depth = Math.min(0.8 + 3.4 * Math.sin(Math.PI * r.f) ** 0.8, Math.max(0.6, y - standTop(r.d) - 2.5));
+        const [x, y, z] = under(r, i, -0.5), depth = Math.min(0.8 + 3.4 * Math.sin(Math.PI * r.f) ** 0.8, Math.max(0.6, y - standTop(r.d, x, z) - 2.5));
         const cur = { x, z, t: y, b: y - depth };
         beam(beams, x, cur.t, z, x, cur.b, z, 0.18);
         if (prev) {
@@ -4699,7 +4876,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     const E = entranceOf(shape), mid = E && E.run, z0 = E ? E.z0 : 0;
     const inEntrance = (x, z) => mid && z > 0 && Math.abs(x) < CLAD_ENTRANCE / 2 + 2.5 && Math.abs(z - z0) < 3;
     for (const run of shape.runs) {
-      const o = runOuter(run), H = runTop(run).top + 2.2, PH = cladPodium(H), CH = cladCornice(H), W = o + CLAD_PODIUM_W;
+      const o = runOuter(run), H = wallTopOf(run), PH = cladPodium(H), CH = cladCornice(H), W = o + CLAD_PODIUM_W;
       extrude(THREE, run, rect(o - 0.1, o + 0.3, 0, H, 0), pos, idx);                          // parete chiara
       extrude(THREE, run, rect(o + 0.3, o + 0.6, H - CH, H, 1), pos, idx);                     // cornicione
       extrude(THREE, run, rect(o + 0.6, o + 0.68, H - CH - 1, H - CH - 0.1, 0), glowPos, glowIdx);
@@ -4755,7 +4932,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     // chiude la parete (con il cornicione) e uno il basamento
     for (const run of shape.runs) {
       if (run.closed) continue;
-      const o = runOuter(run), H = runTop(run).top + 2.2, PH = cladPodium(H), CH = cladCornice(H);
+      const o = runOuter(run), H = wallTopOf(run), PH = cladPodium(H), CH = cladCornice(H);
       for (const p of [run.pts[0], run.pts[run.pts.length - 1]]) {
         const low = shape.runs.filter(r => r !== run && r.pts.includes(p) && runOuter(r) < o - 0.5);
         if (!low.length) continue;
@@ -4772,7 +4949,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     for (const [sx, sz] of [[1, 1], [-1, 1], [-1, -1], [1, -1]]) {
       const p = diagonalPoint(shape, sx, sz), runs = shape.runs.filter(r => r.pts.includes(p));
       if (!runs.length) continue;
-      const run = runs.reduce((m, r) => (runOuter(r) > runOuter(m) ? r : m)), o = runOuter(run), PH = cladPodium(runTop(run).top + 2.2);
+      const run = runs.reduce((m, r) => (runOuter(r) > runOuter(m) ? r : m)), o = runOuter(run), PH = cladPodium(wallTopOf(run));
       const x = p.x + p.mx * (o + 2.4), z = p.z + p.mz * (o + 2.4), R = CLAD_DRUM_R, Hd = PH + 6;
       boxAt(drumBody, x, Hd / 2, z, [R, 0, 0], [0, Hd, 0], [0, 0, R]);
       for (const [y, h] of [[PH - 2, 2.6], [PH + 3, 2]]) boxAt(drumWin, x, y, z, [R + 0.06, 0, 0], [0, h, 0], [0, 0, R + 0.06]);
@@ -4899,7 +5076,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     // rivestimento a pannelli del colore delle fasce, con le giunture verticali e la fascia luminosa in cima
     const pos = [], idx = [[], [], []];
     for (const ring of shape.runs) {
-    const o = runOuter(ring), H = runTop(ring).top + 2.2;
+    const o = runOuter(ring), H = wallTopOf(ring);
     extrude(THREE, ring, [[o - 0.1, 0], [o + 0.3, 0], [o + 0.3, H], [o - 0.1, H]].map(([d, h]) => ({ d, h, m: 0 })), pos, idx);
     }
     const g = new THREE.BufferGeometry();
@@ -4920,7 +5097,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     group.add(skin);
     own.push(map, nmap, panelSkinMat, pg);
     for (const ring of shape.runs) {
-    const cum = runLengths(ring), o = runOuter(ring), H = runTop(ring).top + 2.2;
+    const cum = runLengths(ring), o = runOuter(ring), H = wallTopOf(ring);
     for (const u of stations(ring, cum, 4.5, o + 0.33)) {
       const [x, z] = pointAt(ring, cum, u, o + 0.33), [tx, tz] = tangentAt(ring, cum, u, o + 0.33);
       boxAt(windows, x, H / 2, z, [tx * 0.18, 0, tz * 0.18], [0, H, 0], [-tz * 0.08, 0, tx * 0.08]);
@@ -4934,7 +5111,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     // vetrate scure tutto intorno, divise da montanti chiari
     const pos = [], idx = [[], [], []];
     for (const ring of shape.runs) {
-    const o = runOuter(ring), H = runTop(ring).top + 2.2;
+    const o = runOuter(ring), H = wallTopOf(ring);
     extrude(THREE, ring, [[o - 0.1, 0], [o + 0.25, 0], [o + 0.25, H], [o - 0.1, H]].map(([d, h]) => ({ d, h, m: 0 })), pos, idx);
     }
     const g = new THREE.BufferGeometry();
@@ -4954,7 +5131,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     group.add(skin);
     own.push(map, gm, gg);
     for (const ring of shape.runs) {
-    const cum = runLengths(ring), o = runOuter(ring), H = runTop(ring).top + 2.2;
+    const cum = runLengths(ring), o = runOuter(ring), H = wallTopOf(ring);
     for (const u of stations(ring, cum, 3.2, o + 0.3)) {
       const [x, z] = pointAt(ring, cum, u, o + 0.3), [tx, tz] = tangentAt(ring, cum, u, o + 0.3);
       boxAt(pilasters, x, H / 2, z, [tx * 0.25, 0, tz * 0.25], [0, H, 0], [-tz * 0.2, 0, tx * 0.2]);
@@ -4995,7 +5172,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     const rect = (d0, d1, h0, h1, m) => [[d0, h0], [d1, h0], [d1, h1], [d0, h1]].map(([d, h]) => ({ d, h, m }));
     const pos = [], idx = [[], [], []];
     for (const run of shape.runs) {
-      const o = runOuter(run), Ht = runTop(run).top + 2.2;
+      const o = runOuter(run), Ht = wallTopOf(run);
       extrude(THREE, run, rect(o - 0.05, o + 0.3, 0, Ht, 1), pos, idx);
       // cornicione in cima e zoccolo a terra: alti quanto una fascia, così le rampe tagliate finiscono dentro
       extrude(THREE, run, rect(o + 0.3, o + 1.9, Ht - RAMP_BAND - 0.15, Ht, 0), pos, idx);
@@ -5059,7 +5236,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   if (st.ramps) {
     for (const run of shape.runs) {
       // con la copertura le torri finiscono sotto il bordo del tetto
-      const cum = runLengths(run), foot = footOf({ ...shape, outer: runOuter(run) }, st), H = runTop(run).top + 2.2 - (st.roof !== 'none' ? 2.6 : 0);
+      const cum = runLengths(run), foot = footOf({ ...shape, outer: runOuter(run) }, st), H = wallTopOf(run) - (st.roof !== 'none' ? 2.6 : 0);
       for (const u of rampStations(run, cum)) {
         const [x, z] = rampTowerAt(shape, st, run, cum, u, foot);
         spiralTower(x, z, RAMP_R, H);
@@ -5313,7 +5490,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
 
   if (st.facade === 'columns') {
     for (const run of shape.runs) {
-      const cum = runLengths(run), total = cum[cum.length - 1], H = runTop(run).top + 2.2, d = runOuter(run) + 0.35;
+      const cum = runLengths(run), total = cum[cum.length - 1], H = wallTopOf(run), d = runOuter(run) + 0.35;
       for (const u of stations(run, cum, PILASTER_EVERY, d)) {
         const [x, z] = pointAt(run, cum, u, d);
         const [xa, za] = pointAt(run, cum, Math.max(0, u - 0.5), d), [xb, zb] = pointAt(run, cum, Math.min(total, u + 0.5), d);
@@ -5703,6 +5880,11 @@ function buildStadium(L, st) {
   const mats = [0, 1, 2].map(() => new THREE.MeshStandardMaterial({ roughness: 0.9, side: THREE.DoubleSide }));
   // palchi: vetri scuri con le luci accese dentro
   mats.push(new THREE.MeshStandardMaterial({ color: 0x27313d, roughness: 0.2, metalness: 0.3, emissive: 0xffe2b0, emissiveIntensity: 0.12, side: THREE.DoubleSide }));
+  // cemento vero (macchie, colature, grana) su parapetti, gradoni e muri, in coordinate del mondo
+  const standTex = new THREE.CanvasTexture(stoneTexture().canvas);
+  standTex.wrapS = standTex.wrapT = THREE.RepeatWrapping; standTex.anisotropy = 4;
+  for (const m of [mats[M_PARAPET], mats[M_STEPS], mats[M_STRUCT]]) triplanar(m, standTex, 0.22);
+  own.push(standTex);
   const stands = new THREE.Mesh(standsGeometry(THREE, shape, st.facade === 'struts', st.boxes), mats);
   stands.castShadow = stands.receiveShadow = true;
   group.add(stands);
@@ -5731,6 +5913,14 @@ function buildStadium(L, st) {
         const uu = Math.min(u, total - 0.01), [x0, z0] = pointAt(run, cum, uu, t.D + 0.4), [x1, z1] = pointAt(run, cum, uu, t.back - 0.1);
         const [tx, tz] = tangentAt(run, cum, uu, t.D);
         slab(aisles, x0, t.H + 0.04, z0, x1, t.top + t.R * 0.5 + 0.04, z1, tx, tz, AISLE_HALF * 1.6, 0.12);
+        // file in più dell'ultimo anello: la scaletta continua, più ripida
+        if (run.E && t === run.tiers[run.tiers.length - 1]) {
+          const k = Math.max(0, cum.findIndex(c => c > uu) - 1), e = Math.floor(Math.min(run.ext[k], run.ext[(k + 1) % run.pts.length]));
+          if (e > 0) {
+            const [x2, z2] = pointAt(run, cum, uu, t.back + e * TREAD - 0.1);
+            slab(aisles, x1, t.top + t.R * 0.5 + 0.04, z1, x2, t.top + e * t.Rx + t.Rx * 0.5 + 0.04, z2, tx, tz, AISLE_HALF * 1.6, 0.12);
+          }
+        }
       }
     }
   }
