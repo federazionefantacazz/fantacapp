@@ -4,7 +4,7 @@ import { dataUrlToBlob } from '../components/Kit3D.js';
 import {
   createStadiumViewer, renderStadiumImage, stadiumCapacity, shownCapacity, normalizeStadium, defaultStadium, applyPreset,
   RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY,
-  SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom, WALL_TEXTURES, WALL_TEX_FACADES,
+  SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom, WALL_TEXTURES, WALL_TEX_FACADES, APRON_STYLES, GROUND_STYLES, AD_BOARDS,
   ringsBySide, maxRingsOf, LOGO_PLACES, logoPlacesFor
 } from '../components/Stadium3D.js';
 import { injectStyle, parseColor, SWATCHES } from './DivisaSquadra.js';
@@ -125,7 +125,7 @@ export const StadioSquadra = {
       ['structure', 'FASE 3: Anelli, curve e pista'],
       ['exterior',  'FASE 4: Copertura e maxischermo'],
       ['outside',   'FASE 5: Muro esterno, fari e rampe'],
-      ['pitch',     'FASE 6: Campo'],
+      ['pitch',     'FASE 6: Campo, pista e pavimenti'],
       ['seats',     'FASE 7: Colore dei seggiolini'],
       ['texts',     'FASE 8: Scritte e logo'],
       ['walls',     'FASE 9: Parapetti e cemento']
@@ -274,11 +274,7 @@ export const StadioSquadra = {
       <div class="std-group">
       <div class="kit-sub">Pista d'atletica</div>
       ${yesNo('track', s.track)}
-      <div class="std-desc">Con la pista gli spalti sono più lontani dal campo.</div>
-      ${s.track ? `${this._colorRow('Colore della pista', 'colors.track', s.colors.track)}${this._colorRow('Linee delle corsie', 'colors.trackLines', s.colors.trackLines)}
-      <div class="kit-sub">Fondo intorno alla pista</div>
-      ${yesNo('trackApron', s.trackApron, ['Prato', 'Colorato'])}
-      ${s.trackApron ? this._colorRow('Colore del fondo (anche ai lati del campo)', 'colors.apron', s.colors.apron) : ''}` : ''}
+      <div class="std-desc">Con la pista gli spalti sono più lontani dal campo. Colori e pavimenti nella fase "Campo, pista e pavimenti".</div>
       </div>`;
   },
 
@@ -366,14 +362,42 @@ export const StadioSquadra = {
   },
 
   _secPitch() {
-    const s = this._st;
+    const s = this._st, c = s.colors;
     return `
+      <div class="std-group">
       <div class="kit-sub">Taglio dell'erba</div>
-      <div class="kit-chips">${MOWING.map(o => this._chip('mowing', o.id, o.label, s.mowing === o.id)).join('')}</div>
-      <div class="kit-sub">Colori</div>
-      ${this._colorRow('Erba', 'colors.grass', s.colors.grass)}
-      ${s.track ? `${this._colorRow('Pista', 'colors.track', s.colors.track)}${this._colorRow('Linee delle corsie', 'colors.trackLines', s.colors.trackLines)}` : ''}
-      ${s.track && s.trackApron ? this._colorRow('Fondo intorno alla pista', 'colors.apron', s.colors.apron) : ''}`;
+      ${this._seg(MOWING.map(o => [o.id, o.label, s.mowing === o.id]), 'data-act="set" data-k="mowing"')}
+      ${this._colorRow('Erba', 'colors.grass', c.grass)}
+      </div>
+      ${s.track ? `
+      <div class="std-group">
+      <div class="kit-sub">Pista d'atletica</div>
+      ${this._colorRow('Gomma della pista', 'colors.track', c.track)}
+      ${this._colorRow('Linee delle corsie', 'colors.trackLines', c.trackLines)}
+      </div>` : ''}
+      <div class="std-group">
+      <div class="kit-sub">Pavimento intorno al campo</div>
+      ${this._opts('apronStyle', APRON_STYLES, s.apronStyle)}
+      <div class="std-desc">${{
+        grass: s.track ? 'Prato anche dentro la pista, dietro le porte.' : 'Prato fino agli spalti.',
+        tartan: 'La stessa gomma della pista, a 2,5 m dalle linee del campo fino agli spalti (come al Maradona).',
+        color: 'Resina liscia del colore che vuoi, a 2,5 m dalle linee del campo fino agli spalti.',
+        concrete: 'Cemento a lastre, a 2,5 m dalle linee del campo fino agli spalti.'
+      }[s.apronStyle]}</div>
+      ${s.apronStyle === 'color' ? this._colorRow('Colore della resina', 'colors.apron', c.apron) : ''}
+      ${s.apronStyle === 'tartan' && !s.track ? this._colorRow('Colore della gomma', 'colors.track', c.track) : ''}
+      </div>
+      <div class="std-group">
+      <div class="kit-sub">Pavimento fuori dallo stadio</div>
+      ${this._opts('groundStyle', GROUND_STYLES, s.groundStyle)}
+      ${this._colorRow('Colore del pavimento fuori', 'colors.ground', c.ground || ({ grass: c.grass, asphalt: '#6a6e73', cobbles: '#8f8a84' }[s.groundStyle] || c.structure))}
+      </div>
+      <div class="std-group">
+      <div class="kit-sub">Cartelloni LED</div>
+      ${this._opts('adBoards', AD_BOARDS, s.adBoards)}
+      ${s.adBoards !== 'none' ? `<div class="std-desc">Mostrano il nome dello stadio${s.adBoards === 'both' ? ', anche sul fronte degli anelli più alti' : ''}. Di notte si accendono.</div>
+      ${this._colorRow('Colore dei cartelloni', 'colors.ads', c.ads)}` : ''}
+      </div>`;
   },
 
   _secSeats() {
@@ -389,7 +413,10 @@ export const StadioSquadra = {
       }[s.seatMosaic]} Vale con qualsiasi colorazione qui sotto.</div>
       ${s.seatMosaic === 'mix' ? `
       ${this._colorRow('Secondo colore sparso', 'colors.mosaicB', s.colors.mosaicB)}
-      ${this._colorRow('Terzo colore sparso', 'colors.mosaicC', s.colors.mosaicC)}` : ''}
+      ${this._colorRow('Terzo colore sparso', 'colors.mosaicC', s.colors.mosaicC)}
+      <div class="kit-sub">Quarto colore sparso</div>
+      ${this._seg([['0', 'No', !s.colors.mosaicD], ['1', 'Sì', !!s.colors.mosaicD]], 'data-act="mosaicD"')}
+      ${s.colors.mosaicD ? this._colorRow('Quarto colore sparso', 'colors.mosaicD', s.colors.mosaicD) : ''}` : ''}
       <div class="kit-sub">Come colorarli</div>
       <div class="kit-chips">${SEAT_MODES.map(o => this._chip('seatMode', o.id, o.label, s.seatMode === o.id)).join('')}</div>
       ${(s.seatMode === 'rings' || grid) && maxRingsOf(s) === 1 ? `<div class="mp-muted" style="margin-top:.3rem;">Lo stadio ha un solo anello: aggiungine altri in "Anelli, curve e pista" per colorarli in modo diverso.</div>` : ''}
@@ -550,7 +577,7 @@ export const StadioSquadra = {
           if (inp) { inp.focus(); inp.select(); }
           return;
         }
-        const value = k === 'rings' || k === 'ringsEnds' || k === 'standTextRing' ? Number(v) : ['track', 'ramps', 'boxes', 'horseshoe', 'trackApron'].includes(k) ? v === '1' : v;
+        const value = k === 'rings' || k === 'ringsEnds' || k === 'standTextRing' ? Number(v) : ['track', 'ramps', 'boxes', 'horseshoe'].includes(k) ? v === '1' : v;
         // "Ogni settore e anello": si parte dai colori che lo stadio ha adesso
         if (k === 'seatMode' && v === 'grid' && this._st.seatMode !== 'grid') this._update(st => { st.seatGrid = seatGridFrom(st); st.seatMode = 'grid'; });
         else this._update(st => { st[k] = value; });
@@ -561,6 +588,9 @@ export const StadioSquadra = {
         return;
       case 'ringsSide':
         this._update(st => { st.ringsSides[Number(btn.dataset.side)] = Number(v); });
+        return;
+      case 'mosaicD':
+        this._update(st => { st.colors.mosaicD = v === '1' ? (st.colors.mosaicD || '#ffd400') : ''; });
         return;
       case 'roofSide':
         this._update(st => { st.roofSectors[Number(v)] = !st.roofSectors[Number(v)]; });
