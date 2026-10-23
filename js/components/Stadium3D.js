@@ -991,7 +991,8 @@ function roofOf(shape, roof, shift = 0) {
     const dOut = shape.outer + 1.2, dIn = clampIn(Math.max(top.D - 3, 2), dOut), hIn = top.top + 6.5;
     return { dIn, dOut, h: (d) => hIn - (d - dIn) * 0.06, depth: () => 1.2 };
   }
-  const dOut = shape.outer + 4, dIn = clampIn(roof === 'girders' ? 4 : Math.max(top.D - 2, 3), dOut), hIn = top.top + 9;
+  // travi rosse (San Siro): il tetto sporge molto verso fuori e copre del tutto le torri delle rampe sui lati
+  const dOut = shape.outer + (roof === 'girders' ? 12.5 : 4), dIn = clampIn(roof === 'girders' ? 4 : Math.max(top.D - 2, 3), dOut), hIn = top.top + 9;
   return { dIn, dOut, h: (d) => hIn - (d - dIn) * 0.04, depth: (d) => 1.4 + 3.6 * (d - dIn) / (dOut - dIn) };
 }
 
@@ -4511,7 +4512,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     };
     const yb0 = R2.h(ri[1]) + 0.5, yt0 = yb0 + hRing;
     const ybZ = (f) => yb0 + (G.y0 - yb0) * f, ytZ = (f) => yt0 + (G.top - yt0) * f;
-    // tetto tutto intorno: l'anello interno è dritto (rettangolo con gli angoli tagliati), come la griglia rossa vera
+    // pianta a lati dritti con gli angoli tagliati (bordo esterno del tetto)
     const oct = (d) => {
       const ax = shape.a - shape.r, bz = shape.b - shape.r, R = shape.r + d, pts = [];
       for (const [sx, sz] of [[1, 1], [-1, 1], [-1, -1], [1, -1]]) {
@@ -4523,8 +4524,15 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       return pts;
     };
     const closedRoof = roofRuns.length === 1 && roofRuns[0].closed;
+    // anello interno rettangolare con gli angoli dritti (come la griglia vera, sempre squadrata)
+    const rectAt = (d) => { const X0 = shape.a + d, Z0 = shape.b + d; return [[X0, Z0], [-X0, Z0], [-X0, -Z0], [X0, -Z0]]; };
     if (closedRoof) {
-      const A = oct(ri[0]), B = oct(ri[1]), n = A.length;
+      const A = rectAt(ri[0]), B = rectAt(ri[1]), n = A.length;
+      // dagli angoli dell'anello una trave diagonale fino all'incrocio delle travi principali (sulla torre)
+      for (const [cx, cz] of B) {
+        const ex = Math.sign(cx) * Xi, ez = Math.sign(cz) * Zi;
+        planeTruss(cx, cz, ex, ez, ybZ, ytZ, Math.max(2, Math.round(Math.hypot(ex - cx, ez - cz) / 4)), 0.55, 0.32);
+      }
       for (let i = 0; i < n; i++) {
         const j = (i + 1) % n, len = Math.hypot(B[j][0] - B[i][0], B[j][1] - B[i][1]), m = Math.max(1, Math.round(len / 5));
         for (const [P, d] of [[A, ri[0]], [B, ri[1]]]) planeTruss(P[i][0], P[i][1], P[j][0], P[j][1], () => R2.h(d) + 0.5, () => R2.h(d) + 0.5 + hRing, m, 0.55, 0.35);
@@ -4540,11 +4548,24 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
           const pa = [B[i][0] + dx * len * k / nz, B[i][1] + dz * len * k / nz], pb = [B[i][0] + dx * len * (k + 1) / nz, B[i][1] + dz * len * (k + 1) / nz];
           const [gx, gz] = toGirder((pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2, ox, oz);
           for (const [px, pz] of [pa, pb]) planeTruss(px, pz, gx, gz, ybZ, ytZ, Math.max(2, Math.round(Math.hypot(gx - px, gz - pz) / 4)), 0.55, 0.32);
-          // trave dritta perpendicolare fino alla trave principale
-          if (len > 12) {
-            const [hx, hz] = [(pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2];
-            planeTruss(hx, hz, gx, gz, ybZ, ytZ, Math.max(2, Math.round(Math.hypot(gx - hx, gz - hz) / 4)), 0.5, 0.3);
-          }
+        }
+      }
+    }
+    if (closedRoof) {
+      // verso fuori: trave reticolare lungo il bordo esterno del tetto e travi dritte dalle travi principali fino al bordo
+      const ro = R2.dOut - 1.5, E = oct(ro), n = E.length, yo = R2.h(ro) + 0.5, HE = 3;
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n, len = Math.hypot(E[j][0] - E[i][0], E[j][1] - E[i][1]);
+        const alongX = Math.abs(E[j][1] - E[i][1]) < 1e-3, alongZ = Math.abs(E[j][0] - E[i][0]) < 1e-3;
+        if (!alongX && !alongZ) continue; // solo i lati dritti (niente travi in diagonale agli angoli)
+        planeTruss(E[i][0], E[i][1], E[j][0], E[j][1], () => yo, () => yo + HE, Math.max(1, Math.round(len / 5)), 0.5, 0.3);
+        const m = Math.max(2, Math.round(len / 16));
+        for (let k = 0; k <= m; k++) {
+          const px = E[i][0] + (E[j][0] - E[i][0]) * k / m, pz = E[i][1] + (E[j][1] - E[i][1]) * k / m;
+          const [gx, gz] = alongX ? [px, Math.sign(pz) * (G.Z + GIRDER_W)] : [Math.sign(px) * (G.X + GIRDER_W), pz];
+          const span = Math.hypot(px - gx, pz - gz);
+          if (span < 3) continue;
+          planeTruss(gx, gz, px, pz, (f) => G.y0 + (yo - G.y0) * f, (f) => G.top + (yo + HE - G.top) * f, Math.max(2, Math.round(span / 4)), 0.5, 0.3);
         }
       }
     }
