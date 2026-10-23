@@ -287,7 +287,7 @@ export const PRESETS = [
   },
   {
     id: 'velodrome', label: 'Stile Vélodrome',
-    desc: 'Due anelli di seggiolini chiari con parapetti blu; copertura bianca quasi tonda a cuscini radiali, alta sopra le curve, con le travi d\'acciaio sotto; fuori la fascia bianca, i piani in cemento a vista e l\'ingresso principale con la vetrata a lamelle.',
+    desc: 'Due anelli di seggiolini chiari con parapetti blu; copertura bianca quasi tonda a cuscini radiali, alta sopra le curve, con le travi d\'acciaio sotto; fuori la fascia bianca che sui lati scende quasi a terra, sulle curve i piani in cemento a vista e su una curva l\'ingresso principale con la vetrata a lamelle e gli schermi.',
     st: {
       rings: 2, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single', seatMosaic: 'none', roof: 'wave', lights: 'roof', facade: 'glass', ramps: false, screen: 'ends',
       colors: {
@@ -1449,9 +1449,9 @@ const WAVE_ROW = 240; // punti della pianta della copertura ondulata
 
 /**
  * Copertura ondulata (stile Vélodrome): pianta molto più tonda degli spalti fuori (quasi un cerchio) e che segue il
- * campo verso l'apertura; alta sopra le curve e bassa sui lati lunghi. Fuori una fascia bianca verticale: sulle curve
- * scende quasi a terra, sui lati lascia vedere i piani in cemento sotto (e al centro della tribuna vicina sale sopra
- * l'ingresso principale). Sopra la fascia il bordo arrotondato e il tetto che sale verso l'apertura.
+ * campo verso l'apertura; alta sopra le curve e bassa sui lati lunghi. Fuori una fascia bianca verticale: sui lati
+ * lunghi scende quasi a terra, sulle curve resta alta e lascia vedere i piani in cemento sotto (e al centro della curva
+ * verso +x sale sopra l'ingresso principale). Sopra la fascia il bordo arrotondato e il tetto che sale verso l'apertura.
  * hAt(x, z, f) = quota del tetto (f = 0 sul bordo fuori, 1 sull'apertura); rowAt(d) = pianta a distanza d.
  */
 const waveCache = new WeakMap(); // una volta per forma e scelte (la pianta costa un po')
@@ -1469,12 +1469,13 @@ function waveBuild(shape, st) {
   const edge = (x, z) => hSide + (hEnd - hSide) * endF(x, z);
   const rise = (x, z) => 3.5 + 5.5 * endF(x, z);
   const hAt = (x, z, f) => edge(x, z) + rise(x, z) * (1 - (1 - f) ** 2);
-  // ingresso principale al centro della tribuna vicina: lì la fascia sale e lascia il portale più alto
-  const ENTRY_W = 24, entryF = (x, z) => (z > 0 ? Math.cos(Math.min(1, Math.abs(x) / (ENTRY_W * 1.4)) * Math.PI / 2) ** 2 : 0);
-  const inEntry = (x, z) => z > 0 && Math.abs(x) < ENTRY_W / 2;
+  // ingresso principale al centro della curva verso +x: lì la fascia sale ancora e lascia il portale più alto
+  const ENTRY_W = 26, entryF = (x, z) => (x > 0 ? Math.cos(Math.min(1, Math.abs(z) / (ENTRY_W * 1.2)) * Math.PI / 2) ** 2 : 0);
+  const inEntry = (x, z) => x > 0 && Math.abs(z) < ENTRY_W / 2 && Math.abs(z) < Math.abs(x) * 0.6;
+  // fascia: sui lati lunghi scende quasi a terra, sulle curve resta alta e sotto si vedono i piani in cemento
   const bandBottom = (x, z) => {
-    const e = endF(x, z) ** 0.6;
-    return Math.max(base + 2.2, (hSide - 12) * (1 - e) + (base + 2.2) * e) + 3.5 * entryF(x, z);
+    const e = endF(x, z) ** 1.5;
+    return (base + 2.2) * (1 - e) + (base + (hEnd - base) * 0.42) * e + 4 * entryF(x, z);
   };
   // pianta: rettangolare verso l'apertura, molto più tonda verso fuori; ripresa a passi uguali (spicchi regolari)
   const rows = new Map(), rowAt = (d) => {
@@ -3319,7 +3320,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     }
 
     // sotto la fascia: piani in cemento a vista (solette con il bordo chiaro) e pilastri, tra gli spalti e la fascia;
-    // al centro della tribuna vicina il portale dell'ingresso, alto fino alla fascia, con la vetrata a lamelle e gli schermi
+    // al centro della curva il portale dell'ingresso, alto fino alla fascia, con la vetrata a lamelle e gli schermi
     const inner = evenOutline(shellOutline(shape, shape.outer - 0.3, N * 4), N), outer = V.rowAt(V.dE - 0.7);
     const bb = outer.map(([x, z]) => V.bandBottom(x, z)), entry = outer.map(([x, z]) => V.inEntry(x, z));
     const dpos = [], quad = (a, b, c, d) => dpos.push(...a, ...b, ...c, ...a, ...c, ...d);
@@ -3348,7 +3349,9 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       beam(pilasters, x, V.base, z, x, bb[i] - 0.1, z, 1);
     }
     // portale: vetrata a lamelle in fondo, due grandi pilastri ai lati, due schermi luminosi
-    const ent = []; for (let i = 0; i <= N; i++) if (entry[i % N]) ent.push(i % N);
+    // punti del portale in fila (il portale può stare a cavallo dell'inizio della pianta)
+    const ent = [], s0 = entry.findIndex((on, i) => on && !entry[(i - 1 + N) % N]);
+    if (s0 >= 0) for (let k = 0; k < N && entry[(s0 + k) % N]; k++) ent.push((s0 + k) % N);
     if (ent.length > 1) {
       const lou = new THREE.CanvasTexture(louvreCanvas());
       lou.wrapS = lou.wrapT = THREE.RepeatWrapping; lou.colorSpace = THREE.SRGBColorSpace; lou.anisotropy = 4;
