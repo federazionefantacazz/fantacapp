@@ -1826,7 +1826,9 @@ function shellOf(shape, st) {
   // petali: tonda fuori e a rettangolo arrotondato verso l'apertura (stessi punti per tutte le file: le pieghe restano
   // allineate)
   const nAt = (d) => 2.05 + 0.5 * Math.min(1, Math.max(0, (o - d) / (o - dIn))) ** 2;
-  const outline = (d) => (petals ? shellOutline(shape, d, PETAL_COLS, nAt(d), true)
+  // fuori l'ovale finisce a punta sulle curve (a limone), verso l'apertura torna tondo
+  const tipAt = (d) => 0.24 * Math.min(1, Math.max(0, (d - (o - 8)) / 10)) ** 0.8;
+  const outline = (d) => (petals ? shellOutline(shape, d, PETAL_COLS, nAt(d), true, tipAt(d))
     : shell || tent ? evenOutline(shellOutline(shape, d, 960), 240) : shellOutline(shape, d));
   const rows = new Map(), rowAt = (d) => { const key = d.toFixed(3); if (!rows.has(key)) rows.set(key, outline(d)); return rows.get(key); };
   // tenda: la membrana è tirata su dai pennoni; petali: quattro lobi separati da valli sulle diagonali
@@ -2235,18 +2237,13 @@ function domeSoffitTexture() {
  */
 const PB = 0.1, PF = 0.24, PV = 0.2, PVW = 0.36, PLQ = 1.6;
 /**
- * Vicino all'apertura il guscio si chiude a mandorla: al centro dei lati lunghi rientra di PULL metri (le lingue), verso
- * le curve la larghezza va a zero e l'apertura finisce a punta. R = fila della pianta (semiassi Ar, Br, esponente n).
+ * Quanto il guscio vicino all'apertura rientra verso il centro (m): molto al centro dei lati lunghi (le lingue chiudono
+ * l'apertura), poco sulle curve.
  */
 const PULL = 19;
-const petalRow = (row, n) => ({ Ar: Math.max(...row.map(p => Math.abs(p[0]))), Br: Math.max(...row.map(p => Math.abs(p[1]))), n });
-const pulled = (x, z, t, R) => {
-  const s = Math.min(1, Math.max(0, (t - 0.45) / 0.55)) ** 1.5;
-  if (s <= 0) return [x, z];
-  const u = Math.min(1, Math.abs(x) / R.Ar), lo = R.Br * Math.max(0, 1 - u ** R.n) ** (1 / R.n);
-  const L = Math.max(4, R.Br - PULL) * (1 - u * u) ** 0.85, k = lo > 1e-3 ? Math.min(1, L / lo) : 0;
-  return [x, z * (1 + (k - 1) * s)];
-};
+const petalPull = (tau, t) => PULL * Math.min(1, Math.max(0, (t - 0.5) / 0.5)) ** 1.6 * (0.18 + 0.82 * Math.sin(2 * Math.PI * tau) ** 2);
+/** Punto (x, z) del guscio spostato verso il centro di petalPull. */
+const pulled = (x, z, tau, t) => { const l = Math.hypot(x, z) || 1, k = Math.max(0.2, 1 - petalPull(tau, t) / l); return [x * k, z * k]; };
 /** Quanto si gonfia il guscio verso fuori (m): zero sulle giunture, di più al centro di ogni petalo. */
 function petalBulge(tau, t) {
   if (t < PB) return 0.25 * Math.sin(Math.PI * t / PB) ** 2;
@@ -2319,15 +2316,15 @@ function petalsGeometry(THREE, S, seamsOut) {
   let N = 0;
   const lift = (x, z, y, b) => { const l = Math.hypot(x, z) || 1; return [x + x / l * b, y + b * 0.3, z + z / l * b]; };
   S.pts.forEach((p, j) => {
-    const row = S.rowAt(p.d), t = T[j], R = petalRow(row, S.nAt(p.d));
+    const row = S.rowAt(p.d), t = T[j];
     N = row.length - 1;
-    row.forEach(([x0, z0], i) => { const tau = i / N, [x, z] = pulled(x0, z0, t, R); pos.push(...lift(x, z, p.h, petalBulge(tau, t))); ap.push(tau, t); });
+    row.forEach(([x0, z0], i) => { const tau = i / N, [x, z] = pulled(x0, z0, tau, t); pos.push(...lift(x, z, p.h, petalBulge(tau, t))); ap.push(tau, t); });
   });
   for (let j = 0; j < rows - 1; j++) for (let i = 0; i < N; i++) { const a = j * (N + 1) + i, b = a + N + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
   // giunture: centro delle curve (sopra le fasce), centro dei lati lunghi (fino alla punta della V), bordi della lingua
   const at = (j, tau) => {
     const row = S.rowAt(S.pts[j].d), f = (((tau % 1) + 1) % 1) * N, i = Math.floor(f), k = f - i, A = row[i], B = row[Math.min(N, i + 1)];
-    const [x, z] = pulled(A[0] + (B[0] - A[0]) * k, A[1] + (B[1] - A[1]) * k, T[j], petalRow(row, S.nAt(S.pts[j].d)));
+    const [x, z] = pulled(A[0] + (B[0] - A[0]) * k, A[1] + (B[1] - A[1]) * k, tau, T[j]);
     return lift(x, z, S.pts[j].h + 0.08, 0);
   };
   const line = (tauOf, j0, j1) => { for (let j = j0; j < j1; j++) { const a = tauOf(j), b = tauOf(j + 1); if (a !== null && b !== null) beam(seamsOut, ...at(j, a), ...at(j + 1, b), 0.32); } };
@@ -2349,9 +2346,25 @@ function petalsGeometry(THREE, S, seamsOut) {
  * Pianta dell'involucro a distanza d dal bordo degli spalti: un ovale "smussato" (superellisse, tra l'ellisse e il
  * rettangolo arrotondato) il più tondo possibile che contiene ancora gli spalti a quella distanza. Punti chiusi [x, z].
  */
-function shellOutline(shape, d, N = 240, nMin = 2.4, force = false) {
+function shellOutline(shape, d, N = 240, nMin = 2.4, force = false, tip = 0) {
   const pts = shape.path.map(p => [p.x + p.mx * d, p.z + p.mz * d]);
   const A = Math.max(...pts.map(p => Math.abs(p[0]))), B = Math.max(...pts.map(p => Math.abs(p[1])));
+  if (tip > 0) {
+    // ovale a punta sulle x (a limone, solo verso le estremità): larghezza (1 - |u|^n)^(1/n)·(1 - u⁴)^tip; la misura più
+    // piccola che contiene gli spalti si cerca per tentativi
+    const w = (u) => (u >= 1 ? 0 : Math.max(0, 1 - u ** nMin) ** (1 / nMin) * (1 - u ** 4) ** tip);
+    const fits = (k) => pts.every(([x, z]) => Math.abs(z) <= k * B * w(Math.abs(x) / (k * A)) + 1e-6);
+    let lo = 1, hi = 1.6;
+    while (!fits(hi)) hi *= 1.2;
+    for (let it = 0; it < 22; it++) { const mid = (lo + hi) / 2; if (fits(mid)) hi = mid; else lo = mid; }
+    const out = [];
+    for (let i = 0; i <= N; i++) {
+      const t = i / N * Math.PI * 2, c = Math.cos(t), sn = Math.sin(t), x = hi * A * Math.sign(c) * Math.abs(c) ** (2 / nMin);
+      const u = Math.abs(x) / (hi * A);
+      out.push([x, hi * B * Math.sign(sn) * Math.abs(sn) ** (2 / nMin) * (1 - u ** 4) ** tip]);
+    }
+    return out;
+  }
   const worst = (n) => Math.max(...pts.map(([x, z]) => Math.abs(x / A) ** n + Math.abs(z / B) ** n));
   let n = nMin, scale = 1;
   if (force) scale = Math.max(1, worst(n)) ** (1 / n);             // esponente scelto (petali): ovale che contiene gli spalti
@@ -4634,7 +4647,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       own.push(gm, glass, bandG);
       for (let i = 0; i < ring.length - 1; i += 6) beam(beams, ring[i][0], S.base, ring[i][1], ring[i][0], S.pts[0].h + 0.4, ring[i][1], 0.35);
       // sopra l'apertura: due grandi travi reticolari ad arco lungo i lati lunghi, una che la attraversa e i cavi
-      const raw = S.rowAt(S.dIn), RR = petalRow(raw, S.nAt(S.dIn)), edge = raw.map(([x, z]) => pulled(x, z, 1, RR));
+      const raw = S.rowAt(S.dIn), edge = raw.map(([x, z], i) => pulled(x, z, i / (raw.length - 1), 1));
       const Ain = Math.max(...edge.map(p => Math.abs(p[0])));
       // bordo dell'apertura (a mandorla) sul lato sg alla x data
       const zAt = (x, sg) => {
@@ -4686,7 +4699,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     }
     if (lights === 'roof') {
       // proiettori sotto il bordo dell'apertura
-      const raw = S.rowAt(S.dIn + 0.8), RR = st.roof === 'petals' ? petalRow(raw, S.nAt(S.dIn + 0.8)) : null, edge = RR ? raw.map(([x, z]) => pulled(x, z, 1, RR)) : raw;
+      const raw = S.rowAt(S.dIn + 0.8), edge = st.roof === 'petals' ? raw.map(([x, z], i) => pulled(x, z, i / (raw.length - 1), 1)) : raw;
       for (let i = 0; i < edge.length - 1; i += 8) lampAt(lamps, edge[i][0], S.hIn - 1.4, edge[i][1], 2.4, 1.3);
       for (let k = 0; k < 6; k++) { const [x, z] = edge[Math.floor((k + 0.5) / 6 * (edge.length - 1))]; spots.push([x, S.hIn - 1.5, z]); }
     }
