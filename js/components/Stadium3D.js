@@ -181,7 +181,7 @@ export const FACADES = [
   { id: 'esplanade', label: 'Spianata rialzata' },
   { id: 'glass',   label: 'Vetrate scure' },
   { id: 'panels',  label: 'Rivestimento a pannelli' },
-  { id: 'cladding', label: 'Inglese: basamento con ingresso e pannelli chiari' }
+  { id: 'cladding', label: 'Inglese con ingresso' }
 ];
 /** Dove mettere il logo della squadra (anche più posti insieme). */
 export const LOGO_PLACES = [
