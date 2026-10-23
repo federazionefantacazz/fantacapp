@@ -5,7 +5,7 @@ import {
   createStadiumViewer, renderStadiumImage, stadiumCapacity, shownCapacity, normalizeStadium, defaultStadium, applyPreset,
   RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY,
   SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom, STAND_GAP_MAX, RAKE_MIN, RAKE_MAX, CORNER_GAP_MIN, CORNER_GAP_MAX, WALL_TEXTURES, WALL_TEX_FACADES, APRON_STYLES, GROUND_STYLES, AD_BOARDS, ROOF_GLOWS,
-  ringsBySide, maxRingsOf, LOGO_PLACES, logoPlacesFor
+  ringsBySide, maxRingsOf, LOGO_PLACES, logoPlacesFor, ENTRANCES, ENTRANCE_W, ENTRANCE_H, ENTRANCE_LOGO, ENTRANCE_FITS
 } from '../components/Stadium3D.js';
 import { injectStyle, parseColor, SWATCHES } from './DivisaSquadra.js';
 import { esc } from './menuUtils.js';
@@ -129,10 +129,11 @@ export const StadioSquadra = {
       ['structure', 'FASE 3: Anelli, curve e pista'],
       ['exterior',  'FASE 4: Copertura e maxischermo'],
       ['outside',   'FASE 5: Muro esterno, fari e rampe'],
-      ['pitch',     'FASE 6: Campo, pista e pavimenti'],
-      ['seats',     'FASE 7: Colore dei seggiolini'],
-      ['texts',     'FASE 8: Scritte e logo'],
-      ['walls',     'FASE 9: Parapetti e cemento']
+      ['entrances', 'FASE 6: Ingressi'],
+      ['pitch',     'FASE 7: Campo, pista e pavimenti'],
+      ['seats',     'FASE 8: Colore dei seggiolini'],
+      ['texts',     'FASE 9: Scritte e logo'],
+      ['walls',     'FASE 10: Parapetti e cemento']
     ];
     this._root.innerHTML = `
       <div class="kit-stage">
@@ -195,7 +196,7 @@ export const StadioSquadra = {
     const box = key && this._root.querySelector(`#std-sec-${key}`);
     if (!box) return;
     const fn = {
-      styles: this._secStyles, structure: this._secStructure, exterior: this._secExterior, outside: this._secOutside, pitch: this._secPitch,
+      styles: this._secStyles, structure: this._secStructure, exterior: this._secExterior, outside: this._secOutside, entrances: this._secEntrances, pitch: this._secPitch,
       seats: this._secSeats, texts: this._secTexts, walls: this._secWalls, name: this._secName
     }[key];
     box.innerHTML = fn.call(this);
@@ -384,6 +385,54 @@ export const StadioSquadra = {
       ${s.roof === 'none' && (s.lights !== 'none' || s.ramps) ? this._colorRow('Acciaio (torri faro)', 'colors.steel', s.colors.steel) : ''}
       <div class="std-desc">Prova il pulsante Notte sull'anteprima per vedere i fari accesi.</div>
       </div>`;
+  },
+
+  /** FASE 6: ingressi monumentali (tipo, lati, misure, colori, immagine personale e logo sopra). */
+  _secEntrances() {
+    const s = this._st, on = s.entrance !== 'none', logo = this._logo();
+    const skip = { 0: s.facade === 'cladding' ? 'c\'è già l\'ingresso della facciata inglese' : '', 1: s.roof === 'wave' ? 'c\'è già l\'ingresso del Vélodrome' : '', 3: s.horseshoe ? 'la curva è aperta' : '' };
+    return `
+      <div class="std-group">
+      <div class="kit-sub">Tipo di ingresso</div>
+      ${this._opts('entrance', ENTRANCES, s.entrance)}
+      <div class="std-desc">${{
+        none: 'Nessun ingresso monumentale: si entra dal muro esterno.',
+        portal: 'Portale vetrato con due grandi pilastri e l\'architrave colorati con le strisce LED, vetrata con le porte, pensilina chiara con i faretti e le colonnine, gradini, tornelli e due pennoni con le bandiere. Il pannello sopra la pensilina mostra la tua immagine.',
+        arch: 'Arco monumentale in pietra su zoccolo, con l\'archivolto, la chiave di volta e la cornice colorate, le lesene, l\'attico col logo, il cancello in ferro e due lanterne. I due stendardi ai lati dell\'arco mostrano la tua immagine.',
+        canopy: 'Grande pensilina a sbalzo che sale verso fuori, con i faretti sotto e la striscia LED sul frontale, retta da due colonne a V; vetrata d\'ingresso e maxischermo appeso con la tua immagine.',
+        towers: 'Due torri bianche con le feritoie, la cupola e il pennone in cima (come il vecchio Wembley), unite da un ponte colorato con la striscia LED; cancellata sotto e due stendardi appesi con la tua immagine.'
+      }[s.entrance]} ${on ? 'Davanti c\'è la piazzetta lastricata con i paletti e due aiuole con gli alberi; di notte vetrate, faretti, LED e pannelli si accendono.' : ''}</div>
+      </div>
+      ${on ? `
+      <div class="std-group">
+      <div class="kit-sub">Su quali lati</div>
+      <div class="std-opts">${SEAT_SIDES.map(sd => `<button class="lv-chip ${s.entranceSides[sd.id] && !skip[sd.id] ? 'on' : ''}" data-act="entSide" data-v="${sd.id}" ${skip[sd.id] ? 'disabled' : ''}>${s.entranceSides[sd.id] && !skip[sd.id] ? '✓ ' : ''}${esc(sd.label)}</button>`).join('')}</div>
+      ${Object.entries(skip).filter(([, t]) => t).map(([k, t]) => `<div class="std-desc">${esc(SEAT_SIDES.find(sd => sd.id === Number(k)).label)}: ${t}.</div>`).join('')}
+      <div class="kit-sub">Misure</div>
+      ${this._range('Larghezza', 'entranceWidth', ENTRANCE_W[0], ENTRANCE_W[1], s.entranceWidth, v => `${v} m`)}
+      ${this._range('Altezza', 'entranceHeight', ENTRANCE_H[0], ENTRANCE_H[1], s.entranceHeight, v => `${v} m`)}
+      <div class="kit-sub">Colori</div>
+      ${this._colorRow('Colore dell\'ingresso', 'colors.entrance', s.colors.entrance)}
+      ${this._colorRow('Pietra e parti chiare', 'colors.entranceStone', s.colors.entranceStone)}
+      </div>
+      <div class="std-group">
+      <div class="kit-sub">La tua immagine</div>
+      ${s.entranceImage ? `<img src="${esc(s.entranceImage)}" alt="" style="display:block; max-width:100%; max-height:120px; border-radius:10px; margin:.2rem 0 .5rem;">` : ''}
+      <div class="kit-chips">
+        <label class="lv-chip" style="cursor:pointer;"><i class="ri-image-add-line"></i> ${s.entranceImage ? 'Cambia immagine' : 'Carica un\'immagine'}
+          <input type="file" accept="image/png,image/jpeg,image/webp" data-upload="entrance" style="display:none;"></label>
+        ${s.entranceImage ? `<button class="lv-chip" data-act="entImgClear"><i class="ri-delete-bin-line"></i> Togli</button>` : ''}
+      </div>
+      ${s.entranceImage ? `<div style="margin-top:.5rem;">${this._seg(ENTRANCE_FITS.map(o => [o.id, o.label, s.entranceImageFit === o.id]), 'data-act="set" data-k="entranceImageFit"')}</div>` : ''}
+      <div class="std-desc">Va sui pannelli dell'ingresso senza deformarsi: "Riempie il pannello" taglia quello che avanza, "Intera" la mostra tutta sul fondo del colore dell'ingresso. Senza immagine c'è il nome dello stadio.</div>
+      </div>
+      <div class="std-group">
+      <div class="kit-sub">Logo della squadra sopra ogni ingresso</div>
+      ${logo ? this._seg([['0', 'No', !s.logoPlaces.includes('entrance')], ['1', 'Sì', s.logoPlaces.includes('entrance')]], 'data-act="entLogo"')
+        : `<div class="std-desc">Carica il logo della squadra in Configurazione squadra per metterlo sopra gli ingressi.</div>`}
+      ${logo && s.logoPlaces.includes('entrance') ? `${this._range('Grandezza del logo', 'entranceLogo', ENTRANCE_LOGO[0], ENTRANCE_LOGO[1], s.entranceLogo, v => `${v}%`)}
+      <div class="std-desc">${s.entrance === 'arch' ? 'Il logo sta sull\'attico sopra l\'arco (più è grande, più l\'attico è alto).' : 'Il logo sta su un\'insegna del colore dell\'ingresso con il bordo LED.'}</div>` : ''}
+      </div>` : ''}`;
   },
 
   _secPitch() {
@@ -605,6 +654,11 @@ export const StadioSquadra = {
         const value = k === 'rings' || k === 'ringsEnds' || k === 'standTextRing' ? Number(v) : ['track', 'ramps', 'boxes', 'horseshoe', 'vomitories'].includes(k) ? v === '1' : v;
         // "Ogni settore e anello": si parte dai colori che lo stadio ha adesso
         if (k === 'seatMode' && v === 'grid' && this._st.seatMode !== 'grid') this._update(st => { st.seatGrid = seatGridFrom(st); st.seatMode = 'grid'; });
+        // primo ingresso scelto: il logo della squadra va subito sopra (si può togliere)
+        else if (k === 'entrance' && this._st.entrance === 'none' && v !== 'none' && this._logo()) this._update(st => {
+          st.entrance = v;
+          if (!st.logoPlaces.includes('entrance')) st.logoPlaces = LOGO_PLACES.map(o => o.id).filter(id => id === 'entrance' || st.logoPlaces.includes(id));
+        });
         else this._update(st => { st[k] = value; });
         return;
       }
@@ -623,6 +677,19 @@ export const StadioSquadra = {
         return;
       case 'roofSide':
         this._update(st => { st.roofSectors[Number(v)] = !st.roofSectors[Number(v)]; });
+        return;
+      case 'entSide':
+        this._update(st => { st.entranceSides[Number(v)] = !st.entranceSides[Number(v)]; });
+        return;
+      case 'entLogo':
+        this._update(st => {
+          const on = new Set(st.logoPlaces);
+          if (v === '1') on.add('entrance'); else on.delete('entrance');
+          st.logoPlaces = LOGO_PLACES.map(o => o.id).filter(id => on.has(id));
+        });
+        return;
+      case 'entImgClear':
+        this._update(st => { st.entranceImage = ''; });
         return;
       case 'logoPlace':
         this._update(st => {
@@ -653,7 +720,7 @@ export const StadioSquadra = {
     } else if (t.dataset.range) {
       // mentre trascino aggiorno solo il numero accanto al cursore (lo stadio si ricostruisce quando lascio)
       const out = this._root.querySelector(`[data-range-out="${t.dataset.range}"]`), v = Number(t.value);
-      if (out) out.textContent = { standGap: `+${v} m`, endGap: `+${v} m`, cornerGap: `${Math.round(v / 18 * 100)}%` }[t.dataset.range] || `${v}%`;
+      if (out) out.textContent = { standGap: `+${v} m`, endGap: `+${v} m`, cornerGap: `${Math.round(v / 18 * 100)}%`, entranceWidth: `${v} m`, entranceHeight: `${v} m` }[t.dataset.range] || `${v}%`;
     } else if (t.dataset.num) {
       // capienza: solo cifre (anche scritta con i punti delle migliaia)
       const n = Math.min(MAX_CAPACITY, Number(t.value.replace(/\D/g, '')) || 0);
@@ -663,6 +730,7 @@ export const StadioSquadra = {
 
   _onChange(e) {
     const t = e.target;
+    if (t.dataset.upload === 'entrance' && t.files && t.files[0]) { this._uploadEntrance(t.files[0]); t.value = ''; return; }
     if (t.dataset.range) {
       const k = t.dataset.range, v = Number(t.value);
       this._update(() => this._set(k, v), { section: false });
@@ -711,8 +779,38 @@ export const StadioSquadra = {
     }
   },
 
+  /**
+   * Immagine personale degli ingressi: si vede subito (anteprima locale), intanto si carica su ImgBB e poi si salva il
+   * suo indirizzo. Il salvataggio dello stadio aspetta il caricamento.
+   */
+  _uploadEntrance(file) {
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) { window.showToast('Serve un\'immagine PNG, JPG o WEBP', 'err'); return; }
+    const job = (async () => {
+      const url = URL.createObjectURL(file);
+      try {
+        const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+        const k = Math.min(1, 1024 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        const local = c.toDataURL('image/png');
+        this._update(st => { st.entranceImage = local; });
+        window.showToast('Caricamento dell\'immagine...', 'ok');
+        const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+        const remote = await uploadPngToImgBB(new File([blob], 'ingresso.png', { type: 'image/png' }), 1024);
+        if (this._st && this._st.entranceImage === local) this._update(st => { st.entranceImage = remote; }, { section: false });
+      } catch (err) {
+        console.error(err);
+        window.showToast('Immagine non caricata, riprova', 'err');
+        if (this._st && /^data:/.test(this._st.entranceImage)) this._update(st => { st.entranceImage = ''; });
+      } finally { URL.revokeObjectURL(url); }
+    })();
+    this._entUpload = job;
+  },
+
   async _save() {
     if (this._busy || !this._st) return;
+    if (this._entUpload) { await this._entUpload; this._entUpload = null; }
+    if (!this._st || /^data:/.test(this._st.entranceImage)) { if (this._st) window.showToast('Immagine dell\'ingresso non ancora caricata, riprova', 'err'); return; }
     const team = window.STATE.user;
     if (!team || String(team.id) !== String(this._teamId)) return;
     this._busy = true;
