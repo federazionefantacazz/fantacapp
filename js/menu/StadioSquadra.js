@@ -286,7 +286,10 @@ export const StadioSquadra = {
       ${this._range('Tribune', 'standGap', 0, STAND_GAP_MAX, s.standGap, v => `+${v} m`)}
       ${this._range('Curve', 'endGap', 0, STAND_GAP_MAX, s.endGap, v => `+${v} m`)}
       <div class="kit-sub">Pendenza degli spalti</div>
-      ${this._range('Pendenza', 'rake', RAKE_MIN, RAKE_MAX, s.rake, v => `${v}%`)}
+      ${this._seg([['0', 'Uguale per tutti', !s.rakeEach], ['1', 'Settore per settore', s.rakeEach]], 'data-act="rakeEach"')}
+      ${s.rakeEach
+        ? SEAT_SIDES.filter(sd => !(s.horseshoe && sd.id === 3)).map(sd => this._range(sd.label, `rakeSides.${sd.id}`, RAKE_MIN, RAKE_MAX, s.rakeSides[sd.id], v => `${v}%`)).join('')
+        : this._range('Pendenza', 'rake', RAKE_MIN, RAKE_MAX, s.rake, v => `${v}%`)}
       <div class="std-desc">Più bassa: spalti schiacciati, più larghi che alti (come all'Olimpico). Più alta: spalti ripidi e alti.</div>
       <div class="kit-sub">Una curva aperta (ferro di cavallo)</div>
       ${yesNo('horseshoe', s.horseshoe)}
@@ -611,6 +614,10 @@ export const StadioSquadra = {
       case 'ringsSide':
         this._update(st => { st.ringsSides[Number(btn.dataset.side)] = Number(v); });
         return;
+      case 'rakeEach':
+        // settore per settore: si parte dalla pendenza di adesso
+        this._update(st => { st.rakeEach = v === '1'; if (st.rakeEach) st.rakeSides = st.rakeSides.map(() => st.rake); });
+        return;
       case 'mosaicD':
         this._update(st => { st.colors.mosaicD = v === '1' ? (st.colors.mosaicD || '#ffd400') : ''; });
         return;
@@ -646,7 +653,7 @@ export const StadioSquadra = {
     } else if (t.dataset.range) {
       // mentre trascino aggiorno solo il numero accanto al cursore (lo stadio si ricostruisce quando lascio)
       const out = this._root.querySelector(`[data-range-out="${t.dataset.range}"]`), v = Number(t.value);
-      if (out) out.textContent = { standGap: `+${v} m`, endGap: `+${v} m`, rake: `${v}%`, cornerGap: `${Math.round(v / 18 * 100)}%` }[t.dataset.range];
+      if (out) out.textContent = { standGap: `+${v} m`, endGap: `+${v} m`, cornerGap: `${Math.round(v / 18 * 100)}%` }[t.dataset.range] || `${v}%`;
     } else if (t.dataset.num) {
       // capienza: solo cifre (anche scritta con i punti delle migliaia)
       const n = Math.min(MAX_CAPACITY, Number(t.value.replace(/\D/g, '')) || 0);
@@ -658,7 +665,7 @@ export const StadioSquadra = {
     const t = e.target;
     if (t.dataset.range) {
       const k = t.dataset.range, v = Number(t.value);
-      this._update(st => { st[k] = v; }, { section: false });
+      this._update(() => this._set(k, v), { section: false });
       return;
     }
     if (t.dataset.hex) {
