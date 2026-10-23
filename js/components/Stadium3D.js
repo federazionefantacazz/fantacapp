@@ -639,7 +639,7 @@ function shapeOf(st) {
 /**
  * Sotto la copertura ondulata (Vélodrome) l'ultimo anello sale fino alla copertura: file in più (più ripide, Rx) dove
  * il tetto è alto, cioè sulle curve, e quasi niente dove è basso (sui lati); restano dentro la fascia e sotto la
- * copertura com'è disegnata, poi la copertura scende e si appoggia sul muretto dietro l'ultima fila (standEdge). Le
+ * copertura; sotto il tetto il soffitto scende e si appoggia sul muretto dietro l'ultima fila (standLine). Le
  * file in più cambiano poco a poco lungo il giro (anche a metà di una fila), così la cima degli spalti è una linea
  * morbida. run.ext[i] = file in più nel punto i del tratto (con la virgola), run.E = il massimo arrotondato in su.
  */
@@ -647,7 +647,7 @@ const EXT_MAX = 30, EXT_CLEAR = 2.4;
 const extTop = (T, e) => T.top + e * T.Rx;            // quota dell'ultima fila (anche a metà)
 const extWall = (T, e) => extTop(T, e) + 1.1;          // cima del muretto dietro l'ultima fila (ci poggia la copertura)
 function roofRows(shape, st) {
-  const V = waveBuild(shape, st);
+  const V = waveOf(shape, st);
   for (const run of shape.runs) {
     const T = run.tiers[run.tiers.length - 1], P = run.pts, n = P.length;
     const under = (p, e) => { const d = T.back + e * TREAD + WALL; return V.roofAt(p.x + p.mx * d, p.z + p.mz * d, d) - 0.45; };
@@ -1854,40 +1854,51 @@ const waveCache = new WeakMap(); // una volta per forma e scelte (la pianta cost
 function waveOf(shape, st) {
   const key = [st.facade, st.roofReach].join('|'), memo = waveCache.get(shape) || new Map();
   waveCache.set(shape, memo);
-  // con le file in più (roofRows) la copertura scende e si appoggia sulla cima degli spalti
-  if (!memo.has(key)) memo.set(key, waveBuild(shape, st, shape.runs.some(r => r.ext) ? standEdge(shape) : null));
+  if (!memo.has(key)) memo.set(key, waveBuild(shape, st));
   return memo.get(key);
 }
 /**
- * Quota della cima degli spalti sotto la copertura ondulata (muretto dietro l'ultima fila, con le file in più) per la
- * direzione del punto (x, z) visto dal centro: la copertura ci si appoggia sopra. Dove non ci sono spalti (curve
- * staccate, ferro di cavallo) la quota passa dolcemente da un tratto all'altro.
+ * Linea della cima degli spalti sotto la copertura ondulata, per la direzione del punto (x, z) vista dal centro: quota
+ * del muretto dietro l'ultima fila (h, le file in più comprese), distanza dal centro (r) e quanto ci sono spalti (w: 1
+ * dove ci sono, 0 dove no, sfumato tra un tratto e l'altro). Il soffitto della copertura ci si appoggia sopra.
  */
-function standEdge(shape) {
-  const K = 720, tab = new Array(K).fill(null), bin = (x, z) => ((Math.atan2(z, x) / (2 * Math.PI)) % 1 + 1) % 1 * K;
+function standLine(shape) {
+  const K = 720, H = new Array(K).fill(null), Rr = new Array(K).fill(null), bin = (x, z) => ((Math.atan2(z, x) / (2 * Math.PI)) % 1 + 1) % 1 * K;
   for (const run of shape.runs) {
     const T = run.tiers[run.tiers.length - 1];
-    run.pts.forEach((p, i) => { const k = Math.round(bin(p.x, p.z)) % K, h = extWall(T, run.ext[i]) + 0.15; tab[k] = tab[k] === null ? h : Math.max(tab[k], h); });
+    run.pts.forEach((p, i) => {
+      const e = run.ext ? run.ext[i] : 0, d = T.back + e * TREAD + WALL, x = p.x + p.mx * d, z = p.z + p.mz * d, k = Math.round(bin(x, z)) % K;
+      const h = extWall(T, e) + 0.1;
+      if (H[k] === null || h > H[k]) { H[k] = h; Rr[k] = Math.hypot(x, z); }
+    });
   }
-  const known = tab.map((h, k) => (h === null ? -1 : k)).filter(k => k >= 0);
-  for (let k = 0; k < K; k++) {
-    if (tab[k] !== null) continue;
-    let a = known[known.length - 1] - K, b = known[0];
-    for (const j of known) { if (j < k) a = j; else { b = j; break; } }
-    if (b < k) b += K;
-    const ha = tab[(a + K) % K], hb = tab[b % K];
-    tab[k] = ha + (hb - ha) * (k - a) / ((b - a) || 1);
-  }
-  return (x, z) => { const f = bin(x, z), k = Math.floor(f) % K, t = f - Math.floor(f); return tab[k] * (1 - t) + tab[(k + 1) % K] * t; };
+  const W = H.map(h => (h === null ? 0 : 1));
+  // riempie i buchi (tra un punto e l'altro, o dove non ci sono spalti) passando dolcemente dai vicini
+  const fill = (tab) => {
+    const known = tab.map((v, k) => (v === null ? -1 : k)).filter(k => k >= 0), out = tab.slice();
+    if (!known.length) return out.fill(0);
+    for (let k = 0; k < K; k++) {
+      if (tab[k] !== null) continue;
+      let a = known[known.length - 1] - K, b = known[0] + K;
+      for (const j of known) { if (j < k) a = j; else { b = j; break; } }
+      const va = tab[(a + K) % K], vb = tab[b % K];
+      out[k] = va + (vb - va) * (k - a) / ((b - a) || 1);
+    }
+    return out;
+  };
+  const h = fill(H), r = fill(Rr);
+  // spalti: 1 vicino ai punti, 0 nei buchi larghi (curve staccate, ferro di cavallo)
+  const w = W.map((_, k) => { let near = Infinity; for (let j = -24; j <= 24; j++) if (W[(k + j + K) % K]) near = Math.min(near, Math.abs(j)); return near <= 6 ? 1 : near >= 24 ? 0 : 1 - (near - 6) / 18; });
+  const at = (tab) => (x, z) => { const f = bin(x, z), k = Math.floor(f) % K, t = f - Math.floor(f); return tab[k] * (1 - t) + tab[(k + 1) % K] * t; };
+  return { h: at(h), r: at(r), w: at(w) };
 }
-function waveBuild(shape, st, standOn = null) {
+function waveBuild(shape, st) {
   const T = shape.tiers[shape.tiers.length - 1], o = shape.outer;
   const base = st.facade === 'esplanade' ? ESPLANADE_H : 0;
   const hS = T.top + 4, hE = T.top + 15, dE = o + 3, dIn = Math.min(o - 8, Math.max(-14, 1 - reachOf_(st)));
   const endF = (x, z) => Math.cos(Math.atan2(Math.abs(z) / shape.b, Math.abs(x) / shape.a)) ** 2; // 1 sulle curve, 0 sui lati
-  // bordo fuori della copertura: alto sulle curve, basso sui lati; appoggiata agli spalti, la quota della loro cima
-  const edge = standOn || ((x, z) => hS + (hE - hS) * endF(x, z));
-  const hSide = edge(0, shape.b + o), hEnd = edge(shape.a + o, 0);
+  // bordo fuori della copertura: alto sulle curve, basso sui lati
+  const hSide = hS, hEnd = hE, edge = (x, z) => hSide + (hEnd - hSide) * endF(x, z);
   const rise = (x, z) => 3.5 + 5.5 * endF(x, z);
   const hAt = (x, z, f) => edge(x, z) + rise(x, z) * (1 - (1 - f) ** 2);
   // ingresso principale al centro della curva verso +x: lì la fascia sale ancora e lascia il portale più alto
@@ -1896,7 +1907,7 @@ function waveBuild(shape, st, standOn = null) {
   // fascia: sui lati lunghi scende quasi a terra, sulle curve resta alta e sotto si vedono i piani in cemento
   const bandBottom = (x, z) => {
     const e = endF(x, z) ** 1.5;
-    return Math.min(edge(x, z) - 5, (base + 2.2) * (1 - e) + (base + (hE - base) * 0.42) * e + 4 * entryF(x, z));
+    return (base + 2.2) * (1 - e) + (base + (hEnd - base) * 0.42) * e + 4 * entryF(x, z);
   };
   // pianta: rettangolare verso l'apertura, molto più tonda verso fuori; ripresa a passi uguali (spicchi regolari)
   // sulle curve la parte fuori della copertura (sopra il retro degli spalti e la fascia) si allarga verso fuori:
@@ -3958,9 +3969,32 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     own.push(gTop, gBand);
     roofDecor = { band: bandMat };
 
-    // travi reticolari radiali sotto il tetto (più alte a metà, sempre sopra gli spalti), anelli e trave lungo l'apertura
+    // soffitto sotto il tetto (fuori non cambia niente): dall'apertura scende fino ad appoggiarsi sul muretto dietro
+    // l'ultima fila, seguendo la cima degli spalti; dietro gli spalti resta piano a quella quota fino alla fascia
     const standTop = (d, x, z) => Math.max(standTopAt(shape, d), extTopAt(shape, x, z));
-    const under = (r, i, dy) => { const [x, y, z] = r.row[i]; return [x, y + dy, z]; };
+    const SL = standLine(shape);
+    roofRows.forEach(r => {
+      r.ceil = r.row.map(([x, Y, z], i) => {
+        const S = SL.h(x, z), rB = SL.r(x, z), rP = Math.hypot(x, z), rL = Math.hypot(lip[i][0], lip[i][2]), YL = lip[i][1];
+        let C = S;
+        if (rP < rB) { const t = Math.min(1, Math.max(0, (rB - rP) / ((rB - rL) || 1))); C = S + (YL - S) * (1 - (1 - t) ** 1.6); }
+        C = Math.max(C, standTop(r.d, x, z) + 0.4);
+        const w = SL.w(x, z);
+        return [x, Math.min(Y - 0.6, C * w + (Y - 0.6) * (1 - w)), z];
+      });
+    });
+    // membrana chiara che lascia passare un po' di luce (di notte illuminata dai fari)
+    const ceilMat = new THREE.MeshStandardMaterial({ map: tex, color: 0xe2e6ea, roughness: 0.8, side: THREE.DoubleSide, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.16 });
+    nightGlow.push([ceilMat, 0.16, 0.24]);
+    const gCeil = sweepRows(THREE, [...roofRows.map(r => r.ceil), lip], strips, cush.tileV);
+    const ceil = new THREE.Mesh(gCeil, ceilMat);
+    ceil.receiveShadow = true;
+    group.add(ceil);
+    own.push(ceilMat, gCeil);
+
+    // travi reticolari radiali sotto il soffitto (più alte a metà, sempre sopra gli spalti), anelli e trave lungo
+    // l'apertura
+    const under = (r, i, dy) => { const [x, y, z] = r.ceil[i]; return [x, y + dy, z]; };
     for (let i = 0; i < N; i += 6) {
       let prev = null;
       for (const r of roofRows) {
