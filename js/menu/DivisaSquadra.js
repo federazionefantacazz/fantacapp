@@ -1,3 +1,4 @@
+import { installColorPicker } from '../components/ColorPicker.js';
 import { db, ref, update } from '../firebase-config.js';
 import { uploadPngToImgBB } from '../services/integrationImgBB.js';
 import { createKitViewer, renderKitImage, kitImageHTML, dataUrlToBlob } from '../components/Kit3D.js';
@@ -70,6 +71,7 @@ const COLOR_FIELDS = [
 const STYLE_ID = 'kit-editor-style';
 /** Stile dell'editor (usato anche dall'editor dello stadio). */
 export function injectStyle() {
+  installColorPicker(); // i quadratini colore aprono il selettore dell'app (uguale su iPhone e Android)
   if (document.getElementById(STYLE_ID)) return;
   const style = document.createElement('style');
   style.id = STYLE_ID;
