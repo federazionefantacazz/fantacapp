@@ -1177,6 +1177,7 @@ function roofOf(shape, roof, shift = 0) {
   return { dIn, dOut, h: (d) => hIn - (d - dIn) * 0.04, depth: (d) => 1.4 + 3.6 * (d - dIn) / (dOut - dIn) };
 }
 
+const LAWN = [4, 14], ARCH_X = 19; // curva aperta: prato con il nome (da, a metri oltre il bordo) e archi a onda
 const STANDS_FASCIA = 2.6;                       // tetto per tribuna: altezza della fascia davanti
 const STANDS_MAST_R = 0.75, STANDS_MAST_OUT = 3;  // piloni agli angoli: raggio e distanza dal bordo esterno del tetto
 
@@ -1520,16 +1521,17 @@ function dragonOf(shape, st) {
 }
 
 /**
- * Coda del drago: continua dall'estremità del braccio verso +z del ferro di cavallo, gira verso fuori e scende fino a
- * terra. Tratto aperto con i punti del bordo interno, la normale verso fuori e la scala del profilo (1 → 0).
+ * Coda del drago: dall'estremità del braccio verso +z del ferro di cavallo il nastro continua quasi dritto, girando
+ * appena verso fuori, e scende fino a terra (come a Kaohsiung, dove la tribuna finisce). Tratto aperto con i punti del
+ * bordo interno, la normale verso fuori e la scala del profilo (1 → 0).
  */
 function dragonTail(shape) {
-  const K = 38, STEP = 4, pts = [];
+  const K = 18, STEP = 3.2, pts = [];
   let x = -(shape.a - shape.r), z = shape.b, phi = Math.PI;
   for (let k = 0; k <= K; k++) {
-    const dx = Math.cos(phi), dz = Math.sin(phi);
-    pts.push({ x, z, mx: dz, mz: -dx, scale: (1 - k / K) ** 0.85 });
-    phi = Math.PI - 0.8 * ((k + 1) / K) ** 1.3;
+    const dx = Math.cos(phi), dz = Math.sin(phi), f = k / K;
+    pts.push({ x, z, mx: dz, mz: -dx, scale: Math.cos(Math.PI / 2 * f) ** 0.9 });
+    phi = Math.PI - 0.3 * ((k + 1) / K) ** 1.2;
     x += Math.cos(phi) * STEP; z += Math.sin(phi) * STEP;
   }
   return { pts, closed: false };
@@ -1544,7 +1546,7 @@ const hasDragonTail = (shape, st, runs = coveredRuns(shape, st)) => st.horseshoe
  * girando un poco verso fuori e scende fino a terra. Stesso verso del tratto, la scala va a 0 lontano dal tratto.
  */
 function dragonCaps(shape, runs, withTail) {
-  const caps = [], K = 16, STEP = 3;
+  const caps = [], K = 6, STEP = 2.6;
   const isTail = (p) => withTail && Math.hypot(p.x + shape.a - shape.r, p.z - shape.b) < 0.5;
   for (const run of runs) {
     if (run.closed || run.pts.length < 2) continue;
@@ -4226,9 +4228,12 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     const tubeMat = new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.15 });
     own.push(solar, solarN, shellMat, underMat, tubeMat);
     const tail = hasDragonTail(shape, st, roofRuns) ? dragonTail(shape) : null;
-    const runs = [...roofRuns, ...(tail ? [tail] : []), ...dragonCaps(shape, roofRuns, !!tail)];
+    // dove il nastro finisce senza coda (la testa) i pannelli si fermano e resta la struttura scura a vista che scende
+    const caps = dragonCaps(shape, roofRuns, !!tail), panelRuns = [...roofRuns, ...(tail ? [tail] : [])], runs = [...panelRuns, ...caps];
+    const headMat = new THREE.MeshStandardMaterial({ color: 0x343b44, roughness: 0.55, metalness: 0.4 });
+    own.push(headMat);
     let sideSet = false;
-    for (const run of runs) {
+    for (const run of panelRuns) {
       const top = sweepRun(THREE, run, D.prof, D.split, D.prof.length - 1, sol.tileU, sol.tileV);
       if (!sideSet) {
         // la faccia di sopra guarda in alto?
@@ -4255,15 +4260,16 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
       return [a.d + (b.d - a.d) * t, a.h + (b.h - a.h) * t];
     };
     const prof = Array.from({ length: K + 1 }, (_, k) => profAt(k / K));
+    const headTubes = [];
     for (const run of runs) {
-      const R = ribbonSampler(run, dc);
+      const R = ribbonSampler(run, dc), out = caps.includes(run) ? headTubes : tubes;
       for (const [sgn, r] of [[1, 0.6], [-1, 0.36]]) {
         const from = run.closed ? 0 : -PITCH, to = run.closed ? R.total - 0.01 : R.total + PITCH;
         for (let u0 = from; u0 <= to; u0 += EVERY) {
           let prev = null;
           for (let k = 0; k <= K; k++) {
             const p = R.at(u0 + sgn * PITCH * k / K, prof[k][0], prof[k][1]);
-            if (p && prev) tubeAt(tubes, ...prev, ...p, r);
+            if (p && prev) tubeAt(out, ...prev, ...p, r);
             prev = p;
           }
         }
@@ -4273,19 +4279,45 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
         let prev = null;
         for (let u = 0; u <= R.total + 0.01; u += 3) {
           const p = R.at(Math.min(u, R.total), pd, ph + (f === 0 ? 0.4 : 0));
-          if (p && prev) tubeAt(tubes, ...prev, ...p, f === 0 ? 0.55 : 0.4);
+          if (p && prev) tubeAt(out, ...prev, ...p, f === 0 ? 0.55 : 0.4);
           prev = p;
         }
       }
     }
-    if (tubes.length) {
-      const m = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 10), tubeMat, tubes.length / 16);
-      m.instanceMatrix.array.set(tubes);
+    // sotto il tetto le centine scure a traliccio (dalla cresta al bordo verso il campo), una ogni 6 m
+    const ribs = [], ribAt = (j) => D.inner[j];
+    for (const run of panelRuns) {
+      const R = ribbonSampler(run, dc);
+      for (let u = 3; u < R.total - 1; u += 6) {
+        let prev = null;
+        for (let j = D.split + 3; j < D.inner.length; j++) {
+          const q = ribAt(j), f = (j - D.split - 3) / (D.inner.length - 1 - D.split - 3), dep = 0.6 + 1.6 * Math.sin(Math.PI * Math.min(1, f * 1.1));
+          const a = R.at(u, q.d, q.h - 0.3), b = R.at(u, q.d, q.h - 0.3 - dep);
+          if (!a || !b) { prev = null; continue; }
+          beam(ribs, ...a, ...b, 0.1);
+          if (prev) { beam(ribs, ...prev[0], ...a, 0.2); beam(ribs, ...prev[1], ...b, 0.18); beam(ribs, ...prev[0], ...b, 0.08); }
+          prev = [a, b];
+        }
+      }
+    }
+    for (const [list, mat] of [[tubes, tubeMat], [headTubes, headMat]]) {
+      if (!list.length) continue;
+      const m = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 10), mat, list.length / 16);
+      m.instanceMatrix.array.set(list);
       m.instanceMatrix.needsUpdate = true;
       m.frustumCulled = false;
       m.castShadow = m.receiveShadow = true;
       group.add(m);
       own.push(m.geometry, m);
+    }
+    if (ribs.length) {
+      const m = new THREE.InstancedMesh(box, headMat, ribs.length / 16);
+      m.instanceMatrix.array.set(ribs);
+      m.instanceMatrix.needsUpdate = true;
+      m.frustumCulled = false;
+      m.castShadow = true;
+      group.add(m);
+      own.push(m);
     }
     roofDecor = { solar: shellMat, tubes: tubeMat };
     if (lights === 'roof') {
@@ -5570,13 +5602,36 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     }
   }
 
+  let lawn = null;
   if (st.horseshoe) {
-    // curva aperta: fila di sculture bianche a V dietro la pista
-    const x0 = -(shape.a + 7), half = shape.b * 0.85;
-    for (let zz = -half; zz <= half + 0.01; zz += 7) {
-      beam(sculpt, x0, 0, zz, x0 - 2, 8, zz - 2.4, 0.9);
-      beam(sculpt, x0, 0, zz, x0 - 2, 8, zz + 2.4, 0.9);
-      beam(sculpt, x0 - 2, 8, zz - 2.6, x0 - 2, 8, zz + 2.6, 0.8);
+    // curva aperta (come a Kaohsiung): dietro la pista il prato con il nome dello stadio a grandi lettere bianche (si
+    // legge da fuori), più in là lo schermo su due pali e la fila di archi bianchi a onda in cemento
+    const L0 = shape.a + LAWN[0], L1 = shape.a + LAWN[1], half = shape.b * 0.9;
+    const lawnMat = new THREE.MeshStandardMaterial({ roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    tints.push([lawnMat, 'grass']);
+    const lg = new THREE.PlaneGeometry(L1 - L0, half * 2);
+    lg.rotateX(-Math.PI / 2); lg.translate(-(L0 + L1) / 2, 0.07, 0);
+    const lawnMesh = new THREE.Mesh(lg, lawnMat);
+    lawnMesh.receiveShadow = true;
+    const canvas = document.createElement('canvas'), tex = new THREE.CanvasTexture(canvas);
+    canvas.width = 2048; canvas.height = 256;
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    const textMat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+    // quad: lungo +z da sinistra a destra (guardando da fuori verso +x), l'alto delle lettere verso il campo
+    const tw = half * 1.8, th = (L1 - L0) * 0.8, tg = new THREE.PlaneGeometry(tw, th);
+    tg.rotateX(-Math.PI / 2); tg.rotateY(-Math.PI / 2); tg.translate(-(L0 + L1) / 2, 0.09, 0);
+    const textMesh = new THREE.Mesh(tg, textMat);
+    group.add(lawnMesh, textMesh);
+    own.push(lg, lawnMat, tex, textMat, tg);
+    lawn = { canvas, tex, aspect: tw / th, name: null };
+    // archi a onda: sale dritto, gira in cima e scende lungo verso fuori fino a terra (nastro largo 1,4 m)
+    const wave = [[0, 0], [0, 4], [0.1, 5.5], [0.6, 6.6], [1.6, 7.3], [2.8, 7.4], [3.9, 6.9], [5, 5.8], [7, 4], [9.5, 2.2], [12, 0.8], [13.5, 0]].map(([a, b]) => [a * 1.25, b * 1.35]);
+    const A0 = shape.a + ARCH_X;
+    for (let zz = -half; zz <= half + 0.01; zz += half * 2 / Math.max(1, Math.round(half * 2 / 10))) {
+      for (let k = 0; k < wave.length - 1; k++) {
+        const [s0, y0] = wave[k], [s1, y1] = wave[k + 1];
+        slab(sculpt, -(A0 + s0), y0 + 0.4, zz, -(A0 + s1), y1 + 0.4, zz, 0, 1, 1.8, 0.8);
+      }
     }
   }
 
@@ -5621,8 +5676,8 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
         const c0 = shape.path.reduce((m, p) => (p.x * sgn > m.x * sgn ? p : m), shape.path[0]);
         let x = sgn * (Math.abs(c0.x) + Sc.ds), hb = hbAll, ht = htAll;
         if (st.horseshoe && sgn < 0) {
-          // curva aperta: schermo su due pali dietro le sculture
-          x = -(shape.a + 12); hb = 10; ht = hb + Hs;
+          // curva aperta: schermo su due pali dietro il prato con il nome
+          x = -(shape.a + LAWN[1] + 2); hb = 9; ht = hb + Hs;
           for (const zz of [-ENDS_W / 2 + 2, ENDS_W / 2 - 2]) beam(pilasters, x - 0.25, 0, zz, x - 0.25, hb, zz, 0.7);
         }
         const xf = x - sgn * 0.04, w = ENDS_W / 2;
@@ -6031,7 +6086,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   inst(girderMat, girderBeams);
   inst([steel, steel, steel, steel, lamp, steel], lamps); // la faccia +z del proiettore è quella accesa
 
-  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, nightGlow, repaint, tints, badge, wallMat, panelSkinMat, stoneLight, stoneDark, tentGlass, entrance };
+  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, nightGlow, repaint, tints, badge, wallMat, panelSkinMat, stoneLight, stoneDark, tentGlass, entrance, lawn };
 }
 
 /* --------------------------------------------------------------- scena */
@@ -6371,6 +6426,23 @@ function buildStadium(L, st) {
       if (roofLight && outside.shellMat && s.roof !== 'blades') outside.shellMat.emissive.set(roofLight);
       if (roofLight && s.roof === 'blades' && outside.roofDecor && outside.roofDecor.band) outside.roofDecor.band.emissive.set(roofLight);
       if (outside.tentGlass) outside.tentGlass.emissive.set(c.glow);
+      if (outside.lawn) {
+        // nome dello stadio sul prato della curva aperta
+        const L = outside.lawn, nm = (s.name.trim() || 'FANTACAZZ').toUpperCase();
+        if (L.name !== nm) {
+          L.name = nm;
+          const ctx = L.canvas.getContext('2d'), W = L.canvas.width, H = L.canvas.height;
+          ctx.clearRect(0, 0, W, H);
+          ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          const font = (px) => `900 ${px}px "Arial Black", "Helvetica Neue", Arial, sans-serif`, txt = nm.split('').join(String.fromCharCode(8202));
+          let px = H * 0.78;
+          ctx.font = font(px);
+          const w = ctx.measureText(txt).width;
+          if (w > W * 0.92) { px *= W * 0.92 / w; ctx.font = font(px); }
+          ctx.fillText(txt, W / 2, H / 2);
+          L.tex.needsUpdate = true;
+        }
+      }
       if (outside.entrance) {
         outside.entrance.frameMat.color.set(c.entrance);
         outside.entrance.stoneMat.color.set(c.entranceStone); outside.entrance.stoneMat.emissive.set(c.entranceStone);
