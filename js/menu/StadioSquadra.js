@@ -5,8 +5,12 @@ import {
   createStadiumViewer, renderStadiumImage, stadiumCapacity, shownCapacity, normalizeStadium, defaultStadium, applyPreset,
   RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY,
   SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom, STAND_GAP_MAX, RAKE_MIN, RAKE_MAX, CORNER_GAP_MIN, CORNER_GAP_MAX, WALL_TEXTURES, WALL_TEX_FACADES, APRON_STYLES, GROUND_STYLES, AD_BOARDS, ROOF_GLOWS,
-  ringsBySide, maxRingsOf, LOGO_PLACES, logoPlacesFor, ENTRANCES, ENTRANCE_W, ENTRANCE_H, ENTRANCE_LOGO, ENTRANCE_FITS, entranceSkips
+  ringsBySide, maxRingsOf, LOGO_PLACES, logoPlacesFor, ENTRANCES, ENTRANCE_W, ENTRANCE_H, ENTRANCE_LOGO, ENTRANCE_FITS, entranceSkips,
+  MIX_ROOFS, ROOF_TEXTURES, TEXTURE_ROOFS, ROOF_WAVES, roofMixed
 } from '../components/Stadium3D.js';
+
+/** Nomi corti delle coperture nella scelta settore per settore. */
+const MIX_LABELS = { none: 'No', membrane: 'Moderna', truss: 'Reticolare', stands: 'Tribuna', dragon: 'Drago' };
 import { injectStyle, parseColor, SWATCHES } from './DivisaSquadra.js';
 import { esc } from './menuUtils.js';
 
@@ -49,6 +53,8 @@ function injectStadiumStyle() {
     .std-seg button.on { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }
     /* griglia di scelte a due colonne, tutte larghe uguali */
     .std-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; }
+    .std-opts.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .std-mix-nm { font-size: .8rem; font-weight: 600; color: var(--text); margin: .55rem 0 .3rem; }
     #menu-panel .std-opts .lv-chip, .std-opts .lv-chip { width: 100%; border-radius: 10px; padding: .45rem .5rem; text-align: center; line-height: 1.2; white-space: normal; }
     .std-desc { font-size: .72rem; color: var(--text2); font-family: var(--font-sub, inherit); line-height: 1.35; margin-top: .4rem; background: var(--bg2); border-radius: 10px; padding: .45rem .6rem; }
     .std-range { display: grid; grid-template-columns: minmax(0, 5.5rem) minmax(0, 1fr) 3.4rem; gap: .6rem; align-items: center; margin: .45rem 0; }
@@ -325,7 +331,14 @@ export const StadioSquadra = {
         shell: 'Un unico involucro a cuscini che avvolge lo stadio: si gonfia verso fuori, copre gli spalti e diventa trasparente verso il campo. Di notte si illumina.'
       }[s.roof] || 'Spalti scoperti.'}</div>
       </div>
-      ${s.roof !== 'none' ? `
+      <div class="std-group">
+      <div class="kit-sub">Copertura settore per settore</div>
+      ${WRAP_ROOFS.includes(s.roof) || s.roof === 'girders' ? `<div class="std-desc">${s.roof === 'girders' ? 'Le travi rosse stanno su quattro torri comuni: questa copertura non si mescola con altre.' : 'Questa copertura avvolge tutto lo stadio: non si mescola con altre.'}</div>` : `
+      <div class="std-desc">Mescola le coperture: per esempio le tribune con il tetto reticolare e le curve con il drago. "Uguale" segue la copertura scelta sopra (e "Dove mettere la copertura"); "No" lascia il settore scoperto.</div>
+      ${SEAT_SIDES.filter(sd => !(s.horseshoe && sd.id === 3)).map(sd => `<div class="std-mix-nm">${esc(sd.label)}</div>
+      <div class="std-opts three">${[['', 'Uguale'], ...MIX_ROOFS.map(id => [id, MIX_LABELS[id]])].map(([id, lb]) => `<button class="lv-chip ${(s.roofSides[sd.id] || '') === id ? 'on' : ''}" data-act="roofMix" data-side="${sd.id}" data-v="${id}">${esc(lb)}</button>`).join('')}</div>`).join('')}`}
+      </div>
+      ${s.roof !== 'none' || roofMixed(s) ? `
       <div class="std-group">
       <div class="kit-sub">Dove mettere la copertura</div>
       ${WRAP_ROOFS.includes(s.roof) ? `<div class="std-desc">Questa copertura avvolge tutto lo stadio.</div>` : `
@@ -342,6 +355,7 @@ export const StadioSquadra = {
       <div class="kit-sub">Denti triangolari alla base</div>
       ${this._seg([['1', 'Sì', s.domeTeeth], ['0', 'No', !s.domeTeeth]], 'data-act="set" data-k="domeTeeth"')}
       <div class="std-desc">${s.domeTeeth ? 'La corona di grandi triangoli di lamiera che scendono dal bordo della cupola quasi fino a terra, come alla Samara Arena.' : 'Senza denti il bordo della cupola è chiuso da una fascia di lamiera e sotto si vedono le vetrate.'}</div>` : ''}
+      ${this._roofLook()}
       <div class="kit-sub">Colori della copertura</div>
       ${this._colorRow(['shell', 'tent', 'petals'].includes(s.roof) ? 'Involucro' : s.roof === 'dragon' ? 'Pannelli solari' : s.roof === 'crown' ? 'Vele' : s.roof === 'blades' ? 'Lame d\'acciaio (tetto e facciata)' : 'Tetto', 'colors.roof', s.colors.roof)}
       ${['shell', 'tent', 'petals'].includes(s.roof) ? this._colorRow(s.roof === 'tent' ? 'Luce della tenda e delle vetrate di notte' : 'Luce dell\'involucro di notte', 'colors.glow', s.colors.glow) : ''}
@@ -361,10 +375,26 @@ export const StadioSquadra = {
       </div>`;
   },
 
+  /** Texture e ondulazione della copertura (dentro la fase 4). */
+  _roofLook() {
+    const s = this._st, types = roofMixed(s) ? s.roofSides.map(t => t || s.roof) : [s.roof];
+    const skin = types.some(t => TEXTURE_ROOFS.includes(t));
+    return `
+      ${skin ? `
+      <div class="kit-sub">Texture della copertura</div>
+      ${this._opts('roofTexture', ROOF_TEXTURES, s.roofTexture)}
+      <div class="std-desc">${s.roofTexture === 'auto' ? 'Quella pensata per lo stile scelto.' : s.roofTexture === 'glass' ? 'Lastre di vetro trasparenti con i montanti: si vedono la struttura e il cielo.' : 'Vale per tutte le coperture che la accettano'}${s.roofTexture !== 'auto' && s.roofTexture !== 'glass' ? ' (non per i tetti per tribuna, la tenda, i cuscini e i petali, che hanno il loro disegno).' : ''}</div>` : ''}
+      <div class="kit-sub">Ondulazione</div>
+      ${this._range('Altezza delle onde', 'roofWave', 0, 100, s.roofWave, v => `${v}%`)}
+      ${s.roofWave ? `${this._range('Numero di onde', 'roofWaves', ROOF_WAVES[0], ROOF_WAVES[1], s.roofWaves, v => `${v}`)}
+      ${this._range('Sposta le onde', 'roofWaveShift', 0, 100, s.roofWaveShift, v => `${v}%`)}` : ''}
+      <div class="std-desc">${s.roofWave ? 'Il bordo della copertura sale e scende tutto intorno, con tutta la struttura (sotto un po\' meno che sopra, per non toccare gli spalti).' : 'A zero la copertura è dritta: alza il cursore per farla ondulare.'}</div>`;
+  },
+
   /** FASE 5: muro esterno (tipo, texture, colori), torri delle rampe e fari. */
   _secOutside() {
     const s = this._st;
-    const roofLights = s.lights === 'roof' && s.roof === 'none';
+    const roofLights = s.lights === 'roof' && s.roof === 'none' && !s.roofSides.some(r => r && r !== 'none');
     return `
       <div class="std-group">
       <div class="kit-sub">Muro esterno</div>
@@ -696,6 +726,9 @@ export const StadioSquadra = {
       case 'mosaicD':
         this._update(st => { st.colors.mosaicD = v === '1' ? (st.colors.mosaicD || '#ffd400') : ''; });
         return;
+      case 'roofMix':
+        this._update(st => { st.roofSides[Number(btn.dataset.side)] = v; });
+        return;
       case 'roofSide':
         this._update(st => { st.roofSectors[Number(v)] = !st.roofSectors[Number(v)]; });
         return;
@@ -741,7 +774,7 @@ export const StadioSquadra = {
     } else if (t.dataset.range) {
       // mentre trascino aggiorno solo il numero accanto al cursore (lo stadio si ricostruisce quando lascio)
       const out = this._root.querySelector(`[data-range-out="${t.dataset.range}"]`), v = Number(t.value);
-      if (out) out.textContent = { standGap: `+${v} m`, endGap: `+${v} m`, cornerGap: `${Math.round(v / 18 * 100)}%`, entranceWidth: `${v} m`, entranceHeight: `${v} m` }[t.dataset.range] || `${v}%`;
+      if (out) out.textContent = { standGap: `+${v} m`, endGap: `+${v} m`, cornerGap: `${Math.round(v / 18 * 100)}%`, entranceWidth: `${v} m`, entranceHeight: `${v} m`, roofWaves: `${v}` }[t.dataset.range] || `${v}%`;
     } else if (t.dataset.num) {
       // capienza: solo cifre (anche scritta con i punti delle migliaia)
       const n = Math.min(MAX_CAPACITY, Number(t.value.replace(/\D/g, '')) || 0);
@@ -754,7 +787,9 @@ export const StadioSquadra = {
     if (t.dataset.upload === 'entrance' && t.files && t.files[0]) { this._uploadEntrance(t.files[0]); t.value = ''; return; }
     if (t.dataset.range) {
       const k = t.dataset.range, v = Number(t.value);
-      this._update(() => this._set(k, v), { section: false });
+      // l'ondulazione da zero (o a zero) mostra o nasconde gli altri cursori
+      const was = k === 'roofWave' ? this._st.roofWave : null;
+      this._update(() => this._set(k, v), { section: k === 'roofWave' && !was !== !v });
       return;
     }
     if (t.dataset.hex) {

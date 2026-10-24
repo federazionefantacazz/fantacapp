@@ -177,6 +177,23 @@ export const ROOFS = [
 /** Coperture che avvolgono tutto lo stadio con un'unica superficie (si estendono sempre tutto intorno). */
 export const WRAP_ROOFS = ['shell', 'wave', 'dome', 'tent', 'petals', 'crown', 'blades'];
 const SHELLISH = ['shell', 'tent', 'petals'];
+/** Coperture che si possono mescolare settore per settore (le altre avvolgono tutto o stanno su torri comuni). */
+export const MIX_ROOFS = ['none', 'membrane', 'truss', 'stands', 'dragon'];
+/** Texture che si possono mettere sulla copertura ('auto' = quella dello stile) e coperture che la accettano. */
+export const ROOF_TEXTURES = [
+  { id: 'auto',       label: 'Quella dello stile' },
+  { id: 'corrugated', label: 'Lamiera grecata' },
+  { id: 'standing',   label: 'Lamiera aggraffata' },
+  { id: 'barrel',     label: 'Lamiera curva' },
+  { id: 'membrane',   label: 'Membrana tesa' },
+  { id: 'solar',      label: 'Pannelli solari' },
+  { id: 'cushions',   label: 'Cuscini a rombi' },
+  { id: 'quilt',      label: 'Cuscini a spicchi' },
+  { id: 'glass',      label: 'Vetro trasparente' }
+];
+export const TEXTURE_ROOFS = ['membrane', 'truss', 'girders', 'dragon', 'dome', 'wave', 'crown', 'blades'];
+/** Ondulazione della copertura: altezza massima delle onde (m), numero di onde sul giro (cursori). */
+export const ROOF_WAVE_MAX = 14, ROOF_WAVES = [1, 8];
 export const ROOF_COVERS = [
   { id: 'all',     label: 'Tutto unito' },
   { id: 'sectors', label: 'Staccata per settore' },
@@ -239,6 +256,7 @@ export const TEXT_PLACES = [
 const DEFAULT = {
   name: '', rings: 2, ringsEnds: 0, ringsSides: [0, 0, 0, 0], horseshoe: false, vomitories: false, standGap: 0, endGap: 0, rake: 100, rakeEach: false, rakeSides: [100, 100, 100, 100], cornerGap: 18, apronStyle: 'grass', groundStyle: 'concrete', adBoards: 'none', track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single',
   roof: 'none', roofCover: 'all', roofSectors: [true, false, false, false], roofReach: 'normal', lights: 'towers', facade: 'wall', ramps: false, boxes: false, shellPattern: 'rhombus', domeTeeth: true, screen: 'none',
+  roofSides: ['', '', '', ''], roofTexture: 'auto', roofWave: 0, roofWaves: 4, roofWaveShift: 0,
   seatMosaic: 'none', standText: '', standTextSide: 'far', standTextRing: 1, standTextFont: 'black',
   outerText: '', outerTextFont: 'black', outerTextStyle: 'outline', outerTextSize: 'M', outerTextPlace: 'facade', logoPlaces: [], wallTexture: 'concrete',
   entrance: 'none', entranceSides: [true, false, false, false], entranceWidth: 26, entranceHeight: 14, entranceLogo: 100, entranceImage: '', entranceImageFit: 'fill',
@@ -448,6 +466,12 @@ export function normalizeStadium(s) {
     boxes: !!src.boxes,
     shellPattern: oneOf(SHELL_PATTERNS, src.shellPattern, DEFAULT.shellPattern),
     domeTeeth: src.domeTeeth === undefined ? DEFAULT.domeTeeth : !!src.domeTeeth,
+    // copertura settore per settore ('' = come la copertura scelta), texture e ondulazione
+    roofSides: [0, 1, 2, 3].map(i => { const v = src.roofSides && typeof src.roofSides === 'object' ? src.roofSides[i] : ''; return MIX_ROOFS.includes(v) ? v : ''; }),
+    roofTexture: oneOf(ROOF_TEXTURES, src.roofTexture, DEFAULT.roofTexture),
+    roofWave: Math.round(Math.min(100, Math.max(0, Number(src.roofWave) || 0))),
+    roofWaves: Math.round(Math.min(ROOF_WAVES[1], Math.max(ROOF_WAVES[0], Number(src.roofWaves) || DEFAULT.roofWaves))),
+    roofWaveShift: Math.round(Math.min(100, Math.max(0, Number(src.roofWaveShift) || 0))),
     screen: oneOf(SCREENS, src.screen, DEFAULT.screen),
     seatMosaic: oneOf(MOSAICS, seatMosaic, DEFAULT.seatMosaic),
     standText: String(src.standText || '').slice(0, MAX_STAND_TEXT),
@@ -512,7 +536,8 @@ const seatKey = (st) => [ringsBySide(st).join(','), st.track ? 1 : 0, st.shape, 
   st.standGap || 0, st.endGap || 0, rakesBySide(st).join(','), st.corners === 'open' ? st.cornerGap || 18 : '',
   st.roof === 'wave' ? ['wave', st.facade, st.roofReach].join(',') : ''].join('|');
 const geomKey = (st) => [seatKey(st), st.roof, st.roofCover, st.roofCover === 'pick' ? st.roofSectors.map(Number).join('') : '', st.roofReach, st.lights, st.facade, WALL_TEX_FACADES.includes(st.facade) ? st.wallTexture : '', st.adBoards,
-  st.entrance, st.entrance !== 'none' || st.roof === 'wave' ? [st.entranceSides.map(Number).join(''), st.entranceWidth, st.entranceHeight, st.entranceLogo].join(',') : '', st.ramps ? 1 : 0, st.shellPattern, st.roof === 'dome' && !st.domeTeeth ? 'noteeth' : '', st.screen, st.boxes ? 1 : 0, (st.logoPlaces || []).join(',')].join('|');
+  st.entrance, st.entrance !== 'none' || st.roof === 'wave' ? [st.entranceSides.map(Number).join(''), st.entranceWidth, st.entranceHeight, st.entranceLogo].join(',') : '', st.ramps ? 1 : 0, st.shellPattern, st.roof === 'dome' && !st.domeTeeth ? 'noteeth' : '', st.screen,
+  st.roofSides.join(','), st.roofTexture, st.roofWave ? [st.roofWave, st.roofWaves, st.roofWaveShift].join(',') : '', st.boxes ? 1 : 0, (st.logoPlaces || []).join(',')].join('|');
 
 /** Punto del bordo su un lato lungo (tribune), non sulle curve: gli angoli smussati vanno con le tribune (come quelli squadrati). */
 const onLongSide = (p) => !!p.corner || Math.abs(p.mz) > 0.995;
@@ -1152,7 +1177,86 @@ const SHELL_CELL_U = 7, SHELL_CELL_V = 4.4;  // involucro: un cuscino a rombo og
 const PLATFORM_H = 5.9, PLATFORM_OUT = 10; // piattaforma intorno allo stadio (struttura a vista): altezza e sporgenza dal muro
 
 /** Fari effettivi: senza tetto quelli "sul tetto" diventano torri. */
-const lightsOf = (st) => (st.lights === 'roof' && st.roof === 'none' ? 'towers' : st.lights);
+const lightsOf = (st) => (st.lights === 'roof' && st.roof === 'none' && !st._anyRoof ? 'towers' : st.lights);
+
+/** Si mescolano le coperture settore per settore? (copertura principale che non avvolge tutto e almeno un settore diverso) */
+export const roofMixed = (st) => !WRAP_ROOFS.includes(st.roof) && st.roof !== 'girders' && (st.roofSides || []).some(Boolean);
+/**
+ * Coperture da costruire: una per tipo. Senza mescolare è lo stadio stesso; mescolando, la prima è quella principale
+ * (costruisce anche facciata, fari, rampe, ingressi...) e le altre solo la loro copertura, ognuna sui suoi settori
+ * (_mix: settori di quel tipo, _force: settori scelti a mano, coperti anche se "Dove mettere la copertura" li esclude).
+ */
+function roofParts(st) {
+  if (!roofMixed(st)) return [st];
+  const eff = [0, 1, 2, 3].map(i => st.roofSides[i] || st.roof), force = st.roofSides.map(Boolean);
+  const types = [...new Set(eff)].filter(t => t !== 'none'), main = types.includes(st.roof) ? st.roof : 'none';
+  const mk = (t, extra = {}) => ({ ...st, roof: t, _mix: eff.map(e => e === t), _force: force, _anyRoof: types.length > 0, ...extra });
+  const head = mk(main), lights = lightsOf(head) === 'roof' ? 'roof' : 'none';
+  return [head, ...types.filter(t => t !== main).map(t => mk(t, { _extra: true, facade: '_', ramps: false, entrance: 'none', screen: 'none', lights }))];
+}
+/** Tipi di copertura presenti (uno per parte). */
+const roofTypesOf = (st) => roofParts(st).map(p => p.roof);
+
+/**
+ * Ondulazione della copertura: onde sul giro (sale e scende, giù meno che su per non toccare gli spalti), che spostano
+ * in verticale tutto quello che sta sopra la cima degli spalti (y0); ramp = quanti metri ci mette ad arrivare piena.
+ * at(x, y, z, ramp) → [spostamento, gradiente x, y, z].
+ */
+function roofWarpOf(shape, st) {
+  if (!st.roofWave) return null;
+  const A = ROOF_WAVE_MAX * st.roofWave / 100, n = st.roofWaves, ph = st.roofWaveShift / 100 * 2 * Math.PI, y0 = shape.height + 0.3;
+  const at = (x, y, z, ramp) => {
+    const X = x / shape.a, Z = z / shape.b, q = X * X + Z * Z + 1e-6, th = Math.atan2(Z, X);
+    const sn = Math.sin(n * th + ph), k = sn >= 0 ? 1 : 0.45, s = A * k * sn, ds = A * k * n * Math.cos(n * th + ph);
+    const u = Math.min(1, Math.max(0, (y - y0) / ramp)), r = u * u * (3 - 2 * u), dr = u > 0 && u < 1 ? 6 * u * (1 - u) / ramp : 0;
+    return [s * r, ds * (-Z / q) / shape.a * r, s * dr, ds * (X / q) / shape.b * r];
+  };
+  return { A, y0, at };
+}
+/** Coperture con la parete che sale da terra (involucri, drago): l'onda arriva piano, su 10 m; le altre su 1,6 m. */
+const WARP_WIDE = ['shell', 'wave', 'dome', 'tent', 'petals', 'crown', 'blades', 'dragon'];
+/**
+ * Applica l'ondulazione a un gruppo (pezzi nelle coordinate del mondo): sposta i vertici e corregge le normali; i pezzi
+ * ripetuti (travi, tubi...) si spostano e si inclinano seguendo la pendenza dell'onda nel loro centro.
+ */
+function warpGroup(root, W, ramp, fixed = []) {
+  const done = new WeakSet(), keep = (x, z) => fixed.some(([fx, fz]) => Math.hypot(x - fx, z - fz) < 9);
+  root.traverse(o => {
+    if (o.isInstancedMesh) {
+      const a = o.instanceMatrix.array;
+      for (let i = 0; i < o.count; i++) {
+        const b = i * 16, [dy, gx, gy, gz] = W.at(a[b + 12], a[b + 13], a[b + 14], ramp);
+        if ((!dy && !gx && !gy && !gz) || keep(a[b + 12], a[b + 14])) continue;
+        // asse più lungo del pezzo: le sue due estremità si spostano esattamente (travi e cavi lunghi restano attaccati)
+        let L = -1, m = 0;
+        for (let c = 0; c < 3; c++) { const l = Math.hypot(a[b + c * 4], a[b + c * 4 + 1], a[b + c * 4 + 2]); if (l > L) { L = l; m = c; } }
+        const cx = a[b + 12], cy = a[b + 13], cz = a[b + 14], vx = a[b + m * 4] / 2, vy = a[b + m * 4 + 1] / 2, vz = a[b + m * 4 + 2] / 2;
+        const d1 = W.at(cx - vx, cy - vy, cz - vz, ramp)[0], d2 = W.at(cx + vx, cy + vy, cz + vz, ramp)[0];
+        for (let c = 0; c < 3; c++) if (c !== m) a[b + c * 4 + 1] += gx * a[b + c * 4] + gy * a[b + c * 4 + 1] + gz * a[b + c * 4 + 2];
+        a[b + m * 4 + 1] += d2 - d1;
+        a[b + 13] += (d1 + d2) / 2;
+      }
+      o.instanceMatrix.needsUpdate = true;
+    } else if (o.isMesh && o.geometry && !done.has(o.geometry)) {
+      done.add(o.geometry);
+      const P = o.geometry.getAttribute('position'), Nn = o.geometry.getAttribute('normal');
+      if (!P) return;
+      for (let i = 0; i < P.count; i++) {
+        const [dy, gx, gy, gz] = W.at(P.getX(i), P.getY(i), P.getZ(i), ramp);
+        if ((!dy && !gx && !gy && !gz) || keep(P.getX(i), P.getZ(i))) continue;
+        P.setY(i, P.getY(i) + dy);
+        if (Nn) {
+          const ny = Nn.getY(i) / (1 + gy), x = Nn.getX(i) - gx * ny, y = Nn.getY(i) - gy * ny, z = Nn.getZ(i) - gz * ny, l = Math.hypot(x, y, z) || 1;
+          Nn.setXYZ(i, x / l, y / l, z / l);
+        }
+      }
+      P.needsUpdate = true;
+      if (Nn) Nn.needsUpdate = true;
+      o.geometry.computeBoundingSphere();
+      o.geometry.computeBoundingBox();
+    }
+  });
+}
 
 /**
  * Copertura: dal davanti dell'anello più alto (con le travi rosse quasi dal bordo del campo, come a San Siro)
@@ -1416,7 +1520,9 @@ function paintEntranceFit(canvas, img, color, aspect) {
 /** Posti del logo possibili con questa struttura (l'ingresso c'è solo con la facciata inglese, il tetto deve essere piatto). */
 export function logoPlacesFor(st) {
   const wrapped = WRAP_ROOFS.includes(st.roof) || st.roof === 'dragon';
-  const ok = { entrance: st.facade === 'cladding' || st.entrance !== 'none' || st.roof === 'wave', roof: st.roof !== 'none' && !wrapped, facade: !wrapped, pitch: true };
+  // sul tetto: ci vuole un tetto piatto (con le coperture mescolate basta che ce ne sia uno)
+  const flat = roofTypesOf(st).some(t => t !== 'none' && t !== 'dragon' && !WRAP_ROOFS.includes(t));
+  const ok = { entrance: st.facade === 'cladding' || st.entrance !== 'none' || st.roof === 'wave', roof: flat, facade: !wrapped, pitch: true };
   return LOGO_PLACES.map(o => o.id).filter(id => ok[id]);
 }
 
@@ -1446,12 +1552,16 @@ function logoSpots(shape, st) {
     }
   }
   if (places.includes('roof')) {
-    // dipinto sul tetto dei due lati lunghi, a metà profondità
-    const runs = coveredRuns(shape, st), reach = reachOf_(st);
+    // dipinto sul tetto dei due lati lunghi, a metà profondità (con le coperture mescolate su quella di quel lato)
+    const reach = reachOf_(st), flat = roofParts(st).filter(P => P.roof !== 'none' && P.roof !== 'dragon' && !WRAP_ROOFS.includes(P.roof));
     for (const sgn of [1, -1]) {
-      const run = runs.find(r => r.pts.some(p => onLongSide(p) && Math.sign(p.z) === sgn && Math.abs(p.x) < 3));
+      let run = null, P = null, runs = null;
+      for (const Q of flat) {
+        const rs = coveredRuns(shape, Q), r = rs.find(r => r.pts.some(p => onLongSide(p) && Math.sign(p.z) === sgn && Math.abs(p.x) < 3));
+        if (r) { run = r; P = Q; runs = rs; break; }
+      }
       if (!run) continue;
-      const R = st.roof === 'stands' ? roofOf({ ...shape, tiers: run.tiers }, 'stands', reach) : roofOf(roofShapeOf(shape, st, runs), st.roof, reach);
+      const R = P.roof === 'stands' ? roofOf({ ...shape, tiers: run.tiers }, 'stands', reach) : roofOf(roofShapeOf(shape, P, runs), P.roof, reach);
       const s = Math.min(LOGO_MAX, R.dOut - R.dIn - 3), dm = (R.dIn + R.dOut) / 2, lift = st.roof === 'stands' ? 0.45 : 0.08;
       if (s < 4) continue;
       const at = (x, d) => [x, R.h(d) + lift, sgn * (shape.b + d)], dB = dm + sgn * s / 2, dT = dm - sgn * s / 2;
@@ -2714,9 +2824,11 @@ function buildSign(THREE, shape, st, text, color, panel) {
   const aspect = c.width / c.height;
 
   const k0 = (TEXT_SIZES.find(z => z.id === st.outerTextSize) || TEXT_SIZES[1]).k;
-  if (st.outerTextPlace === 'roof' && st.roof !== 'none' && !WRAP_ROOFS.includes(st.roof)) {
+  // con le coperture mescolate: il tetto della tribuna vicina (o di quella di fronte)
+  const signRoof = roofMixed(st) ? (st.roofSides[0] || st.roofSides[2] || st.roof) : st.roof;
+  if (st.outerTextPlace === 'roof' && signRoof !== 'none' && !WRAP_ROOFS.includes(signRoof)) {
     // appesa sotto il bordo davanti del tetto dei lati lunghi, rivolta verso il campo (si legge dagli spalti di fronte)
-    const R = roofOf(shape, st.roof, reachOf_(st)), half = Math.max(6, shape.a - shape.r) * 0.85;
+    const R = roofOf(shape, signRoof, reachOf_(st)), half = Math.max(6, shape.a - shape.r) * 0.85;
     let H = Math.min(5.5, 3.2 * k0), W = H * aspect;
     if (W > 2 * half) { H *= 2 * half / W; W = 2 * half; }
     const yTop = R.h(R.dIn) - 0.3, yBot = yTop - H, pos = [], uv = [], idx = [];
@@ -2896,6 +3008,29 @@ function lampBank(lampsOut, frameOut, x, y, z, cols, rows) {
  * ROOF_PANEL metri: lamiera grecata (reticolare), lamiera aggraffata (moderna) o "botti" di
  * policarbonato (travi rosse). Le righe corrono verso il campo.
  */
+/**
+ * Texture scelta per la copertura (ROOF_TEXTURES): colore + rilievo, misure di una ripetizione in metri, quanto è ruvida e
+ * metallica; il vetro è trasparente (lastre 3 x 1,5 m con i montanti).
+ */
+let glassRoofCache = null;
+function roofSkin(kind) {
+  if (kind === 'glass') {
+    if (!glassRoofCache) {
+      const sm = (a, b, t) => { const k = Math.min(1, Math.max(0, (t - a) / (b - a))); return k * k * (3 - 2 * k); };
+      glassRoofCache = { ...bakeTexture(128, 128, 6, 6, 0.02, (x, y) => {
+        const mx = x / 128 * 6, my = y / 128 * 6, px = mx % 3, py = my % 1.5, edge = Math.min(px, 3 - px, py, 1.5 - py);
+        const frame = 1 - sm(0.03, 0.07, edge);
+        return [Math.min(255, 205 + 40 * frame + 12 * cellRnd(Math.floor(mx / 3), Math.floor(my / 1.5), 95)), frame];
+      }), glass: true };
+    }
+    return glassRoofCache;
+  }
+  const T = { corrugated: () => roofTexture('corrugated'), barrel: () => roofTexture('barrel'), membrane: () => roofTexture('plain'), standing: domeMetalTexture,
+    solar: solarTexture, cushions: () => cushionTexture('rhombus'), quilt: () => cushionTexture('quilt') }[kind]();
+  const finish = { corrugated: [0.45, 0.3], barrel: [0.35, 0.1], membrane: [0.55, 0], standing: [0.32, 0.25], solar: [0.28, 0.45], cushions: [0.3, 0], quilt: [0.4, 0] }[kind];
+  return { ...T, rough: finish[0], metal: finish[1] };
+}
+
 const roofTexCache = new Map();
 function roofTexture(kind) {
   if (roofTexCache.has(kind)) return roofTexCache.get(kind);
@@ -3616,14 +3751,17 @@ function sweepAround(THREE, rowAt, prof, j0, j1, yFn = null, cells = 0) {
 
 /** Tratti coperti dal tetto secondo la scelta (le coperture che avvolgono lo stadio restano tutto intorno). */
 function coveredRuns(shape, st) {
-  if (st.roofCover === 'all') return shape.runs;
-  const pred = {
-    sectors: (p) => Math.abs(Math.atan2(Math.abs(p.z) / shape.b, Math.abs(p.x) / shape.a) - Math.PI / 4) > 0.16,
+  const gap = (p) => Math.abs(Math.atan2(Math.abs(p.z) / shape.b, Math.abs(p.x) / shape.a) - Math.PI / 4) > 0.16;
+  const base = st.roofCover === 'all' ? null : {
+    sectors: gap,
     stands: (p) => onLongSide(p),
     main: (p) => onLongSide(p) && p.z > 0,
     ends: (p) => !onLongSide(p),
     pick: (p) => !!st.roofSectors[sideOfPoint(p)]
   }[st.roofCover];
+  // coperture mescolate: solo i settori di questo tipo (quelli scelti a mano sono coperti comunque, staccati se serve)
+  const pred = st._mix ? (p) => { const sd = sideOfPoint(p); return st._mix[sd] && (st._force[sd] ? st.roofCover !== 'sectors' || gap(p) : !base || base(p)); } : base;
+  if (!pred) return shape.runs;
   return shape.runs.flatMap(run => subRuns(run, pred).map(r => ({ ...r, tiers: run.tiers })));
 }
 
@@ -3983,7 +4121,7 @@ function paintBadge(c, accent, name) {
   ctx.fillText(initials, r, r + s * 0.02);
 }
 
-function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
+function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = false) {
   const group = new THREE.Group();
   const steel = new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.35 });
   const lamp = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff4dc, emissiveIntensity: 0.6, roughness: 0.3 });
@@ -4053,6 +4191,19 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     own.push(m);
   };
 
+  // texture scelta per la copertura sul suo materiale: la ripetizione della texture originale era tileU x tileV metri
+  const skinRoof = (mat, tileU, tileV) => {
+    if (!mat || st.roofTexture === 'auto' || !TEXTURE_ROOFS.includes(st.roof)) return;
+    const T = roofSkin(st.roofTexture), a = new THREE.CanvasTexture(T.canvas), b = new THREE.CanvasTexture(T.normal);
+    for (const t of [a, b]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; t.repeat.set(tileU / T.tileU, tileV / T.tileV); }
+    a.colorSpace = THREE.SRGBColorSpace;
+    mat.map = a; mat.normalMap = b; mat.bumpMap = null;
+    if (mat.emissiveMap) mat.emissiveMap = a;
+    if (T.glass) { mat.transparent = true; mat.opacity = 0.45; mat.depthWrite = false; mat.roughness = 0.08; mat.metalness = 0.5; }
+    else { mat.roughness = T.rough; mat.metalness = T.metal; }
+    mat.needsUpdate = true;
+    own.push(a, b);
+  };
   const ramps = surface(), wedges = surface();
   const lights = lightsOf(st);
   let deckMat = null;
@@ -4075,6 +4226,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     tex.colorSpace = bandTex.colorSpace = THREE.SRGBColorSpace;
     // di notte la copertura si schiarisce un poco (illuminata)
     shellMat = new THREE.MeshStandardMaterial({ map: tex, normalMap: bump, roughness: 0.4, side: THREE.FrontSide, emissive: 0x7d858e, emissiveMap: tex, emissiveIntensity: 0 });
+    skinRoof(shellMat, cush.tileU, cush.tileV);
     const underMat = new THREE.MeshStandardMaterial({ map: tex, color: 0xc3c9cf, roughness: 0.85, side: THREE.BackSide });
     const bandMat = new THREE.MeshStandardMaterial({ map: bandTex, roughness: 0.35, side: THREE.DoubleSide });
     own.push(tex, bump, bandTex, shellMat, underMat, bandMat);
@@ -4191,6 +4343,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     const texOf = (T) => { const a = new THREE.CanvasTexture(T.canvas), b = new THREE.CanvasTexture(T.normal); for (const t of [a, b]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; } a.colorSpace = THREE.SRGBColorSpace; own.push(a, b); return [a, b]; };
     const [rMap, rNrm] = texOf(bladesTexture('roof')), [fMap, fNrm] = texOf(bladesTexture('facade'));
     shellMat = new THREE.MeshStandardMaterial({ map: rMap, normalMap: rNrm, roughness: 0.3, metalness: 0.55, side: THREE.FrontSide });
+    skinRoof(shellMat, 2, 3);
     const underMat = new THREE.MeshStandardMaterial({ color: 0xd6dadf, roughness: 0.8, side: THREE.BackSide });
     const facMat = new THREE.MeshStandardMaterial({ map: fMap, normalMap: fNrm, roughness: 0.3, metalness: 0.55, side: THREE.DoubleSide, emissive: 0xffe2b8, emissiveMap: fMap, emissiveIntensity: 0 });
     const darkGlass = new THREE.MeshStandardMaterial({ color: 0x1c2229, roughness: 0.2, metalness: 0.4, side: THREE.DoubleSide, emissive: 0xffd9a0, emissiveIntensity: 0.02 });
@@ -4249,6 +4402,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     for (const t of [solar, solarN]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; }
     solar.colorSpace = THREE.SRGBColorSpace;
     shellMat = new THREE.MeshStandardMaterial({ map: solar, normalMap: solarN, roughness: 0.28, metalness: 0.45 });
+    skinRoof(shellMat, sol.tileU, sol.tileV);
     const underMat = new THREE.MeshStandardMaterial({ color: 0x39414b, roughness: 0.8 });
     const tubeMat = new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.15 });
     own.push(solar, solarN, shellMat, underMat, tubeMat);
@@ -4369,6 +4523,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     const tex = new THREE.CanvasTexture(crownMembraneCanvas());
     tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
     shellMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, side: THREE.DoubleSide, emissive: 0xb4bcc2, emissiveIntensity: 0 }); // di notte le vele illuminate da sotto
+    skinRoof(shellMat, 6.5, 12);
     const ringMat = new THREE.MeshStandardMaterial({ roughness: 0.45, side: THREE.DoubleSide });
     own.push(tex, shellMat, ringMat);
     const P = (line, i, t) => { const { d, h } = C.at(line, t), [x, z] = C.rowAt(d)[i]; return [x, h, z]; };
@@ -4484,6 +4639,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     const gu = sweepGrid(THREE, D.rowAt, D.pts.slice(0, jClear + 1), subK, 6);
     const gc = sweepGrid(THREE, D.rowAt, D.pts.slice(jClear), subK, 6);
     shellMat = new THREE.MeshStandardMaterial({ map: topTex, normalMap: topNrm, normalScale: new THREE.Vector2(0.8, 0.8), roughness: 0.32, metalness: 0.25, side: THREE.FrontSide, emissiveMap: topTex, emissiveIntensity: 0 }); // di notte si accende
+    skinRoof(shellMat, outlineLength(D.rowAt(D.dOut)) / SECT, 9);
     // sotto: un po' di luce riflessa (il sole non ci arriva), di notte illuminato dai fari
     const underMat = new THREE.MeshStandardMaterial({ map: subTex, normalMap: subNrm, color: 0xe6e9ec, roughness: 0.85, side: THREE.BackSide, emissive: 0xc9ced4, emissiveMap: subTex, emissiveIntensity: 0.32 });
     // traliccio del colore della copertura (bianco come alla Samara Arena), anche lui un po' rischiarato
@@ -4798,6 +4954,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
     tex.colorSpace = THREE.SRGBColorSpace;
     own.push(rtn);
     deckMat = new THREE.MeshStandardMaterial({ map: tex, normalMap: rtn, roughness: truss ? 0.45 : girders ? 0.35 : 0.55, metalness: truss ? 0.3 : 0.1, side: THREE.DoubleSide });
+    skinRoof(deckMat, ROOF_PANEL, ROOF_PANEL);
     const deck = new THREE.Mesh(deckGeometry(THREE, { ...shape, runs: roofRuns }, R), deckMat);
     deck.castShadow = deck.receiveShadow = true;
     group.add(deck);
@@ -4908,7 +5065,9 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   }
 
   // torre faro: fusto che si assottiglia, testata rivolta verso il centro con file di fari, telaio scuro e passerella
+  const towersAt = []; // dove stanno le torri faro (l'ondulazione della copertura non le tocca)
   const floodTower = (x, z, H) => {
+    towersAt.push([x, z]);
     for (const [y0, y1, r] of [[0, H * 0.45, 1.25], [H * 0.45 - 0.2, H * 0.8, 0.95], [H * 0.8 - 0.2, H, 0.7]]) {
       boxAt(drums, x, (y0 + y1) / 2, z, [r, 0, 0], [0, y1 - y0, 0], [0, 0, r]);
     }
@@ -5656,7 +5815,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   }
 
   let lawn = null;
-  if (st.horseshoe) {
+  if (st.horseshoe && !roofOnly) {
     // curva aperta (come a Kaohsiung): dietro la pista il prato con il nome dello stadio a grandi lettere bianche (si
     // legge da fuori), più in là lo schermo su due pali e la fila di archi bianchi a onda in cemento
     const L0 = shape.a + LAWN[0], L1 = shape.a + LAWN[1], half = shape.b * 0.9;
@@ -6139,7 +6298,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own) {
   inst(girderMat, girderBeams);
   inst([steel, steel, steel, steel, lamp, steel], lamps); // la faccia +z del proiettore è quella accesa
 
-  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, nightGlow, repaint, tints, badge, wallMat, panelSkinMat, stoneLight, stoneDark, tentGlass, entrance, lawn };
+  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, nightGlow, repaint, tints, badge, wallMat, panelSkinMat, stoneLight, stoneDark, tentGlass, entrance, lawn, roofType: st.roof, towersAt };
 }
 
 /* --------------------------------------------------------------- scena */
@@ -6148,7 +6307,10 @@ function buildStadium(L, st) {
   const { THREE } = L;
   const shape = shapeOf(st);
   const group = new THREE.Group();
-  const reach = reachOf(shape, st);
+  // coperture (una per tipo, se si mescolano settore per settore) e ondulazione
+  const parts = roofParts(st), W = roofWarpOf(shape, st), rampOf = (t) => (WARP_WIDE.includes(t) ? 10 : 1.6);
+  const reach = parts.map(p => reachOf(shape, p)).reduce((m, r) => ({ d: Math.max(m.d, r.d), h: Math.max(m.h, r.h), x: Math.max(m.x, r.x), z: Math.max(m.z, r.z) }));
+  if (W) reach.h += W.A;
   const ext = { x: Math.max(shape.a + reach.d + 2, reach.x), z: Math.max(shape.b + reach.d + 2, reach.z) };
   const own = []; // geometrie, materiali e texture da liberare
   const detail = new THREE.CanvasTexture(grassDetailCanvas());
@@ -6385,9 +6547,15 @@ function buildStadium(L, st) {
   }
 
   // copertura, fari ed esterno; di notte si accendono i proiettori e le luci sul campo
-  const outside = buildExterior(THREE, shape, st, mats[M_STRUCT], mats[M_PARAPET], own);
-  group.add(outside.group);
-  const nightLights = outside.spots.map(([x, y, z]) => {
+  const outside = buildExterior(THREE, shape, parts[0], mats[M_STRUCT], mats[M_PARAPET], own);
+  const exts = [outside, ...parts.slice(1).map(p => buildExterior(THREE, shape, p, mats[M_STRUCT], mats[M_PARAPET], own, true))];
+  for (const e of exts) {
+    if (W) warpGroup(e.group, W, rampOf(e.roofType), outside.towersAt);
+    group.add(e.group);
+  }
+  const still = (x, z) => outside.towersAt.some(([fx, fz]) => Math.hypot(x - fx, z - fz) < 9);
+  const lightSpots = exts.flatMap(e => e.spots.map(([x, y, z]) => [x, y + (W && !still(x, z) ? W.at(x, y, z, rampOf(e.roofType))[0] : 0), z]));
+  const nightLights = lightSpots.map(([x, y, z]) => {
     const l = new THREE.SpotLight(0xfff6e6, 1.1, 0, Math.PI / 3.2, 0.7, 0);
     l.position.set(x, y, z);
     l.visible = false;
@@ -6412,6 +6580,7 @@ function buildStadium(L, st) {
     polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3
   });
   const logoMesh = new THREE.Mesh(logoGeo, logoMat);
+  if (W) warpGroup(logoMesh, W, 1.6); // il logo sul tetto segue l'onda
   logoMesh.visible = false;
   group.add(logoMesh);
   own.push(logoGeo, logoMat);
@@ -6447,15 +6616,20 @@ function buildStadium(L, st) {
     setNight(on) {
       night = on;
       if (sign) sign.glow(on); // la scritta si accende
-      outside.lamp.emissiveIntensity = on ? 5 : 0.6;
-      if (outside.shellMat) outside.shellMat.emissiveIntensity = on ? 0.85 : 0; // l'involucro si accende
-      outside.nightGlow.forEach(([m, day, nightOn]) => { m.emissiveIntensity = on ? nightOn : day; });
+      for (const e of exts) {
+        e.lamp.emissiveIntensity = on ? 5 : 0.6;
+        if (e.shellMat) e.shellMat.emissiveIntensity = on ? 0.85 : 0; // l'involucro si accende
+        e.nightGlow.forEach(([m, day, nightOn]) => { m.emissiveIntensity = on ? nightOn : day; });
+      }
       logoMat.emissiveIntensity = on ? 0.7 : 0.12;
       if (adsMat) adsMat.emissiveIntensity = on ? 1.3 : 0.85;
       nightLights.forEach(l => { l.visible = on; });
     },
     recolor(s) {
       const c = s.colors;
+      // colori di ogni copertura (con le coperture mescolate ce n'è più di una)
+      for (const outside of exts) {
+      const roofType = outside.roofType;
       outside.steel.color.set(c.steel);
       if (outside.wallMat) outside.wallMat.color.set(c.wall || c.structure);
       if (outside.panelSkinMat) outside.panelSkinMat.color.set(c.accent);
@@ -6473,12 +6647,13 @@ function buildStadium(L, st) {
         if (outside.roofDecor.band) outside.roofDecor.band.color.set(c.roof);
         if (outside.roofDecor.floor) outside.roofDecor.floor.color.set(shade(c.structure, 0.85));
       }
-      if (outside.shellMat) { outside.shellMat.color.set(c.roof); if (SHELLISH.includes(s.roof)) outside.shellMat.emissive.set(c.glow); }
+      if (outside.shellMat) { outside.shellMat.color.set(c.roof); if (SHELLISH.includes(roofType)) outside.shellMat.emissive.set(c.glow); }
       // luce di notte delle altre coperture (colore scelto o quello della copertura)
-      const roofLight = ROOF_GLOWS[s.roof] ? (c.roofLight || ROOF_GLOWS[s.roof]) : null;
-      if (roofLight && outside.shellMat && s.roof !== 'blades') outside.shellMat.emissive.set(roofLight);
-      if (roofLight && s.roof === 'blades' && outside.roofDecor && outside.roofDecor.band) outside.roofDecor.band.emissive.set(roofLight);
+      const roofLight = ROOF_GLOWS[roofType] ? (c.roofLight || ROOF_GLOWS[roofType]) : null;
+      if (roofLight && outside.shellMat && roofType !== 'blades') outside.shellMat.emissive.set(roofLight);
+      if (roofLight && roofType === 'blades' && outside.roofDecor && outside.roofDecor.band) outside.roofDecor.band.emissive.set(roofLight);
       if (outside.tentGlass) outside.tentGlass.emissive.set(c.glow);
+      }
       if (outside.lawn) {
         // nome dello stadio sul prato della curva aperta
         const L = outside.lawn, nm = (s.name.trim() || 'FANTACAZZ').toUpperCase();
@@ -6513,6 +6688,7 @@ function buildStadium(L, st) {
         if (sign) { group.remove(sign.mesh); sign.dispose(); sign = null; }
         if (s.outerText.trim()) {
           sign = buildSign(THREE, shape, s, s.outerText.trim(), c.outerText, c.outerPanel);
+          if (W) warpGroup(sign.mesh, W, rampOf(parts[0].roof));
           sign.glow(night);
           group.add(sign.mesh);
         }
