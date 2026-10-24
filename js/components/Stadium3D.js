@@ -1198,18 +1198,54 @@ function roofParts(st) {
 const roofTypesOf = (st) => roofParts(st).map(p => p.roof);
 
 /**
- * Ondulazione della copertura: onde sul giro (sale e scende, giù meno che su per non toccare gli spalti), che spostano
- * in verticale tutto quello che sta sopra la cima degli spalti (y0); ramp = quanti metri ci mette ad arrivare piena.
+ * Ondulazione della copertura: onde sul giro (sale e scende, giù meno che su), che spostano in verticale tutto quello
+ * che sta sopra la cima degli spalti (y0, la copertura: ramp = quanti metri ci mette ad arrivare piena). Anche l'anello
+ * più alto degli spalti segue l'onda (gradoni più ripidi dove sale, più bassi dove scende), quanto la copertura che ha
+ * sopra (k: 1 sotto i tetti, meno sotto gli involucri che salgono da terra, 0 dove è scoperto), così la copertura resta
+ * appoggiata sugli spalti: lo spostamento cresce dal davanti (ya) alla cima (yb) dell'anello.
  * at(x, y, z, ramp) → [spostamento, gradiente x, y, z].
  */
 function roofWarpOf(shape, st) {
   if (!st.roofWave) return null;
   const A = ROOF_WAVE_MAX * st.roofWave / 100, n = st.roofWaves, ph = st.roofWaveShift / 100 * 2 * Math.PI, y0 = shape.height + 0.3;
+  const smooth = (u) => { const c = Math.min(1, Math.max(0, u)); return [c * c * (3 - 2 * c), c > 0 && c < 1 ? 6 * c * (1 - c) : 0]; };
+  // spalti per direzione (720 spicchi del giro): quanto seguono l'onda e fra che quote
+  const K = 720, bin = (x, z) => ((Math.atan2(z / shape.b, x / shape.a) / (2 * Math.PI)) % 1 + 1) % 1 * K;
+  const kt = new Array(K).fill(null), ya = new Array(K).fill(null), yb = new Array(K).fill(null), cover = new Map();
+  const ptKey = (p) => `${p.x.toFixed(2)},${p.z.toFixed(2)}`, wideK = smooth((shape.height + 7 - y0) / 10)[0];
+  for (const P of roofParts(st)) if (P.roof !== 'none') for (const r of coveredRuns(shape, P)) for (const p of r.pts) cover.set(ptKey(p), WARP_WIDE.includes(P.roof) ? wideK : 1);
+  for (const run of shape.runs) {
+    const T = run.tiers[run.tiers.length - 1];
+    for (const p of run.pts) {
+      const i = Math.round(bin(p.x, p.z)) % K;
+      kt[i] = Math.max(kt[i] ?? 0, cover.get(ptKey(p)) ?? 0); ya[i] = T.H; yb[i] = T.top + 2.2;
+    }
+  }
+  // buchi riempiti dai vicini (k a zero dove non ci sono spalti), poi k sfumato su ±6°
+  const fill = (tab, def) => {
+    const known = tab.map((v, i) => (v === null ? -1 : i)).filter(i => i >= 0), out = tab.slice();
+    if (!known.length) return out.fill(def);
+    for (let i = 0; i < K; i++) {
+      if (tab[i] !== null) continue;
+      let lo = known[known.length - 1] - K, hi = known[0] + K;
+      for (const j of known) { if (j < i) lo = j; else { hi = j; break; } }
+      const a = tab[(lo + K) % K], b = tab[hi % K], gap = hi - lo;
+      out[i] = def !== null && gap > 24 ? def : a + (b - a) * (i - lo) / (gap || 1);
+    }
+    return out;
+  };
+  const kf = fill(kt, 0), yaf = fill(ya, null), ybf = fill(yb, null), W2 = 12;
+  const ks = kf.map((_, i) => { let t = 0; for (let j = -W2; j <= W2; j++) t += kf[(i + j + K) % K]; return t / (2 * W2 + 1); });
+  const tab = (arr, f) => { const i = Math.floor(f) % K, t = f - Math.floor(f); return arr[i] * (1 - t) + arr[(i + 1) % K] * t; };
   const at = (x, y, z, ramp) => {
     const X = x / shape.a, Z = z / shape.b, q = X * X + Z * Z + 1e-6, th = Math.atan2(Z, X);
-    const sn = Math.sin(n * th + ph), k = sn >= 0 ? 1 : 0.45, s = A * k * sn, ds = A * k * n * Math.cos(n * th + ph);
-    const u = Math.min(1, Math.max(0, (y - y0) / ramp)), r = u * u * (3 - 2 * u), dr = u > 0 && u < 1 ? 6 * u * (1 - u) / ramp : 0;
-    return [s * r, ds * (-Z / q) / shape.a * r, s * dr, ds * (X / q) / shape.b * r];
+    const sn = Math.sin(n * th + ph), c = sn >= 0 ? 1 : 0.45, sv = A * c * sn, ds = A * c * n * Math.cos(n * th + ph);
+    const f = ((th / (2 * Math.PI)) % 1 + 1) % 1 * K, k = tab(ks, f), dk = (tab(ks, f + 0.5) - tab(ks, f - 0.5 + K)) * K / (2 * Math.PI);
+    const yA = tab(yaf, f), yB = tab(ybf, f), [rS, drS] = smooth((y - yA) / ((yB - yA) || 1)), [rR, drR] = smooth((y - y0) / ramp);
+    // la copertura (rR) o gli spalti (k · rS), quale sale di più
+    const stands = k * rS >= rR, g = stands ? k * rS : rR, gy = stands ? k * drS / ((yB - yA) || 1) : drR / ramp, gth = stands ? dk * rS : 0;
+    const dth = ds * g + sv * gth;
+    return [sv * g, dth * (-Z / q) / shape.a, sv * gy, dth * (X / q) / shape.b];
   };
   return { A, y0, at };
 }
@@ -6328,6 +6364,9 @@ function buildStadium(L, st) {
   own.push(standTex);
   const stands = new THREE.Mesh(standsGeometry(THREE, shape, st.facade === 'struts', st.boxes), mats);
   stands.castShadow = stands.receiveShadow = true;
+  // con la copertura ondulata l'anello più alto segue l'onda (anche scalette e vomitori, più sotto)
+  const standRamp = rampOf(parts[0].roof);
+  if (W) warpGroup(stands, W, standRamp);
   group.add(stands);
   own.push(stands.geometry, ...mats);
 
@@ -6337,6 +6376,11 @@ function buildStadium(L, st) {
   const seatMesh = new THREE.InstancedMesh(seatGeometry(THREE), seatMat, Math.max(1, seats.count));
   seatMesh.count = seats.count;
   seatMesh.instanceMatrix.array.set(seats.matrices);
+  if (W) {
+    // i seggiolini salgono con il gradone, sempre dritti
+    const a = seatMesh.instanceMatrix.array;
+    for (let i = 0; i < seats.count; i++) { const b = i * 16; a[b + 13] += W.at(a[b + 12], a[b + 13], a[b + 14], standRamp)[0]; }
+  }
   seatMesh.instanceMatrix.needsUpdate = true;
   seatMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(Math.max(1, seats.count) * 3), 3);
   seatMesh.frustumCulled = false;
@@ -6368,6 +6412,7 @@ function buildStadium(L, st) {
   if (aisles.length) {
     const m = new THREE.InstancedMesh(aisleBox, aisleMat, aisles.length / 16);
     m.instanceMatrix.array.set(aisles);
+    if (W) warpGroup(m, W, standRamp);
     m.instanceMatrix.needsUpdate = true;
     m.frustumCulled = false;
     m.receiveShadow = true;
@@ -6403,6 +6448,7 @@ function buildStadium(L, st) {
       if (!list.length) continue;
       const m = new THREE.InstancedMesh(aisleBox, mat, list.length / 16);
       m.instanceMatrix.array.set(list);
+      if (W) warpGroup(m, W, standRamp);
       m.instanceMatrix.needsUpdate = true;
       m.frustumCulled = false;
       m.castShadow = m.receiveShadow = true;
