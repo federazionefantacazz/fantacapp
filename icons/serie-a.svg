@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="23.68 21.96 139.02 171.64">
+  <title>Lega Serie A</title>
+  <defs>
+    <linearGradient id="g" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0b5dac"/>
+      <stop offset=".55" stop-color="#0557a2"/>
+      <stop offset="1" stop-color="#023b82"/>
+    </linearGradient>
+    <linearGradient id="g1" xlink:href="#g" gradientTransform="matrix(24.3706 66.2467 66.2467 -24.3706 84.0591 88.915)"/>
+    <linearGradient id="g2" xlink:href="#g" gradientTransform="matrix(-21.2812 -6.52166 -6.52166 21.2812 100.176 119.621)"/>
+    <linearGradient id="g3" xlink:href="#g" gradientTransform="matrix(-64.8747 41.8768 41.8768 64.8747 154.187 142.896)"/>
+    <linearGradient id="g4" xlink:href="#g" gradientTransform="matrix(-24.0279 41.534 41.534 24.0279 109.373 146.495)"/>
+    <linearGradient id="g5" xlink:href="#g" gradientTransform="matrix(63.1575 40.5032 40.5032 -63.1575 32.9712 143.447)"/>
+    <linearGradient id="g6" xlink:href="#g" gradientTransform="matrix(15.7897 -15.1031 -15.1031 -15.7897 80.9536 170.884)"/>
+  </defs>
+  <path fill="url(#g1)" stroke="url(#g1)" stroke-width=".4" stroke-linejoin="round" d="M93.0195 151.029H120.48L93.0195 75.5151Z"/>
+  <path fill="url(#g2)" stroke="url(#g2)" stroke-width=".4" stroke-linejoin="round" d="M65.9033 151.029H93.0195V75.5151Z"/>
+  <path fill="url(#g3)" stroke="url(#g3)" stroke-width=".4" stroke-linejoin="round" d="M120.48 151.029L93.0195 193.593L162.699 151.029Z"/>
+  <path fill="url(#g4)" stroke="url(#g4)" stroke-width=".4" stroke-linejoin="round" d="M93.0195 151.029V193.593L120.48 151.029Z"/>
+  <path fill="url(#g5)" stroke="url(#g5)" stroke-width=".4" stroke-linejoin="round" d="M23.6841 151.029L93.0195 193.593L65.9033 151.029Z"/>
+  <path fill="url(#g6)" stroke="url(#g6)" stroke-width=".4" stroke-linejoin="round" d="M65.9033 151.029L93.0195 193.593V151.029Z"/>
+  <path fill="#008fd7" d="M162.699 151.029L107.435 21.9683H78.6035L23.6841 151.029H65.9033L93.0195 75.5151L105.72 110.527H93.0195L85.8115 132.15H113.615L120.48 151.029Z"/>
+</svg>

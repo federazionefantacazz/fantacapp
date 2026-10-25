@@ -16,10 +16,12 @@ import { RULE_MATCH } from '../services/calcoloMatch.js';
 import { ProbabiliService, STATUS_INFO } from '../services/probabiliService.js';
 import { OfflineStore } from '../services/offlineStore.js';
 import { BackNav } from '../services/backNav.js';
+import { FavoritesService } from '../services/favoritesService.js';
 import { esc } from '../utils.js';
 
 const fmt1 = (n) => (n === null || n === undefined || !Number.isFinite(n)) ? '–' : n.toFixed(2).replace(/0$/, '');
 const ROLE_NAMES = { P: 'Portiere', D: 'Difensore', C: 'Centrocampista', A: 'Attaccante' };
+const favLabel = (on) => on ? 'Togli dai preferiti' : 'Aggiungi ai preferiti';
 
 // Stato di una giornata -> aspetto della cella
 const CELL = {
@@ -81,6 +83,8 @@ export const PlayerCard = {
     document.body.appendChild(ov);
     ov.addEventListener('click', (e) => {
       if (e.target === ov || e.target.closest('[data-pc-close]')) this.close();
+      const fav = e.target.closest('[data-pc-fav]');
+      if (fav && this._current) this._paintFav(fav, FavoritesService.toggle(this._current.p.id));
       const cell = e.target.closest('[data-gw]');
       if (cell) this._showDay(Number(cell.dataset.gw));
     });
@@ -194,6 +198,7 @@ export const PlayerCard = {
     const hero = `
       <div class="pc-hero">
         <button class="pc-close" data-pc-close aria-label="Chiudi"><i class="ri-close-line"></i></button>
+        ${this._favHTML(FavoritesService.has(p.id))}
         <div class="pc-photo">${photo ? `<img src="${esc(photo)}" alt="">` : `<span>${esc(p.role)}</span>`}</div>
         <div class="pc-id">
           <div class="pc-role"><span class="rbadge r${esc(p.role)}">${esc(p.role)}</span> ${ROLE_NAMES[p.role] || ''}</div>
@@ -270,6 +275,21 @@ export const PlayerCard = {
     if (lastPlayed) this._showDay(lastPlayed.g);
   },
 
+  /** Stella dei preferiti in alto a destra, accanto alla X */
+  _favHTML(on) {
+    return `<button class="pc-fav${on ? ' on' : ''}" data-pc-fav aria-pressed="${on}" aria-label="${favLabel(on)}" title="${favLabel(on)}"><i class="${on ? 'ri-star-fill' : 'ri-star-line'}"></i></button>`;
+  },
+
+  // aggiornata sul posto: il focus resta sulla stella
+  _paintFav(btn, on) {
+    const label = favLabel(on);
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', String(on));
+    btn.setAttribute('aria-label', label);
+    btn.title = label;
+    btn.querySelector('i').className = on ? 'ri-star-fill' : 'ri-star-line';
+  },
+
   _showDay(g) {
     const box = document.getElementById('pc-day');
     const d = this._current?.days?.find(x => x.g === g);
@@ -308,7 +328,9 @@ export const PlayerCard = {
 @keyframes pcUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
 .pc-hero{position:relative;display:flex;align-items:flex-end;gap:1rem;padding:1.4rem 1.2rem 1rem;background:radial-gradient(120% 140% at 0% 100%,color-mix(in srgb,var(--accent) 22%,transparent) 0%,transparent 60%);border-bottom:1px solid rgba(255,255,255,.06)}
 .pc-close{position:absolute;top:.8rem;right:.8rem;width:34px;height:34px;border-radius:50%;border:none;background:var(--bg2);color:var(--text);font-size:1.15rem;cursor:pointer}
-.pc-close:focus-visible,.pc-cell:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pc-fav{position:absolute;top:.8rem;right:calc(.8rem + 42px);width:34px;height:34px;border-radius:50%;border:none;background:var(--bg2);color:var(--text2);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.pc-fav.on{color:var(--gold)}
+.pc-close:focus-visible,.pc-fav:focus-visible,.pc-cell:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .pc-photo{width:92px;height:104px;flex-shrink:0;display:flex;align-items:flex-end;justify-content:center}
 .pc-photo img{max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5))}
 .pc-photo span{width:72px;height:72px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--text3)}

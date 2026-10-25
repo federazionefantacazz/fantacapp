@@ -22,6 +22,7 @@ export const SettingsService = {
       compactView: false,
       showBackground: true,
       kit3dQuality: 'medium',       // risoluzione dell'editor 3D della divisa: low | medium | high
+      favorites: {},                // giocatori preferiti { [playerId]: true } (js/services/favoritesService.js)
       lastCompetition: ''   // ultima competizione scelta (con il suo tema): si riapre sempre quella
     };
   },

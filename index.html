@@ -449,12 +449,15 @@ label.label{display:block;text-align:left}
 .btn[disabled]{opacity:.6;pointer-events:none}
 
 /* ==================== OFFLINE / AGGIORNAMENTI ==================== */
-#offline-banner{position:fixed;left:50%;top:calc(env(safe-area-inset-top, 0px) + 54px);z-index:1200;display:flex;align-items:center;gap:.45rem;max-width:calc(100vw - 1.5rem);white-space:nowrap;
-  padding:.35rem .8rem;border-radius:999px;font-size:.75rem;line-height:1.35;color:var(--text);background:var(--off-bg, color-mix(in srgb, var(--card) 92%, transparent));
-  border:1px solid var(--off-border, color-mix(in srgb, var(--gold) 55%, transparent));box-shadow:0 8px 24px rgba(0,0,0,.35);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
-  transform:translate(-50%,-12px);opacity:0;pointer-events:none;transition:opacity .25s ease, transform .25s ease}
+/* pillola piccola sotto la barra in alto: "Offline", poi "Di nuovo online" per un attimo */
+#offline-banner{position:fixed;left:50%;top:calc(env(safe-area-inset-top, 0px) + 54px);z-index:1200;display:flex;align-items:center;gap:.3rem;max-width:calc(100vw - 1.5rem);white-space:nowrap;
+  padding:.15rem .55rem;border-radius:999px;font-size:.66rem;font-weight:500;line-height:1.35;color:var(--text);background:var(--off-bg, color-mix(in srgb, var(--card) 92%, transparent));
+  border:1px solid var(--off-border, color-mix(in srgb, var(--gold) 55%, transparent));box-shadow:0 3px 10px rgba(0,0,0,.25);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  transform:translate(-50%,-8px);opacity:0;pointer-events:none;transition:opacity .25s ease, transform .25s ease}
 #offline-banner.show{opacity:1;transform:translate(-50%,0)}
-#offline-banner i{color:var(--off-icon, var(--gold));font-size:1.05rem;flex-shrink:0}
+#offline-banner i{color:var(--off-icon, var(--gold));font-size:.85rem;flex-shrink:0}
+#offline-banner.online{border-color:color-mix(in srgb, var(--toast-ok, var(--accent)) 55%, transparent)}
+#offline-banner.online i{color:var(--toast-ok, var(--accent))}
 html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75rem)}
 
 #update-banner{position:fixed;left:.75rem;right:.75rem;bottom:calc(76px + env(safe-area-inset-bottom, 0px));z-index:1300;display:none;align-items:center;gap:.6rem;
