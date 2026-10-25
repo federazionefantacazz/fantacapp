@@ -90,7 +90,7 @@ export function openColorPicker(input) {
   injectStyle();
   const start = (hexToRgb(input.value) ? input.value : '#ffffff').toLowerCase();
   let [h, s, v] = rgbToHsv(...hexToRgb(start));
-  let cur = start, raf = 0;
+  let cur = start, raf = 0, dragging = false, lastPush = 0, pushTimer = 0;
 
   // colori già usati nella pagina (altri campi colore), poi i colori base
   const used = [...new Set([...document.querySelectorAll('input[type="color"].kit-color')].map(i => String(i.value).toLowerCase()))]
@@ -125,8 +125,21 @@ export function openColorPicker(input) {
     now.style.background = cur;
     if (!fromTyping) { hexIn.value = cur; hexIn.classList.remove('bad'); }
     back.querySelectorAll('.acp-sw button').forEach(b => b.classList.toggle('on', b.dataset.c === cur));
-    // l'anteprima si aggiorna al massimo una volta per fotogramma
-    if (!raf) raf = requestAnimationFrame(() => { raf = 0; input.value = cur; emit('input'); });
+    schedulePush();
+  };
+  // l'anteprima 3D è pesante: mentre il dito si muove non la ridisegno (così il cerchietto segue il dito),
+  // la aggiorno appena il dito si ferma un attimo o si alza
+  const PAUSE = 120;
+  const push = () => {
+    clearTimeout(pushTimer); pushTimer = 0;
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
+    lastPush = performance.now();
+    if (input.value !== cur) { input.value = cur; emit('input'); }
+  };
+  const schedulePush = () => {
+    if (!dragging) { if (!raf) raf = requestAnimationFrame(() => { raf = 0; push(); }); return; }
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(push, PAUSE);
   };
   const setHex = (c, fromTyping) => { [h, s, v] = rgbToHsv(...hexToRgb(c)); draw(fromTyping); };
 
@@ -134,9 +147,14 @@ export function openColorPicker(input) {
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       el.setPointerCapture(e.pointerId);
-      const move = (ev) => { const r = el.getBoundingClientRect(); onMove(clamp((ev.clientX - r.left) / r.width, 0, 1), clamp((ev.clientY - r.top) / r.height, 0, 1)); };
+      dragging = true; lastPush = performance.now();
+      const r = el.getBoundingClientRect(); // una volta sola: niente ricalcoli della pagina a ogni movimento
+      const move = (ev) => onMove(clamp((ev.clientX - r.left) / r.width, 0, 1), clamp((ev.clientY - r.top) / r.height, 0, 1));
       move(e);
-      const up = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); };
+      const up = () => {
+        dragging = false; push();
+        el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
+      };
       el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
     });
   };
@@ -153,6 +171,7 @@ export function openColorPicker(input) {
 
   const close = (keep) => {
     if (raf) { cancelAnimationFrame(raf); raf = 0; }
+    clearTimeout(pushTimer); pushTimer = 0;
     input.value = keep ? cur : start;
     emit('input'); emit('change');
     back.remove();
