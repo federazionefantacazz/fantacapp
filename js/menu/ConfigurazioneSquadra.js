@@ -4,6 +4,7 @@ import { AssetPreloader } from '../services/assetPreloader.js';
 import { esc, sid, playerThumb } from './menuUtils.js';
 import { MenuPanel } from '../components/MenuPanel.js';
 import { kitPairHTML } from '../components/Kit3D.js';
+import { cropSquare } from '../components/ImageCropper.js';
 import { DivisaSquadra } from './DivisaSquadra.js';
 import { StadioSquadra } from './StadioSquadra.js';
 
@@ -188,9 +189,12 @@ export const ConfigurazioneSquadra = {
   async _setLogo(file) {
     if (!this._validate(file)) return;
     const team = window.STATE.user;
-    if (!team) return;
+    if (!team || this._busy) return;
+    // prima del caricamento si sceglie il ritaglio quadrato (Annulla = non cambia niente)
+    const logo = await cropSquare(file);
+    if (!logo) return;
     await this._run(async () => {
-      const url = await uploadImageToImgBB(file);
+      const url = await uploadImageToImgBB(logo);
       await update(ref(db, `teams/${team.id}`), { logo: url });
       team.logo = url; // aggiornamento immediato; il listener del DB lo riconferma
       await AssetPreloader.cacheUrl(url);

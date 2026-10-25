@@ -64,11 +64,11 @@ export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
     : '';
 
   const headerHTML = hasHeader
-    ? `<div style="display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom:.6rem; min-height:22px;">${leftHTML}<div style="display:flex; align-items:center; gap:.4rem; flex-shrink:0;">${pointsHeaderHTML}${chipHTML}</div></div>`
+    ? `<div style="display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom:.45rem; min-height:20px;">${leftHTML}<div style="display:flex; align-items:center; gap:.4rem; flex-shrink:0;">${pointsHeaderHTML}${chipHTML}</div></div>`
     : '';
 
   return `
-    <div class="card card-sm card-mini match-card-result" style="background:var(--mini-bg,var(--card)); border:1px solid var(--border); display:flex; flex-direction:column; padding:1rem;">
+    <div class="card card-sm card-mini match-card-result" style="background:var(--mini-bg,var(--card)); border:1px solid var(--border); display:flex; flex-direction:column; padding:.65rem .9rem .75rem;">
       ${headerHTML}
       <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
         

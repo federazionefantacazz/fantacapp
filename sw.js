@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.3.85'; // Incrementa ad ogni modifica dei file statici
+const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.3.86'; // Incrementa ad ogni modifica dei file statici
 const IMAGE_CACHE = 'fantacapp-images-v1'; // riempita da js/services/assetPreloader.js: non va cancellata agli aggiornamenti
 // Librerie e font esterni (Firebase SDK, icone, Google Fonts): URL con versione fissa, restano tra un aggiornamento e l'altro
 const RUNTIME_CACHE = 'fantacapp-runtime-v1';
@@ -23,6 +23,7 @@ const ASSETS_TO_CACHE = [
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
   './icons/logo-federazione.jpg',
+  './icons/serie-a.svg',
   './fonts/fonts.css',
   './fonts/pirates-of-cydonia.ttf',
   './fonts/nemoy-bold.otf',
@@ -71,6 +72,7 @@ const ASSETS_TO_CACHE = [
   './js/services/notificationService.js',
   './js/services/notificationCenter.js',
   './js/services/pushService.js',
+  './js/services/favoritesService.js',
 
   // Componenti
   './js/components/AnteprimaClassifica.js',
@@ -85,6 +87,7 @@ const ASSETS_TO_CACHE = [
   './js/components/kitShapes.js',
   './js/components/KitRenderer.js',
   './js/components/ColorPicker.js',
+  './js/components/ImageCropper.js',
 
   // Pagine del menu laterale
   './js/menu/menuUtils.js',

@@ -1,12 +1,14 @@
 import { ref, set, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 // IMPORTA IL SERVIZIO CENTRALIZZATO PER L'UPLOAD (Verifica che il percorso relativo sia corretto)
 import { uploadImageToImgBB } from "../services/integrationImgBB.js"; 
+import { cropSquare } from "../components/ImageCropper.js";
 
 export const TeamsSection = {
   db: null,
   isEditing: false,    // Flag per capire se siamo in modalità "Crea" o "Modifica"
   editingId: null,     // Memorizza l'ID della squadra che stiamo modificando
   currentLogoUrl: '',  // Tiene in memoria il vecchio logo se non viene cambiato in modifica
+  croppedLogo: null,   // Logo scelto e ritagliato (quadrato), da caricare al salvataggio
 
   // 1. PUNTO DI INIZIALIZZAZIONE (Riceve solo l'istanza db di Firebase Realtime)
   init(databaseInstance) {
@@ -17,6 +19,20 @@ export const TeamsSection = {
     window.deleteTeam = (id) => this.deleteTeam(id);
     window.prepareEditTeam = (id, name, owner, logo, motto, desc) => this.prepareEditTeam(id, name, owner, logo, motto, desc);
     window.cancelEditTeam = () => this.cancelEditTeam();
+
+    // Appena si sceglie il logo si apre il ritaglio quadrato
+    document.addEventListener('change', (e) => {
+      if (e.target && e.target.id === 'tLogoFile') this.cropLogo(e.target);
+    });
+  },
+
+  async cropLogo(input) {
+    this.croppedLogo = null;
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const logo = await cropSquare(file);
+    if (!logo) { input.value = ''; return; } // annullato: nessun logo nuovo
+    this.croppedLogo = logo;
   },
 
   // 2. INTERFACCIA GRAFICA DEL FORM (Rimossi ID ed Emoji, aggiunti File Android, Motto e Descrizione)
@@ -111,6 +127,7 @@ export const TeamsSection = {
     document.getElementById('tDesc').value = desc === 'undefined' ? '' : desc;
     
     document.getElementById('tLogoFile').value = ''; // Svuota l'input file (facoltativo ricaricarlo)
+    this.croppedLogo = null;
     document.getElementById('btnSubmitTeam').textContent = "Salva Modifiche";
     document.getElementById('btnCancelEdit').style.display = "inline-flex";
   },
@@ -120,6 +137,7 @@ export const TeamsSection = {
     this.isEditing = false;
     this.editingId = null;
     this.currentLogoUrl = '';
+    this.croppedLogo = null;
 
     document.getElementById('formTitle').textContent = "Aggiungi Nuova Squadra";
     ['tName', 'tOwner', 'tLogoFile', 'tMotto', 'tDesc'].forEach(f => document.getElementById(f).value = '');
@@ -157,7 +175,7 @@ export const TeamsSection = {
 
       // Se l'utente ha selezionato un file immagine da Android, eseguiamo l'upload su ImgBB
       if (fileInput.files.length > 0) {
-        const file = fileInput.files[0];
+        const file = this.croppedLogo || fileInput.files[0];
         // Chiama la logica condivisa nel file di integrazione esterno
         finalLogoUrl = await uploadImageToImgBB(file);
       }
@@ -175,6 +193,7 @@ export const TeamsSection = {
         });
         window.toast("Squadra creata con successo!", "ok");
         ['tName', 'tOwner', 'tLogoFile', 'tMotto', 'tDesc'].forEach(f => document.getElementById(f).value = '');
+        this.croppedLogo = null;
       }
     } catch (err) { 
       window.toast(err.message || "Errore durante il salvataggio", "err"); 
