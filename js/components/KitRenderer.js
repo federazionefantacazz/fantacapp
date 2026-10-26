@@ -13,8 +13,10 @@ export { COLLAR_SHAPES };
  *   collar, cuffs, sleeveDeco,                              // stile di colletto, polsini, decorazioni maniche
  *   colors: { base, sleeves, sleevesR, shoulders, collar, cuffs, trim },  // sleevesR: manica destra se diversa ('' = come sleeves)
  *   shoulders: { shape: 'none'|'raglan'|'yoke', size, match },  // spalle colorate; match: colore delle maniche
+ *   sleeveDecoN,                                            // numero di strisce delle maniche (decorazione 'stripes')
  *   sleeveDecoShoulder,                                     // strisce delle maniche che partono dal colletto (spalla + manica)
  *   layers: [{ type, color, opacity, scale, flipX, flipY, x, y, rot, zone }],  // type: disegno integrato, 'png:<id>' (dal Patron)
+ *                                                           // motivi ('m-...'): anche count, size, gap, dir, amp, len, shape, fill, stagger (vedi motifParams)
  *                                                           // o 'img' (PNG caricato dal giocatore: url, mono = tinta unica); zone: body | all | sleeves
  *                                                           // x, y: spostamento in % del pezzo (+ = destra/su), rot: gradi
  *                                                           // wrap: whole (davanti e dietro come un unico pezzo) | repeat | mirror
@@ -149,7 +151,126 @@ function crackle(c, s) {
   return `<g fill="none" stroke="${c}" stroke-linejoin="round" stroke-linecap="round">${o}</g>`;
 }
 
+/* ------------------------------------------------ motivi parametrici */
+// Un motivo si costruisce con dei parametri: quanti elementi (1..100), spessore/dimensione, distanza, direzione, forma.
+// Sono centrati sul davanti (x 200, y 210 della vista frontale) e disegnati molto più grandi della maglia,
+// così spostati o ruotati coprono sempre tutto il pezzo.
+export const MOTIF_SHAPES = [
+  { id: 'circle',   label: 'Cerchio' },
+  { id: 'square',   label: 'Quadrato' },
+  { id: 'diamond',  label: 'Rombo' },
+  { id: 'triangle', label: 'Triangolo' },
+  { id: 'hexagon',  label: 'Esagono' },
+  { id: 'star',     label: 'Stella' },
+  { id: 'heart',    label: 'Cuore' },
+  { id: 'plus',     label: 'Croce' },
+  { id: 'arrow',    label: 'Freccia' },
+  { id: 'bolt',     label: 'Fulmine' }
+];
+/** Parametri dei motivi: limiti e valori di partenza (vedi motifParams). */
+export const MOTIF_LIMITS = { count: [1, 100], size: [1, 100], gap: [0, 100], amp: [0, 100], len: [5, 100] };
+const MOTIF_BASE = { count: 1, size: 20, gap: 20, dir: 'v', amp: 30, len: 30, shape: 'circle', fill: 'solid', stagger: false };
+/** Valori dei parametri di un motivo per un livello (quelli mancanti o fuori misura tornano ai valori di partenza). */
+export function motifParams(l) {
+  const p = PATTERNS.find(x => x.id === (l && l.type));
+  const d = { ...MOTIF_BASE, ...((p && p.defaults) || {}) };
+  const o = { ...d };
+  Object.entries(MOTIF_LIMITS).forEach(([k, [a, b]]) => { o[k] = Math.round(clamp(l && l[k] != null ? l[k] : d[k], a, b)); });
+  o.dir = l && ['v', 'h', 'grid'].includes(l.dir) ? l.dir : d.dir;
+  o.shape = l && MOTIF_SHAPES.some(x => x.id === l.shape) ? l.shape : d.shape;
+  o.fill = l && (l.fill === 'line' || l.fill === 'solid') ? l.fill : d.fill;
+  o.stagger = l && l.stagger != null ? !!l.stagger : d.stagger;
+  return o;
+}
+const MC = { x: 200, y: 210 }, FAR = 1300; // centro dei motivi e metà lunghezza delle righe
+const offsets = (n, pitch) => range(0, n - 1, 1).map(i => (i - (n - 1) / 2) * pitch);
+const f1 = (v) => (+v).toFixed(1);
+
+/** Forma di raggio 1 centrata in 0,0 (path). */
+export function shapePath(id) {
+  const poly = (pts) => 'M' + pts.map(([x, y]) => `${f1(x)},${f1(y)}`).join(' L') + ' Z';
+  const reg = (n, rot) => poly(range(0, n - 1, 1).map(i => { const a = (rot + i * 360 / n) * Math.PI / 180; return [Math.cos(a), Math.sin(a)]; }));
+  switch (id) {
+    case 'square':   return 'M-.86,-.86 L.86,-.86 L.86,.86 L-.86,.86 Z';
+    case 'diamond':  return reg(4, -90);
+    case 'triangle': return 'M0,-1 L.95,.72 L-.95,.72 Z';
+    case 'hexagon':  return reg(6, 30);
+    case 'star':     return poly(range(0, 9, 1).map(i => { const r = i % 2 ? .42 : 1, a = -Math.PI / 2 + i * Math.PI / 5; return [r * Math.cos(a), r * Math.sin(a)]; }));
+    case 'heart':    return 'M0,.95 C-1.3,0 -1.1,-1 -.5,-1 C-.2,-1 0,-.75 0,-.55 C0,-.75 .2,-1 .5,-1 C1.1,-1 1.3,0 0,.95 Z';
+    case 'plus':     return 'M-.32,-1 L.32,-1 L.32,-.32 L1,-.32 L1,.32 L.32,.32 L.32,1 L-.32,1 L-.32,.32 L-1,.32 L-1,-.32 L-.32,-.32 Z';
+    case 'arrow':    return 'M0,-1 L1,0 L.42,0 L.42,1 L-.42,1 L-.42,0 L-1,0 Z';
+    case 'bolt':     return 'M.25,-1 L-.6,.12 L-.05,.12 L-.3,1 L.6,-.2 L.06,-.2 L.4,-1 Z';
+    default:         return 'M-1,0 A1,1 0 1,0 1,0 A1,1 0 1,0 -1,0 Z';
+  }
+}
+
+/** Righe parallele (dritte, a onda o a zig-zag) centrate sul davanti. kind: 'line' | 'wave' | 'zigzag'. */
+function motifLines(c, m, kind) {
+  const t = m.size * 2, pitch = t + m.gap * 2, amp = m.amp * 1.2, len = m.len * 6;
+  const hor = m.dir === 'h';
+  return offsets(m.count, pitch).map(o => {
+    if (kind === 'line') return hor
+      ? `<rect x="${-FAR}" y="${f1(MC.y + o - t / 2)}" width="${FAR * 2 + 400}" height="${t}" fill="${c}"/>`
+      : `<rect x="${f1(MC.x + o - t / 2)}" y="${-FAR}" width="${t}" height="${FAR * 2 + 420}" fill="${c}"/>`;
+    let d = '';
+    const stepN = kind === 'zigzag' ? len / 2 : 8;
+    for (let a = -FAR, i = 0; a <= FAR + 420; a += stepN, i++) {
+      const w = kind === 'zigzag' ? (i % 2 ? amp : -amp) : amp * Math.sin(a / len * Math.PI * 2);
+      d += (i ? ' L' : 'M') + (hor ? `${f1(a)},${f1(MC.y + o + w)}` : `${f1(MC.x + o + w)},${f1(a)}`);
+    }
+    return `<path d="${d}" fill="none" stroke="${c}" stroke-width="${t}" stroke-linejoin="${kind === 'zigzag' ? 'miter' : 'round'}" stroke-miterlimit="20"/>`;
+  }).join('');
+}
+
+const MOTIFS = [
+  { id: 'm-stripe', cat: 'lines', label: 'Strisce', params: ['count', 'size', 'gap', 'dir'], defaults: { count: 1, size: 20, gap: 15 },
+    draw: (c, s, id, m) => motifLines(c, m, 'line') },
+  { id: 'm-wave', cat: 'lines', label: 'Righe a onda', params: ['count', 'size', 'gap', 'amp', 'len', 'dir'], defaults: { count: 1, size: 10, gap: 15, amp: 15, len: 20 },
+    draw: (c, s, id, m) => motifLines(c, m, 'wave') },
+  { id: 'm-zigzag', cat: 'lines', label: 'Righe a zig-zag', params: ['count', 'size', 'gap', 'amp', 'len', 'dir'], defaults: { count: 1, size: 10, gap: 15, amp: 12, len: 8 },
+    draw: (c, s, id, m) => motifLines(c, m, 'zigzag') },
+  { id: 'm-chevron', cat: 'lines', label: 'Chevron (V)', params: ['count', 'size', 'gap', 'amp'], defaults: { count: 1, size: 15, gap: 15, amp: 50 },
+    draw: (c, s, id, m) => {
+      const t = m.size * 2, pitch = t + m.gap * 2, k = m.amp / 100 * 1.2;
+      return offsets(m.count, pitch).map(o => { const y = MC.y + o; return `<path d="M${-FAR},${f1(y - (MC.x + FAR) * k)} L${MC.x},${f1(y)} L${MC.x + FAR + 200},${f1(y - (FAR + 200) * k)}" fill="none" stroke="${c}" stroke-width="${t}" stroke-linejoin="miter" stroke-miterlimit="20"/>`; }).join('');
+    } },
+  { id: 'm-shape', cat: 'shapes', label: 'Forme', params: ['shape', 'count', 'size', 'gap', 'dir', 'fill', 'stagger'], defaults: { count: 1, size: 40, gap: 10, dir: 'grid' },
+    draw: (c, s, id, m) => {
+      const r = m.size * 1.5, pitch = r * 2 + m.gap * 2, n = m.count;
+      const cols = m.dir === 'h' ? n : m.dir === 'v' ? 1 : Math.max(1, Math.round(Math.sqrt(n * .6))), rows = Math.ceil(n / cols);
+      const d = shapePath(m.shape), sw = f1(Math.max(1.5, r * .16) / r);
+      let o = '';
+      for (let j = 0, k = 0; j < rows; j++) {
+        const inRow = Math.min(cols, n - k), shift = m.stagger && j % 2 ? pitch / 2 : 0;
+        for (let i = 0; i < inRow; i++, k++) {
+          const x = MC.x + ((i - (inRow - 1) / 2) * pitch + shift) * NARROW, y = MC.y + (j - (rows - 1) / 2) * pitch;
+          o += `<path transform="translate(${f1(x)},${f1(y)}) scale(${f1(r * NARROW)},${f1(r)})" d="${d}"/>`;
+        }
+      }
+      return m.fill === 'line' ? `<g fill="none" stroke="${c}" stroke-width="${sw}" stroke-linejoin="round">${o}</g>` : `<g fill="${c}">${o}</g>`;
+    } },
+  { id: 'm-rings', cat: 'shapes', label: 'Cerchi concentrici', params: ['count', 'size', 'gap', 'amp'], defaults: { count: 1, size: 8, gap: 10, amp: 35 },
+    draw: (c, s, id, m) => { const t = m.size * 2, pitch = t + m.gap * 2; return range(0, m.count - 1, 1).map(i => { const r = m.amp * 2 + t / 2 + i * pitch; return `<ellipse cx="${MC.x}" cy="${MC.y}" rx="${f1(r * NARROW)}" ry="${f1(r)}" fill="none" stroke="${c}" stroke-width="${t}"/>`; }).join(''); } },
+  { id: 'm-rays', cat: 'shapes', label: 'Raggi', params: ['count', 'size'], defaults: { count: 12, size: 50 },
+    draw: (c, s, id, m) => { const n = Math.max(2, m.count), w = 360 / n * m.size / 100; return range(0, n - 1, 1).map(i => { const a0 = (i * 360 / n - w / 2) * Math.PI / 180, a1 = (i * 360 / n + w / 2) * Math.PI / 180, R = FAR; return `<polygon points="${MC.x},${MC.y} ${f1(MC.x + R * Math.cos(a0))},${f1(MC.y + R * Math.sin(a0))} ${f1(MC.x + R * Math.cos(a1))},${f1(MC.y + R * Math.sin(a1))}" fill="${c}"/>`; }).join(''); } },
+  { id: 'm-checker', cat: 'shapes', label: 'Scacchi', params: ['count'], defaults: { count: 6 },
+    draw: (c, s, id, m) => { const q = 200 / m.count; return `<defs><pattern id="${id}k" patternUnits="userSpaceOnUse" x="${MC.x}" y="${MC.y}" width="${f1(q * 2)}" height="${f1(q * 2)}"><rect width="${f1(q)}" height="${f1(q)}" fill="${c}"/><rect x="${f1(q)}" y="${f1(q)}" width="${f1(q)}" height="${f1(q)}" fill="${c}"/></pattern></defs><rect x="${-FAR}" y="${-FAR}" width="${FAR * 2 + 400}" height="${FAR * 2 + 420}" fill="url(#${id}k)"/>`; } }
+];
+/** Gruppi della finestra di scelta del disegno. */
+export const PATTERN_CATS = [
+  { id: 'lines',   label: 'Strisce e righe' },
+  { id: 'shapes',  label: 'Forme e motivi' },
+  { id: 'blocks',  label: 'Blocchi' },
+  { id: 'effects', label: 'Effetti' }
+];
+// disegni di prima: si vedono ancora sulle maglie salvate, ma per i nuovi livelli ci sono i motivi qui sopra
+const LEGACY = new Set(['stripes', 'wideStripes', 'pinstripes', 'hoops', 'thinHoops', 'sash', 'chevron', 'chestBand', 'doubleBand', 'centerStripe',
+  'twinStripes', 'checker', 'argyle', 'diagStripes', 'zigzag', 'dots', 'rings', 'bigCircle', 'star', 'hexagons', 'sunburst', 'diamond', 'diamondLine',
+  'triangle', 'hexagon', 'ring', 'arrow', 'sawtooth', 'triangles', 'lightning']);
+const BLOCKS = new Set(['half', 'quarters', 'sidePanels', 'yoke', 'hem', 'cross', 'swoosh', 'waves', 'shards']);
+
 export const PATTERNS = [
+  ...MOTIFS.map(p => ({ ...p, motif: true })),
   { id: 'stripes', tile: true, label: 'Strisce verticali', draw: (c, s) => range(-20, W, 40 * s).map(x => `<rect x="${x}" y="0" width="${20 * s}" height="${H}" fill="${c}"/>`).join('') },
   { id: 'wideStripes', tile: true, label: 'Strisce larghe', draw: (c, s) => range(-30, W, 80 * s).map(x => `<rect x="${x}" y="0" width="${40 * s}" height="${H}" fill="${c}"/>`).join('') },
   { id: 'pinstripes', tile: true, label: 'Gessato', draw: (c, s) => range(0, W, 14 * s).map(x => `<rect x="${x}" y="0" width="${1.6 * s}" height="${H}" fill="${c}"/>`).join('') },
@@ -172,7 +293,7 @@ export const PATTERNS = [
   { id: 'cross', label: 'Croce nordica', draw: (c, s) => `<rect x="${150 - 18 * s}" y="0" width="${36 * s}" height="${H}" fill="${c}"/><rect x="0" y="${190 - 18 * s}" width="${W}" height="${36 * s}" fill="${c}"/>` },
   { id: 'gradient', label: 'Sfumatura verticale', draw: (c, s, id) => `<defs><linearGradient id="${id}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c}" stop-opacity="0"/><stop offset="${clamp(0.9 / s, .2, 1)}" stop-color="${c}"/></linearGradient></defs><rect x="0" y="0" width="${W}" height="${H}" fill="url(#${id}g)"/>` },
   { id: 'gradientH', label: 'Sfumatura laterale', draw: (c, s, id) => `<defs><linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${c}"/><stop offset="${clamp(0.8 * s, .2, 1)}" stop-color="${c}" stop-opacity="0"/></linearGradient></defs><rect x="0" y="0" width="${W}" height="${H}" fill="url(#${id}g)"/>` },
-  { id: 'waves', label: 'Onde', draw: (c, s) => `<path d="M60,420 C120,${330 - 40 * s} 150,${250} 210,${210} C270,${170} 330,${150} 380,${80} L400,80 L400,${150 + 30 * s} C340,${230} 280,${250} 240,${280} C190,${320} 170,${370} 160,420 Z" fill="${c}"/><path d="M0,${300} C60,${250} 90,${200} 130,${150} C160,${110} 170,${70} 180,20 L${190 + 14 * s},20 C${190 + 10 * s},80 170,130 150,180 C120,240 70,${300} 20,${360} L0,${370} Z" fill="${c}"/>` },
+  { id: 'waves', label: 'Onde grandi', draw: (c, s) => `<path d="M60,420 C120,${330 - 40 * s} 150,${250} 210,${210} C270,${170} 330,${150} 380,${80} L400,80 L400,${150 + 30 * s} C340,${230} 280,${250} 240,${280} C190,${320} 170,${370} 160,420 Z" fill="${c}"/><path d="M0,${300} C60,${250} 90,${200} 130,${150} C160,${110} 170,${70} 180,20 L${190 + 14 * s},20 C${190 + 10 * s},80 170,130 150,180 C120,240 70,${300} 20,${360} L0,${370} Z" fill="${c}"/>` },
   { id: 'swoosh', label: 'Curva', draw: (c, s) => `<path d="M100,${330} C180,${300 - 30 * s} 260,${220} 320,${120} L320,${170 + 20 * s} C270,${260} 190,${330} 100,${370 + 10 * s} Z" fill="${c}"/>` },
   { id: 'lightning', label: 'Fulmine', draw: (c, s) => `<polygon points="${230 + 10 * s},20 ${140 - 10 * s},220 ${200},220 ${160 - 10 * s},420 ${270 + 10 * s},180 ${210},180 ${260 + 10 * s},20" fill="${c}"/>` },
   { id: 'zigzag', label: 'Zig-zag', draw: (c, s) => { const a = 20 * s, y = 170; let p = `M0,${y}`; range(0, W, a * 2).forEach(x => { p += ` L${x + a},${y - a} L${x + 2 * a},${y}`; }); let p2 = `L${W + a * 2},${y + 26 * s}`; for (let x = W + a * 2; x >= 0; x -= a * 2) p2 += ` L${x - a},${y + 26 * s - a} L${x - 2 * a},${y + 26 * s}`; return `<path d="${p} ${p2} Z" fill="${c}"/>`; } },
@@ -201,6 +322,7 @@ export const PATTERNS = [
   { id: 'triangles', tile: true, label: 'Triangoli', draw: (c, s) => { const q = 34 * s, hq = q * .87; let o = ''; range(0, H + hq, hq).forEach((y, i) => range((i % 2) * q / 2 - q, W + q, q).forEach(x => { o += `M${x.toFixed(1)},${(y + hq).toFixed(1)} L${(x + q / 2).toFixed(1)},${y.toFixed(1)} L${(x + q).toFixed(1)},${(y + hq).toFixed(1)}Z`; })); return `<path d="${o}" fill="${c}" fill-opacity=".85"/>`; } },
   { id: 'contour', tile: true, label: 'Curve di livello', draw: (c, s) => range(0, H + 40, 16 * s).map((y, i) => { let d = `M-10,${y}`; for (let x = -10; x <= W + 20; x += 20) d += ` L${x},${(y + Math.sin(x / 45 + i * .7) * 10 * s + Math.sin(x / 17 + i) * 3).toFixed(1)}`; return `<path d="${d}" fill="none" stroke="${c}" stroke-width="${(1.6 * s).toFixed(1)}"/>`; }).join('') },
 ];
+PATTERNS.forEach(p => { if (p.motif) return; if (LEGACY.has(p.id)) p.legacy = true; p.cat = BLOCKS.has(p.id) ? 'blocks' : 'effects'; });
 
 /* ---------------------------------------------------------- marchi tecnici */
 // Marchi disegnati in un riquadro 60×40 (solo Nike: gli altri li aggiunge il Patron in PNG o li carica il giocatore)
@@ -276,10 +398,10 @@ export const SLEEVE_CUTS = [
   { id: 'raglan', label: 'Cucitura raglan' }
 ];
 
+export const SLEEVE_STRIPES_MAX = 7;
 export const SLEEVE_DECO = [
   { id: 'none',     label: 'Nessuna' },
-  { id: 'stripes3', label: 'Tre strisce' },
-  { id: 'stripes2', label: 'Due strisce' },
+  { id: 'stripes',  label: 'Strisce' },
   { id: 'shoulder', label: 'Spalla colorata' },
   { id: 'band',     label: 'Fascia sul braccio' },
   { id: 'chevrons', label: 'Chevron' },
@@ -288,7 +410,7 @@ export const SLEEVE_DECO = [
 
 export function defaultKit() {
   return {
-    collarShape: 'v', sleeveCut: 'setin', collar: 'plain', cuffs: 'band', sleeveDeco: 'none', sleeveDecoShoulder: false,
+    collarShape: 'v', sleeveCut: 'setin', collar: 'plain', cuffs: 'band', sleeveDeco: 'none', sleeveDecoN: 3, sleeveDecoShoulder: false,
     sleeveTf: { x: 0, y: 0, scale: 100, rot: 0 },
     colors: { base: '#1e5bb8', sleeves: '#1e5bb8', sleevesR: '', shoulders: '#ffffff', collar: '#ffffff', cuffs: '#ffffff', trim: '#ffffff' },
     shoulders: { shape: 'none', size: 100, match: true },
@@ -312,7 +434,9 @@ export function normalizeKit(raw) {
     sleeveCut: SLEEVE_CUTS.some(c => c.id === k.sleeveCut) ? k.sleeveCut : d.sleeveCut,
     collar: COLLARS.some(c => c.id === k.collar) ? k.collar : d.collar,
     cuffs: CUFFS.some(c => c.id === k.cuffs) ? k.cuffs : d.cuffs,
-    sleeveDeco: SLEEVE_DECO.some(c => c.id === k.sleeveDeco) ? k.sleeveDeco : d.sleeveDeco,
+    // tre / due strisce di prima: ora una sola decorazione "Strisce" con il numero di strisce
+    sleeveDeco: /^stripes[23]$/.test(k.sleeveDeco) ? 'stripes' : SLEEVE_DECO.some(c => c.id === k.sleeveDeco) ? k.sleeveDeco : d.sleeveDeco,
+    sleeveDecoN: Math.round(clamp(k.sleeveDecoN || (k.sleeveDeco === 'stripes2' ? 2 : 3), 1, SLEEVE_STRIPES_MAX)),
     sleeveDecoShoulder: !!k.sleeveDecoShoulder,
     sleeveTf: { ...d.sleeveTf, ...(k.sleeveTf || {}) },
     colors: { ...d.colors, ...(k.colors || {}) },
@@ -448,7 +572,8 @@ function builtinPattern(layer, part, w, h) {
   if (!p) return Promise.resolve(null);
   const s = clamp(layer.scale, 30, 250) / 100;
   const tx = clamp(layer.x || 0, -50, 50), ty = clamp(layer.y || 0, -50, 50), rot = clamp(layer.rot || 0, -180, 180);
-  const key = [layer.type, s, !!layer.flipX, !!layer.flipY, tx, ty, rot, part, w, h].join('|');
+  const m = p.motif ? motifParams(layer) : null;
+  const key = [layer.type, s, !!layer.flipX, !!layer.flipY, tx, ty, rot, part, w, h, m ? JSON.stringify(m) : ''].join('|');
   if (rasterCache.has(key)) return rasterCache.get(key);
   // il busto (davanti/dietro) corrisponde a x 100..300, y 20..400 della vista frontale;
   // le maniche a una porzione con la stessa densità
@@ -467,7 +592,7 @@ function builtinPattern(layer, part, w, h) {
     W = w0 * 3; H = h0 * 3;
     try { art = `<g transform="translate(${-w0},${-h0})">${p.draw('#ffffff', s, 'p' + rasterCache.size)}</g>`; } finally { W = w0; H = h0; }
   } else {
-    art = p.draw('#ffffff', s, 'p' + rasterCache.size);
+    art = p.draw('#ffffff', s, 'p' + rasterCache.size, m);
   }
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${vb.join(' ')}" preserveAspectRatio="none"><g ${move}><g ${tf}>${art}</g></g></svg>`;
   const job = loadCleanImage(svgUrl(svg));
@@ -781,10 +906,10 @@ export async function paintKitTexture(rawKit, opts = {}) {
   // Per ogni striscia sulla spalla calcolo dove tocca il giro manica e sulla manica la faccio partire esattamente lì.
   const sleeveStripes = { sleeveL: [], sleeveR: [] }; // posizioni u (0..1 della texture) delle strisce sulle maniche
   // sulla raglan le strisce della manica partono già dal colletto: niente strisce sulla spalla del busto
-  const stripesOnShoulder = (k.sleeveDeco === 'stripes3' || k.sleeveDeco === 'stripes2') && k.sleeveDecoShoulder && !raglan && mask && mask.shoulder;
+  const stripesOnShoulder = k.sleeveDeco === 'stripes' && k.sleeveDecoShoulder && !raglan && mask && mask.shoulder;
   const fStr = clamp(k.sleeveTf.scale, 40, 200) / 100, lwStr = R('sleeveL').w * .022 * fStr, gapStr = R('sleeveL').w * .05 * fStr;
   if (stripesOnShoulder) {
-    const n = k.sleeveDeco === 'stripes3' ? 3 : 2;
+    const n = k.sleeveDecoN;
     const offs = []; // distanze dalla cucitura (in px): 0 = a cavallo della cucitura
     for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * gapStr; if (o >= 0) offs.push(o); }
     // punto della cucitura della spalla sulla manica: dove il giro manica passa dal davanti al dietro
@@ -851,8 +976,8 @@ export async function paintKitTexture(rawKit, opts = {}) {
     x.scale(st.scale / 100, st.scale / 100);
     x.translate(-(r.x + r.w / 2), -(r.y + r.h / 2));
     switch (k.sleeveDeco) {
-      case 'stripes3': case 'stripes2': {
-        const n = k.sleeveDeco === 'stripes3' ? 3 : 2;
+      case 'stripes': {
+        const n = k.sleeveDecoN;
         if (stripesOnShoulder) {
           // dal colletto al polsino: ogni striscia parte dal punto del giro manica in cui arriva quella della spalla
           // (il cursore cambia solo spessore e distanza; spostamento e rotazione non si applicano)
@@ -955,28 +1080,28 @@ export async function paintKitTexture(rawKit, opts = {}) {
 /* ------------------------------------------------------------- stili rapidi */
 // Solo il disegno (livelli e decorazioni delle maniche): colori, sponsor, stemma e patch restano invariati
 export const PRESETS = [
-  { name: 'Tre strisce',      kit: { sleeveDeco: 'stripes3', layers: [] } },
+  { name: 'Tre strisce',      kit: { sleeveDeco: 'stripes', sleeveDecoN: 3, layers: [] } },
   { name: 'Bande laterali',   kit: { sleeveDeco: 'side', layers: [] } },
   { name: 'Crepe',            kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'crackle', color: '#0d1b4c', opacity: 85, onSleeves: true }] } },
   { name: 'Tinta unita',      kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [] } },
-  { name: 'Strisce',          kit: { collar: 'v', sleeves: 'short', cuffs: 'band', layers: [{ type: 'stripes', color: '#000000' }] } },
-  { name: 'Strisce larghe',   kit: { collar: 'polo', sleeves: 'short', cuffs: 'thin', layers: [{ type: 'wideStripes', color: '#ffffff' }] } },
-  { name: 'Gessato',          kit: { collar: 'polobtn', sleeves: 'short', cuffs: 'none', layers: [{ type: 'pinstripes', color: '#ffffff', opacity: 70 }] } },
-  { name: 'Bande',            kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'hoops', color: '#ffffff' }] } },
+  { name: 'Strisce',          kit: { collar: 'v', sleeves: 'short', cuffs: 'band', layers: [{ type: 'm-stripe', count: 11, size: 10, gap: 10, color: '#000000' }] } },
+  { name: 'Strisce larghe',   kit: { collar: 'polo', sleeves: 'short', cuffs: 'thin', layers: [{ type: 'm-stripe', count: 5, size: 20, gap: 20, color: '#ffffff' }] } },
+  { name: 'Gessato',          kit: { collar: 'polobtn', sleeves: 'short', cuffs: 'none', layers: [{ type: 'm-stripe', count: 41, size: 1, gap: 6, color: '#ffffff', opacity: 70 }] } },
+  { name: 'Bande',            kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'm-stripe', dir: 'h', count: 9, size: 13, gap: 12, color: '#ffffff' }] } },
   { name: 'Metà e metà',      kit: { collar: 'v', sleeves: 'raglan', cuffs: 'band', layers: [{ type: 'half', color: '#ffffff' }] } },
   { name: 'Quarti',           kit: { collar: 'crew', sleeves: 'short', cuffs: 'thin', layers: [{ type: 'quarters', color: '#ffffff' }] } },
-  { name: 'Fascia diagonale', kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'sash', color: '#ffffff' }] } },
-  { name: 'Chevron',          kit: { collar: 'v', sleeves: 'short', cuffs: 'band', layers: [{ type: 'chevron', color: '#ffffff' }] } },
-  { name: 'Fascia petto',     kit: { collar: 'mandarin', sleeves: 'short', cuffs: 'band', layers: [{ type: 'chestBand', color: '#ffffff' }] } },
+  { name: 'Fascia diagonale', kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'm-stripe', count: 1, size: 34, rot: -29, color: '#ffffff' }] } },
+  { name: 'Chevron',          kit: { collar: 'v', sleeves: 'short', cuffs: 'band', layers: [{ type: 'm-chevron', count: 1, size: 26, amp: 58, y: 18, color: '#ffffff' }] } },
+  { name: 'Fascia petto',     kit: { collar: 'mandarin', sleeves: 'short', cuffs: 'band', layers: [{ type: 'm-stripe', dir: 'h', count: 1, size: 22, y: 11, color: '#ffffff' }] } },
   { name: 'Croce',            kit: { collar: 'crew', sleeves: 'long', cuffs: 'band', layers: [{ type: 'cross', color: '#ffffff' }] } },
-  { name: 'Scacchi',          kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'checker', color: '#ffffff' }] } },
+  { name: 'Scacchi',          kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'm-checker', count: 6, color: '#ffffff' }] } },
   { name: 'Onde',             kit: { collar: 'v', sleeves: 'short', cuffs: 'band', layers: [{ type: 'waves', color: '#7a1f1f' }, { type: 'swoosh', color: '#ffffff', opacity: 90 }] } },
-  { name: 'Fulmine',          kit: { collar: 'deepv', sleeves: 'short', cuffs: 'thin', layers: [{ type: 'lightning', color: '#ffd400' }] } },
+  { name: 'Fulmine',          kit: { collar: 'deepv', sleeves: 'short', cuffs: 'thin', layers: [{ type: 'm-shape', shape: 'bolt', count: 1, size: 100, color: '#ffd400' }] } },
   { name: 'Sfumato',          kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'gradient', color: '#000000', opacity: 80, onSleeves: true }] } },
   { name: 'Retino',           kit: { collar: 'v', sleeves: 'short', cuffs: 'band', layers: [{ type: 'halftone', color: '#ffffff', opacity: 60 }] } },
-  { name: 'Geometrico',       kit: { collar: 'wrap', sleeves: 'short', cuffs: 'band', layers: [{ type: 'shards', color: '#ffffff', opacity: 35 }, { type: 'centerStripe', color: '#000000', opacity: 40, scale: 40 }] } },
+  { name: 'Geometrico',       kit: { collar: 'wrap', sleeves: 'short', cuffs: 'band', layers: [{ type: 'shards', color: '#ffffff', opacity: 35 }, { type: 'm-stripe', count: 1, size: 9, color: '#000000', opacity: 40 }] } },
   { name: 'Mimetico',         kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'camo', color: '#000000', opacity: 25, onSleeves: true }] } },
-  { name: 'Esagoni',          kit: { collar: 'v', sleeves: 'short', cuffs: 'band', layers: [{ type: 'hexagons', color: '#ffffff', opacity: 35, onSleeves: true }] } },
+  { name: 'Esagoni',          kit: { collar: 'v', sleeves: 'short', cuffs: 'band', layers: [{ type: 'm-shape', shape: 'hexagon', fill: 'line', count: 100, size: 12, gap: 0, stagger: true, color: '#ffffff', opacity: 35, onSleeves: true }] } },
   { name: 'Pannelli',         kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'sidePanels', color: '#000000', opacity: 70 }] } },
   { name: 'Fiamme',           kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'flames', color: '#ff7a00' }] } },
   { name: 'Spalle',           kit: { collar: 'henley', sleeves: 'raglan', cuffs: 'band', layers: [{ type: 'yoke', color: '#ffffff' }] } }

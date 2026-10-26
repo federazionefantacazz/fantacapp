@@ -183,6 +183,7 @@ class Stage {
     box.max.y = Math.max(box.max.y, COLLAR_TOP); // inquadratura uguale per tutte le forme: c'è posto anche per il colletto alto
     this.center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
+    this.size = size;
     this.camera = new THREE.PerspectiveCamera(22, width / height, 0.01, 50);
     this.dist = Math.max(size.y, size.x * height / width) / 2 / Math.tan(THREE.MathUtils.degToRad(11)) * 1.06;
     this.setView(0);
@@ -260,10 +261,39 @@ class Stage {
   }
 
   setView(yawDeg) {
+    if (this._tween) cancelAnimationFrame(this._tween);
+    this._tween = 0;
     const a = yawDeg * Math.PI / 180;
     this.camera.position.set(this.center.x + Math.sin(a) * this.dist, this.center.y, this.center.z + Math.cos(a) * this.dist);
     this.camera.lookAt(this.center);
     if (this.controls) { this.controls.target.copy(this.center); this.controls.update(); }
+  }
+
+  /**
+   * Inquadra una parte della maglia con un movimento morbido: f = { yaw (gradi), x, y, z (frazioni della maglia
+   * rispetto al centro), d (distanza rispetto alla vista intera) }. La camera resta all'altezza del punto guardato
+   * (nell'editor la maglia ruota solo in orizzontale).
+   */
+  focus(f, ms = 480) {
+    const { THREE } = this.L;
+    const t1 = new THREE.Vector3(this.center.x + (f.x || 0) * this.size.x, this.center.y + (f.y || 0) * this.size.y, this.center.z + (f.z || 0) * this.size.z);
+    const a1 = (f.yaw || 0) * Math.PI / 180, d1 = this.dist * (f.d || 1);
+    const t0 = this.controls ? this.controls.target.clone() : this.center.clone();
+    const off = this.camera.position.clone().sub(t0);
+    const a0 = Math.atan2(off.x, off.z), d0 = Math.hypot(off.x, off.z) || this.dist;
+    let da = a1 - a0; da = Math.atan2(Math.sin(da), Math.cos(da)); // giro più corto
+    if (this._tween) cancelAnimationFrame(this._tween);
+    const start = performance.now();
+    const step = (now) => {
+      const p = Math.min(1, (now - start) / ms), e = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+      const t = t0.clone().lerp(t1, e), a = a0 + da * e, d = d0 + (d1 - d0) * e;
+      this.camera.position.set(t.x + Math.sin(a) * d, t.y, t.z + Math.cos(a) * d);
+      this.camera.lookAt(t);
+      if (this.controls) { this.controls.target.copy(t); this.controls.update(); }
+      this.render();
+      this._tween = p < 1 ? requestAnimationFrame(step) : 0;
+    };
+    this._tween = requestAnimationFrame(step);
   }
 
   setTexture(canvas) {
@@ -284,12 +314,31 @@ class Stage {
 
   dispose() {
     if (this._raf) cancelAnimationFrame(this._raf);
+    if (this._tween) cancelAnimationFrame(this._tween);
     if (this.controls) this.controls.dispose();
     this.controls = null;
     this.texture.dispose();
     this.renderer.dispose();
   }
 }
+
+/** Inquadrature delle parti della maglia per l'editor (yaw in gradi: 0 davanti, 180 retro, negativo = lato sinistro). */
+export const FOCUS = {
+  all:      { yaw: 0 },
+  front:    { yaw: 0 },
+  back:     { yaw: 180 },
+  collar:   { yaw: 0, y: .4, z: .1, d: .42 },
+  collarBack: { yaw: 180, y: .4, d: .42 },
+  shoulder: { yaw: -40, x: -.2, y: .3, d: .5 },
+  sleeve:   { yaw: -50, x: -.38, y: .18, d: .55 },
+  sleeveR:  { yaw: 50, x: .38, y: .18, d: .55 },
+  cuff:     { yaw: -50, x: -.46, y: .13, d: .45 },
+  chest:    { yaw: 0, y: .22, d: .55 },
+  sponsor:  { yaw: 0, y: .05, d: .62 },
+  backTop:  { yaw: 180, y: .1, d: .7 },
+  backLow:  { yaw: 180, y: -.12, d: .7 },
+  hem:      { yaw: 0, y: -.3, d: .6 }
+};
 
 /**
  * Maglia 3D ruotabile dentro `container` (zoom: true = vista ingrandita con zoom e spostamento).
@@ -329,10 +378,15 @@ export function createKitViewer(container, { zoom = false } = {}) {
     },
     setView(view) {
       if (!stage) return;
-      stage.setView(view === 'back' ? 180 : 0);
-      stage.render();
+      stage.focus(view === 'back' ? FOCUS.back : FOCUS.front);
     },
     zoomBy(f) { if (stage) stage.zoomBy(f); },
+    /** Inquadra una parte della maglia (vedi FOCUS): 'all', 'back', 'collar', 'shoulder', ... */
+    focus(name) {
+      if (!stage) return;
+      const f = FOCUS[name] || FOCUS.all;
+      stage.focus(f);
+    },
     dispose() {
       disposed = true;
       if (ro) ro.disconnect();
