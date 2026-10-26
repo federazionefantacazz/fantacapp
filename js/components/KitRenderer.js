@@ -152,7 +152,8 @@ function crackle(c, s) {
 }
 
 /* ------------------------------------------------ motivi parametrici */
-// Un motivo si costruisce con dei parametri: quanti elementi (1..100), spessore/dimensione, distanza, direzione, forma.
+// Un motivo si costruisce con dei parametri: quanti elementi (1..100, forme fino a 1000, oppure "riempi tutta la maglia"),
+// spessore/dimensione, distanza, direzione, forma (anche un simbolo PNG: shape 'png' con symUrl).
 // Sono centrati sul davanti (x 200, y 210 della vista frontale) e disegnati molto più grandi della maglia,
 // così spostati o ruotati coprono sempre tutto il pezzo.
 export const MOTIF_SHAPES = [
@@ -165,24 +166,36 @@ export const MOTIF_SHAPES = [
   { id: 'heart',    label: 'Cuore' },
   { id: 'plus',     label: 'Croce' },
   { id: 'arrow',    label: 'Freccia' },
-  { id: 'bolt',     label: 'Fulmine' }
+  { id: 'bolt',     label: 'Fulmine' },
+  { id: 'vDown',    label: 'V in giù' },
+  { id: 'vUp',      label: 'V in su' },
+  { id: 'gem',      label: 'Diamante' },
+  { id: 'longDiamond', label: 'Rombo lungo' }
 ];
 /** Parametri dei motivi: limiti e valori di partenza (vedi motifParams). */
 export const MOTIF_LIMITS = { count: [1, 100], size: [1, 100], gap: [0, 100], amp: [0, 100], len: [5, 100] };
-const MOTIF_BASE = { count: 1, size: 20, gap: 20, dir: 'v', amp: 30, len: 30, shape: 'circle', fill: 'solid', stagger: false };
+const MOTIF_BASE = { count: 1, size: 20, gap: 20, dir: 'v', amp: 30, len: 30, shape: 'circle', fill: 'solid', stagger: false, all: false, symUrl: '', symMono: true };
+/** Numero massimo di elementi di un motivo (le forme arrivano a 1000). */
+export const motifMax = (type) => ((PATTERNS.find(x => x.id === type) || {}).countMax || MOTIF_LIMITS.count[1]);
 /** Valori dei parametri di un motivo per un livello (quelli mancanti o fuori misura tornano ai valori di partenza). */
 export function motifParams(l) {
   const p = PATTERNS.find(x => x.id === (l && l.type));
   const d = { ...MOTIF_BASE, ...((p && p.defaults) || {}) };
   const o = { ...d };
-  Object.entries(MOTIF_LIMITS).forEach(([k, [a, b]]) => { o[k] = Math.round(clamp(l && l[k] != null ? l[k] : d[k], a, b)); });
+  Object.entries(MOTIF_LIMITS).forEach(([k, [a, b]]) => { o[k] = Math.round(clamp(l && l[k] != null ? l[k] : d[k], a, k === 'count' ? ((p && p.countMax) || b) : b)); });
   o.dir = l && ['v', 'h', 'grid'].includes(l.dir) ? l.dir : d.dir;
-  o.shape = l && MOTIF_SHAPES.some(x => x.id === l.shape) ? l.shape : d.shape;
+  o.symUrl = l && typeof l.symUrl === 'string' ? l.symUrl : '';
+  o.shape = l && (MOTIF_SHAPES.some(x => x.id === l.shape) || (l.shape === 'png' && o.symUrl)) ? l.shape : d.shape;
+  o.symMono = l && l.symMono != null ? !!l.symMono : d.symMono;
+  o.all = !!(l && l.all && p && p.params.includes('all'));
   o.fill = l && (l.fill === 'line' || l.fill === 'solid') ? l.fill : d.fill;
   o.stagger = l && l.stagger != null ? !!l.stagger : d.stagger;
   return o;
 }
 const MC = { x: 200, y: 210 }, FAR = 1300; // centro dei motivi e metà lunghezza delle righe
+const FILL_SPAN = 1700; // "riempi tutta la maglia": larghezza coperta (anche spostato o ruotato)
+/** Quanti elementi: quelli scelti o, con "riempi tutta la maglia", quanti ne servono per coprirla (al massimo `cap`). */
+const motifCount = (m, pitch, cap) => m.all ? Math.min(cap, Math.ceil(FILL_SPAN / Math.max(1, pitch)) | 1) : m.count;
 const offsets = (n, pitch) => range(0, n - 1, 1).map(i => (i - (n - 1) / 2) * pitch);
 const f1 = (v) => (+v).toFixed(1);
 
@@ -200,6 +213,10 @@ export function shapePath(id) {
     case 'plus':     return 'M-.32,-1 L.32,-1 L.32,-.32 L1,-.32 L1,.32 L.32,.32 L.32,1 L-.32,1 L-.32,.32 L-1,.32 L-1,-.32 L-.32,-.32 Z';
     case 'arrow':    return 'M0,-1 L1,0 L.42,0 L.42,1 L-.42,1 L-.42,0 L-1,0 Z';
     case 'bolt':     return 'M.25,-1 L-.6,.12 L-.05,.12 L-.3,1 L.6,-.2 L.06,-.2 L.4,-1 Z';
+    case 'vDown':    return 'M-1,-.75 L-.5,-.75 L0,.25 L.5,-.75 L1,-.75 L0,.95 Z';
+    case 'vUp':      return 'M-1,.75 L-.5,.75 L0,-.25 L.5,.75 L1,.75 L0,-.95 Z';
+    case 'gem':      return 'M-1,-.3 L-.55,-.85 L.55,-.85 L1,-.3 L0,.95 Z';
+    case 'longDiamond': return 'M0,-1 L.42,0 L0,1 L-.42,0 Z';
     default:         return 'M-1,0 A1,1 0 1,0 1,0 A1,1 0 1,0 -1,0 Z';
   }
 }
@@ -208,13 +225,14 @@ export function shapePath(id) {
 function motifLines(c, m, kind) {
   const t = m.size * 2, pitch = t + m.gap * 2, amp = m.amp * 1.2, len = m.len * 6;
   const hor = m.dir === 'h';
-  return offsets(m.count, pitch).map(o => {
+  const n = motifCount(m, pitch, kind === 'line' ? 1700 : 300), far = m.all && kind !== 'line' ? 800 : FAR;
+  return offsets(n, pitch).map(o => {
     if (kind === 'line') return hor
       ? `<rect x="${-FAR}" y="${f1(MC.y + o - t / 2)}" width="${FAR * 2 + 400}" height="${t}" fill="${c}"/>`
       : `<rect x="${f1(MC.x + o - t / 2)}" y="${-FAR}" width="${t}" height="${FAR * 2 + 420}" fill="${c}"/>`;
     let d = '';
     const stepN = kind === 'zigzag' ? len / 2 : 8;
-    for (let a = -FAR, i = 0; a <= FAR + 420; a += stepN, i++) {
+    for (let a = -far, i = 0; a <= far + 420; a += stepN, i++) {
       const w = kind === 'zigzag' ? (i % 2 ? amp : -amp) : amp * Math.sin(a / len * Math.PI * 2);
       d += (i ? ' L' : 'M') + (hor ? `${f1(a)},${f1(MC.y + o + w)}` : `${f1(MC.x + o + w)},${f1(a)}`);
     }
@@ -223,34 +241,47 @@ function motifLines(c, m, kind) {
 }
 
 const MOTIFS = [
-  { id: 'm-stripe', cat: 'lines', label: 'Strisce', params: ['count', 'size', 'gap', 'dir'], defaults: { count: 1, size: 20, gap: 15 },
+  { id: 'm-stripe', cat: 'lines', label: 'Strisce', params: ['count', 'all', 'size', 'gap', 'dir'], defaults: { count: 1, size: 20, gap: 15 },
     draw: (c, s, id, m) => motifLines(c, m, 'line') },
-  { id: 'm-wave', cat: 'lines', label: 'Righe a onda', params: ['count', 'size', 'gap', 'amp', 'len', 'dir'], defaults: { count: 1, size: 10, gap: 15, amp: 15, len: 20 },
+  { id: 'm-wave', cat: 'lines', label: 'Righe a onda', params: ['count', 'all', 'size', 'gap', 'amp', 'len', 'dir'], defaults: { count: 1, size: 10, gap: 15, amp: 15, len: 20 },
     draw: (c, s, id, m) => motifLines(c, m, 'wave') },
-  { id: 'm-zigzag', cat: 'lines', label: 'Righe a zig-zag', params: ['count', 'size', 'gap', 'amp', 'len', 'dir'], defaults: { count: 1, size: 10, gap: 15, amp: 12, len: 8 },
+  { id: 'm-zigzag', cat: 'lines', label: 'Righe a zig-zag', params: ['count', 'all', 'size', 'gap', 'amp', 'len', 'dir'], defaults: { count: 1, size: 10, gap: 15, amp: 12, len: 8 },
     draw: (c, s, id, m) => motifLines(c, m, 'zigzag') },
-  { id: 'm-chevron', cat: 'lines', label: 'Chevron (V)', params: ['count', 'size', 'gap', 'amp'], defaults: { count: 1, size: 15, gap: 15, amp: 50 },
+  { id: 'm-chevron', cat: 'lines', label: 'Chevron (V)', params: ['count', 'all', 'size', 'gap', 'amp'], defaults: { count: 1, size: 15, gap: 15, amp: 50 },
     draw: (c, s, id, m) => {
       const t = m.size * 2, pitch = t + m.gap * 2, k = m.amp / 100 * 1.2;
-      return offsets(m.count, pitch).map(o => { const y = MC.y + o; return `<path d="M${-FAR},${f1(y - (MC.x + FAR) * k)} L${MC.x},${f1(y)} L${MC.x + FAR + 200},${f1(y - (FAR + 200) * k)}" fill="none" stroke="${c}" stroke-width="${t}" stroke-linejoin="miter" stroke-miterlimit="20"/>`; }).join('');
+      return offsets(motifCount(m, pitch, 400), pitch).map(o => { const y = MC.y + o; return `<path d="M${-FAR},${f1(y - (MC.x + FAR) * k)} L${MC.x},${f1(y)} L${MC.x + FAR + 200},${f1(y - (FAR + 200) * k)}" fill="none" stroke="${c}" stroke-width="${t}" stroke-linejoin="miter" stroke-miterlimit="20"/>`; }).join('');
     } },
-  { id: 'm-shape', cat: 'shapes', label: 'Forme', params: ['shape', 'count', 'size', 'gap', 'dir', 'fill', 'stagger'], defaults: { count: 1, size: 40, gap: 10, dir: 'grid' },
+  { id: 'm-shape', cat: 'shapes', label: 'Forme', countMax: 1000, params: ['shape', 'count', 'all', 'size', 'gap', 'dir', 'fill', 'stagger'], defaults: { count: 1, size: 40, gap: 10, dir: 'grid' },
     draw: (c, s, id, m) => {
       const r = m.size * 1.5, pitch = r * 2 + m.gap * 2, n = m.count;
+      const png = m.shape === 'png' && m.symData;
+      const line = m.fill === 'line' && !png;
+      // forma di raggio 1: path oppure il simbolo PNG (incorporato una volta e richiamato)
+      const defs = png ? `<image id="${id}s" href="${m.symData}" x="-1" y="-1" width="2" height="2" preserveAspectRatio="xMidYMid meet"/>` : '';
+      const d = png ? '' : shapePath(m.shape === 'png' ? 'circle' : m.shape), sw = f1(Math.max(1.5, r * .16) / r);
+      const one = (x, y) => png ? `<use href="#${id}s" transform="translate(${f1(x)},${f1(y)}) scale(${f1(r * NARROW)},${f1(r)})"/>`
+        : `<path transform="translate(${f1(x)},${f1(y)}) scale(${f1(r * NARROW)},${f1(r)})" d="${d}"/>`;
+      const paint = (o) => line ? `<g fill="none" stroke="${c}" stroke-width="${sw}" stroke-linejoin="round">${o}</g>` : `<g fill="${c}">${o}</g>`;
+      if (m.all) {
+        // tutta la maglia: una mattonella che si ripete (con le file sfalsate è alta due file)
+        const tw = pitch * NARROW, th = m.stagger ? pitch * 2 : pitch;
+        const tile = m.stagger ? one(tw / 2, pitch / 2) + one(0, pitch * 1.5) + one(tw, pitch * 1.5) : one(tw / 2, pitch / 2);
+        return `<defs>${defs}<pattern id="${id}t" patternUnits="userSpaceOnUse" x="${f1(MC.x - tw / 2)}" y="${f1(MC.y - pitch / 2)}" width="${f1(tw)}" height="${f1(th)}">${paint(tile)}</pattern></defs>`
+          + `<rect x="${-FAR}" y="${-FAR}" width="${FAR * 2 + 400}" height="${FAR * 2 + 420}" fill="url(#${id}t)"/>`;
+      }
       const cols = m.dir === 'h' ? n : m.dir === 'v' ? 1 : Math.max(1, Math.round(Math.sqrt(n * .6))), rows = Math.ceil(n / cols);
-      const d = shapePath(m.shape), sw = f1(Math.max(1.5, r * .16) / r);
       let o = '';
       for (let j = 0, k = 0; j < rows; j++) {
         const inRow = Math.min(cols, n - k), shift = m.stagger && j % 2 ? pitch / 2 : 0;
         for (let i = 0; i < inRow; i++, k++) {
-          const x = MC.x + ((i - (inRow - 1) / 2) * pitch + shift) * NARROW, y = MC.y + (j - (rows - 1) / 2) * pitch;
-          o += `<path transform="translate(${f1(x)},${f1(y)}) scale(${f1(r * NARROW)},${f1(r)})" d="${d}"/>`;
+          o += one(MC.x + ((i - (inRow - 1) / 2) * pitch + shift) * NARROW, MC.y + (j - (rows - 1) / 2) * pitch);
         }
       }
-      return m.fill === 'line' ? `<g fill="none" stroke="${c}" stroke-width="${sw}" stroke-linejoin="round">${o}</g>` : `<g fill="${c}">${o}</g>`;
+      return (defs ? `<defs>${defs}</defs>` : '') + paint(o);
     } },
-  { id: 'm-rings', cat: 'shapes', label: 'Cerchi concentrici', params: ['count', 'size', 'gap', 'amp'], defaults: { count: 1, size: 8, gap: 10, amp: 35 },
-    draw: (c, s, id, m) => { const t = m.size * 2, pitch = t + m.gap * 2; return range(0, m.count - 1, 1).map(i => { const r = m.amp * 2 + t / 2 + i * pitch; return `<ellipse cx="${MC.x}" cy="${MC.y}" rx="${f1(r * NARROW)}" ry="${f1(r)}" fill="none" stroke="${c}" stroke-width="${t}"/>`; }).join(''); } },
+  { id: 'm-rings', cat: 'shapes', label: 'Cerchi concentrici', params: ['count', 'all', 'size', 'gap', 'amp'], defaults: { count: 1, size: 8, gap: 10, amp: 35 },
+    draw: (c, s, id, m) => { const t = m.size * 2, pitch = t + m.gap * 2; return range(0, (m.all ? Math.min(600, Math.ceil(FAR / pitch)) : m.count) - 1, 1).map(i => { const r = m.amp * 2 + t / 2 + i * pitch; return `<ellipse cx="${MC.x}" cy="${MC.y}" rx="${f1(r * NARROW)}" ry="${f1(r)}" fill="none" stroke="${c}" stroke-width="${t}"/>`; }).join(''); } },
   { id: 'm-rays', cat: 'shapes', label: 'Raggi', params: ['count', 'size'], defaults: { count: 12, size: 50 },
     draw: (c, s, id, m) => { const n = Math.max(2, m.count), w = 360 / n * m.size / 100; return range(0, n - 1, 1).map(i => { const a0 = (i * 360 / n - w / 2) * Math.PI / 180, a1 = (i * 360 / n + w / 2) * Math.PI / 180, R = FAR; return `<polygon points="${MC.x},${MC.y} ${f1(MC.x + R * Math.cos(a0))},${f1(MC.y + R * Math.sin(a0))} ${f1(MC.x + R * Math.cos(a1))},${f1(MC.y + R * Math.sin(a1))}" fill="${c}"/>`; }).join(''); } },
   { id: 'm-checker', cat: 'shapes', label: 'Scacchi', params: ['count'], defaults: { count: 6 },
@@ -567,6 +598,21 @@ export function loadCleanImage(url) {
 
 /** Disegno integrato rasterizzato in bianco su un pezzo (viewBox = porzione della vista frontale). */
 const rasterCache = new Map();
+/** Simbolo PNG di una forma come data URL (dentro un SVG si possono usare solo immagini incorporate). */
+const symbolCache = new Map();
+function symbolData(url) {
+  if (!symbolCache.has(url)) symbolCache.set(url, loadCleanImage(url).then(img => {
+    if (!img) return '';
+    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height, k = Math.min(1, 320 / Math.max(iw, ih, 1));
+    const c = canvasOf(Math.max(1, Math.round(iw * k)), Math.max(1, Math.round(ih * k)));
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    try { return c.toDataURL('image/png'); } catch (e) { return ''; }
+  }));
+  return symbolCache.get(url);
+}
+/** Il livello usa un simbolo PNG con i suoi colori (non va colorato col colore del livello). */
+const keepsColors = (l) => l.type === 'm-shape' && l.shape === 'png' && !!l.symUrl && l.symMono === false;
+
 function builtinPattern(layer, part, w, h) {
   const p = PATTERNS.find(x => x.id === layer.type);
   if (!p) return Promise.resolve(null);
@@ -585,6 +631,9 @@ function builtinPattern(layer, part, w, h) {
   const cx = part === 'whole' ? 200 : vb[0] + vb[2] / 2, cy = vb[1] + vb[3] / 2; // 'whole': si sposta/ruota attorno al centro del davanti
   const pw = part === 'whole' ? vb[2] / 2 : vb[2];
   const move = (tx || ty || rot) ? `transform="translate(${cx + tx / 100 * pw},${cy - ty / 100 * vb[3]}) rotate(${rot}) translate(${-cx},${-cy})"` : '';
+  const needSym = m && m.shape === 'png' && m.symUrl;
+  const job = (needSym ? symbolData(m.symUrl) : Promise.resolve('')).then(symData => {
+  if (m) m.symData = symData;
   let art;
   if (p.tile && (move || part === 'whole')) {
     // motivo ripetuto: lo disegno su un'area tre volte più grande, così spostato o ruotato copre sempre tutto il pezzo
@@ -594,8 +643,9 @@ function builtinPattern(layer, part, w, h) {
   } else {
     art = p.draw('#ffffff', s, 'p' + rasterCache.size, m);
   }
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${vb.join(' ')}" preserveAspectRatio="none"><g ${move}><g ${tf}>${art}</g></g></svg>`;
-  const job = loadCleanImage(svgUrl(svg));
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}" viewBox="${vb.join(' ')}" preserveAspectRatio="none"><g ${move}><g ${tf}>${art}</g></g></svg>`;
+  return loadCleanImage(svgUrl(svg));
+  });
   if (rasterCache.size > 200) rasterCache.delete(rasterCache.keys().next().value);
   rasterCache.set(key, job);
   return job;
@@ -852,14 +902,14 @@ export async function paintKitTexture(rawKit, opts = {}) {
     let whole = null;
     if (wrap === 'whole' && parts.some(isBody)) {
       const img = await builtinPattern(l, 'whole', wW, wH);
-      if (img) whole = tint(img, safeColor(l.color), wW, wH);
+      if (img) whole = keepsColors(l) ? img : tint(img, safeColor(l.color), wW, wH);
     }
     for (const p of parts) {
       const r = R(p);
       if (whole && isBody(p)) { inPart(p, (x) => put(x, r, whole, p === 'front' ? 0 : wW / 2, wW / 2, wH, false)); continue; }
       const img = await builtinPattern(l, p.startsWith('sleeve') ? 'sleeve' : p, Math.round(r.w), Math.round(r.h));
       if (!img) continue;
-      const t = tint(img, safeColor(l.color), r.w, r.h);
+      const t = keepsColors(l) ? img : tint(img, safeColor(l.color), r.w, r.h);
       inPart(p, (x) => put(x, r, t, 0, t.width, t.height, mirrored(p)));
     }
   }
@@ -970,10 +1020,13 @@ export async function paintKitTexture(rawKit, opts = {}) {
     const cuffTop = r.y + r.h * model.cuffTop, cb = r.y + r.h - cuffTop; // inizio e altezza del polsino
     // dimensione, posizione e rotazione della decorazione (attorno al centro della manica)
     const st = k.sleeveTf;
+    // spalla colorata, fascia e bande laterali: la dimensione le allarga dal loro bordo (non le sposta fuori dalla manica);
+    // le altre decorazioni si ingrandiscono attorno al centro della manica
+    const grows = ['shoulder', 'band', 'side'].includes(k.sleeveDeco), f = clamp(st.scale, 40, 200) / 100;
     x.save();
     x.translate(r.x + r.w / 2 + st.x / 100 * r.w, r.y + r.h / 2 - st.y / 100 * r.h);
     x.rotate(st.rot * Math.PI / 180);
-    x.scale(st.scale / 100, st.scale / 100);
+    if (!grows) x.scale(f, f);
     x.translate(-(r.x + r.w / 2), -(r.y + r.h / 2));
     switch (k.sleeveDeco) {
       case 'stripes': {
@@ -989,8 +1042,9 @@ export async function paintKitTexture(rawKit, opts = {}) {
         for (let i = 0; i < n; i++) x.fillRect(r.x + r.w / 2 + (i - (n - 1) / 2) * gap - lw / 2, r.y, lw, cuffTop - r.y);
         break;
       }
-      case 'shoulder': x.fillRect(r.x, r.y, r.w, r.h * .32); break;
-      case 'band': x.fillRect(r.x, r.y + r.h * .58, r.w, r.h * .1); break;
+      // più larghe del pezzo: ruotate o spostate coprono sempre tutta la manica (la sagoma ritaglia il resto)
+      case 'shoulder': x.fillRect(r.x - r.w, r.y - r.h, r.w * 3, r.h + r.h * .32 * f); break;
+      case 'band': x.fillRect(r.x - r.w, r.y + r.h * (.63 - .05 * f), r.w * 3, r.h * .1 * f); break;
       case 'chevrons':
         x.strokeStyle = trim; x.lineWidth = r.h * .035;
         for (let i = 0; i < 3; i++) {
@@ -998,7 +1052,7 @@ export async function paintKitTexture(rawKit, opts = {}) {
           x.beginPath(); x.moveTo(r.x + r.w * .3, y - r.h * .08); x.lineTo(r.x + r.w / 2, y); x.lineTo(r.x + r.w * .7, y - r.h * .08); x.stroke();
         }
         break;
-      case 'side': x.fillRect(r.x, r.y, r.w * .07, r.h); x.fillRect(r.x + r.w * .93, r.y, r.w * .07, r.h); break;
+      case 'side': x.fillRect(r.x - r.w, r.y - r.h, r.w * (1 + .07 * f), r.h * 3); x.fillRect(r.x + r.w * (1 - .07 * f), r.y - r.h, r.w * (1 + .07 * f), r.h * 3); break;
     }
     x.restore();
     // polsino: in fondo al pezzo della manica
@@ -1011,7 +1065,8 @@ export async function paintKitTexture(rawKit, opts = {}) {
     if (k.cuffs === 'thin') { x.fillStyle = cuff; x.fillRect(r.x - 2, cuffTop, r.w + 4, cb * .22); }
   }));
   if (k.sleeveDeco === 'side') ['front', 'back'].forEach(p => inPart(p, (x, r) => {
-    x.fillStyle = trim; x.fillRect(r.x, r.y, r.w * .045, r.h); x.fillRect(r.x + r.w * .955, r.y, r.w * .045, r.h);
+    const f = clamp(k.sleeveTf.scale, 40, 200) / 100;
+    x.fillStyle = trim; x.fillRect(r.x, r.y, r.w * .045 * f, r.h); x.fillRect(r.x + r.w * (1 - .045 * f), r.y, r.w * .045 * f, r.h);
   }));
 
   // 4. colletto (striscia intorno al collo) ed eventuale bordo sul petto e sulla schiena

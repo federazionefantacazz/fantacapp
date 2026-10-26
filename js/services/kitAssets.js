@@ -11,6 +11,7 @@ import { db, ref, onValue } from '../firebase-config.js';
  *   colors 'tint' (default) = colorata col colore del livello, 'original' = colori del PNG (solo 'uv').
  * MARCHI (kitAssets/brands/{id}: { name, url }): PNG del logo su trasparente.
  * PATCH  (kitAssets/patches/{id}: { name, url }): PNG della patch su trasparente (petto, maniche, fondo maglia).
+ * SIMBOLI (kitAssets/symbols/{id}: { name, url }): PNG di un simbolo su trasparente, da ripetere come forma nei disegni.
  */
 let raw = {};
 let subscribed = false;
@@ -37,3 +38,4 @@ const list = (obj) => Object.entries(obj || {}).map(([id, v]) => ({ ...v, id }))
 export function getPngPatterns() { subscribe(); return list(raw.patterns).filter(p => p.url); }
 export function getPngBrands() { subscribe(); return list(raw.brands).filter(b => b.url); }
 export function getPngPatches() { subscribe(); return list(raw.patches).filter(b => b.url); }
+export function getPngSymbols() { subscribe(); return list(raw.symbols).filter(b => b.url); }

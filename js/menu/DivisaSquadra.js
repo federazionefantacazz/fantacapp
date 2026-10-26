@@ -3,10 +3,10 @@ import { db, ref, update } from '../firebase-config.js';
 import { uploadPngToImgBB } from '../services/integrationImgBB.js';
 import { createKitViewer, renderKitImage, kitImageHTML, dataUrlToBlob } from '../components/Kit3D.js';
 import { getCutout } from '../services/imageCutout.js';
-import { getPngPatterns, getPngBrands, getPngPatches, onKitAssetsChange } from '../services/kitAssets.js';
+import { getPngPatterns, getPngBrands, getPngPatches, getPngSymbols, onKitAssetsChange } from '../services/kitAssets.js';
 import { esc } from './menuUtils.js';
 import {
-  normalizeKit, defaultKit, patternLabel, motifParams, shapePath,
+  normalizeKit, defaultKit, patternLabel, motifParams, motifMax, shapePath,
   PRESETS, PATTERNS, PATTERN_CATS, MOTIF_SHAPES, MOTIF_LIMITS, BRANDS, SPONSOR_FONTS, NUMBER_FONTS, PATCH_POSITIONS, ZONES, COLLARS, COLLAR_SHAPES, CUFFS,
   SLEEVE_DECO, SLEEVE_STRIPES_MAX, SHOULDER_SHAPES, SLEEVE_CUTS
 } from '../components/KitRenderer.js';
@@ -66,7 +66,7 @@ const MOTIF_UI = {
   'm-checker': { count: 'Quadri per riga' }
 };
 // dove guarda la maglia 3D quando si apre una fase (vedi FOCUS in Kit3D.js)
-const SEC_FOCUS = { model: 'front', styles: 'front', design: 'front', colors: 'front', sponsor: 'sponsor', back: 'backTop', brand: 'chest', patches: 'front' };
+const SEC_FOCUS = { model: 'front', styles: 'front', design: 'front', sponsor: 'sponsor', back: 'backTop', brand: 'chest', patches: 'front' };
 const ZONE_FOCUS = { sleeves: 'sleeve', back: 'back' };
 const PATCH_FOCUS = { chest: 'chest', belly: 'sponsor', sleeveL: 'sleeve', sleeveR: 'sleeveR', hem: 'hem' };
 const COLOR_FOCUS = { base: 'front', sleeves: 'sleeve', sleevesR: 'sleeveR', shoulders: 'shoulder', collar: 'collar', cuffs: 'cuff', trim: 'collar' };
@@ -77,14 +77,6 @@ const FEDERAZIONE_LOGO = 'icons/logo-federazione.jpg';
 
 export const SWATCHES = ['#ffffff', '#000000', '#c62828', '#7a1f1f', '#e65100', '#ffd400', '#f5a623', '#2e7d32',
   '#0b5d3b', '#00bcd4', '#1e88e5', '#1e5bb8', '#0d1b4c', '#6a1b9a', '#ec407a', '#9e9e9e'];
-
-const COLOR_FIELDS = [
-  { key: 'base',    label: 'Busto' },
-  { key: 'sleeves', label: 'Maniche' },
-  { key: 'collar',  label: 'Colletto' },
-  { key: 'cuffs',   label: 'Polsini' },
-  { key: 'trim',    label: 'Finiture (righe colletto, maniche)' }
-];
 
 const STYLE_ID = 'kit-editor-style';
 /** Stile dell'editor (usato anche dall'editor dello stadio). */
@@ -208,7 +200,10 @@ export function injectStyle() {
     .kd-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; }
     #menu-panel .kd-opts .lv-chip, .kd-opts .lv-chip { width: 100%; border-radius: 10px; padding: .45rem .5rem; text-align: center; line-height: 1.2; white-space: normal; }
     .kd-desc { font-size: .72rem; color: var(--text2); font-family: var(--font-sub, inherit); line-height: 1.35; margin-top: .45rem; background: var(--bg2); border-radius: 10px; padding: .45rem .6rem; }
-    .kd-range { display: grid; grid-template-columns: minmax(0, 6.2rem) minmax(0, 1fr) 3rem; gap: .6rem; align-items: center; margin: .5rem 0; }
+    .kd-range { display: grid; grid-template-columns: minmax(0, 5.6rem) 30px minmax(0, 1fr) 30px 2.7rem; gap: .35rem; align-items: center; margin: .5rem 0; }
+    .kd-range button { height: 30px; border-radius: 8px; background: var(--bg2); border: 1px solid var(--border); color: var(--text); font-size: 1.05rem; font-weight: 700; line-height: 1;
+      padding: 0; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; font-family: inherit; }
+    .kd-range button:active { border-color: var(--accent); color: var(--accent); }
     .kd-range .nm, .kd-step .nm { font-size: .8rem; font-weight: 600; color: var(--text); }
     .kd-range input, .kd-step input { width: 100%; accent-color: var(--accent); }
     .kd-range .val { font-size: .78rem; color: var(--accent); text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
@@ -239,6 +234,13 @@ export function injectStyle() {
     .kd-shape svg { width: 60%; height: 60%; pointer-events: none; }
     .kd-shape span { font-size: .55rem; pointer-events: none; }
     .kd-shape.on { border-color: var(--accent); color: var(--accent); }
+    .kd-part + .kd-part { border-top: 2px solid var(--border); margin-top: 1.1rem; padding-top: .9rem; }
+    .kd-title { display: flex; align-items: center; gap: .4rem; font-size: .9rem; font-weight: 700; color: var(--title, var(--accent)); font-family: var(--font-title, inherit);
+      margin-bottom: .5rem; text-transform: uppercase; letter-spacing: .5px; }
+    .kd-title i { font-size: 1.1rem; }
+    .kd-title + .kd-group { border-top: 0; margin-top: 0; padding-top: 0; }
+    .kd-shape img { width: 62%; height: 62%; object-fit: contain; pointer-events: none; }
+    .kd-shape.up i { font-size: 1.2rem; pointer-events: none; }
     .kd-layer-go { color: var(--text2); font-size: 1.2rem; pointer-events: none; }
   `;
   document.head.appendChild(style);
@@ -373,14 +375,13 @@ export const DivisaSquadra = {
 
   _renderAll() {
     const sections = [
-      ['model',   'FASE 1: Colletto e maniche'],
+      ['model',   'FASE 1: Busto, colletto e maniche'],
       ['styles',  'FASE 2: Stili rapidi'],
       ['design',  'FASE 3: Disegni a livelli'],
-      ['colors',  'FASE 4: Seleziona i colori'],
-      ['sponsor', 'FASE 5: Scelta dello SPONSOR'],
-      ['back',    'FASE 6: Retro: nome, numero e sponsor'],
-      ['brand',   'FASE 7: Stemma e marchio tecnico'],
-      ['patches', 'FASE 8: Scelta delle PATCH']
+      ['sponsor', 'FASE 4: Scelta dello SPONSOR'],
+      ['back',    'FASE 5: Retro: nome, numero e sponsor'],
+      ['brand',   'FASE 6: Stemma e marchio tecnico'],
+      ['patches', 'FASE 7: Scelta delle PATCH']
     ];
     this._root.innerHTML = `
       <div class="kit-stage">
@@ -449,7 +450,7 @@ export const DivisaSquadra = {
     const box = key && this._root.querySelector(`#kit-sec-${key}`);
     if (!box) return;
     const fn = {
-      model: this._secModel, styles: this._secStyles, design: this._secDesign, colors: this._secColors,
+      model: this._secModel, styles: this._secStyles, design: this._secDesign,
       sponsor: this._secSponsor, back: this._secBack, brand: this._secBrand, patches: this._secPatches
     }[key];
     box.innerHTML = fn.call(this);
@@ -496,8 +497,10 @@ export const DivisaSquadra = {
     return `<button class="lv-chip ${on ? 'on' : ''}" data-act="${act}" data-v="${esc(value)}">${esc(label)}</button>`;
   },
 
+  /** Cursore con − e + ai lati (per i ritocchi di un passo; tenendo premuto corre). */
   _range(path, label, value, min, max, unit = '') {
-    return `<label class="kd-range"><span class="nm">${label}</span><input type="range" min="${min}" max="${max}" value="${value}" data-range="${path}" data-unit="${unit}"><b class="val">${value}${unit}</b></label>`;
+    const btn = (d, t) => `<button type="button" data-step="${path}" data-d="${d}" data-min="${min}" data-max="${max}" aria-label="${d < 0 ? 'Meno' : 'Più'}">${t}</button>`;
+    return `<div class="kd-range"><span class="nm">${label}</span>${btn(-1, '−')}<input type="range" min="${min}" max="${max}" value="${value}" data-range="${path}" data-unit="${unit}" aria-label="${esc(String(label))}">${btn(1, '+')}<b class="val">${value}${unit}</b></div>`;
   },
 
   /** Numero con − e + (tenendo premuto corre) e cursore per i salti grandi. */
@@ -529,36 +532,80 @@ export const DivisaSquadra = {
     if (this._viewer) this._viewer.focus(name);
   },
 
+  /** Forme del motivo: quelle integrate, i simboli PNG del Patron e il PNG del giocatore. */
+  _shapePicker(sel, m) {
+    const png = m.shape === 'png';
+    const syms = getPngSymbols();
+    const isPatron = png && syms.some(y => y.url === m.symUrl);
+    const own = png && !isPatron ? m.symUrl : '';
+    return `<div class="kit-sub">Forma</div><div class="kd-shapes">
+      ${MOTIF_SHAPES.map(sh => `<button class="kd-shape ${m.shape === sh.id ? 'on' : ''}" data-act="layer-param" data-k="shape" data-v="${sh.id}" title="${esc(sh.label)}">${this._shapeIcon(sh.id)}<span>${esc(sh.label)}</span></button>`).join('')}
+    </div>
+    <div class="kit-sub">Simboli PNG</div><div class="kd-shapes">
+      <label class="kd-shape up ${own ? 'on' : ''}" title="Carica il tuo PNG">${own ? `<img src="${esc(own)}" alt="">` : '<i class="ri-upload-2-line"></i>'}<span>${own ? 'Cambia PNG' : 'Il tuo PNG'}</span>
+        <input type="file" accept="image/png" data-upload="sym:${sel}" style="display:none;"></label>
+      ${syms.map(y => `<button class="kd-shape ${png && m.symUrl === y.url ? 'on' : ''}" data-act="layer-param" data-k="shape" data-v="png" data-url="${esc(y.url)}" title="${esc(y.name || 'Simbolo')}"><img src="${esc(y.url)}" alt=""><span>${esc(y.name || 'Simbolo')}</span></button>`).join('')}
+    </div>
+    ${png ? this._seg([['1', 'Tinta unica', m.symMono], ['0', 'Colori originali', !m.symMono]], 'data-act="layer-param" data-k="symMono"') : ''}
+    ${png ? '' : `<div class="kd-desc" style="margin-top:.2rem;">Carica un simbolo in <b>PNG</b> (meglio quadrato, con sfondo trasparente) e ripetilo sulla maglia quante volte vuoi.</div>`}`;
+  },
+
   _shapeIcon(id) {
     return `<svg viewBox="-1.15 -1.15 2.3 2.3"><path d="${shapePath(id)}" fill="currentColor"/></svg>`;
   },
 
   /* ------------------------------------------------------------ sezioni */
+  /** Riga colore di un pezzo (sotto le scelte del pezzo): toccandola la maglia inquadra quella parte. */
+  _colorRow(label, key) {
+    return `<div class="kit-color-row" data-focus="${COLOR_FOCUS[key] || 'front'}"><div class="nm">${esc(label)}</div>${this._colorPicker(`colors.${key}`, this._kit.colors[key])}</div>`;
+  },
+
+  /** Parte della maglia con il suo sottotitolo (Busto, Colletto, Maniche). */
+  _part(icon, title, body) {
+    return `<div class="kd-part"><div class="kd-title"><i class="${icon}"></i> ${esc(title)}</div>${body}</div>`;
+  },
+
   _secModel() {
     const k = this._kit;
     const base = { ...k, sponsor: { mode: 'none' }, patches: [], crest: { show: false } };
     const raglan = k.sleeveCut === 'raglan';
     const stripes = k.sleeveDeco === 'stripes';
     const onShoulder = stripes && k.sleeveDecoShoulder && !raglan;
+    const split = !!k.colors.sleevesR;
+    const collarTrim = k.collarShape !== 'polo' && k.collar !== 'plain';
     return `
-      ${this._group('Cucitura delle maniche', 'shoulder', `
+      ${this._part('ri-t-shirt-line', 'Busto', this._group('', 'front', `
+        ${this._colorRow('Colore della maglia', 'base')}
+        <div class="kd-opts" style="margin-top:.5rem;">
+          <button class="lv-chip" data-act="swap-colors"><i class="ri-swap-line"></i> Inverti colori</button>
+          <button class="lv-chip" data-act="sleeves-as-base"><i class="ri-shirt-line"></i> Maniche come la maglia</button>
+        </div>`))}
+      ${this._part('ri-shirt-line', 'Colletto', `
+      ${this._group('Forma', 'collar', `
+        <div class="kit-grid wide">${COLLAR_SHAPES.map(c => this._opt('collarShape', c.id, this._thumb({ ...base, collarShape: c.id }), raglan && c.id === 'v' ? 'Girocollo' : c.label, k.collarShape === c.id)).join('')}</div>
+        ${this._colorRow('Colore del colletto', 'collar')}`)}
+      ${k.collarShape === 'polo' ? '' : this._group('Rifinitura', 'collar', `
+        <div class="kit-grid">${COLLARS.map(c => this._opt('collar', c.id, this._thumb({ ...base, collar: c.id }), c.label, k.collar === c.id)).join('')}</div>
+        ${collarTrim ? this._colorRow('Colore di righe e bordino', 'trim') : ''}`)}`)}
+      ${this._part('ri-t-shirt-2-line', 'Maniche', `
+      ${this._group('Cucitura', 'shoulder', `
         <div class="kit-grid wide">${SLEEVE_CUTS.map(c => this._opt('sleeveCut', c.id, this._thumb({ ...base, sleeveCut: c.id }), c.label, k.sleeveCut === c.id)).join('')}</div>
         <div class="kd-desc">${raglan ? 'Cucitura raglan: scende in diagonale dal colletto all\'ascella e la manica copre anche la spalla.' : 'Cucitura spalle: la manica è attaccata sulla spalla, come nelle maglie classiche.'}</div>`)}
-      ${this._group('Colletto', 'collar', `
-        <div class="kit-grid wide">${COLLAR_SHAPES.map(c => this._opt('collarShape', c.id, this._thumb({ ...base, collarShape: c.id }), raglan && c.id === 'v' ? 'Girocollo' : c.label, k.collarShape === c.id)).join('')}</div>
-        ${k.collarShape === 'polo' ? '' : `
-        <div class="kit-sub">Rifinitura del colletto</div>
-        <div class="kit-grid">${COLLARS.map(c => this._opt('collar', c.id, this._thumb({ ...base, collar: c.id }), c.label, k.collar === c.id)).join('')}</div>`}`)}
+      ${this._group('Colore delle maniche', 'sleeve', `
+        ${this._seg([['0', 'Uguali', !split], ['1', 'Di colori diversi', split]], 'data-act="sleeves-split"')}
+        ${split ? this._colorRow('Manica sinistra', 'sleeves') + this._colorRow('Manica destra', 'sleevesR') : this._colorRow('Maniche', 'sleeves')}
+        ${split ? '<div class="kd-desc">Sinistra e destra guardando la maglia di fronte.</div>' : ''}`)}
       ${raglan ? '' : this._group('Spalle', 'shoulder', `
         <div class="kit-grid">${SHOULDER_SHAPES.map(sh => this._opt('shoulderShape', sh.id, this._thumb({ ...base, shoulders: { ...k.shoulders, shape: sh.id } }), sh.label, k.shoulders.shape === sh.id)).join('')}</div>
         ${k.shoulders.shape !== 'none' ? `
         ${this._range('shoulders.size', 'Dimensione', k.shoulders.size, 50, 160, '%')}
         ${this._seg([['1', 'Colore delle maniche', k.shoulders.match], ['0', 'Colore a scelta', !k.shoulders.match]], 'data-act="shoulder-match"')}
-        ${k.shoulders.match ? '' : `<div class="kit-color-row">${this._colorPicker('colors.shoulders', k.colors.shoulders)}</div>`}` : ''}`)}
-      ${this._group('Decorazioni delle maniche', 'sleeve', `
+        ${k.shoulders.match ? '' : this._colorRow('Colore delle spalle', 'shoulders')}` : ''}`)}
+      ${this._group('Decorazioni', 'sleeve', `
         <div class="kit-grid">${SLEEVE_DECO.map(d => this._opt('sleeveDeco', d.id, this._thumb({ ...base, sleeveDeco: d.id }), d.label, k.sleeveDeco === d.id)).join('')}</div>
         ${stripes ? this._step('sleeveDecoN', 'Numero di strisce', k.sleeveDecoN, 1, SLEEVE_STRIPES_MAX) : ''}
         ${stripes && !raglan ? this._seg([['0', 'Solo sulla manica', !k.sleeveDecoShoulder], ['1', 'Dal colletto al polsino', k.sleeveDecoShoulder]], 'data-act="stripes-reach"') : ''}
+        ${k.sleeveDeco !== 'none' ? this._colorRow('Colore delle decorazioni', 'trim') : ''}
         ${onShoulder ? `
         ${this._range('sleeveTf.scale', 'Spessore', k.sleeveTf.scale, 40, 200, '%')}
         <div class="kd-desc">Le strisce corrono dal colletto al polsino come un'unica linea: si regola solo lo spessore.</div>` : ''}
@@ -567,10 +614,12 @@ export const DivisaSquadra = {
         ${this._range('sleeveTf.x', 'Sposta ↔', k.sleeveTf.x, -50, 50)}
         ${this._range('sleeveTf.y', 'Sposta ↕', k.sleeveTf.y, -50, 50)}
         ${this._range('sleeveTf.rot', 'Rotazione', k.sleeveTf.rot, -180, 180, '°')}
-        <div class="kit-chips" style="margin-top:.4rem;">${this._chip('sleeve-reset', '1', 'Ripristina posizione', false)}</div>` : ''}`)}
+        <div class="kit-chips" style="margin-top:.4rem;">${this._chip('sleeve-reset', '1', 'Ripristina posizione', false)}</div>` : ''}
+        ${k.sleeveDeco !== 'none' && collarTrim ? '<div class="kd-desc">Lo stesso colore vale anche per righe e bordino del colletto.</div>' : ''}`)}
       ${this._group('Polsini', 'cuff', `
-        <div class="kit-grid">${CUFFS.map(c => this._opt('cuffs', c.id, this._thumb({ ...base, cuffs: c.id }), c.label, k.cuffs === c.id)).join('')}</div>`)}
-      <div class="kd-desc" style="margin-top:.9rem;">Colori di maniche, colletto, polsini e finiture nella FASE 4 (anche maniche di colori diversi). Tocca una parte e la maglia la inquadra da vicino.</div>`;
+        <div class="kit-grid">${CUFFS.map(c => this._opt('cuffs', c.id, this._thumb({ ...base, cuffs: c.id }), c.label, k.cuffs === c.id)).join('')}</div>
+        ${k.cuffs !== 'none' ? this._colorRow('Colore dei polsini', 'cuffs') : ''}`)}`)}
+      <div class="kd-desc" style="margin-top:.9rem;">Tocca una parte e la maglia la inquadra da vicino. I colori di ogni pezzo sono sotto le sue scelte.</div>`;
   },
 
   _secStyles() {
@@ -595,8 +644,8 @@ export const DivisaSquadra = {
     const ui = MOTIF_UI[l.type];
     if (!ui) return '';
     const m = motifParams(l);
-    const parts = [`${m.count} ${ui.count.toLowerCase()}`];
-    if (l.type === 'm-shape') parts.unshift((MOTIF_SHAPES.find(x => x.id === m.shape) || {}).label || '');
+    const parts = [m.all ? 'tutta la maglia' : `${m.count} ${ui.count.toLowerCase()}`];
+    if (l.type === 'm-shape') parts.unshift(m.shape === 'png' ? 'Simbolo PNG' : (MOTIF_SHAPES.find(x => x.id === m.shape) || {}).label || '');
     if (ui.size) parts.push(`${ui.size.toLowerCase()} ${m.size}`);
     if (ui.dir) parts.push(((ui.dir.find(d => d[0] === m.dir) || [])[1] || '').toLowerCase());
     return parts.filter(Boolean).join(' · ');
@@ -614,6 +663,7 @@ export const DivisaSquadra = {
         <div class="nm">Livello ${i + 1}<small>${esc(patternLabel(l.type))} · ${esc(zoneLabel(l.zone))}</small></div>
         <button class="kit-icon-btn" data-act="layer-up" data-i="${i}" ${i === 0 ? 'disabled' : ''} title="Porta sotto"><i class="ri-arrow-up-line"></i></button>
         <button class="kit-icon-btn" data-act="layer-down" data-i="${i}" ${i === k.layers.length - 1 ? 'disabled' : ''} title="Porta sopra"><i class="ri-arrow-down-line"></i></button>
+        <button class="kit-icon-btn" data-act="layer-dup" data-i="${i}" ${k.layers.length >= MAX_LAYERS ? 'disabled' : ''} title="Crea una copia"><i class="ri-file-copy-line"></i></button>
         <button class="kit-icon-btn" data-act="layer-del" data-i="${i}" title="Elimina"><i class="ri-delete-bin-line"></i></button>
         <i class="ri-arrow-right-s-line kd-layer-go"></i>
       </div>`).join('');
@@ -644,7 +694,7 @@ export const DivisaSquadra = {
         ${this._nav('layer-page', 'pos', '<i class="ri-drag-move-2-line"></i>', 'Posizione e rotazione', `↔ ${l.x || 0} · ↕ ${l.y || 0} · ${l.rot || 0}°${motif ? '' : ` · ${l.scale}%`}${l.flipX ? ' · specchiato' : ''}${l.flipY ? ' · capovolto' : ''}`)}
         ${this._nav('layer-page', 'zone', '<i class="ri-shirt-line"></i>', 'Dove applicarlo', zoneLabel)}
         <div class="kd-opts" style="margin-top:.6rem;">
-          <button class="lv-chip" data-act="layer-dup" ${k.layers.length >= MAX_LAYERS ? 'disabled' : ''}><i class="ri-file-copy-line"></i> Duplica livello</button>
+          <button class="lv-chip" data-act="layer-dup" data-i="${sel}" ${k.layers.length >= MAX_LAYERS ? 'disabled' : ''}><i class="ri-file-copy-line"></i> Crea una copia</button>
           <button class="lv-chip" data-act="layer-del" data-i="${sel}"><i class="ri-delete-bin-line"></i> Elimina livello</button>
         </div>`;
     }
@@ -675,12 +725,13 @@ export const DivisaSquadra = {
       const par = pt.params;
       const lim = (key) => MOTIF_LIMITS[key];
       return `${top}
-        ${par.includes('shape') ? `<div class="kit-sub">Forma</div><div class="kd-shapes">${MOTIF_SHAPES.map(sh => `<button class="kd-shape ${m.shape === sh.id ? 'on' : ''}" data-act="layer-param" data-k="shape" data-v="${sh.id}" title="${esc(sh.label)}">${this._shapeIcon(sh.id)}<span>${esc(sh.label)}</span></button>`).join('')}</div>` : ''}
-        ${this._step(`${path}.count`, ui.count, m.count, ...lim('count'))}
+        ${par.includes('shape') ? this._shapePicker(sel, m) : ''}
+        ${par.includes('all') ? this._seg([['0', 'Numero a scelta', !m.all], ['1', 'Riempi tutta la maglia', m.all]], 'data-act="layer-param" data-k="all"') : ''}
+        ${m.all ? '' : this._step(`${path}.count`, ui.count, m.count, 1, motifMax(l.type))}
         ${['size', 'gap', 'amp', 'len'].filter(key => par.includes(key)).map(key => this._range(`${path}.${key}`, ui[key], m[key], ...lim(key))).join('')}
-        ${par.includes('dir') ? this._seg(ui.dir.map(([v, t]) => [v, t, m.dir === v]), 'data-act="layer-param" data-k="dir"') : ''}
-        ${par.includes('fill') ? this._seg([['solid', 'Piene', m.fill === 'solid'], ['line', 'Solo contorno', m.fill === 'line']], 'data-act="layer-param" data-k="fill"') : ''}
-        ${par.includes('stagger') && m.dir === 'grid' ? this._seg([['0', 'Allineate', !m.stagger], ['1', 'Sfalsate', m.stagger]], 'data-act="layer-param" data-k="stagger"') : ''}
+        ${par.includes('dir') && !(m.all && l.type === 'm-shape') ? this._seg(ui.dir.map(([v, t]) => [v, t, m.dir === v]), 'data-act="layer-param" data-k="dir"') : ''}
+        ${par.includes('fill') && m.shape !== 'png' ? this._seg([['solid', 'Piene', m.fill === 'solid'], ['line', 'Solo contorno', m.fill === 'line']], 'data-act="layer-param" data-k="fill"') : ''}
+        ${par.includes('stagger') && (m.dir === 'grid' || m.all) ? this._seg([['0', 'Allineate', !m.stagger], ['1', 'Sfalsate', m.stagger]], 'data-act="layer-param" data-k="stagger"') : ''}
         <div class="kd-desc">Gli elementi partono dal centro del davanti. Per spostarli o inclinarli (per esempio una fascia diagonale) apri <b>Posizione e rotazione</b>.</div>`;
     }
     if (page === 'color') {
@@ -712,26 +763,6 @@ export const DivisaSquadra = {
     }
     this._layerPage = 'menu';
     return this._layerView(sel);
-  },
-
-  _secColors() {
-    const k = this._kit;
-    const split = !!k.colors.sleevesR;
-    const fields = COLOR_FIELDS.flatMap(f => f.key !== 'sleeves' ? [f] : split
-      ? [{ key: 'sleeves', label: 'Manica sinistra' }, { key: 'sleevesR', label: 'Manica destra' }] : [f]);
-    if (k.shoulders.shape !== 'none' && !k.shoulders.match && k.sleeveCut !== 'raglan') fields.splice(fields.findIndex(f => f.key === 'collar'), 0, { key: 'shoulders', label: 'Spalle' });
-    return `
-      ${this._seg([['0', 'Maniche uguali', !split], ['1', 'Maniche di colori diversi', split]], 'data-act="sleeves-split"')}
-      ${split ? '<div class="kd-desc" style="margin-bottom:.3rem;">Sinistra e destra guardando la maglia di fronte.</div>' : ''}
-      ${fields.map(f => `
-        <div class="kit-color-row" data-focus="${COLOR_FOCUS[f.key] || 'front'}">
-          <div class="nm">${f.label}</div>
-          ${this._colorPicker(`colors.${f.key}`, k.colors[f.key])}
-        </div>`).join('')}
-      <div class="kit-actions" style="justify-content:flex-start; margin-top:.7rem;">
-        <button class="mp-btn ghost" data-act="sleeves-as-base"><i class="ri-shirt-line"></i> Maniche come la maglia</button>
-        <button class="mp-btn ghost" data-act="swap-colors"><i class="ri-swap-line"></i> Inverti colori</button>
-      </div>`;
   },
 
   _uploadBtn(kind, has, label) {
@@ -1008,14 +1039,22 @@ export const DivisaSquadra = {
         this._renderSection();
         this._scrollToOpen();
         return;
-      case 'layer-dup':
-        if (k.layers.length >= MAX_LAYERS) return;
-        this._update(kit => { kit.layers.splice(this._layer + 1, 0, clone(kit.layers[this._layer])); this._layer += 1; });
-        window.showToast(`Livello duplicato: è il livello ${this._layer + 1}`, 'ok');
+      case 'layer-dup': {
+        // copia del livello subito sopra l'originale: si apre la copia per modificarla
+        e.stopPropagation();
+        if (k.layers.length >= MAX_LAYERS) { window.showToast(`Massimo ${MAX_LAYERS} livelli`, 'err'); return; }
+        const src = Number.isFinite(i) ? i : this._layer;
+        this._update(kit => { kit.layers.splice(src + 1, 0, clone(kit.layers[src])); this._layer = src + 1; this._layerPage = 'menu'; });
+        window.showToast(`Copia creata: è il livello ${this._layer + 1}`, 'ok');
         return;
+      }
       case 'layer-param': {
         const key = btn.dataset.k;
-        this._update(kit => { const l = kit.layers[this._layer]; l[key] = key === 'stagger' ? v === '1' : v; });
+        this._update(kit => {
+          const l = kit.layers[this._layer];
+          l[key] = ['stagger', 'all', 'symMono'].includes(key) ? v === '1' : v;
+          if (key === 'shape' && v === 'png') l.symUrl = btn.dataset.url || l.symUrl; // simbolo PNG del Patron
+        });
         return;
       }
       case 'layer-del':
@@ -1119,12 +1158,15 @@ export const DivisaSquadra = {
   _stepStart(btn) {
     if (this._stepStop) this._stepStop();
     const path = btn.dataset.step, d = Number(btn.dataset.d), min = Number(btn.dataset.min), max = Number(btn.dataset.max);
-    const box = btn.closest('.kd-step'), input = box.querySelector('input'), out = box.querySelector('.val');
+    const box = btn.closest('.kd-step, .kd-range'), input = box.querySelector('input'), out = box.querySelector('.val');
+    const unit = input.dataset.unit || '';
     let n = 0;
     const apply = () => {
-      const cur = Number(input.value), nv = Math.min(max, Math.max(min, cur + d * (n++ > 25 ? 5 : 1)));
+      // tenendo premuto accelera (su 1000 forme anche di 25 alla volta)
+      const cur = Number(input.value), step = n > 60 && max > 100 ? 25 : n > 25 ? 5 : 1; n++;
+      const nv = Math.min(max, Math.max(min, cur + d * step));
       if (nv === cur) return;
-      input.value = nv; out.textContent = nv;
+      input.value = nv; out.textContent = nv + unit;
       this._set(path, nv);
       this._schedulePreview();
     };
@@ -1191,9 +1233,15 @@ export const DivisaSquadra = {
     window.showToast('Caricamento in corso...', 'ok');
     try {
       const li = kind.startsWith('layer:') ? Number(kind.slice(6)) : -1;
+      const si = kind.startsWith('sym:') ? Number(kind.slice(4)) : -1; // simbolo PNG di una forma
       // un livello copre tutto il pezzo: serve più risoluzione di marchi e sponsor
-      const url = await uploadPngToImgBB(file, li >= 0 ? 1600 : undefined);
+      const url = await uploadPngToImgBB(file, li >= 0 ? 1600 : si >= 0 ? 600 : undefined);
       if (!this._kit) return;
+      if (si >= 0) {
+        this._update(kit => { const l = kit.layers[si]; if (l) Object.assign(l, { shape: 'png', symUrl: url }); });
+        window.showToast('Simbolo caricato: ricorda di salvare la divisa', 'ok');
+        return;
+      }
       if (li >= 0) { this._picker = null; this._layerPage = 'menu'; }
       this._update(kit => {
         if (li >= 0) { const l = kit.layers[li]; if (l) Object.assign(l, { type: 'img', url, mono: !!l.mono && l.type === 'img' }); }
