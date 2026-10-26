@@ -255,7 +255,7 @@ export const TEXT_PLACES = [
 
 const DEFAULT = {
   name: '', rings: 2, ringsEnds: 0, ringsSides: [0, 0, 0, 0], horseshoe: false, vomitories: false, standGap: 0, endGap: 0, rake: 100, rakeEach: false, rakeSides: [100, 100, 100, 100], cornerGap: 18, apronStyle: 'grass', groundStyle: 'concrete', adBoards: 'none', track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single',
-  roof: 'none', roofCover: 'all', roofSectors: [true, false, false, false], roofReach: 'normal', lights: 'towers', facade: 'wall', ramps: false, boxes: false, shellPattern: 'rhombus', domeTeeth: true, screen: 'none',
+  roof: 'none', roofCover: 'all', roofSectors: [true, false, false, false], roofReach: 'normal', lights: 'towers', facade: 'wall', ramps: false, boxes: false, shellPattern: 'rhombus', shellDots: false, domeTeeth: true, screen: 'none',
   roofSides: ['', '', '', ''], roofTexture: 'auto', roofWave: 0, roofWaves: 4, roofWaveShift: 0,
   seatMosaic: 'none', standText: '', standTextSide: 'far', standTextRing: 1, standTextFont: 'black',
   outerText: '', outerTextFont: 'black', outerTextStyle: 'outline', outerTextSize: 'M', outerTextPlace: 'facade', logoPlaces: [], wallTexture: 'concrete',
@@ -316,7 +316,7 @@ export const PRESETS = [
     id: 'allianz', label: 'Stile Allianz Arena',
     desc: 'Tre anelli ripidi di seggiolini rossi dentro un involucro bianco a cuscini che di notte si illumina, sopra una spianata rialzata.',
     st: {
-      rings: 3, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single', roof: 'shell', lights: 'roof', facade: 'esplanade', ramps: false,
+      rings: 3, track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single', roof: 'shell', shellDots: true, lights: 'roof', facade: 'esplanade', ramps: false,
       colors: {
         grass: '#2e8b3a', seatA: '#c8102e', parapet: '#9ea3a9', structure: '#8e939a', roof: '#f4f6f8', steel: '#8a9099', glow: '#e30613'
       }
@@ -465,6 +465,7 @@ export function normalizeStadium(s) {
     ramps: !!src.ramps,
     boxes: !!src.boxes,
     shellPattern: oneOf(SHELL_PATTERNS, src.shellPattern, DEFAULT.shellPattern),
+    shellDots: src.shellDots === undefined ? DEFAULT.shellDots : !!src.shellDots,
     domeTeeth: src.domeTeeth === undefined ? DEFAULT.domeTeeth : !!src.domeTeeth,
     // copertura settore per settore ('' = come la copertura scelta), texture e ondulazione
     roofSides: [0, 1, 2, 3].map(i => { const v = src.roofSides && typeof src.roofSides === 'object' ? src.roofSides[i] : ''; return MIX_ROOFS.includes(v) ? v : ''; }),
@@ -536,7 +537,7 @@ const seatKey = (st) => [ringsBySide(st).join(','), st.track ? 1 : 0, st.shape, 
   st.standGap || 0, st.endGap || 0, rakesBySide(st).join(','), st.corners === 'open' ? st.cornerGap || 18 : '',
   st.roof === 'wave' ? ['wave', st.facade, st.roofReach].join(',') : ''].join('|');
 const geomKey = (st) => [seatKey(st), st.roof, st.roofCover, st.roofCover === 'pick' ? st.roofSectors.map(Number).join('') : '', st.roofReach, st.lights, st.facade, WALL_TEX_FACADES.includes(st.facade) ? st.wallTexture : '', st.adBoards,
-  st.entrance, st.entrance !== 'none' || st.roof === 'wave' ? [st.entranceSides.map(Number).join(''), st.entranceWidth, st.entranceHeight, st.entranceLogo].join(',') : '', st.ramps ? 1 : 0, st.shellPattern, st.roof === 'dome' && !st.domeTeeth ? 'noteeth' : '', st.screen,
+  st.entrance, st.entrance !== 'none' || st.roof === 'wave' ? [st.entranceSides.map(Number).join(''), st.entranceWidth, st.entranceHeight, st.entranceLogo].join(',') : '', st.ramps ? 1 : 0, st.shellPattern, st.roof === 'shell' && st.shellDots ? 'dots' : '', st.roof === 'dome' && !st.domeTeeth ? 'noteeth' : '', st.screen,
   st.roofSides.join(','), st.roofTexture, st.roofWave ? [st.roofWave, st.roofWaves, st.roofWaveShift].join(',') : '', st.boxes ? 1 : 0, (st.logoPlaces || []).join(',')].join('|');
 
 /** Punto del bordo su un lato lungo (tribune), non sulle curve: gli angoli smussati vanno con le tribune (come quelli squadrati). */
@@ -1882,7 +1883,7 @@ const cladPodium = (H) => Math.min(10.5, H * 0.42), cladCornice = (H) => Math.mi
 const cladBands = (tiers) => tiers.slice(1).map(t => [t.H - 4.2, t.H - 1.6]);
 
 /** Larghezza della spianata: sotto l'involucro a cuscini (molto gonfio verso fuori) è più larga. */
-const esplanadeW = (st) => (st.roof === 'shell' ? ESPLANADE_W + 12 : ESPLANADE_W);
+const esplanadeW = (st) => (st.roof === 'shell' ? ESPLANADE_W + 18 : ESPLANADE_W);
 
 /** Muro esterno e altezza di un tratto: i settori possono avere anelli diversi, la facciata segue ognuno. */
 const runOuter = (run) => Math.max(...run.tiers.map(t => t.back)) + WALL;
@@ -1945,7 +1946,7 @@ function shellOf(shape, st) {
   // muro gonfio verso fuori e cresta larga e arrotondata
   const kt = (f) => base + (crest - base) * f;
   const key = shell
-    ? [[o + 0.6, h0], [o + 11, k(0.18)], [o + 18, k(0.42)], [o + 18.5, k(0.64)], [o + 14, k(0.85)], [o + 6, crest - 0.4], [o - 3, crest]]
+    ? [[o + 0.6, h0], [o + 14, k(0.16)], [o + 23, k(0.4)], [o + 24, k(0.62)], [o + 19, k(0.84)], [o + 9, crest - 0.5], [o - 3, crest]]
     : tent
       // tenda: la membrana scende larga fino a terra come la falda di una tenda (concava), poi copre gli spalti
       ? [[o + 38, base], [o + 27, kt(0.13)], [o + 17, kt(0.36)], [o + 9, kt(0.66)], [o + 3, kt(0.92)], [o - 3, crest], [o - 10, crest - 0.8]]
@@ -3758,6 +3759,72 @@ function cushionTexture(kind) {
   return out;
 }
 
+/**
+ * Cuscini scuri (trasparenti, come sulla facciata dell'Allianz Arena) sparsi in una fascia del profilo, nel materiale:
+ * ogni cuscino del disegno è scuro o no a caso, più spesso al centro della fascia; di notte restano spenti.
+ * v0, v1 = la fascia (in ripetizioni della texture lungo il profilo), cells = ripetizioni su un giro.
+ */
+const DOT_LATTICES = { rhombus: 0, plain: 0, hex: 1, scales: 2, stripes: 3 };
+function shellDotsShader(mat, kind, v0, v1, cells) {
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.dotBand = { value: [v0, v1, cells, DOT_LATTICES[kind] ?? 0] };
+    sh.fragmentShader = `uniform vec4 dotBand;
+float dotHash(vec2 p) { vec3 q = fract(vec3(p.xyx * 2.0) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
+// cuscino in cui cade il punto (coordinate della texture): rombi ed esagoni hanno un cuscino al centro della tela e
+// uno sugli angoli, le squame file di cerchi sfalsate (in alto copre quella più in basso), le fasce tratti di 3 ripetizioni
+vec2 dotCell(vec2 uv) {
+  vec2 c = floor(uv), f = uv - c;
+  if (dotBand.w < 0.5) return abs(f.x - 0.5) + abs(f.y - 0.5) < 0.5 ? c + 0.5 : floor(uv + 0.5);
+  if (dotBand.w < 1.5) {
+    vec2 a = (f - 0.5) * vec2(2.0, 3.459), b = (f - floor(f + 0.5)) * vec2(2.0, 3.459);
+    float ea = max(abs(a.x), max(abs(0.5 * a.x + 0.866 * a.y), abs(0.5 * a.x - 0.866 * a.y)));
+    float eb = max(abs(b.x), max(abs(0.5 * b.x + 0.866 * b.y), abs(0.5 * b.x - 0.866 * b.y)));
+    return ea < eb ? c + 0.5 : floor(uv + 0.5);
+  }
+  if (dotBand.w < 2.5) {
+    float y = 1.0 - f.y;
+    for (int r = 0; r < 5; r++) {
+      float cy = 1.5 - 0.5 * float(r), off = mod(float(r), 2.0) < 0.5 ? 0.25 : 0.0;
+      for (int k = 0; k < 3; k++) {
+        float cx = off + 0.5 * float(k);
+        if (cx <= 1.0 && length(vec2((f.x - cx) * 2.0, y - cy)) < 0.5) return vec2(c.x + cx, c.y + 1.0 - cy);
+      }
+    }
+    return c;
+  }
+  return vec2(floor(uv.x / 3.0) * 3.0, c.y + 0.5);
+}
+` + sh.fragmentShader
+      .replace('#include <map_fragment>', `#include <map_fragment>
+  float dotDark = 0.0;
+  {
+    vec2 dc = dotCell(vMapUv);
+    dc.x = mod(dc.x, dotBand.z);
+    float t = (dc.y - dotBand.x) / (dotBand.y - dotBand.x);
+    if (t > 0.0 && t < 1.0) dotDark = step(dotHash(dc), 0.38 * pow(sin(3.14159 * t), 0.6));
+  }
+  diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.2, 0.22, 0.25), dotDark);`)
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = mix(roughnessFactor, 0.12, dotDark);')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance *= 1.0 - 0.94 * dotDark;');
+  };
+}
+
+/**
+ * Ombre delle travi sotto i cuscini trasparenti (si intravedono anche dall'alto): righe scure a raggiera ogni `period`
+ * ripetizioni della texture lungo la pianta.
+ */
+function clearRibsShader(mat, period) {
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.ribPeriod = { value: period };
+    sh.fragmentShader = 'uniform float ribPeriod;\n' + sh.fragmentShader
+      .replace('#include <map_fragment>', `#include <map_fragment>
+  float ribU = vMapUv.x / ribPeriod, ribF = abs(fract(ribU + 0.5) - 0.5) * ribPeriod, ribW = max(0.07, fwidth(vMapUv.x) * 1.5);
+  float ribLine = 1.0 - smoothstep(ribW * 0.5, ribW * 1.5, ribF);
+  diffuseColor.rgb *= 1.0 - 0.5 * ribLine;`)
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance *= 1.0 - 0.5 * ribLine;');
+  };
+}
+
 /** Lunghezza di una pianta (punti [x, z]). */
 const outlineLength = (row) => row.reduce((l, p, i) => (i ? l + Math.hypot(p[0] - row[i - 1][0], p[1] - row[i - 1][1]) : 0), 0);
 
@@ -4258,7 +4325,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
   const roofRuns = coveredRuns(shape, st);
   const roofShape = roofShapeOf(shape, st, roofRuns);
   const R = st.roof !== 'none' && st.roof !== 'stands' && st.roof !== 'dragon' && !WRAP_ROOFS.includes(st.roof) ? roofOf(roofShape, st.roof, reachOf_(st)) : null;
-  let shellMat = null, roofDecor = null, tentGlass = null;
+  let shellMat = null, shellClear = null, roofDecor = null, tentGlass = null;
   if (st.roof === 'wave') {
     // copertura ondulata: sopra i cuscini a spicchi radiali, sotto la membrana chiara con le travi reticolari d'acciaio;
     // fuori la fascia bianca e, sotto la fascia, i piani in cemento a vista e l'ingresso principale
@@ -4820,6 +4887,15 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     const tent = st.roof === 'tent';
     shellMat = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissiveIntensity: 0, roughness: cush ? 0.3 : 0.38, side: THREE.DoubleSide });
     if (bump) shellMat.normalMap = bump;
+    if (st.roof === 'shell' && st.shellDots) {
+      // cuscini scuri sparsi sulla spalla dell'involucro (dal punto più largo fin quasi alla cresta: dall'alto fanno il
+      // contorno scuro tutto intorno)
+      const jB = S.pts.slice(0, S.split).reduce((m, p, i, a) => (p.d > a[m].d ? i : m), 0);
+      let arc = 0;
+      for (let j = 1; j <= jB; j++) arc += Math.hypot(S.pts[j].d - S.pts[j - 1].d, S.pts[j].h - S.pts[j - 1].h);
+      const unit = cush ? cush.tileV : SHELL_CELL_V / pat.ry;
+      shellDotsShader(shellMat, kind, (arc + 1) / unit, (arc + 22) / unit, cush ? cells : cells * pat.rx);
+    }
     if (tent) {
       // membrana a rete mezza trasparente: si vede la struttura sotto; di notte la rete si accende del colore scelto
       const net = netCanvases(), nm = new THREE.CanvasTexture(net.map), na = new THREE.CanvasTexture(net.alpha);
@@ -4829,9 +4905,11 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       shellMat.transparent = true; shellMat.depthWrite = false; shellMat.roughness = 0.45;
       own.push(nm, na);
     }
-    // la parte verso l'apertura è di cuscini trasparenti: più grigia (si vede il buio sotto) e non fa ombra
-    const clearMat = new THREE.MeshStandardMaterial({ map: tex, color: 0xc9ced4, roughness: 0.2, side: THREE.DoubleSide });
+    // la parte verso l'apertura è di cuscini trasparenti: si intravedono le travi sotto, non fa ombra e di notte si
+    // accende come il resto
+    const clearMat = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissiveIntensity: 0, roughness: 0.2, side: THREE.DoubleSide, transparent: true, opacity: 0.96 });
     if (bump) clearMat.normalMap = bump;
+    shellClear = clearMat;
     const petals = st.roof === 'petals';
     if (petals) {
       // petali: le pieghe le disegna il materiale (petalShader), fuori bianco lucido; sotto il fondo scuro con le
@@ -4966,6 +5044,40 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       base.receiveShadow = true;
       group.add(base);
       own.push(bandG);
+      // sotto il tetto (come all'Allianz Arena) le travi reticolari a raggiera dal muro dietro gli spalti fino al bordo
+      // dell'apertura, alte dietro e sottili davanti, con gli arcarecci tra l'una e l'altra; dall'alto si intravedono
+      // sotto i cuscini trasparenti
+      const jc = S.pts.reduce((m, p, i, a) => (p.h > a[m].h ? i : m), 0), roof = S.pts.slice(jc);
+      const hAt = (d) => {
+        for (let j = 1; j < roof.length; j++) {
+          const a = roof[j - 1], b = roof[j];
+          if (b.d <= d) return a.h + (b.h - a.h) * (a.d - d) / ((a.d - b.d) || 1);
+        }
+        return roof[roof.length - 1].h;
+      };
+      const T = shape.tiers[shape.tiers.length - 1], d0 = Math.min(o - 1, roof[0].d), d1 = S.dIn + 0.6;
+      const NS = Math.max(4, Math.round((d0 - d1) / 3.2)), cols = S.rowAt(d0).length - 1;
+      const step = Math.max(2, Math.round(cols * 10 / outlineLength(S.rowAt(roof[0].d))));
+      clearRibsShader(clearMat, step / cols * cells);
+      const node = (k, i) => {
+        const t = k / NS, d = d0 + (d1 - d0) * t, [x, z] = S.rowAt(d)[i % cols], h = hAt(d) - 0.45;
+        return [[x, h, z], [x, h - 0.5 - 3.6 * (1 - t) ** 1.3, z]];
+      };
+      for (let i = 0; i < cols; i += step) {
+        for (let k = 0; k <= NS; k++) {
+          const [a, b] = node(k, i);
+          beam(beams, ...a, ...b, 0.14);
+          if (k === 0) beam(beams, ...b, b[0], T.top + 2.2, b[2], 0.45); // appoggio sul muro dietro gli spalti
+          if (k < NS) {
+            const [a2, b2] = node(k + 1, i);
+            beam(beams, ...a, ...a2, 0.26); beam(beams, ...b, ...b2, 0.3); beam(beams, ...(k % 2 ? a : b), ...(k % 2 ? b2 : a2), 0.12);
+          }
+          // arcarecci verso la trave dopo (sopra ogni due stazioni, sotto sul bordo dell'apertura)
+          const j = i + step < cols ? i + step : 0, [an, bn] = node(k, j);
+          if (k % 2 === 0) beam(beams, ...a, ...an, 0.12);
+          if (k === NS) beam(beams, ...b, ...bn, 0.28);
+        }
+      }
     } else if (st.facade === 'wall') {
       // sotto la tenda una struttura moderna: vetrate a piani tutto intorno, che di notte si accendono del colore scelto
       const G = facadeTexture('glass'), gm = new THREE.CanvasTexture(G.canvas);
@@ -6337,7 +6449,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
   inst(girderMat, girderBeams);
   inst([steel, steel, steel, steel, lamp, steel], lamps); // la faccia +z del proiettore è quella accesa
 
-  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, nightGlow, repaint, tints, badge, wallMat, panelSkinMat, stoneLight, stoneDark, tentGlass, entrance, lawn, roofType: st.roof, towersAt };
+  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, nightGlow, repaint, tints, badge, wallMat, panelSkinMat, stoneLight, stoneDark, tentGlass, entrance, lawn, roofType: st.roof, towersAt, shellClear };
 }
 
 /* --------------------------------------------------------------- scena */
@@ -6668,6 +6780,7 @@ function buildStadium(L, st) {
       for (const e of exts) {
         e.lamp.emissiveIntensity = on ? 5 : 0.6;
         if (e.shellMat) e.shellMat.emissiveIntensity = on ? 0.85 : 0; // l'involucro si accende
+        if (e.shellClear) e.shellClear.emissiveIntensity = on ? 0.85 : 0; // anche la parte trasparente verso l'apertura
         e.nightGlow.forEach(([m, day, nightOn]) => { m.emissiveIntensity = on ? nightOn : day; });
       }
       logoMat.emissiveIntensity = on ? 0.7 : 0.12;
@@ -6697,6 +6810,7 @@ function buildStadium(L, st) {
         if (outside.roofDecor.floor) outside.roofDecor.floor.color.set(shade(c.structure, 0.85));
       }
       if (outside.shellMat) { outside.shellMat.color.set(c.roof); if (SHELLISH.includes(roofType)) outside.shellMat.emissive.set(c.glow); }
+      if (outside.shellClear) { outside.shellClear.color.set(shade(c.roof, 0.92)); outside.shellClear.emissive.set(c.glow); }
       // luce di notte delle altre coperture (colore scelto o quello della copertura)
       const roofLight = ROOF_GLOWS[roofType] ? (c.roofLight || ROOF_GLOWS[roofType]) : null;
       if (roofLight && outside.shellMat && roofType !== 'blades') outside.shellMat.emissive.set(roofLight);

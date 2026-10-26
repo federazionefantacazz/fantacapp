@@ -350,7 +350,10 @@ export const StadioSquadra = {
       ${this._opts('roofReach', ROOF_REACHES, s.roofReach)}
       ${s.roof === 'shell' ? `
       <div class="kit-sub">Disegno dell'involucro</div>
-      ${this._opts('shellPattern', SHELL_PATTERNS, s.shellPattern)}` : ''}
+      ${this._opts('shellPattern', SHELL_PATTERNS, s.shellPattern)}
+      <div class="kit-sub">Cuscini scuri sul bordo</div>
+      ${this._seg([['1', 'Sì', s.shellDots], ['0', 'No', !s.shellDots]], 'data-act="set" data-k="shellDots"')}
+      <div class="std-desc">${s.shellDots ? 'Cuscini trasparenti sparsi sulla parte più gonfia dell\'involucro: dall\'alto fanno il contorno scuro tutto intorno, come all\'Allianz Arena. Di notte restano spenti.' : 'Tutti i cuscini dell\'involucro uguali.'}</div>` : ''}
       ${s.roof === 'dome' ? `
       <div class="kit-sub">Denti triangolari alla base</div>
       ${this._seg([['1', 'Sì', s.domeTeeth], ['0', 'No', !s.domeTeeth]], 'data-act="set" data-k="domeTeeth"')}
@@ -699,7 +702,7 @@ export const StadioSquadra = {
           if (inp) { inp.focus(); inp.select(); }
           return;
         }
-        const value = k === 'rings' || k === 'ringsEnds' || k === 'standTextRing' ? Number(v) : ['track', 'ramps', 'boxes', 'horseshoe', 'vomitories', 'domeTeeth'].includes(k) ? v === '1' : v;
+        const value = k === 'rings' || k === 'ringsEnds' || k === 'standTextRing' ? Number(v) : ['track', 'ramps', 'boxes', 'horseshoe', 'vomitories', 'domeTeeth', 'shellDots'].includes(k) ? v === '1' : v;
         // "Ogni settore e anello": si parte dai colori che lo stadio ha adesso
         if (k === 'seatMode' && v === 'grid' && this._st.seatMode !== 'grid') this._update(st => { st.seatGrid = seatGridFrom(st); st.seatMode = 'grid'; });
         else if (k === 'entrance' && v !== 'none') this._update(st => {
