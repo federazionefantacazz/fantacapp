@@ -1,6 +1,6 @@
 import { ref, remove, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { uploadPngToImgBB } from "../services/integrationImgBB.js";
-import { getPngPatterns, getPngBrands, getPngPatches, onKitAssetsChange } from "../services/kitAssets.js";
+import { getPngPatterns, getPngBrands, getPngPatches, getPngSymbols, onKitAssetsChange } from "../services/kitAssets.js";
 import { kitImageHTML } from "../components/Kit3D.js";
 import { esc } from '../utils.js';
 
@@ -12,6 +12,7 @@ let database = null;
 const MAX_SIDE = 2048;
 const SAMPLE_LOGO = 'icons/logo-federazione.jpg';
 
+const FOLDERS = { Pattern: 'patterns', Patch: 'patches', Symbol: 'symbols', Brand: 'brands' };
 const toast = (m, t) => (window.toast ? window.toast(m, t) : alert(m));
 
 /** Maglia d'esempio per l'anteprima di un disegno o di un marchio. */
@@ -77,11 +78,20 @@ export const DiviseSection = {
 
       <div class="card">
         <div class="label">Patch (PNG su trasparente)</div>
-        <div style="font-size:.8rem; color:var(--text3);font-family:var(--font-text3,inherit); margin-top:.2rem;">Le squadre le trovano nell'editor (FASE 7) e scelgono dove metterle: petto, sotto lo sponsor, maniche o fondo maglia.</div>
+        <div style="font-size:.8rem; color:var(--text3);font-family:var(--font-text3,inherit); margin-top:.2rem;">Le squadre le trovano nell'editor (FASE 7: Patch) e scelgono dove metterle: petto, sotto lo sponsor, maniche o fondo maglia.</div>
         <div id="kitPatchesList" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:.6rem; margin:.5rem 0 1rem;"></div>
         <input type="text" id="kitPatchName" class="input-login" placeholder="Nome della patch (es: Campioni 2025)">
         <input type="file" id="kitPatchFile" class="input-login" accept="image/png" style="padding-top:.5rem;">
         <button class="btn btn-green" style="width:auto;" onclick="window.diviseAction('add-patch')"><i class="ri-upload-2-line"></i> Carica patch</button>
+      </div>
+
+      <div class="card">
+        <div class="label">Simboli per le forme (PNG su trasparente)</div>
+        <div style="font-size:.8rem; color:var(--text3);font-family:var(--font-text3,inherit); margin-top:.2rem;">Nei disegni a livelli (Forme → Numero e misure) le squadre possono ripetere il simbolo sulla maglia quante volte vogliono, colorato o con i suoi colori. Meglio un PNG quadrato.</div>
+        <div id="kitSymbolsList" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:.6rem; margin:.5rem 0 1rem;"></div>
+        <input type="text" id="kitSymbolName" class="input-login" placeholder="Nome del simbolo (es: Stella, Leone)">
+        <input type="file" id="kitSymbolFile" class="input-login" accept="image/png" style="padding-top:.5rem;">
+        <button class="btn btn-green" style="width:auto;" onclick="window.diviseAction('add-symbol')"><i class="ri-upload-2-line"></i> Carica simbolo</button>
       </div>
     </div>`;
   },
@@ -93,9 +103,9 @@ export const DiviseSection = {
   renderLists() {
     const pl = document.getElementById('kitPatternsList');
     if (!pl) return;
-    const patterns = getPngPatterns(), brands = getPngBrands(), patches = getPngPatches();
+    const patterns = getPngPatterns(), brands = getPngBrands(), patches = getPngPatches(), symbols = getPngSymbols();
     // refreshAll arriva spesso: ridisegno solo se le risorse sono cambiate
-    const key = JSON.stringify([patterns, brands, patches]);
+    const key = JSON.stringify([patterns, brands, patches, symbols]);
     if (pl.dataset.key === key) return;
     pl.dataset.key = key;
 
@@ -116,6 +126,9 @@ export const DiviseSection = {
     const ptl = document.getElementById('kitPatchesList');
     if (ptl) ptl.innerHTML = patches.map(b => card('patch', b, sampleKit({ patches: [{ id: 'png:' + b.id, name: b.name, src: b.url, pos: 'chest' }] }), 'Patch')).join('')
       || `<div style="grid-column:1/-1; font-size:.8rem; color:var(--text3);font-family:var(--font-text3,inherit);">Nessuna patch caricata: nell'editor c'è solo quella del Fantacazz.</div>`;
+    const sl = document.getElementById('kitSymbolsList');
+    if (sl) sl.innerHTML = symbols.map(b => card('symbol', b, sampleKit({ layers: [{ type: 'm-shape', shape: 'png', symUrl: b.url, symMono: true, all: true, size: 14, gap: 6, stagger: true, color: '#ffffff', opacity: 100, zone: 'body', wrap: 'whole' }] }), 'Simbolo')).join('')
+      || `<div style="grid-column:1/-1; font-size:.8rem; color:var(--text3);font-family:var(--font-text3,inherit);">Nessun simbolo caricato: nell'editor ci sono comunque le forme integrate.</div>`;
   },
 
   async action(act, a) {
@@ -123,9 +136,10 @@ export const DiviseSection = {
       switch (act) {
         case 'add-pattern':
         case 'add-brand':
-        case 'add-patch': {
+        case 'add-patch':
+        case 'add-symbol': {
           const isPattern = act === 'add-pattern';
-          const kind = isPattern ? 'Pattern' : act === 'add-patch' ? 'Patch' : 'Brand';
+          const kind = isPattern ? 'Pattern' : act === 'add-patch' ? 'Patch' : act === 'add-symbol' ? 'Symbol' : 'Brand';
           const nameEl = document.getElementById(`kit${kind}Name`), fileEl = document.getElementById(`kit${kind}File`);
           const file = fileEl.files && fileEl.files[0];
           if (!nameEl.value.trim() || !file) { toast('Inserisci nome e file PNG', 'err'); return; }
@@ -139,7 +153,7 @@ export const DiviseSection = {
             data.mode = document.getElementById('kitPatternMode').value;
             data.colors = data.mode === 'uv' ? document.getElementById('kitPatternColors').value : 'tint';
           }
-          await push(ref(database, `kitAssets/${isPattern ? 'patterns' : act === 'add-patch' ? 'patches' : 'brands'}`), data);
+          await push(ref(database, `kitAssets/${FOLDERS[kind]}`), data);
           nameEl.value = ''; fileEl.value = '';
           this.busy = false;
           toast('Caricato!', 'ok');
@@ -148,8 +162,10 @@ export const DiviseSection = {
         case 'del-pattern':
         case 'del-brand':
         case 'del-patch':
-          if (!confirm(act === 'del-patch' ? 'Eliminare? Non si potrà più aggiungere alle maglie (quelle che la usano già la tengono).' : 'Eliminare? Le maglie che lo usano non lo mostreranno più.')) return;
-          await remove(ref(database, `kitAssets/${act === 'del-pattern' ? 'patterns' : act === 'del-patch' ? 'patches' : 'brands'}/${a}`));
+        case 'del-symbol':
+          if (!confirm(act === 'del-patch' ? 'Eliminare? Non si potrà più aggiungere alle maglie (quelle che la usano già la tengono).'
+            : act === 'del-symbol' ? 'Eliminare? Non si potrà più scegliere (le maglie che lo usano già lo tengono).' : 'Eliminare? Le maglie che lo usano non lo mostreranno più.')) return;
+          await remove(ref(database, `kitAssets/${{ 'del-pattern': 'patterns', 'del-patch': 'patches', 'del-symbol': 'symbols', 'del-brand': 'brands' }[act]}/${a}`));
           return;
       }
     } catch (err) {
