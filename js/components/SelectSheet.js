@@ -15,6 +15,7 @@
  *   <select data-search="on|off">                campo di ricerca sempre / mai (di solito: solo per
  *                                                 elenchi lunghi di nomi, non per giornate o numeri)
  *   <option data-img="url">                      logo a sinistra (squadre, competizioni)
+ *   <option data-img="url" data-img2="url">      due loghi affiancati (partite: casa e trasferta)
  *   <option data-icon="ri-...">                  icona a sinistra
  *   <option data-label="Nome" data-sub="...">    testo della riga e riga sotto (il pulsante usa il testo dell'option)
  *   <option data-mine>                           la propria squadra: in cima alla lista (nel suo gruppo)
@@ -66,6 +67,9 @@ function injectStyle() {
 .cs-row:disabled{opacity:.4;cursor:default}
 .cs-row:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .cs-img{width:34px;height:34px;flex-shrink:0;object-fit:contain;border-radius:6px}
+.cs-pair{display:flex;align-items:center;flex-shrink:0}
+.cs-pair .cs-img{width:30px;height:30px}
+.cs-pair .cs-img + .cs-img{margin-left:-6px}
 .cs-ico{width:34px;height:34px;flex-shrink:0;border-radius:8px;background:var(--bg3);color:var(--text2);display:flex;align-items:center;justify-content:center;font-size:1.1rem}
 .cs-main{flex:1;min-width:0}
 .cs-label{font-weight:600;font-size:.9rem;line-height:1.25;overflow-wrap:anywhere}
@@ -113,8 +117,11 @@ export function openChoiceSheet({ title = 'Scegli', items = [], value = null, se
       const head = it.group && it.group !== group ? `<div class="cs-group">${esc(it.group)}</div>` : '';
       group = it.group || null;
       const on = value !== null && String(it.value) === String(value);
-      const lead = it.img
-        ? `<img class="cs-img" src="${esc(it.img)}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;cs-ico&quot;><i class=&quot;ri-shield-fill&quot;></i></span>'">`
+      const logo = (src) => `<img class="cs-img" src="${esc(src)}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;cs-ico&quot;><i class=&quot;ri-shield-fill&quot;></i></span>'">`;
+      const lead = it.img && it.img2
+        ? `<span class="cs-pair">${logo(it.img)}${logo(it.img2)}</span>`
+        : it.img
+        ? logo(it.img)
         : it.icon ? `<span class="cs-ico"><i class="${esc(it.icon)}"></i></span>` : '';
       return `${head}<button type="button" class="cs-row${on ? ' on' : ''}" role="option" aria-selected="${on}" data-i="${i}" ${it.disabled ? 'disabled' : ''}>
           ${lead}
@@ -194,6 +201,7 @@ function itemsOf(select) {
       label: o.dataset.label || o.text,
       sub: o.dataset.sub || '',
       img: o.dataset.img || '',
+      img2: o.dataset.img2 || '',
       icon: o.dataset.icon || '',
       disabled: o.disabled || (grp !== null && o.parentElement.disabled),
       group: grp,
