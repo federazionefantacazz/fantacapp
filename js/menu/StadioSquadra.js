@@ -34,6 +34,8 @@ function injectStadiumStyle() {
     .kit-preview > #std-3d { position: absolute; inset: 0; }
     .kit-hint.std-hint { top: .4rem; bottom: auto; } /* in basso ci sono i pulsanti delle viste */
     .std-views { flex-wrap: wrap; justify-content: flex-end; }
+    .kit-zoom-btn.std-ext-btn { top: calc(.4rem + 44px); }
+    .kit-zoom-btn.std-ext-btn.on { border-color: var(--accent); color: var(--accent); }
     .std-cap { text-align: center; font-size: .75rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-top: .35rem; }
     .std-cap b { color: var(--text); font-variant-numeric: tabular-nums; }
     .std-preset { width: 100%; text-align: left; background: var(--bg3); border: 2px solid transparent; border-radius: 12px; padding: .6rem .75rem;
@@ -86,6 +88,7 @@ export const StadioSquadra = {
   _open: 'name',
   _busy: false,
   _night: false,
+  _hideExt: false, // esterno nascosto nell'anteprima (non si salva)
 
   mount(body, STATE) {
     injectStadiumStyle();
@@ -103,6 +106,7 @@ export const StadioSquadra = {
     this._saved = sig(this._st);
     this._open = 'name';
     this._night = false;
+    this._hideExt = false;
     this._renderAll();
 
     root.addEventListener('click', (e) => this._onClick(e));
@@ -149,6 +153,7 @@ export const StadioSquadra = {
           <div class="kit-hint std-hint"><i class="ri-drag-move-line"></i> Trascina per ruotare</div>
           <div class="kit-view-btns std-views">${VIEWS.map(([v, l]) => `<button data-act="view" data-v="${v}">${l}</button>`).join('')}<button data-act="night">${this._night ? 'Giorno' : 'Notte'}</button></div>
           <button class="kit-zoom-btn" data-act="zoom-open" title="Ingrandisci lo stadio" aria-label="Ingrandisci lo stadio"><i class="ri-zoom-in-line"></i></button>
+          ${this._extBtn()}
         </div>
         <div class="std-cap" id="std-cap"></div>
         <div class="kit-dirty" id="std-dirty"></div>
@@ -177,6 +182,7 @@ export const StadioSquadra = {
     if (box && !this._viewer) {
       this._viewer = createStadiumViewer(box);
       if (this._night) this._viewer.setNight(true);
+      if (this._hideExt) this._viewer.setExterior(false);
       this._viewer.ready.then(() => { const l = this._root && this._root.querySelector('#std-loading'); if (l) l.remove(); })
         .catch(e => { console.error(e); const l = this._root && this._root.querySelector('#std-loading'); if (l) l.textContent = 'Il 3D non è supportato su questo dispositivo'; });
     }
@@ -626,10 +632,25 @@ export const StadioSquadra = {
     o[parts[parts.length - 1]] = value;
   },
 
+  /** Pulsante per nascondere l'esterno (copertura, facciata...) e guardare dentro: solo anteprima, non si salva. */
+  _extBtn() {
+    const t = this._hideExt ? 'Mostra l\'esterno' : 'Nascondi l\'esterno (si vede dentro)';
+    return `<button class="kit-zoom-btn std-ext-btn ${this._hideExt ? 'on' : ''}" data-act="exterior" title="${t}" aria-label="${t}"><i class="${this._hideExt ? 'ri-eye-line' : 'ri-eye-off-line'}"></i></button>`;
+  },
+
   /** Finestra a tutto schermo con lo stadio: ruota in ogni direzione, zoom (due dita, rotella o + / −) e spostamento. */
   _openZoom() {
     if (this._zoom) return;
-    this._zoom = openStadiumOverlay(this._st, { logo: this._logo(), night: this._night, onClose: () => { this._zoom = null; } });
+    // esterno nascosto anche nell'anteprima sotto, che resta uguale quando si chiude lo zoom
+    this._zoom = openStadiumOverlay(this._st, { logo: this._logo(), night: this._night, hideExterior: this._hideExt,
+      onExterior: (hide) => this._setExterior(hide), onClose: () => { this._zoom = null; } });
+  },
+
+  _setExterior(hide) {
+    this._hideExt = !!hide;
+    if (this._viewer) this._viewer.setExterior(!this._hideExt);
+    const old = this._root && this._root.querySelector('.std-ext-btn');
+    if (old) old.outerHTML = this._extBtn();
   },
 
   _onClick(e) {
@@ -656,6 +677,7 @@ export const StadioSquadra = {
       case 'view':
         if (this._viewer) this._viewer.setView(v);
         return;
+      case 'exterior': this._setExterior(!this._hideExt); return;
       case 'night':
         this._night = !this._night;
         btn.textContent = this._night ? 'Giorno' : 'Notte';
