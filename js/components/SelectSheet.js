@@ -19,7 +19,7 @@
  * Il campo chiuso mostra anche lui i loghi della voce scelta.
  *   <option data-icon="ri-...">                  icona a sinistra
  *   <option data-label="Nome" data-sub="...">    testo della riga e riga sotto (il pulsante usa il testo dell'option)
- *   <option data-mine>                           la propria squadra: in cima alla lista (nel suo gruppo)
+ *   <option data-mine>                           la propria squadra (o partita): in cima alla lista, nel suo gruppo
  */
 import { BackNav } from '../services/backNav.js';
 import { esc } from '../utils.js';
@@ -75,8 +75,6 @@ function injectStyle() {
 .cs-main{flex:1;min-width:0}
 .cs-label{font-weight:600;font-size:.9rem;line-height:1.25;overflow-wrap:anywhere}
 .cs-sub{font-size:.72rem;color:var(--text2);font-family:var(--font-sub, inherit);margin-top:2px}
-.cs-mine{display:inline-block;margin-left:.4rem;padding:0 .4rem;border-radius:6px;font-size:.6rem;font-weight:700;letter-spacing:.3px;text-transform:uppercase;vertical-align:2px;
-  color:var(--accent);border:1px solid color-mix(in srgb, var(--accent) 50%, transparent)}
 .cs-check{color:var(--accent);font-size:1.2rem;flex-shrink:0}
 .cs-empty{text-align:center;color:var(--text3);font-family:var(--font-text3, inherit);padding:1.5rem 1rem;font-size:.85rem}
 `;
@@ -123,7 +121,7 @@ export function openChoiceSheet({ title = 'Scegli', items = [], value = null, se
       const trail = it.img2 ? logo(it.img2) : ''; // partite: logo della squadra ospite, a destra del testo
       return `${head}<button type="button" class="cs-row${on ? ' on' : ''}" role="option" aria-selected="${on}" data-i="${i}" ${it.disabled ? 'disabled' : ''}>
           ${lead}
-          <span class="cs-main"><span class="cs-label">${esc(it.label)}${it.mine ? '<span class="cs-mine">La tua</span>' : ''}</span>${it.sub ? `<span class="cs-sub" style="display:block">${esc(it.sub)}</span>` : ''}</span>
+          <span class="cs-main"><span class="cs-label">${esc(it.label)}</span>${it.sub ? `<span class="cs-sub" style="display:block">${esc(it.sub)}</span>` : ''}</span>
           ${trail}
           ${on ? '<i class="ri-check-line cs-check"></i>' : ''}
         </button>`;
