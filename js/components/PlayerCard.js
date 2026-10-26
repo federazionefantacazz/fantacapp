@@ -16,10 +16,29 @@ import { RULE_MATCH } from '../services/calcoloMatch.js';
 import { ProbabiliService, STATUS_INFO } from '../services/probabiliService.js';
 import { OfflineStore } from '../services/offlineStore.js';
 import { BackNav } from '../services/backNav.js';
+import { FavoritesService } from '../services/favoritesService.js';
 import { esc } from '../utils.js';
 
 const fmt1 = (n) => (n === null || n === undefined || !Number.isFinite(n)) ? '–' : n.toFixed(2).replace(/0$/, '');
 const ROLE_NAMES = { P: 'Portiere', D: 'Difensore', C: 'Centrocampista', A: 'Attaccante' };
+const favLabel = (on) => on ? 'Togli dai preferiti' : 'Aggiungi ai preferiti';
+// statistiche già lette in questa sessione: riaprendo la scheda si vedono subito
+const statsCache = new Map();
+const inflight = new Map(); // letture in corso (il tocco le avvia prima che la scheda si apra)
+
+function fetchStats(path) {
+  if (inflight.has(path)) return inflight.get(path);
+  const job = OfflineStore.withTimeout(get(ref(db, path)))
+    .then(snap => {
+      const fresh = snap.val() || {};
+      statsCache.set(path, fresh);
+      OfflineStore.save(path, fresh);
+      return fresh;
+    })
+    .finally(() => inflight.delete(path));
+  inflight.set(path, job);
+  return job;
+}
 
 // Stato di una giornata -> aspetto della cella
 const CELL = {
@@ -67,20 +86,35 @@ export const PlayerCard = {
       if (inner && el.contains(inner) && inner !== el) return;
       this.open(el.dataset.playerId);
     });
+    // appena il dito tocca un giocatore parte la lettura delle statistiche (guadagna il tempo del tocco)
+    document.addEventListener('pointerdown', (e) => {
+      const el = e.target.closest && e.target.closest('[data-player-id]');
+      const path = el && `playerStats/${el.dataset.playerId}`;
+      if (path && !statsCache.has(path)) fetchStats(path).catch(() => {});
+    }, { passive: true });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && this._current) this.close();
     });
+    // stile e finestra si preparano prima, a riposo: al primo tocco la scheda si apre subito
+    const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1200));
+    idle(() => this._ensureDom());
   },
 
   _ensureDom() {
     let ov = document.getElementById('pc-overlay');
     if (ov) return ov;
+    const style = document.createElement('style');
+    style.id = 'pc-style';
+    style.textContent = this._css();
+    document.head.appendChild(style);
     ov = document.createElement('div');
     ov.id = 'pc-overlay';
-    ov.innerHTML = `<style>${this._css()}</style><div class="pc-sheet" role="dialog" aria-modal="true" aria-labelledby="pc-name" tabindex="-1"></div>`;
+    ov.innerHTML = `<div class="pc-sheet" role="dialog" aria-modal="true" aria-labelledby="pc-name" tabindex="-1"><div class="pc-top"></div><div class="pc-content"></div></div>`;
     document.body.appendChild(ov);
     ov.addEventListener('click', (e) => {
       if (e.target === ov || e.target.closest('[data-pc-close]')) this.close();
+      const fav = e.target.closest('[data-pc-fav]');
+      if (fav && this._current) this._paintFav(fav, FavoritesService.toggle(this._current.p.id));
       const cell = e.target.closest('[data-gw]');
       if (cell) this._showDay(Number(cell.dataset.gw));
     });
@@ -90,7 +124,6 @@ export const PlayerCard = {
   close() {
     const ov = document.getElementById('pc-overlay');
     if (ov) ov.classList.remove('open');
-    document.body.style.overflow = '';
     this._current = null;
     BackNav.pop('player-card');
     // il focus torna dove si era toccato (lettori di schermo / tastiera)
@@ -105,30 +138,39 @@ export const PlayerCard = {
     if (!p) return;
 
     const ov = this._ensureDom();
-    this._current = { p, rows: null };
-    this._render();
+    const path = `playerStats/${p.id}`;
+    const cur = this._current = { p, rows: statsCache.get(path) || null };
+    this._renderTop();
+    this._renderBody();
     ov.classList.add('open');
-    document.body.style.overflow = 'hidden';
     this._opener = this._opener || document.activeElement;
     BackNav.push('player-card', () => this.close());
     // il focus va sulla scheda (resta valido anche quando il contenuto si ridisegna)
-    ov.querySelector('.pc-sheet').focus({ preventScroll: true });
+    const sheet = ov.querySelector('.pc-sheet');
+    sheet.scrollTop = 0;
+    sheet.focus({ preventScroll: true });
 
-    const path = `playerStats/${p.id}`;
+    const still = () => this._current === cur; // chiusa o cambiata nel frattempo?
+    // intanto l'ultima copia salvata sul dispositivo (arriva prima della rete)
+    if (!cur.rows) {
+      OfflineStore.read(path).then(cached => {
+        if (still() && !cur.rows && cached !== undefined) { cur.rows = cached; this._renderBody(); }
+      });
+    }
     try {
-      const snap = await OfflineStore.withTimeout(get(ref(db, path)));
-      if (!this._current || this._current.p !== p) return; // chiusa o cambiata nel frattempo
-      this._current.rows = snap.val() || {};
-      OfflineStore.save(path, this._current.rows);
+      const fresh = await fetchStats(path);
+      if (!still()) return;
+      if (JSON.stringify(fresh) === JSON.stringify(cur.rows)) return; // già quella mostrata
+      cur.rows = fresh;
     } catch (err) {
       console.warn('Statistiche non leggibili:', err?.message);
-      // offline: l'ultima copia vista su questo dispositivo
+      if (!still() || cur.rows) return; // offline: resta la copia già mostrata
       const cached = await OfflineStore.read(path);
-      if (!this._current || this._current.p !== p) return;
-      this._current.rows = cached || {};
-      if (cached === undefined) this._current.error = true;
+      if (!still()) return;
+      cur.rows = cached || {};
+      if (cached === undefined) cur.error = true;
     }
-    this._render();
+    this._renderBody();
   },
 
   /** Riassunto delle giornate: stato per ognuna + totali */
@@ -169,12 +211,12 @@ export const PlayerCard = {
     return { days, tot, lastImported };
   },
 
-  _render() {
-    const ov = document.getElementById('pc-overlay');
-    if (!ov || !this._current) return;
-    const { p, rows, error } = this._current;
+  /** Parte alta: foto, nome, squadra, prossima partita (disegnata una volta per apertura) */
+  _renderTop() {
+    const top = document.querySelector('#pc-overlay .pc-top');
+    if (!top || !this._current) return;
+    const { p } = this._current;
     const STATE = window.STATE || {};
-    const sheet = ov.querySelector('.pc-sheet');
 
     const photo = p.photoPersonal || p.photoStandard || '';
     const team = (STATE.teams || []).find(t => String(t.id) === String(p.teamId));
@@ -194,6 +236,7 @@ export const PlayerCard = {
     const hero = `
       <div class="pc-hero">
         <button class="pc-close" data-pc-close aria-label="Chiudi"><i class="ri-close-line"></i></button>
+        ${this._favHTML(FavoritesService.has(p.id))}
         <div class="pc-photo">${photo ? `<img src="${esc(photo)}" alt="">` : `<span>${esc(p.role)}</span>`}</div>
         <div class="pc-id">
           <div class="pc-role"><span class="rbadge r${esc(p.role)}">${esc(p.role)}</span> ${ROLE_NAMES[p.role] || ''}</div>
@@ -202,29 +245,38 @@ export const PlayerCard = {
         </div>
       </div>
       ${next}`;
+    top.innerHTML = hero;
+  },
 
-    if (!rows) {
-      sheet.innerHTML = hero + `<div class="pc-loading">Carico le statistiche…</div>`;
-      return;
-    }
+  /**
+   * Statistiche: si ridisegnano solo queste quando arrivano i dati.
+   * Mentre si caricano la scheda ha già la sua forma completa (numeri e giornate "in caricamento"):
+   * si apre subito alla sua altezza invece di allungarsi quando arrivano i dati.
+   */
+  _renderBody() {
+    const box = document.querySelector('#pc-overlay .pc-content');
+    if (!box || !this._current) return;
+    const { p, rows, error } = this._current;
+    const loading = !rows;
 
-    const { days, tot, lastImported } = this._compute(p, rows);
+    const { days, tot, lastImported } = this._compute(p, rows || {});
 
-    if (!lastImported) {
-      sheet.innerHTML = hero + `<div class="pc-empty">${error
+    if (!lastImported || (error && !Object.keys(rows || {}).length)) {
+      box.innerHTML = `<div class="pc-empty">${error
         ? 'Non riesco a leggere le statistiche. Controlla la connessione e riapri la scheda.'
         : 'Le statistiche compaiono dopo il primo "Calcola giornata" del Patron.'}</div>`;
       return;
     }
 
     const isGk = p.role === 'P';
+    const dash = (v) => loading ? '–' : v;
     const big = [
       { v: tot.pres, l: 'Presenze', sub: tot.pres ? `${tot.tit} da titolare` : '' },
       isGk ? { v: tot.gs, l: 'Gol subiti', sub: tot.aVoto ? `${(tot.gs / tot.aVoto).toFixed(2).replace('.', ',')} a partita` : '' }
            : { v: tot.gol, l: 'Gol', sub: tot.rf ? `${tot.rf} su rigore` : '' },
       isGk ? { v: tot.rp, l: 'Rigori parati', sub: tot.inviolate ? `${tot.inviolate} porte inviolate` : '' }
            : { v: tot.ass, l: 'Assist', sub: '' },
-    ];
+    ].map(b => ({ ...b, v: dash(b.v) }));
     const avg = [
       { v: fmt1(tot.mv), l: 'Media voto' },
       { v: fmt1(tot.mfv), l: 'Media fantavoto' },
@@ -237,9 +289,12 @@ export const PlayerCard = {
       ...(!isGk && tot.rs ? [{ v: tot.rs, l: 'Rigori sbagliati' }] : []),
       ...(tot.au ? [{ v: tot.au, l: 'Autogol' }] : []),
       { v: tot.sub, l: 'Da subentrato' },
-    ];
+    ].map(x => ({ ...x, v: dash(x.v) }));
 
     const cells = days.map(d => {
+      if (loading && d.st !== 'f') {
+        return `<button class="pc-cell pc-sk" disabled aria-label="Giornata ${d.g}: in caricamento"><span class="pc-g">${d.g}</span></button>`;
+      }
       const c = CELL[d.st];
       const val = (d.st === 't' || d.st === 's')
         ? (typeof d.e?.v === 'number' ? String(d.e.v).replace('.', ',') : 'sv')
@@ -252,22 +307,38 @@ export const PlayerCard = {
 
     const legend = ['t', 's', 'n', 'i', 'q'].map(k => `<span><i class="pc-sw ${CELL[k].cls}"></i>${CELL[k].label}</span>`).join('');
 
-    sheet.innerHTML = hero + `
+    box.innerHTML = `
       <div class="pc-body">
-        <div class="pc-big">${big.map(b => `<div><div class="pc-num">${b.v}</div><div class="pc-lab">${b.l}</div>${b.sub ? `<div class="pc-sub">${b.sub}</div>` : ''}</div>`).join('')}</div>
+        <div class="pc-big">${big.map(b => `<div><div class="pc-num">${b.v}</div><div class="pc-lab">${b.l}</div><div class="pc-sub">${b.sub || '&nbsp;'}</div></div>`).join('')}</div>
         <div class="pc-avg">${avg.map(a => `<div><span class="pc-lab">${a.l}</span><span class="pc-num sm">${a.v}</span></div>`).join('')}</div>
         <div class="pc-extra">${extra.map(x => `<div>${x.icon || ''}<span class="pc-lab">${x.l}</span><b>${x.v}</b></div>`).join('')}</div>
 
         <h3 class="pc-h3">Stagione giornata per giornata</h3>
         <div class="pc-strip">${cells}</div>
         <div class="pc-legend">${legend}</div>
-        <div class="pc-day" id="pc-day">Tocca una giornata per il dettaglio.</div>
+        <div class="pc-day" id="pc-day">${loading ? 'Carico le statistiche…' : 'Tocca una giornata per il dettaglio.'}</div>
       </div>`;
 
+    if (loading) return;
     this._current.days = days;
     // dettaglio dell'ultima giornata giocata di default
     const lastPlayed = [...days].reverse().find(d => d.st !== 'f');
     if (lastPlayed) this._showDay(lastPlayed.g);
+  },
+
+  /** Stella dei preferiti in alto a destra, accanto alla X */
+  _favHTML(on) {
+    return `<button class="pc-fav${on ? ' on' : ''}" data-pc-fav aria-pressed="${on}" aria-label="${favLabel(on)}" title="${favLabel(on)}"><i class="${on ? 'ri-star-fill' : 'ri-star-line'}"></i></button>`;
+  },
+
+  // aggiornata sul posto: il focus resta sulla stella
+  _paintFav(btn, on) {
+    const label = favLabel(on);
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', String(on));
+    btn.setAttribute('aria-label', label);
+    btn.title = label;
+    btn.querySelector('i').className = on ? 'ri-star-fill' : 'ri-star-line';
   },
 
   _showDay(g) {
@@ -300,7 +371,7 @@ export const PlayerCard = {
 
   _css() {
     return `
-#pc-overlay{position:fixed;inset:0;z-index:10050;background:var(--overlay-bg, rgba(5,8,15,.7));backdrop-filter:blur(3px);display:none;align-items:flex-end;justify-content:center}
+#pc-overlay{position:fixed;inset:0;z-index:10050;background:var(--overlay-bg, rgba(5,8,15,.7));display:none;align-items:flex-end;justify-content:center}
 #pc-overlay.open{display:flex}
 #pc-overlay .pc-sheet{width:100%;max-width:560px;max-height:92vh;overflow-y:auto;background:var(--bg,#1a1e24);border:1px solid var(--border);border-radius:20px 20px 0 0;padding-bottom:calc(1rem + env(safe-area-inset-bottom,0px));animation:pcUp .2s ease-out;outline:none}
 @media (min-width:700px){#pc-overlay{align-items:center}#pc-overlay .pc-sheet{border-radius:20px}}
@@ -308,7 +379,9 @@ export const PlayerCard = {
 @keyframes pcUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
 .pc-hero{position:relative;display:flex;align-items:flex-end;gap:1rem;padding:1.4rem 1.2rem 1rem;background:radial-gradient(120% 140% at 0% 100%,color-mix(in srgb,var(--accent) 22%,transparent) 0%,transparent 60%);border-bottom:1px solid rgba(255,255,255,.06)}
 .pc-close{position:absolute;top:.8rem;right:.8rem;width:34px;height:34px;border-radius:50%;border:none;background:var(--bg2);color:var(--text);font-size:1.15rem;cursor:pointer}
-.pc-close:focus-visible,.pc-cell:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pc-fav{position:absolute;top:.8rem;right:calc(.8rem + 42px);width:34px;height:34px;border-radius:50%;border:none;background:var(--bg2);color:var(--text2);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.pc-fav.on{color:var(--gold)}
+.pc-close:focus-visible,.pc-fav:focus-visible,.pc-cell:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .pc-photo{width:92px;height:104px;flex-shrink:0;display:flex;align-items:flex-end;justify-content:center}
 .pc-photo img{max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5))}
 .pc-photo span{width:72px;height:72px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--text3)}
@@ -321,7 +394,7 @@ export const PlayerCard = {
 .pc-next{padding:.6rem 1.2rem;font-size:.78rem;color:var(--text2);font-family:var(--font-sub,inherit);border-bottom:1px solid var(--border)}
 .pc-next b{color:var(--text)}
 .pc-chip{display:inline-block;margin-left:.3rem;padding:0 7px;border-radius:9px;font-size:.66rem;font-weight:700;color:var(--c);border:1px solid var(--c);background:color-mix(in srgb,var(--c) 14%,transparent)}
-.pc-loading,.pc-empty{padding:2rem 1.2rem;text-align:center;color:var(--text2);font-family:var(--font-sub,inherit);font-size:.85rem}
+.pc-empty{padding:2rem 1.2rem;text-align:center;color:var(--text2);font-family:var(--font-sub,inherit);font-size:.85rem}
 .pc-body{padding:1rem 1.2rem 0}
 .pc-big{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
 .pc-big>div{padding:.2rem 0}
@@ -331,6 +404,7 @@ export const PlayerCard = {
 .pc-sub{font-size:.68rem;color:var(--text3);font-family:var(--font-text3,inherit);margin-top:1px}
 .pc-avg{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:.9rem 0 .6rem}
 .pc-avg>div{display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;padding:.55rem .8rem;border-radius:12px;background:var(--bg2)}
+.pc-avg .pc-num{min-width:2.3em;text-align:right}
 .pc-extra{display:grid;grid-template-columns:1fr 1fr;column-gap:1.2rem}
 .pc-extra>div{display:flex;align-items:center;gap:.45rem;padding:.45rem 0;border-bottom:1px solid var(--border)}
 .pc-extra .pc-lab{flex:1}
@@ -353,6 +427,9 @@ export const PlayerCard = {
 .pc-n{background:transparent;border-color:rgba(255,255,255,.18);color:var(--text3);font-family:var(--font-text3,inherit)}
 .pc-i{background:#c2410c}
 .pc-q{background:#7e3fbf}
+.pc-sk{background:var(--bg3);color:var(--text3);animation:pcPulse 1.1s ease-in-out infinite}
+@keyframes pcPulse{0%,100%{opacity:.45}50%{opacity:.85}}
+@media (prefers-reduced-motion:reduce){.pc-sk{animation:none;opacity:.6}}
 .pc-f{background:transparent;border:1px dashed rgba(255,255,255,.1);color:var(--text3);font-family:var(--font-text3,inherit)}
 .pc-legend{display:flex;flex-wrap:wrap;gap:.35rem .9rem;margin-top:.6rem;font-size:.68rem;color:var(--text2);font-family:var(--font-sub,inherit)}
 .pc-legend span{display:flex;align-items:center;gap:.3rem}

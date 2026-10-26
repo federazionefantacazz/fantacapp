@@ -1,4 +1,5 @@
 import { PlayerStatsService } from '../services/playerStatsService.js';
+import { FavoritesService, FAVORITES_EVENT } from '../services/favoritesService.js';
 import { esc, sid, playerThumb } from './menuUtils.js';
 
 const PAGE_SIZE = 40;
@@ -46,6 +47,7 @@ function injectStyle() {
     #menu-panel .ls-icon { position: relative; width: 46px; height: 46px; flex-shrink: 0; border-radius: 50%; border: none; background: var(--bg3); color: var(--text);
       font-size: 1.3rem; display: flex; align-items: center; justify-content: center; cursor: pointer; }
     #menu-panel .ls-icon.on { background: var(--accent); color: var(--btn-primary-text); }
+    #menu-panel .ls-icon.fav.on { background: color-mix(in srgb, var(--gold) 22%, var(--bg3)); color: var(--gold); }
     #menu-panel .ls-icon .ls-dot { position: absolute; top: 2px; right: 2px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--accent3); color: #fff;
       font-size: .62rem; font-weight: 700; display: flex; align-items: center; justify-content: center; font-family: var(--font-text); }
     #menu-panel .ls-icon .ls-dot[hidden] { display: none; }
@@ -103,6 +105,7 @@ function injectStyle() {
     #menu-panel .ls-role { position: absolute; top: -3px; left: -3px; width: 22px; height: 22px; border-radius: 50%; font-size: .7rem; box-shadow: 0 0 0 2px var(--card); }
     #menu-panel .ls-info { flex: 1; min-width: 0; }
     #menu-panel .ls-name { font-size: 1.15rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; }
+    #menu-panel .ls-name .ls-star { color: var(--gold); font-size: .9rem; margin-left: .3rem; vertical-align: 1px; }
     #menu-panel .ls-club { font-size: .85rem; color: var(--text2); font-family: var(--font-sub, inherit); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: .1rem; }
     #menu-panel .ls-stats { font-size: .75rem; color: var(--text3); font-family: var(--font-text3, inherit); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: .1rem; }
     #menu-panel .ls-num { width: 54px; flex-shrink: 0; text-align: center; font-size: 1.1rem; font-weight: 600; color: var(--text); }
@@ -112,7 +115,8 @@ function injectStyle() {
     #menu-panel .ls-num.lo { color: var(--accent3); }
     #menu-panel .ls-band { display: flex; justify-content: space-between; gap: .8rem; padding: .4rem 1.1rem; background: var(--accent); color: var(--btn-primary-text);
       font-size: .85rem; font-weight: 600; }
-    #menu-panel .ls-band span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: uppercase; letter-spacing: .3px; }
+    #menu-panel .ls-band span:first-child { flex-shrink: 0; }
+    #menu-panel .ls-band span:last-child { min-width: 0; overflow-wrap: anywhere; text-align: right; text-transform: uppercase; letter-spacing: .3px; }
     #menu-panel .ls-band.loan { background: color-mix(in srgb, var(--gold) 80%, #000); color: #fff; }
     #menu-panel .ls-more { display: block; margin: .4rem auto 0; }
     #menu-panel .ls-empty { text-align: center; color: var(--text3); font-family: var(--font-text3, inherit); font-size: .9rem; padding: 2rem 1rem; }
@@ -136,11 +140,13 @@ function createView({ mode, title, emptyMsg }) {
   // Stato che sopravvive ai refresh (dati Firebase che cambiano) ma non alla chiusura
   const st = {};
   const reset = () => Object.assign(st, {
-    panel: null, sortKey: 'role', sortDir: 1, q: '', limit: PAGE_SIZE,
+    panel: null, sortKey: 'role', sortDir: 1, q: '', limit: PAGE_SIZE, favOnly: false,
     clubs: new Set(), roles: new Set(), status: 'all', qtMin: null, qtMax: null
   });
   reset();
   let observer = null;
+  // stella tolta o messa nella scheda giocatore (aperta sopra il pannello): elenco aggiornato
+  const onFavChange = () => renderResults(window.STATE);
 
   function context(STATE) {
     const teamsById = new Map((STATE.teams || []).map(t => [sid(t.id), t]));
@@ -173,6 +179,7 @@ function createView({ mode, title, emptyMsg }) {
     const ctx = context(STATE);
     let list = basePlayers(STATE);
 
+    if (st.favOnly) list = list.filter(p => FavoritesService.has(p.id));
     const q = st.q.trim().toLowerCase();
     if (q) list = list.filter(p => `${p.name} ${p.club || ''} ${ctx.ownerName(p)}`.toLowerCase().includes(q));
     if (st.roles.size) list = list.filter(p => st.roles.has(p.role));
@@ -297,7 +304,7 @@ function createView({ mode, title, emptyMsg }) {
         <div class="ls-main">
           <div class="ls-photo">${playerThumb(p)}${hasPhoto ? `<span class="ls-role rbadge r${esc(p.role)}">${esc(p.role)}</span>` : ''}</div>
           <div class="ls-info">
-            <div class="ls-name">${esc(p.name)}</div>
+            <div class="ls-name">${esc(p.name)}${FavoritesService.has(p.id) ? '<i class="ri-star-fill ls-star" title="Preferito"></i>' : ''}</div>
             <div class="ls-club">${esc(p.club || '–')}</div>
             ${extra ? `<div class="ls-stats">${esc(extra)}</div>` : ''}
           </div>
@@ -322,7 +329,10 @@ function createView({ mode, title, emptyMsg }) {
     const box = st.root.querySelector('.ls-results');
     if (observer) observer.disconnect();
     if (!rows.length) {
-      box.innerHTML = `<div class="ls-empty">${esc(emptyMsg)}</div>`;
+      const msg = st.favOnly
+        ? (FavoritesService.count() ? 'Nessun preferito con questi filtri.' : 'Nessun preferito: apri la scheda di un giocatore e tocca la stella.')
+        : emptyMsg;
+      box.innerHTML = `<div class="ls-empty">${esc(msg)}</div>`;
       return;
     }
     box.innerHTML = shown.map(r => card(r, ctx)).join('') + (rows.length > shown.length
@@ -361,8 +371,9 @@ function createView({ mode, title, emptyMsg }) {
           <div class="ls-top">
             <label class="ls-search">
               <i class="ri-search-line"></i>
-              <input type="search" placeholder="Calciatore o squadra" autocomplete="off" enterkeyhint="search">
+              <input type="search" placeholder="Cerca calciatore" autocomplete="off" enterkeyhint="search">
             </label>
+            <button type="button" class="ls-icon fav" data-fav title="Solo preferiti" aria-label="Solo preferiti" aria-pressed="false"><i class="ri-star-line"></i></button>
             <button type="button" class="ls-icon" data-panel="sort" title="Ordina" aria-label="Ordina"><i class="ri-sort-desc"></i></button>
             <button type="button" class="ls-icon" data-panel="filter" title="Filtri" aria-label="Filtri"><i class="ri-equalizer-line"></i><span class="ls-dot" hidden></span></button>
           </div>
@@ -398,6 +409,15 @@ function createView({ mode, title, emptyMsg }) {
       root.addEventListener('click', (e) => {
         const STATE = window.STATE;
         const t = e.target;
+        const fb = t.closest('[data-fav]');
+        if (fb) {
+          st.favOnly = !st.favOnly;
+          fb.classList.toggle('on', st.favOnly);
+          fb.setAttribute('aria-pressed', String(st.favOnly));
+          fb.querySelector('i').className = st.favOnly ? 'ri-star-fill' : 'ri-star-line';
+          rerender(STATE, { panel: false });
+          return;
+        }
         const pb = t.closest('[data-panel]');
         if (pb) {
           st.panel = st.panel === pb.dataset.panel ? null : pb.dataset.panel;
@@ -444,6 +464,7 @@ function createView({ mode, title, emptyMsg }) {
         }
       });
 
+      window.addEventListener(FAVORITES_EVENT, onFavChange);
       renderPanel(STATE);
       renderResults(STATE);
     },
@@ -451,6 +472,7 @@ function createView({ mode, title, emptyMsg }) {
     refresh(STATE) { renderResults(STATE); },
 
     unmount() {
+      window.removeEventListener(FAVORITES_EVENT, onFavChange);
       if (observer) observer.disconnect();
       observer = null;
       st.root = null;

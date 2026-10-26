@@ -140,8 +140,6 @@ export const HomePage = {
           </div>
 
         </div>
-        
-        <div id="home-status-banner" style="margin-bottom: 1.2rem;"></div>
 
         <!-- ULTIMA PARTITA (visibile solo se in questa competizione ne è già stata giocata una) -->
         <div id="homeLastMatchWrap" style="display:none; margin-bottom:1.5rem;">
@@ -167,6 +165,9 @@ export const HomePage = {
         <div class="scroll-voti" id="homeOnFirePlayers">
           <div style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1.5rem; font-size:.85rem; width:100%;">Nessun dato sulle prestazioni disponibile.</div>
         </div>
+
+        <!-- GIORNATA REALE: card piccola in fondo a destra -->
+        <div id="home-status-banner" style="display: flex; justify-content: flex-end; margin-top: 1rem;"></div>
       </div>
     `;
   },
@@ -195,31 +196,18 @@ export const HomePage = {
 
     const realGw = Number(STATE.giornataRealeCorrente) || 0;
     if (banner) {
-      if (realGw === 0) {
-        banner.innerHTML = `
-          <div class="card card-sm card-mini" style="border-left: 4px solid var(--accent2); background: var(--mini-bg, var(--bg2)); padding: .75rem 1rem; margin-bottom: 0;">
-            <div style="display: flex; align-items: center; gap: .6rem;">
-              <i class="ri-time-line" style="font-size: 1.2rem; color: var(--accent2);"></i>
-              <div>
-                <div style="font-size: .85rem; font-weight: 600; color: var(--text);">Pre-Campionato Attivo</div>
-                <div style="font-size: .75rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-top: 1px;">Le liste sono aperte. Prepara la rosa prima della 1ª Giornata!</div>
-              </div>
+      // card piccola: stesso stile di prima (bordo a sinistra, sfondo delle card piccole), solo più compatta
+      const mini = (color, icon, title, text) => `
+          <div class="card card-sm card-mini" style="border-left: 3px solid ${color}; border-radius: 12px; background: var(--mini-bg, var(--bg2)); padding: .4rem .75rem .4rem .55rem; margin-bottom: 0; display: flex; align-items: center; gap: .5rem; max-width: 100%;">
+            ${icon}
+            <div style="min-width: 0; line-height: 1.25;">
+              <div style="font-size: .6rem; font-weight: 600; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase; letter-spacing: .3px;">${title}</div>
+              <div style="font-size: .78rem; font-weight: 600; color: var(--text);">${text}</div>
             </div>
-          </div>
-        `;
-      } else {
-        banner.innerHTML = `
-          <div class="card card-sm card-mini" style="border-left: 4px solid var(--accent); background: var(--mini-bg, var(--bg2)); padding: .75rem 1rem; margin-bottom: 0;">
-            <div style="display: flex; align-items: center; gap: .6rem;">
-              <i class="ri-football-line" style="font-size: 1.2rem; color: var(--accent);"></i>
-              <div>
-                <div style="font-size: .85rem; font-weight: 600; color: var(--text);">Campionato Live — Serie A</div>
-                <div style="font-size: .75rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-top: 1px;">Siamo attualmente alla <strong style="color: var(--accent);">${realGw}ª Giornata</strong> reale.</div>
-              </div>
-            </div>
-          </div>
-        `;
-      }
+          </div>`;
+      banner.innerHTML = realGw === 0
+        ? mini('var(--accent2)', '<i class="ri-time-line" style="font-size: 1.1rem; color: var(--accent2);"></i>', 'Pre-campionato', 'Liste aperte')
+        : mini('var(--accent)', '<img src="icons/serie-a.svg" alt="Serie A" style="height: 24px; width: auto; flex-shrink: 0;">', 'Serie A', `<strong style="color: var(--accent);">${realGw}ª Giornata</strong>`);
     }
 
     if (!STATE.user) return;

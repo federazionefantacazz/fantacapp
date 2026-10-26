@@ -16,12 +16,13 @@ export const SettingsService = {
   // Valori predefiniti nel caso in cui l'utente non abbia ancora salvato nulla
   getDefaultSettings() {
     return {
-      theme: 'default',
+      theme: 'auto',                // tema dell'app: auto (della competizione aperta) | comp:<id> | custom:<id>
       notificationsEnabled: true,
       soundEnabled: false,
       compactView: false,
       showBackground: true,
       kit3dQuality: 'medium',       // risoluzione dell'editor 3D della divisa: low | medium | high
+      favorites: {},                // giocatori preferiti { [playerId]: true } (js/services/favoritesService.js)
       lastCompetition: ''   // ultima competizione scelta (con il suo tema): si riapre sempre quella
     };
   },

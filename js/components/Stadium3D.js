@@ -9,6 +9,7 @@
  * Misure in metri; il campo è al centro, lato lungo sull'asse x.
  */
 import { getCutout } from '../services/imageCutout.js';
+import { injectZoomStyle } from './Kit3D.js';
 
 let lib = null;
 function loadLib() {
@@ -7205,6 +7206,61 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
       if (stage) stage.dispose();
     }
   };
+}
+
+/** Inquadrature dello stadio (pulsanti dell'editor e della finestra ingrandita). */
+export const STADIUM_VIEWS = [['aerial', 'Aerea'], ['top', "Dall'alto"], ['stand', 'Tribuna'], ['outside', 'Esterno']];
+
+/**
+ * Stadio a tutto schermo: ruota in ogni direzione, zoom (due dita, rotella o + / −), inquadrature, notte e esterno
+ * nascosto (per guardare dentro). opts: { logo, night, hideExterior, onExterior(hide), zIndex, onClose }. Restituisce { close() }.
+ */
+export function openStadiumOverlay(st, opts = {}) {
+  injectZoomStyle();
+  const esc = (t) => String(t ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  let night = !!opts.night, hideExt = !!opts.hideExterior;
+  const el = document.createElement('div');
+  el.className = 'kit-zoom';
+  if (opts.zIndex) el.style.zIndex = opts.zIndex;
+  el.innerHTML = `
+    <div class="kit-zoom-head"><span>${esc(st.name || 'Stadio')}</span><button data-z="close" aria-label="Chiudi"><i class="ri-close-line"></i> Chiudi</button></div>
+    <div class="kit-zoom-stage"><div></div></div>
+    <div class="kit-zoom-bar">
+      ${STADIUM_VIEWS.map(([v, l]) => `<button data-z="${v}">${l}</button>`).join('')}
+      <button data-z="night">${night ? 'Giorno' : 'Notte'}</button>
+      <button data-z="ext" class="${hideExt ? 'on' : ''}">${hideExt ? 'Mostra esterno' : 'Nascondi esterno'}</button>
+      <button data-z="in" aria-label="Avvicina">＋ Zoom</button>
+      <button data-z="out" aria-label="Allontana">− Zoom</button>
+    </div>`;
+  document.body.appendChild(el);
+  const viewer = createStadiumViewer(el.querySelector('.kit-zoom-stage > div'), { zoom: true });
+  viewer.setExterior(!hideExt);
+  viewer.update(st, { logo: opts.logo || '' }).then(() => viewer.setNight(night)).catch(err => console.error('Stadio:', err));
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    viewer.dispose(); el.remove();
+    if (opts.onClose) opts.onClose();
+  };
+  el.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-z]');
+    if (!b) return;
+    const z = b.dataset.z;
+    if (z === 'close') close();
+    else if (z === 'in') viewer.zoomBy(.75);
+    else if (z === 'out') viewer.zoomBy(1 / .75);
+    else if (z === 'night') { night = !night; b.textContent = night ? 'Giorno' : 'Notte'; viewer.setNight(night); }
+    else if (z === 'ext') {
+      hideExt = !hideExt;
+      b.textContent = hideExt ? 'Mostra esterno' : 'Nascondi esterno';
+      b.classList.toggle('on', hideExt);
+      viewer.setExterior(!hideExt);
+      if (opts.onExterior) opts.onExterior(hideExt);
+    }
+    else viewer.setView(z);
+  });
+  return { close };
 }
 
 /** PNG ritagliato attorno allo stadio (lo sfondo trasparente intorno non serve nelle miniature). */

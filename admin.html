@@ -280,6 +280,10 @@ import { DiviseSection }        from './js/admin/divise.js';
 import { NotificheSection }     from './js/admin/notifiche.js';
 import { tradeNotificationUpdates } from './js/services/notificationService.js';
 import { applyThemeVars, applyBackground } from './js/services/themeService.js';
+import { installSelectSheets } from './js/components/SelectSheet.js';
+
+// tutte le tendine (<select>) diventano la lista dell'app al posto della scelta del sistema
+installSelectSheets();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(err => console.error('Errore SW', err)));
@@ -294,6 +298,7 @@ let CURRENT_GW = 1;
 let CURRENT_REAL_GW = 0; 
 let LIVE = false; 
 let competitions = [];
+let customThemes = []; // temi aggiuntivi (themes/{id}), scelti dagli utenti nelle Impostazioni
 let teamsCaricate = false;
 let giocatoriCaricati = false;
 
@@ -325,6 +330,7 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   showAuthView('loading');
+  window.PATRON_UID = user.uid; // la squadra del Patron va in cima alle liste di squadre
   const autorizzato = await isPatron(user);
 
   if (!autorizzato) {
@@ -423,6 +429,7 @@ function refreshAll() {
     CURRENT_REAL_GW, 
     LIVE: LIVE,
     competitions,
+    customThemes,
     trophies: window.TROPHIES
   };
   
@@ -566,6 +573,12 @@ function startFirebaseSubscriptions() {
     }
     
     refreshAll(); 
+  });
+
+  onValue(ref(db, 'themes'), snap => {
+    const raw = snap.val() || {};
+    customThemes = Object.keys(raw).filter(key => raw[key] && typeof raw[key] === 'object').map(key => ({ id: key, ...raw[key] }));
+    refreshAll();
   });
 
   // Mappatura con ritenzione della chiave ID originale di Firebase per le squadre

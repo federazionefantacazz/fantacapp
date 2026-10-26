@@ -2,7 +2,7 @@ import { db, ref, update } from '../firebase-config.js';
 import { uploadPngToImgBB } from '../services/integrationImgBB.js';
 import { dataUrlToBlob } from '../components/Kit3D.js';
 import {
-  createStadiumViewer, renderStadiumImage, stadiumCapacity, shownCapacity, normalizeStadium, defaultStadium, applyPreset,
+  createStadiumViewer, renderStadiumImage, openStadiumOverlay, STADIUM_VIEWS, stadiumCapacity, shownCapacity, normalizeStadium, defaultStadium, applyPreset,
   RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY,
   SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom, STAND_GAP_MAX, RAKE_MIN, RAKE_MAX, CORNER_GAP_MIN, CORNER_GAP_MAX, WALL_TEXTURES, WALL_TEX_FACADES, APRON_STYLES, GROUND_STYLES, AD_BOARDS, ROOF_GLOWS,
   ringsBySide, maxRingsOf, LOGO_PLACES, logoPlacesFor, ENTRANCES, ENTRANCE_W, ENTRANCE_H, ENTRANCE_LOGO, ENTRANCE_FITS, entranceSkips,
@@ -35,7 +35,7 @@ function injectStadiumStyle() {
     .kit-hint.std-hint { top: .4rem; bottom: auto; } /* in basso ci sono i pulsanti delle viste */
     .std-views { flex-wrap: wrap; justify-content: flex-end; }
     .kit-zoom-btn.std-ext-btn { top: calc(.4rem + 44px); }
-    .kit-zoom-btn.std-ext-btn.on, .kit-zoom-bar button.on { border-color: var(--accent); color: var(--accent); }
+    .kit-zoom-btn.std-ext-btn.on { border-color: var(--accent); color: var(--accent); }
     .std-cap { text-align: center; font-size: .75rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-top: .35rem; }
     .std-cap b { color: var(--text); font-variant-numeric: tabular-nums; }
     .std-preset { width: 100%; text-align: left; background: var(--bg3); border: 2px solid transparent; border-radius: 12px; padding: .6rem .75rem;
@@ -81,7 +81,7 @@ function seatFields(st) {
   }
 }
 
-const VIEWS = [['aerial', 'Aerea'], ['top', "Dall'alto"], ['stand', 'Tribuna'], ['outside', 'Esterno']];
+const VIEWS = STADIUM_VIEWS;
 
 export const StadioSquadra = {
   title: 'Stadio',
@@ -641,42 +641,9 @@ export const StadioSquadra = {
   /** Finestra a tutto schermo con lo stadio: ruota in ogni direzione, zoom (due dita, rotella o + / −) e spostamento. */
   _openZoom() {
     if (this._zoom) return;
-    const el = document.createElement('div');
-    el.className = 'kit-zoom';
-    el.innerHTML = `
-      <div class="kit-zoom-head"><span>${esc(this._st.name || 'Stadio')}</span><button data-z="close" aria-label="Chiudi"><i class="ri-close-line"></i> Chiudi</button></div>
-      <div class="kit-zoom-stage"><div></div></div>
-      <div class="kit-zoom-bar">
-        ${VIEWS.map(([v, l]) => `<button data-z="${v}">${l}</button>`).join('')}
-        <button data-z="night">${this._night ? 'Giorno' : 'Notte'}</button>
-        <button data-z="ext" class="${this._hideExt ? 'on' : ''}">${this._hideExt ? 'Mostra esterno' : 'Nascondi esterno'}</button>
-        <button data-z="in" aria-label="Avvicina">＋ Zoom</button>
-        <button data-z="out" aria-label="Allontana">− Zoom</button>
-      </div>`;
-    document.body.appendChild(el);
-    const viewer = createStadiumViewer(el.querySelector('.kit-zoom-stage > div'), { zoom: true });
-    let night = this._night;
-    viewer.setExterior(!this._hideExt);
-    viewer.update(this._st, { logo: this._logo() }).then(() => viewer.setNight(night)).catch(err => console.error('Stadio:', err));
-    const close = () => { viewer.dispose(); el.remove(); this._zoom = null; };
-    el.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-z]');
-      if (!b) return;
-      const z = b.dataset.z;
-      if (z === 'close') close();
-      else if (z === 'in') viewer.zoomBy(.75);
-      else if (z === 'out') viewer.zoomBy(1 / .75);
-      else if (z === 'night') { night = !night; b.textContent = night ? 'Giorno' : 'Notte'; viewer.setNight(night); }
-      else if (z === 'ext') {
-        // nascosto anche nell'anteprima sotto, che resta uguale quando si chiude lo zoom
-        this._setExterior(!this._hideExt);
-        b.textContent = this._hideExt ? 'Mostra esterno' : 'Nascondi esterno';
-        b.classList.toggle('on', this._hideExt);
-        viewer.setExterior(!this._hideExt);
-      }
-      else viewer.setView(z);
-    });
-    this._zoom = { close };
+    // esterno nascosto anche nell'anteprima sotto, che resta uguale quando si chiude lo zoom
+    this._zoom = openStadiumOverlay(this._st, { logo: this._logo(), night: this._night, hideExterior: this._hideExt,
+      onExterior: (hide) => this._setExterior(hide), onClose: () => { this._zoom = null; } });
   },
 
   _setExterior(hide) {

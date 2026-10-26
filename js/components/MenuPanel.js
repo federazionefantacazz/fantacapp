@@ -38,6 +38,8 @@ function injectStyle() {
     .mp-row:last-child { border-bottom: none; }
     .mp-row-main { flex: 1; min-width: 0; }
     .mp-row-label { font-size: .9rem; font-weight: 600; color: var(--text); }
+    .mp-select { width: 100%; min-height: 44px; background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: .55rem .8rem;
+      color: var(--text); font-family: inherit; font-size: .9rem; font-weight: 600; }
     .mp-switch { position: relative; width: 46px; height: 26px; flex-shrink: 0; }
     .mp-switch input { opacity: 0; width: 100%; height: 100%; margin: 0; position: absolute; inset: 0; cursor: pointer; z-index: 1; }
     .mp-switch span { position: absolute; inset: 0; background: var(--bg3); border: 1px solid var(--border); border-radius: 26px; transition: background .2s; }

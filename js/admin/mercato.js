@@ -75,7 +75,7 @@ export const MercatoSection = {
 
     // 2. Popola il select delle fanta-squadre
     tSelect.innerHTML = TEAMS.map(t =>
-      `<option value="${t.id}">${t.name}</option>`
+      `<option value="${t.id}" data-img="${t.logo || 'icons/icon-192.png'}" ${t.owners && window.PATRON_UID && t.owners[window.PATRON_UID] ? 'data-mine' : ''}>${t.name}</option>`
     ).join('');
 
     // 3. Ripristina l'ultima squadra selezionata se ancora presente tra i team

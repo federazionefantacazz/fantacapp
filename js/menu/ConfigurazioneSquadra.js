@@ -4,6 +4,7 @@ import { AssetPreloader } from '../services/assetPreloader.js';
 import { esc, sid, playerThumb } from './menuUtils.js';
 import { MenuPanel } from '../components/MenuPanel.js';
 import { kitPairHTML } from '../components/Kit3D.js';
+import { cropSquare } from '../components/ImageCropper.js';
 import { DivisaSquadra } from './DivisaSquadra.js';
 import { StadioSquadra } from './StadioSquadra.js';
 
@@ -128,7 +129,7 @@ export const ConfigurazioneSquadra = {
       <div style="display:flex; align-items:center; gap:1rem;">
         <img class="cfg-logo" src="${esc(logo)}" alt="Logo" onerror="this.src='icons/icon-192.png'">
         <div style="min-width:0;">
-          <div style="font-family:'Bebas Neue',sans-serif; font-size:1.5rem; line-height:1.1; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(team.name || '')}</div>
+          <div style="font-family:'Bebas Neue',sans-serif; font-size:1.5rem; line-height:1.1; color:var(--text); overflow-wrap:anywhere;">${esc(team.name || '')}</div>
           <div style="display:flex; gap:.5rem; margin-top:.6rem; flex-wrap:wrap;">
             <label class="mp-btn" id="cfg-logo-btn"><i class="ri-image-edit-line"></i> Cambia logo
               <input type="file" accept="image/png,image/jpeg,image/webp" data-kind="logo" style="display:none;">
@@ -188,9 +189,12 @@ export const ConfigurazioneSquadra = {
   async _setLogo(file) {
     if (!this._validate(file)) return;
     const team = window.STATE.user;
-    if (!team) return;
+    if (!team || this._busy) return;
+    // prima del caricamento si sceglie il ritaglio quadrato (Annulla = non cambia niente)
+    const logo = await cropSquare(file);
+    if (!logo) return;
     await this._run(async () => {
-      const url = await uploadImageToImgBB(file);
+      const url = await uploadImageToImgBB(logo);
       await update(ref(db, `teams/${team.id}`), { logo: url });
       team.logo = url; // aggiornamento immediato; il listener del DB lo riconferma
       await AssetPreloader.cacheUrl(url);

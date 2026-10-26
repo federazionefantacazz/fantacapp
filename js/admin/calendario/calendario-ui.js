@@ -211,7 +211,8 @@ export const CalendarioUI = {
         htmlSquadre = elencoSquadreIds.map((currentSelectedId, slotIdx) => {
           const optionsHtml = compTeamsIds.map(tId => {
             const teamObj = CalendarioState.getTeam(tId);
-            return `<option value="${tId}" ${tId === currentSelectedId ? 'selected' : ''}>${teamObj ? teamObj.name : tId}</option>`;
+            const mine = teamObj && teamObj.owners && window.PATRON_UID && teamObj.owners[window.PATRON_UID];
+            return `<option value="${tId}" data-img="${(teamObj && teamObj.logo) || 'icons/icon-192.png'}" ${mine ? 'data-mine' : ''} ${tId === currentSelectedId ? 'selected' : ''}>${teamObj ? teamObj.name : tId}</option>`;
           }).join('');
 
           return `

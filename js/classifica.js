@@ -185,7 +185,7 @@ export const ClassificaPage = {
           <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.35rem;">
             <span style="font-weight: 700; color: var(--text2); font-family: var(--font-sub, inherit); font-size: 0.95rem; min-width: 18px; text-align: center;">${idx + 1}</span>
             ${logoHTML}
-            <span style="font-weight: 600; color: var(--text); font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">${esc(t.name)}</span>
+            <span style="font-weight: 600; color: var(--text); font-size: 0.9rem; overflow-wrap: anywhere; flex: 1; min-width: 0;">${esc(t.name)}</span>
             <i class="ri-arrow-right-s-line" style="color: var(--text3); font-family: var(--font-text3, inherit); font-size: 1.1rem; flex-shrink: 0;"></i>
           </div>
 
@@ -323,13 +323,13 @@ export const ClassificaPage = {
               <span><i class="ri-hashtag"></i> ${esc(sid(m.id).toUpperCase())}</span>
               <span style="color:var(--accent); font-family:'DM Mono',monospace;">${strAndata}${strRitorno}</span>
             </div>
-            <div style="padding: 2px 0; color:var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display:flex; align-items:center; gap:0.4rem;">
+            <div style="padding: 2px 0; color:var(--text); display:flex; align-items:center; gap:0.4rem;">
               ${logoHomeHTML}
-              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; ${isHomePending ? 'color:var(--text2);font-family:var(--font-sub,inherit); font-style:italic;' : ''}">${nameHome}</span>
+              <span style="min-width: 0; overflow-wrap: anywhere; ${isHomePending ? 'color:var(--text2);font-family:var(--font-sub,inherit); font-style:italic;' : ''}">${nameHome}</span>
             </div>
-            <div style="padding: 2px 0; color:var(--text2);font-family:var(--font-sub,inherit); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display:flex; align-items:center; gap:0.4rem;">
+            <div style="padding: 2px 0; color:var(--text2);font-family:var(--font-sub,inherit); display:flex; align-items:center; gap:0.4rem;">
               ${logoAwayHTML}
-              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; ${isAwayPending ? 'color:var(--text2);font-family:var(--font-sub,inherit); font-style:italic;' : ''}">${nameAway}</span>
+              <span style="min-width: 0; overflow-wrap: anywhere; ${isAwayPending ? 'color:var(--text2);font-family:var(--font-sub,inherit); font-style:italic;' : ''}">${nameAway}</span>
             </div>
           </div>
         `;
