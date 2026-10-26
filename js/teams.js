@@ -1,7 +1,23 @@
 import { BackNav } from './services/backNav.js';
-import { mountKitShowcase } from './components/Kit3D.js';
+import { mountKitShowcase, kitPairHTML } from './components/Kit3D.js';
+import { renderStadiumImage } from './components/Stadium3D.js';
 import { getWonTrophies } from './services/palmaresService.js';
 import { esc, sameId } from './utils.js';
+
+// riquadri sopra la rosa (maglie e stadio), come quelli della Home
+const BOX = 'background: var(--subbox-bg, rgba(0,0,0,0.18)); border: 1px solid var(--border); border-radius: 14px; padding: 0.6rem 0.7rem; min-width: 0;';
+const BOX_LABEL = 'font-size: 0.7rem; font-weight: 700; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase; margin-bottom: 0.3rem;';
+
+/* Nome della squadra nella testata: mai tagliato. Si rimpicciolisce (da 26px a 16px) per stare
+   su una riga; se non basta, alla misura minima va a capo. */
+function fitTitle(el) {
+  if (!el || !el.clientWidth) return;
+  let size = 26;
+  el.style.whiteSpace = 'nowrap';
+  el.style.fontSize = size + 'px';
+  while (el.scrollWidth > el.clientWidth && size > 16) el.style.fontSize = --size + 'px';
+  if (el.scrollWidth > el.clientWidth) el.style.whiteSpace = 'normal';
+}
 
 export const TeamsPage = {
   // Struttura HTML unificata: Lista -> Dettaglio Rosa -> Modal Info Club
@@ -22,13 +38,14 @@ export const TeamsPage = {
               <span id="team-detail-back-label">Lista</span>
             </button>
             
-            <h2 id="team-detail-title" style="font-family:'Bebas Neue',sans-serif; font-size:1.6rem; color:var(--text); flex:1; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin:0;">Rosa</h2>
+            <h2 id="team-detail-title" style="font-family:'Bebas Neue',sans-serif; font-size:1.6rem; line-height:1.05; color:var(--text); flex:1; min-width:0; text-align:center; overflow-wrap:anywhere; margin:0;">Rosa</h2>
             
             <button class="btn btn-green" id="btn-info-club" style="width:auto; padding:.5rem 1rem; font-size:.8rem; display:inline-flex; align-items:center; gap:.4rem; margin:0;">
               Info Club
             </button>
           </div>
           
+          <div id="team-detail-boxes"></div>
           <div id="team-roster-container"></div>
         </div>
 
@@ -63,17 +80,22 @@ export const TeamsPage = {
       return;
     }
 
-    const sortedTeams = [...STATE.teams].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+    // la propria squadra in cima, le altre in ordine alfabetico
+    const myId = STATE.user && STATE.user.id;
+    const isMine = (t) => sameId(t.id, myId);
+    const sortedTeams = [...STATE.teams].sort((a, b) => (isMine(b) - isMine(a)) || String(a.name || '').localeCompare(String(b.name || '')));
 
     container.innerHTML = sortedTeams.map(t => {
       const logoUrl = esc(t.logo || 'icons/icon-192.png');
+      const mineTag = isMine(t) ? `<span style="flex-shrink:0; font-size:.6rem; font-weight:700; letter-spacing:.3px; text-transform:uppercase; color:var(--accent); border:1px solid color-mix(in srgb, var(--accent) 50%, transparent); border-radius:6px; padding:0 .4rem;">La tua</span>` : '';
 
       return `
         <div class="card card-mini" data-team-id="${esc(t.id)}" onclick="window.openTeamDetail(this.dataset.teamId)" style="display:flex; align-items:center; gap:1.25rem; padding:.5rem; margin-bottom:0; background:var(--mini-bg,var(--card)); border-color:var(--border); cursor:pointer; transition:transform 0.15s, background-color 0.15s;">
           <img src="${logoUrl}" alt="Logo ${esc(t.name)}" loading="lazy" decoding="async" style="width:52px; height:52px; flex-shrink:0; object-fit:contain;" onerror="this.src='icons/icon-192.png'">
           <div style="flex:1; min-width:0;">
-            <div style="display:flex; align-items:center; gap:0.4rem;">
-              <h3 style="font-size:1.1rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin:0;">${esc(t.name)}</h3>
+            <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
+              <h3 style="font-size:1.1rem; font-weight:600; color:var(--text); overflow-wrap:anywhere; margin:0; line-height:1.2;">${esc(t.name)}</h3>
+              ${mineTag}
             </div>
             <p style="font-size:.72rem; color:var(--text2);font-family:var(--font-sub,inherit); margin-top:2px;">Proprietario: <span style="color:var(--accent); font-weight:500;">${esc(t.owner || 'Nessuno')}</span></p>
           </div>
@@ -83,6 +105,8 @@ export const TeamsPage = {
     }).join('');
 
     if(document.getElementById('team-detail-view')?.style.display === 'block' && this.activeTeamId) {
+      const active = STATE.teams.find(t => sameId(t.id, this.activeTeamId));
+      if (active) this.drawBoxes(active);
       this.drawRosa(this.activeTeamId, STATE);
     }
   },
@@ -111,10 +135,13 @@ export const TeamsPage = {
       btnInfo.onclick = () => this.openInfoModal(team, STATE);
     }
 
+    this.drawBoxes(team);
     this.drawRosa(teamId, STATE);
 
     listView.style.display = 'none';
     detailView.style.display = 'block';
+    fitTitle(titleView);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitTitle(titleView));
     // "Indietro" del telefono = freccia indietro della scheda
     BackNav.push('team-detail', () => (window.teamDetailBack ? window.teamDetailBack() : this.backToTeamsList()));
 
@@ -122,6 +149,47 @@ export const TeamsPage = {
     if (pageContainer) pageContainer.scrollTop = 0;
 
     if (opts.info) this.openInfoModal(team, STATE);
+  },
+
+  /** Maglie (prima e seconda, come in Home) e stadio della squadra, sopra la rosa */
+  drawBoxes(team) {
+    const box = document.getElementById('team-detail-boxes');
+    if (!box) return;
+    const st = team.stadium;
+    const hasKit = !!(team.kit || team.kit2);
+    // si ridisegna solo se cambiano maglie, logo o stadio (i refresh dei dati sono frequenti)
+    const key = JSON.stringify([team.id, team.kit || null, team.kit2 || null, team.logo || '', st || null]);
+    if (box.dataset.key === key) return;
+    box.dataset.key = key;
+    if (!hasKit && !st) { box.innerHTML = ''; return; }
+
+    const kitBox = hasKit ? `
+      <div style="${BOX} display:flex; flex-direction:column;">
+        <div style="${BOX_LABEL}">${team.kit && team.kit2 ? 'Maglie' : 'Maglia'}</div>
+        <div style="flex:1; display:flex; align-items:center; justify-content:center;">
+          ${kitPairHTML(team.kit, team.kit2, { crestUrl: team.logo || '', width: 360 }, `style="width:100%; max-width:${team.kit && team.kit2 ? 190 : 150}px; margin:0 auto;"`)}
+        </div>
+      </div>` : '';
+    const stadiumBox = st ? `
+      <div style="${BOX} display:flex; flex-direction:column;">
+        <div style="${BOX_LABEL}">Stadio</div>
+        <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:.3rem;">
+          <div class="td-stadium" style="width:100%; aspect-ratio:5 / 3; display:flex; align-items:center; justify-content:center;">
+            ${st.image ? `<img src="${esc(st.image)}" alt="Stadio" loading="lazy" decoding="async" style="width:100%; height:100%; object-fit:contain;">` : '<i class="ri-building-2-line" style="font-size:2.4rem; color:var(--text3);"></i>'}
+          </div>
+          <div style="font-size:.8rem; font-weight:700; color:var(--text); text-align:center; overflow-wrap:anywhere;">${esc(st.name || 'Stadio senza nome')}</div>
+          ${st.capacity ? `<div style="font-size:.68rem; color:var(--text2); font-family:var(--font-sub, inherit); text-align:center;">${Number(st.capacity).toLocaleString('it-IT')} posti</div>` : ''}
+        </div>
+      </div>` : '';
+    box.innerHTML = `<div style="display:grid; grid-template-columns:${hasKit && st ? '1fr 1fr' : '1fr'}; gap:.6rem; margin-bottom:.4rem;">${kitBox}${stadiumBox}</div>`;
+
+    // stadio salvato senza foto (caricamento non riuscito): la disegno qui, come in Home
+    if (st && !st.image) {
+      renderStadiumImage(st, { width: 600, logo: team.logo || '' }).then(url => {
+        const ph = box.querySelector('.td-stadium');
+        if (url && ph && box.dataset.key === key) ph.innerHTML = `<img src="${url}" alt="Stadio" style="width:100%; height:100%; object-fit:contain;">`;
+      });
+    }
   },
 
   drawRosa(teamId, STATE) {

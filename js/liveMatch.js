@@ -416,11 +416,12 @@ export const LiveMatchModule = {
     const simKey = `${this._ctxKey}|${selKey}`;
     if (this._sim.key !== simKey) this._sim = { key: simKey, on: false, six: true, overrides: {} };
 
-    const options = couples.map(c => {
+    // la partita della propria squadra in cima alla lista
+    const options = [...couples].sort((x, y) => isMyKey(y) - isMyKey(x)).map(c => {
       const h = this._teamInfo(c.homeId).name;
       const a = this._teamInfo(c.awayId).name;
       const label = c.label ? `${c.label}: ` : '';
-      return `<option value="${esc(c.key)}" ${c.key === selKey ? 'selected' : ''}>${esc(label)}${esc(h)} vs ${esc(a)}${isMyKey(c) ? ' ★' : ''}</option>`;
+      return `<option value="${esc(c.key)}" ${c.key === selKey ? 'selected' : ''} ${isMyKey(c) ? 'data-mine' : ''}>${esc(label)}${esc(h)} vs ${esc(a)}${isMyKey(c) ? ' ★' : ''}</option>`;
     }).join('');
 
     const notice = d.status.canPlay ? '' : `
@@ -523,7 +524,7 @@ export const LiveMatchModule = {
         <button id="mv-close" class="btn btn-outline" style="width:auto;padding:.45rem .8rem;"><i class="ri-arrow-left-line"></i> Indietro</button>
         <div style="min-width:0;">
           <div style="font-size:.7rem;color:var(--text2);font-family:var(--font-sub,inherit);text-transform:uppercase;letter-spacing:.5px;">${isPast ? 'Replay match' : 'Formazioni schierate'} · ${esc(GwService.label(gwKey))}</div>
-          <div style="font-weight:700;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(home.name)} vs ${esc(away.name)}</div>
+          <div style="font-weight:700;font-size:.95rem;overflow-wrap:anywhere;">${esc(home.name)} vs ${esc(away.name)}</div>
         </div>
       </div>
       <div id="mv-body" class="lv-wrap" style="padding:1rem;max-width:900px;margin:0 auto;"></div>`;

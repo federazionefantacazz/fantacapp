@@ -17,6 +17,7 @@
  *   <option data-img="url">                      logo a sinistra (squadre, competizioni)
  *   <option data-icon="ri-...">                  icona a sinistra
  *   <option data-label="Nome" data-sub="...">    testo della riga e riga sotto (il pulsante usa il testo dell'option)
+ *   <option data-mine>                           la propria squadra: in cima alla lista (nel suo gruppo)
  */
 import { BackNav } from '../services/backNav.js';
 import { esc } from '../utils.js';
@@ -38,7 +39,7 @@ function injectStyle() {
 .cs-native{display:none !important}
 :where(.cs-btn){font:inherit;color:inherit;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:.5rem .7rem;min-height:36px}
 .cs-btn{display:flex;align-items:center;gap:.5rem;text-align:left;cursor:pointer;-webkit-appearance:none;appearance:none;max-width:100%}
-.cs-btn .cs-val{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cs-btn .cs-val{flex:1;min-width:0;overflow-wrap:anywhere}
 .cs-btn .cs-caret{flex-shrink:0;font-size:1.1em;line-height:1;opacity:.75}
 .cs-btn:disabled{opacity:.5;cursor:default}
 .cs-btn[hidden]{display:none}
@@ -69,6 +70,8 @@ function injectStyle() {
 .cs-main{flex:1;min-width:0}
 .cs-label{font-weight:600;font-size:.9rem;line-height:1.25;overflow-wrap:anywhere}
 .cs-sub{font-size:.72rem;color:var(--text2);font-family:var(--font-sub, inherit);margin-top:2px}
+.cs-mine{display:inline-block;margin-left:.4rem;padding:0 .4rem;border-radius:6px;font-size:.6rem;font-weight:700;letter-spacing:.3px;text-transform:uppercase;vertical-align:2px;
+  color:var(--accent);border:1px solid color-mix(in srgb, var(--accent) 50%, transparent)}
 .cs-check{color:var(--accent);font-size:1.2rem;flex-shrink:0}
 .cs-empty{text-align:center;color:var(--text3);font-family:var(--font-text3, inherit);padding:1.5rem 1rem;font-size:.85rem}
 `;
@@ -115,7 +118,7 @@ export function openChoiceSheet({ title = 'Scegli', items = [], value = null, se
         : it.icon ? `<span class="cs-ico"><i class="${esc(it.icon)}"></i></span>` : '';
       return `${head}<button type="button" class="cs-row${on ? ' on' : ''}" role="option" aria-selected="${on}" data-i="${i}" ${it.disabled ? 'disabled' : ''}>
           ${lead}
-          <span class="cs-main"><span class="cs-label">${esc(it.label)}</span>${it.sub ? `<span class="cs-sub" style="display:block">${esc(it.sub)}</span>` : ''}</span>
+          <span class="cs-main"><span class="cs-label">${esc(it.label)}${it.mine ? '<span class="cs-mine">La tua</span>' : ''}</span>${it.sub ? `<span class="cs-sub" style="display:block">${esc(it.sub)}</span>` : ''}</span>
           ${on ? '<i class="ri-check-line cs-check"></i>' : ''}
         </button>`;
     }).join('') || '<div class="cs-empty">Nessun risultato.</div>';
@@ -193,10 +196,16 @@ function itemsOf(select) {
       img: o.dataset.img || '',
       icon: o.dataset.icon || '',
       disabled: o.disabled || (grp !== null && o.parentElement.disabled),
-      group: grp
+      group: grp,
+      mine: o.hasAttribute('data-mine')
     });
   });
-  return items;
+  // la propria squadra in cima, restando nel suo gruppo
+  const groups = [...new Set(items.map(it => it.group))];
+  return items
+    .map((it, i) => ({ it, i }))
+    .sort((a, b) => groups.indexOf(a.it.group) - groups.indexOf(b.it.group) || (b.it.mine - a.it.mine) || a.i - b.i)
+    .map(x => x.it);
 }
 
 function skip(select) {

@@ -115,7 +115,8 @@ function injectStyle() {
     #menu-panel .ls-num.lo { color: var(--accent3); }
     #menu-panel .ls-band { display: flex; justify-content: space-between; gap: .8rem; padding: .4rem 1.1rem; background: var(--accent); color: var(--btn-primary-text);
       font-size: .85rem; font-weight: 600; }
-    #menu-panel .ls-band span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: uppercase; letter-spacing: .3px; }
+    #menu-panel .ls-band span:first-child { flex-shrink: 0; }
+    #menu-panel .ls-band span:last-child { min-width: 0; overflow-wrap: anywhere; text-align: right; text-transform: uppercase; letter-spacing: .3px; }
     #menu-panel .ls-band.loan { background: color-mix(in srgb, var(--gold) 80%, #000); color: #fff; }
     #menu-panel .ls-more { display: block; margin: .4rem auto 0; }
     #menu-panel .ls-empty { text-align: center; color: var(--text3); font-family: var(--font-text3, inherit); font-size: .9rem; padding: 2rem 1rem; }

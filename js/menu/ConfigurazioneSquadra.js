@@ -129,7 +129,7 @@ export const ConfigurazioneSquadra = {
       <div style="display:flex; align-items:center; gap:1rem;">
         <img class="cfg-logo" src="${esc(logo)}" alt="Logo" onerror="this.src='icons/icon-192.png'">
         <div style="min-width:0;">
-          <div style="font-family:'Bebas Neue',sans-serif; font-size:1.5rem; line-height:1.1; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(team.name || '')}</div>
+          <div style="font-family:'Bebas Neue',sans-serif; font-size:1.5rem; line-height:1.1; color:var(--text); overflow-wrap:anywhere;">${esc(team.name || '')}</div>
           <div style="display:flex; gap:.5rem; margin-top:.6rem; flex-wrap:wrap;">
             <label class="mp-btn" id="cfg-logo-btn"><i class="ri-image-edit-line"></i> Cambia logo
               <input type="file" accept="image/png,image/jpeg,image/webp" data-kind="logo" style="display:none;">
