@@ -330,6 +330,7 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   showAuthView('loading');
+  window.PATRON_UID = user.uid; // la squadra del Patron va in cima alle liste di squadre
   const autorizzato = await isPatron(user);
 
   if (!autorizzato) {

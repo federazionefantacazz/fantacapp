@@ -16,8 +16,9 @@ export const sameId = (a, b) => a !== null && a !== undefined && b !== null && b
 export const toArray = (node) => (!node ? [] : (Array.isArray(node) ? node : Object.values(node))).filter(v => v !== null && v !== undefined);
 
 /**
- * Nomi (squadre) su massimo 2 righe senza spezzare le parole: la dimensione del testo
+ * Nomi (squadre) su 2 righe senza spezzare le parole: la dimensione del testo
  * scende quanto basta perché la parola più lunga, e il nome intero in 2 righe, stiano nella larghezza disponibile.
+ * Il nome non viene mai tagliato: se proprio non basta, va su una riga in più.
  * Restituisce l'HTML: <div class="fit-box"><span class="fit-name">…</span></div>
  * (classi in index.html). maxSize = dimensione massima del testo; style = stile in più del testo.
  */

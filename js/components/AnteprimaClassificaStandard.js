@@ -111,7 +111,7 @@ export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId, opt
         return `
           <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 6px; ${rowBg} font-size: 0.75rem;">
             <span style="font-weight: bold; color: ${isMe ? numColor : 'var(--text3)'}; width: 18px; text-align: center;">${pos}°</span>
-            <span style="flex: 1; min-width: 0; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: ${isMe ? 'bold' : 'normal'};">${esc(team.name)}</span>
+            <span style="flex: 1; min-width: 0; color: var(--text); overflow-wrap: anywhere; font-weight: ${isMe ? 'bold' : 'normal'};">${esc(team.name)}</span>
             <span style="font-family: 'DM Mono', monospace; width: 24px; text-align: center; color: var(--text2);">${s.giocate}</span>
             <span style="font-family: 'DM Mono', monospace; width: 28px; text-align: center; font-weight: bold; color: ${numColor};">${s.pts}</span>
             <span style="font-family: 'DM Mono', monospace; width: 52px; text-align: right; color: var(--text2);">${Number(s.totFanta).toFixed(1)}</span>

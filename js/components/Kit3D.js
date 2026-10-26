@@ -411,8 +411,10 @@ function injectPairStyle() {
     .kit-pair .kp-kit { position: absolute; transition: left .35s ease, top .35s ease, width .35s ease, filter .35s ease; }
     .kit-pair:not(.swapped) .kp-1, .kit-pair.swapped .kp-2 { left: 0; top: 0; width: 74%; z-index: 1; }
     .kit-pair:not(.swapped) .kp-2, .kit-pair.swapped .kp-1 { left: 60%; top: 52%; width: 40%; z-index: 2; filter: drop-shadow(0 2px 6px rgba(0,0,0,.45)); }
-    .kit-pair .kp-swap { position: absolute; top: 0; right: 0; z-index: 3; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; padding: 0;
-      display: flex; align-items: center; justify-content: center; font-size: 1rem;
+    .kit-pair:not(.swapped) .kp-2, .kit-pair.swapped .kp-1 { cursor: pointer; }
+    /* segno "scambia" sull'angolo della maglia piccola: il tocco arriva comunque alla maglia sotto */
+    .kit-pair .kp-swap { position: absolute; right: 0; bottom: 0; z-index: 3; width: 24px; height: 24px; border-radius: 50%; pointer-events: none;
+      display: flex; align-items: center; justify-content: center; font-size: .85rem;
       background: color-mix(in srgb, var(--bg2) 85%, transparent); color: var(--accent); border: 1px solid var(--border); }
     .kit-pair .kp-swap i { transition: transform .35s ease; }
     .kit-pair.swapped .kp-swap i { transform: rotate(180deg); }
@@ -428,17 +430,19 @@ export function kitPairShown(el) {
 
 /**
  * Prima e seconda maglia insieme: una in grande a sinistra, l'altra piccola in basso a destra;
- * la freccia le scambia. Con una sola maglia mostra solo quella.
+ * toccando quella piccola si scambiano (il tocco su quella grande prosegue, es. apre l'editor in Home).
+ * Con una sola maglia mostra solo quella.
  * opts: come kitImageHTML (crestUrl, width = larghezza della maglia grande); attrs: attributi del contenitore.
  */
 export function kitPairHTML(kit, kit2, opts = {}, attrs = '') {
   if (!kit || !kit2) return kitImageHTML(kit || kit2, opts, attrs);
   injectPairStyle();
+  // tocco sulla maglia piccola (kp-2, oppure kp-1 dopo lo scambio): si scambiano
+  const tap = (n) => `onclick="const p=this.closest('.kit-pair'); if (p.classList.contains('swapped') === ${n === 1}) { event.stopPropagation(); p.classList.toggle('swapped'); }"`;
   return `<div ${attrs}><div class="kit-pair">
-      ${kitImageHTML(kit, opts, 'class="kp-kit kp-1" title="Prima maglia"')}
-      ${kitImageHTML(kit2, opts, 'class="kp-kit kp-2" title="Seconda maglia"')}
-      <button type="button" class="kp-swap" title="Scambia prima e seconda maglia" aria-label="Scambia prima e seconda maglia"
-        onclick="event.stopPropagation(); this.closest('.kit-pair').classList.toggle('swapped')"><i class="ri-arrow-left-right-line"></i></button>
+      ${kitImageHTML(kit, opts, `class="kp-kit kp-1" title="Prima maglia" ${tap(1)}`)}
+      ${kitImageHTML(kit2, opts, `class="kp-kit kp-2" title="Seconda maglia" ${tap(2)}`)}
+      <span class="kp-swap" aria-hidden="true"><i class="ri-arrow-left-right-line"></i></span>
     </div></div>`;
 }
 
@@ -520,13 +524,13 @@ function injectZoomStyle() {
   style.textContent = `
     .kit-zoom { position: fixed; inset: 0; z-index: 4000; background: var(--kz-bg, var(--bg, #111)); display: flex; flex-direction: column; }
     .kit-zoom-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: calc(.6rem + env(safe-area-inset-top, 0px)) .8rem .4rem; color: var(--title, var(--text)); font-family: var(--font-title, inherit); font-weight: 700; }
-    .kit-zoom-head span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .kit-zoom-head span { min-width: 0; overflow-wrap: anywhere; }
     .kit-zoom-stage { flex: 1; min-height: 0; position: relative; }
     .kit-zoom-stage > div { position: absolute; inset: 0; }
     .kit-zoom-bar { display: flex; gap: .4rem; justify-content: center; flex-wrap: wrap; padding: .5rem .8rem calc(.8rem + env(safe-area-inset-bottom, 0px)); }
     .kit-zoom-bar button, .kit-zoom-head button { background: var(--kz-btn-bg, var(--bg2)); color: var(--kz-btn-text, var(--text)); font-family: var(--font-btn, inherit); border: 1px solid var(--kz-btn-border, var(--border)); border-radius: 10px; padding: .45rem .8rem; font-weight: 700; cursor: pointer; font-size: .85rem; flex-shrink: 0; }
     .kit-zoom-tabs { display: flex; gap: .4rem; justify-content: center; flex-wrap: wrap; padding: 0 .8rem .3rem; }
-    .kit-zoom-tabs button { background: var(--kz-btn-bg, var(--bg2)); color: var(--kz-btn-text, var(--text)); border: 1px solid var(--kz-btn-border, var(--border)); border-radius: 999px; padding: .3rem .8rem; font-family: var(--font-btn, inherit); font-weight: 700; font-size: .78rem; cursor: pointer; max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .kit-zoom-tabs button { background: var(--kz-btn-bg, var(--bg2)); color: var(--kz-btn-text, var(--text)); border: 1px solid var(--kz-btn-border, var(--border)); border-radius: 999px; padding: .3rem .8rem; font-family: var(--font-btn, inherit); font-weight: 700; font-size: .78rem; cursor: pointer; max-width: 46%; overflow-wrap: anywhere; }
     .kit-zoom-tabs button.on { border-color: var(--accent); color: var(--accent); }
   `;
   document.head.appendChild(style);
