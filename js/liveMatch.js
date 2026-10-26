@@ -426,7 +426,7 @@ export const LiveMatchModule = {
       const a = this._teamInfo(c.awayId).name;
       const label = c.label ? `${c.label}: ` : '';
       const lh = this._teamInfo(c.homeId).logo, la = this._teamInfo(c.awayId).logo;
-      return `<option value="${esc(c.key)}" data-img="${esc(lh || 'icons/icon-192.png')}" data-img2="${esc(la || 'icons/icon-192.png')}" ${c.key === selKey ? 'selected' : ''} ${isMyKey(c) ? 'data-mine' : ''}>${esc(label)}${esc(h)} vs ${esc(a)}${isMyKey(c) ? ' ★' : ''}</option>`;
+      return `<option value="${esc(c.key)}" data-img="${esc(lh || 'icons/icon-192.png')}" data-img2="${esc(la || 'icons/icon-192.png')}" ${c.key === selKey ? 'selected' : ''} ${isMyKey(c) ? 'data-mine' : ''}>${esc(label)}${esc(h)} vs ${esc(a)}</option>`;
     }).join('');
 
     const notice = d.status.canPlay ? '' : `

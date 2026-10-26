@@ -88,7 +88,6 @@ export const TeamsPage = {
 
     container.innerHTML = sortedTeams.map(t => {
       const logoUrl = esc(t.logo || 'icons/icon-192.png');
-      const mineTag = isMine(t) ? `<span style="flex-shrink:0; font-size:.6rem; font-weight:700; letter-spacing:.3px; text-transform:uppercase; color:var(--accent); border:1px solid color-mix(in srgb, var(--accent) 50%, transparent); border-radius:6px; padding:0 .4rem;">La tua</span>` : '';
 
       return `
         <div class="card card-mini" data-team-id="${esc(t.id)}" onclick="window.openTeamDetail(this.dataset.teamId)" style="display:flex; align-items:center; gap:1.25rem; padding:.5rem; margin-bottom:0; background:var(--mini-bg,var(--card)); border-color:var(--border); cursor:pointer; transition:transform 0.15s, background-color 0.15s;">
@@ -96,7 +95,6 @@ export const TeamsPage = {
           <div style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
               <h3 style="font-size:1.1rem; font-weight:600; color:var(--text); overflow-wrap:anywhere; margin:0; line-height:1.2;">${esc(t.name)}</h3>
-              ${mineTag}
             </div>
             <p style="font-size:.72rem; color:var(--text2);font-family:var(--font-sub,inherit); margin-top:2px;">Proprietario: <span style="color:var(--accent); font-weight:500;">${esc(t.owner || 'Nessuno')}</span></p>
           </div>
