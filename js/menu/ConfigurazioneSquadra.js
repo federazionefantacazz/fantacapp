@@ -7,6 +7,8 @@ import { kitPairHTML } from '../components/Kit3D.js';
 import { cropSquare } from '../components/ImageCropper.js';
 import { DivisaSquadra } from './DivisaSquadra.js';
 import { StadioSquadra } from './StadioSquadra.js';
+import { FasciaCapitano } from './FasciaCapitano.js';
+import { captainBandSVG } from '../components/CaptainBand.js';
 
 const MAX_FILE_MB = 8;
 const ROLE_ORDER = { P: 0, D: 1, C: 2, A: 3 };
@@ -46,6 +48,7 @@ export const ConfigurazioneSquadra = {
       if (!btn) return;
       if (btn.dataset.action === 'open-kit') MenuPanel.open(DivisaSquadra, 'kit');
       else if (btn.dataset.action === 'open-stadium') MenuPanel.open(StadioSquadra, 'stadium');
+      else if (btn.dataset.action === 'open-band') MenuPanel.open(FasciaCapitano, 'band');
       else if (btn.dataset.action === 'remove-logo') this._removeLogo();
       else if (btn.dataset.action === 'reset-photo') this._resetPlayerPhoto(btn.dataset.pid);
     });
@@ -55,6 +58,7 @@ export const ConfigurazioneSquadra = {
     if (!this._root || this._busy) return;
     this._renderLogo(STATE);
     this._renderKit(STATE);
+    this._renderBand(STATE);
     this._renderStadium(STATE);
     this._renderPlayers(STATE);
   },
@@ -66,6 +70,7 @@ export const ConfigurazioneSquadra = {
     this._root.innerHTML = `
       <div class="mp-card" id="cfg-logo-card"></div>
       <div class="mp-card" id="cfg-kit-card"></div>
+      <div class="mp-card" id="cfg-band-card"></div>
       <div class="mp-card" id="cfg-stadium-card"></div>
       <div class="mp-card">
         <div class="mp-card-title">Immagini dei giocatori</div>
@@ -75,8 +80,28 @@ export const ConfigurazioneSquadra = {
     `;
     this._renderLogo(STATE);
     this._renderKit(STATE);
+    this._renderBand(STATE);
     this._renderStadium(STATE);
     this._renderPlayers(STATE);
+  },
+
+  _renderBand(STATE) {
+    const card = this._root.querySelector('#cfg-band-card');
+    if (!card) return;
+    const band = (STATE.user || {}).captainBand || null;
+    const key = JSON.stringify(band);
+    if (card.dataset.key === key) return;
+    card.dataset.key = key;
+    card.innerHTML = `
+      <div class="mp-card-title">Fascia da capitano</div>
+      <div style="display:flex; align-items:center; gap:1rem;">
+        <div style="width:100px; flex-shrink:0; display:flex; justify-content:center; line-height:0;">${captainBandSVG(band, { height: 52 })}</div>
+        <div style="min-width:0;">
+          <div class="mp-muted">${band ? 'La tua fascia: si vede accanto al capitano in Formazione e nel Live.' : 'Disegna la fascia del tuo capitano: forma, colori e lettera.'}</div>
+          <button class="mp-btn" data-action="open-band" style="margin-top:.6rem;"><i class="ri-brush-line"></i> ${band ? 'Modifica fascia' : 'Crea fascia'}</button>
+        </div>
+      </div>
+    `;
   },
 
   _renderKit(STATE) {

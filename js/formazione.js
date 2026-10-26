@@ -3,6 +3,7 @@ import { ProbabiliService, STATUS_INFO } from './services/probabiliService.js';
 import { BackNav } from './services/backNav.js';
 import { Connectivity } from './services/connectivity.js';
 import { kitImageHTML } from './components/Kit3D.js';
+import { captainBandSVG } from './components/CaptainBand.js';
 import { esc, sameId } from './utils.js';
 
 export const FormazionePage = {
@@ -33,6 +34,12 @@ export const FormazionePage = {
             <div class="field-center-circle"></div>
           </div>
           <div id="titolari-field-slots"></div>
+        </div>
+
+        <div id="f-captain" class="card card-sm" style="margin: 1rem 0 0;">
+          <div class="label" style="margin-bottom: .4rem; display: flex; align-items: center; gap: .45rem;"><span id="f-captain-band" style="display:inline-flex;"></span> Capitano</div>
+          <select id="f-captain-select" class="select-rose" data-title="Scegli il capitano"></select>
+          <div style="font-size:.7rem; color:var(--text3); font-family:var(--font-text3, inherit); margin-top:.4rem;">Scegli tra i titolari: la fascia si vede sul campo e nel live. La fascia si personalizza in Configurazione squadra.</div>
         </div>
 
         <div class="label" style="margin-bottom: .5rem; color: var(--gold); margin-top: 1.5rem; display: flex; align-items: center; gap: 0.4rem;"><i class="ri-user-shared-line"></i> PANCHINA (2 P | 3 D | 3 C | 3 A)</div>
@@ -157,6 +164,8 @@ export const FormazionePage = {
         .field-player select { display: none; }
         .shirt-wrap { position: relative; }
         .slot-badge-wrap { position: absolute; top: -4px; right: -18px; pointer-events: none; }
+        .cap-badge { position: absolute; top: -4px; left: -16px; pointer-events: none; line-height: 0; filter: drop-shadow(0 2px 3px rgba(0,0,0,.5)); }
+        .cap-badge:empty { display: none; }
         .slot-badge {
           display: inline-flex; align-items: center; justify-content: center; gap: 1px;
           min-width: 22px; height: 16px; padding: 0 4px; border-radius: 8px;
@@ -258,6 +267,12 @@ export const FormazionePage = {
       if (saveBtn) {
         saveBtn.addEventListener('click', () => this.save(STATE));
       }
+
+      const capSel = document.getElementById('f-captain-select');
+      if (capSel) capSel.addEventListener('change', () => {
+        this._captain = capSel.value || '';
+        this._refreshCaptain();
+      });
 
       const kitPick = document.getElementById('f-kit-pick');
       if (kitPick) kitPick.addEventListener('click', (e) => {
@@ -362,10 +377,14 @@ export const FormazionePage = {
     const hasSlots = !!document.querySelector('#titolari-field-slots select');
     if (!userChangedModulo && hasSlots && sig === this._slotsSig) {
       this._renderKitPick(STATE);
+      this._refreshCaptain(); // es. la fascia appena cambiata in Configurazione squadra
       this.applyLock(compData, STATE);
       return;
     }
-    if (sig !== this._slotsSig) this._kitChoice = savedLineup?.kit === 2 ? 2 : 1;
+    if (sig !== this._slotsSig) {
+      this._kitChoice = savedLineup?.kit === 2 ? 2 : 1;
+      this._captain = savedLineup?.capitano ? String(savedLineup.capitano) : '';
+    }
     this._slotsSig = sig;
     this._renderKitPick(STATE);
 
@@ -405,7 +424,47 @@ export const FormazionePage = {
     this.drawSchemaPanchina('panchina-slots', schemaPan, 'pan', miaRosa, savedPanchinaIds);
 
     this.refreshAllDropdowns(miaRosa);
+    this._refreshCaptain();
     this.applyLock(compData, STATE);
+  },
+
+  // ------------------------------------------------------------------
+  // CAPITANO: si sceglie tra i titolari; la fascia (della squadra) va sul suo slot
+  // ------------------------------------------------------------------
+  _myBand() {
+    const STATE = window.STATE || {};
+    const team = (STATE.teams || []).find(t => sameId(t.id, STATE.user?.id)) || STATE.user || {};
+    return team.captainBand || null;
+  },
+
+  _refreshCaptain() {
+    const rosa = this._rosa || [];
+    const titIds = Array.from(document.querySelectorAll('#titolari-field-slots select')).map(s => s.value).filter(Boolean);
+    // il capitano uscito dai titolari non è più capitano
+    if (this._captain && !titIds.includes(String(this._captain))) this._captain = '';
+
+    const band = this._myBand();
+    const bandBox = document.getElementById('f-captain-band');
+    if (bandBox) bandBox.innerHTML = captainBandSVG(band, { height: 16 });
+
+    const sel = document.getElementById('f-captain-select');
+    if (sel) {
+      const roles = { P: 0, D: 1, C: 2, A: 3 };
+      const tit = titIds.map(id => rosa.find(p => String(p.id) === id)).filter(Boolean)
+        .sort((a, b) => (roles[a.role] ?? 9) - (roles[b.role] ?? 9));
+      const html = `<option value="" data-icon="ri-close-circle-line">Nessun capitano</option>` + tit.map(p => {
+        const photo = this._photo(p);
+        return `<option value="${esc(p.id)}" ${photo ? `data-img="${esc(photo)}"` : `data-icon="ri-user-3-line"`} data-sub="${esc(`${p.role} · ${p.club || ''}`)}">${esc(p.name)}</option>`;
+      }).join('');
+      if (sel.dataset.sig !== html) { sel.dataset.sig = html; sel.innerHTML = html; }
+      if (sel.value !== String(this._captain || '')) sel.value = String(this._captain || '');
+    }
+
+    // fascia sullo slot del capitano
+    document.querySelectorAll('#titolari-field-slots select').forEach(s => {
+      const box = document.getElementById(`cap-${s.id}`);
+      if (box) box.innerHTML = this._captain && s.value === String(this._captain) ? captainBandSVG(band, { height: 15 }) : '';
+    });
   },
 
   refreshAllDropdowns(rosa) {
@@ -712,6 +771,7 @@ export const FormazionePage = {
               ${photoUrl ? '' : reparto.role}
             </div>
             <div class="slot-badge-wrap" id="badge-${slotId}">${this._badgeHtml(preObj)}</div>
+            <div class="cap-badge" id="cap-${slotId}"></div>
           </div>
           <div class="player-name-label" id="label-${slotId}" style="${isSelected ? 'color: var(--accent); border-color: var(--accent);' : ''}">
             ${esc(preselectedText)}
@@ -763,6 +823,7 @@ export const FormazionePage = {
           }
           this._updateSlotBadge(e.target, rosa);
           this.refreshAllDropdowns(rosa);
+          this._refreshCaptain();
         });
       }
     });
@@ -942,6 +1003,7 @@ export const FormazionePage = {
           titolari: titIds, 
           panchina: panIds, 
           kit: this._kitChoice === 2 ? 2 : 1,
+          capitano: this._captain && titIds.includes(String(this._captain)) ? this._captain : null,
           timestamp: Date.now()
         };
         
