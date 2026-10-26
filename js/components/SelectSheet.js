@@ -15,7 +15,8 @@
  *   <select data-search="on|off">                campo di ricerca sempre / mai (di solito: solo per
  *                                                 elenchi lunghi di nomi, non per giornate o numeri)
  *   <option data-img="url">                      logo a sinistra (squadre, competizioni)
- *   <option data-img="url" data-img2="url">      due loghi affiancati (partite: casa e trasferta)
+ *   <option data-img="url" data-img2="url">      partite: logo di casa a sinistra del testo, ospite a destra
+ * Il campo chiuso mostra anche lui i loghi della voce scelta.
  *   <option data-icon="ri-...">                  icona a sinistra
  *   <option data-label="Nome" data-sub="...">    testo della riga e riga sotto (il pulsante usa il testo dell'option)
  *   <option data-mine>                           la propria squadra: in cima alla lista (nel suo gruppo)
@@ -41,6 +42,9 @@ function injectStyle() {
 :where(.cs-btn){font:inherit;color:inherit;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:.5rem .7rem;min-height:36px}
 .cs-btn{display:flex;align-items:center;gap:.5rem;text-align:left;cursor:pointer;-webkit-appearance:none;appearance:none;max-width:100%}
 .cs-btn .cs-val{flex:1;min-width:0;overflow-wrap:anywhere}
+.cs-btn .cs-lead,.cs-btn .cs-trail{display:flex;flex-shrink:0;line-height:0}
+.cs-btn .cs-lead:empty,.cs-btn .cs-trail:empty{display:none}
+.cs-btn .cs-lead img,.cs-btn .cs-trail img{width:1.6em;height:1.6em;object-fit:contain}
 .cs-btn .cs-caret{flex-shrink:0;font-size:1.1em;line-height:1;opacity:.75}
 .cs-btn:disabled{opacity:.5;cursor:default}
 .cs-btn[hidden]{display:none}
@@ -67,9 +71,6 @@ function injectStyle() {
 .cs-row:disabled{opacity:.4;cursor:default}
 .cs-row:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .cs-img{width:34px;height:34px;flex-shrink:0;object-fit:contain;border-radius:6px}
-.cs-pair{display:flex;align-items:center;flex-shrink:0}
-.cs-pair .cs-img{width:30px;height:30px}
-.cs-pair .cs-img + .cs-img{margin-left:-6px}
 .cs-ico{width:34px;height:34px;flex-shrink:0;border-radius:8px;background:var(--bg3);color:var(--text2);display:flex;align-items:center;justify-content:center;font-size:1.1rem}
 .cs-main{flex:1;min-width:0}
 .cs-label{font-weight:600;font-size:.9rem;line-height:1.25;overflow-wrap:anywhere}
@@ -118,14 +119,12 @@ export function openChoiceSheet({ title = 'Scegli', items = [], value = null, se
       group = it.group || null;
       const on = value !== null && String(it.value) === String(value);
       const logo = (src) => `<img class="cs-img" src="${esc(src)}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;cs-ico&quot;><i class=&quot;ri-shield-fill&quot;></i></span>'">`;
-      const lead = it.img && it.img2
-        ? `<span class="cs-pair">${logo(it.img)}${logo(it.img2)}</span>`
-        : it.img
-        ? logo(it.img)
-        : it.icon ? `<span class="cs-ico"><i class="${esc(it.icon)}"></i></span>` : '';
+      const lead = it.img ? logo(it.img) : it.icon ? `<span class="cs-ico"><i class="${esc(it.icon)}"></i></span>` : '';
+      const trail = it.img2 ? logo(it.img2) : ''; // partite: logo della squadra ospite, a destra del testo
       return `${head}<button type="button" class="cs-row${on ? ' on' : ''}" role="option" aria-selected="${on}" data-i="${i}" ${it.disabled ? 'disabled' : ''}>
           ${lead}
           <span class="cs-main"><span class="cs-label">${esc(it.label)}${it.mine ? '<span class="cs-mine">La tua</span>' : ''}</span>${it.sub ? `<span class="cs-sub" style="display:block">${esc(it.sub)}</span>` : ''}</span>
+          ${trail}
           ${on ? '<i class="ri-check-line cs-check"></i>' : ''}
         </button>`;
     }).join('') || '<div class="cs-empty">Nessun risultato.</div>';
@@ -226,8 +225,14 @@ function enhance(select) {
   if (select._cs || skip(select)) return;
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.innerHTML = '<span class="cs-val"></span><i class="ri-arrow-down-s-line cs-caret" aria-hidden="true"></i>';
-  const val = btn.firstChild;
+  btn.innerHTML = '<span class="cs-lead"></span><span class="cs-val"></span><span class="cs-trail"></span><i class="ri-arrow-down-s-line cs-caret" aria-hidden="true"></i>';
+  const [lead, val, trail] = btn.children;
+  // loghi della voce scelta (si ridisegnano solo se cambiano: niente sfarfallio)
+  const setImg = (box, src = '') => {
+    if (box.dataset.src === src) return;
+    box.dataset.src = src;
+    box.innerHTML = src ? `<img src="${esc(src)}" alt="" onerror="this.remove()">` : '';
+  };
   if (select.id) btn.dataset.csFor = select.id;
 
   const sync = () => {
@@ -240,6 +245,8 @@ function enhance(select) {
     btn.title = select.title || '';
     const o = select.options[INDEX.get.call(select)];
     val.textContent = o ? o.text : '';
+    setImg(lead, (o && o.dataset.img) || '');
+    setImg(trail, (o && o.dataset.img2) || '');
     btn.setAttribute('aria-label', `${titleOf(select)}: ${o ? o.text : ''}`);
   };
   select._cs = { btn, sync };
