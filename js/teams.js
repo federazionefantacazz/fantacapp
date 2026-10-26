@@ -10,7 +10,7 @@ export const TeamsPage = {
       <div class="page" id="page-teams">
         
         <div id="teams-list-view">
-          <div id="teams-grid-container" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(100%, 1fr)); gap:1rem;">
+          <div id="teams-grid-container" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(100%, 1fr)); gap:.6rem;">
             <div style="text-align:center; color:var(--text2);font-family:var(--font-sub,inherit); padding:2rem;">Caricamento squadre...</div>
           </div>
         </div>
@@ -69,7 +69,7 @@ export const TeamsPage = {
       const logoUrl = esc(t.logo || 'icons/icon-192.png');
 
       return `
-        <div class="card card-mini" data-team-id="${esc(t.id)}" onclick="window.openTeamDetail(this.dataset.teamId)" style="display:flex; align-items:center; gap:1.25rem; padding:.5rem; background:var(--mini-bg,var(--card)); border-color:var(--border); cursor:pointer; transition:transform 0.15s, background-color 0.15s;">
+        <div class="card card-mini" data-team-id="${esc(t.id)}" onclick="window.openTeamDetail(this.dataset.teamId)" style="display:flex; align-items:center; gap:1.25rem; padding:.5rem; margin-bottom:0; background:var(--mini-bg,var(--card)); border-color:var(--border); cursor:pointer; transition:transform 0.15s, background-color 0.15s;">
           <img src="${logoUrl}" alt="Logo ${esc(t.name)}" loading="lazy" decoding="async" style="width:52px; height:52px; flex-shrink:0; object-fit:contain;" onerror="this.src='icons/icon-192.png'">
           <div style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; gap:0.4rem;">

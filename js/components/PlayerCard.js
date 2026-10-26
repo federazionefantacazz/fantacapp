@@ -24,6 +24,21 @@ const ROLE_NAMES = { P: 'Portiere', D: 'Difensore', C: 'Centrocampista', A: 'Att
 const favLabel = (on) => on ? 'Togli dai preferiti' : 'Aggiungi ai preferiti';
 // statistiche già lette in questa sessione: riaprendo la scheda si vedono subito
 const statsCache = new Map();
+const inflight = new Map(); // letture in corso (il tocco le avvia prima che la scheda si apra)
+
+function fetchStats(path) {
+  if (inflight.has(path)) return inflight.get(path);
+  const job = OfflineStore.withTimeout(get(ref(db, path)))
+    .then(snap => {
+      const fresh = snap.val() || {};
+      statsCache.set(path, fresh);
+      OfflineStore.save(path, fresh);
+      return fresh;
+    })
+    .finally(() => inflight.delete(path));
+  inflight.set(path, job);
+  return job;
+}
 
 // Stato di una giornata -> aspetto della cella
 const CELL = {
@@ -71,6 +86,12 @@ export const PlayerCard = {
       if (inner && el.contains(inner) && inner !== el) return;
       this.open(el.dataset.playerId);
     });
+    // appena il dito tocca un giocatore parte la lettura delle statistiche (guadagna il tempo del tocco)
+    document.addEventListener('pointerdown', (e) => {
+      const el = e.target.closest && e.target.closest('[data-player-id]');
+      const path = el && `playerStats/${el.dataset.playerId}`;
+      if (path && !statsCache.has(path)) fetchStats(path).catch(() => {});
+    }, { passive: true });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && this._current) this.close();
     });
@@ -137,11 +158,8 @@ export const PlayerCard = {
       });
     }
     try {
-      const snap = await OfflineStore.withTimeout(get(ref(db, path)));
+      const fresh = await fetchStats(path);
       if (!still()) return;
-      const fresh = snap.val() || {};
-      statsCache.set(path, fresh);
-      OfflineStore.save(path, fresh);
       if (JSON.stringify(fresh) === JSON.stringify(cur.rows)) return; // già quella mostrata
       cur.rows = fresh;
     } catch (err) {
@@ -230,20 +248,20 @@ export const PlayerCard = {
     top.innerHTML = hero;
   },
 
-  /** Statistiche: si ridisegnano solo queste quando arrivano i dati */
+  /**
+   * Statistiche: si ridisegnano solo queste quando arrivano i dati.
+   * Mentre si caricano la scheda ha già la sua forma completa (numeri e giornate "in caricamento"):
+   * si apre subito alla sua altezza invece di allungarsi quando arrivano i dati.
+   */
   _renderBody() {
     const box = document.querySelector('#pc-overlay .pc-content');
     if (!box || !this._current) return;
     const { p, rows, error } = this._current;
+    const loading = !rows;
 
-    if (!rows) {
-      box.innerHTML = `<div class="pc-loading">Carico le statistiche…</div>`;
-      return;
-    }
+    const { days, tot, lastImported } = this._compute(p, rows || {});
 
-    const { days, tot, lastImported } = this._compute(p, rows);
-
-    if (!lastImported) {
+    if (!lastImported || (error && !Object.keys(rows || {}).length)) {
       box.innerHTML = `<div class="pc-empty">${error
         ? 'Non riesco a leggere le statistiche. Controlla la connessione e riapri la scheda.'
         : 'Le statistiche compaiono dopo il primo "Calcola giornata" del Patron.'}</div>`;
@@ -251,13 +269,14 @@ export const PlayerCard = {
     }
 
     const isGk = p.role === 'P';
+    const dash = (v) => loading ? '–' : v;
     const big = [
       { v: tot.pres, l: 'Presenze', sub: tot.pres ? `${tot.tit} da titolare` : '' },
       isGk ? { v: tot.gs, l: 'Gol subiti', sub: tot.aVoto ? `${(tot.gs / tot.aVoto).toFixed(2).replace('.', ',')} a partita` : '' }
            : { v: tot.gol, l: 'Gol', sub: tot.rf ? `${tot.rf} su rigore` : '' },
       isGk ? { v: tot.rp, l: 'Rigori parati', sub: tot.inviolate ? `${tot.inviolate} porte inviolate` : '' }
            : { v: tot.ass, l: 'Assist', sub: '' },
-    ];
+    ].map(b => ({ ...b, v: dash(b.v) }));
     const avg = [
       { v: fmt1(tot.mv), l: 'Media voto' },
       { v: fmt1(tot.mfv), l: 'Media fantavoto' },
@@ -270,9 +289,12 @@ export const PlayerCard = {
       ...(!isGk && tot.rs ? [{ v: tot.rs, l: 'Rigori sbagliati' }] : []),
       ...(tot.au ? [{ v: tot.au, l: 'Autogol' }] : []),
       { v: tot.sub, l: 'Da subentrato' },
-    ];
+    ].map(x => ({ ...x, v: dash(x.v) }));
 
     const cells = days.map(d => {
+      if (loading && d.st !== 'f') {
+        return `<button class="pc-cell pc-sk" disabled aria-label="Giornata ${d.g}: in caricamento"><span class="pc-g">${d.g}</span></button>`;
+      }
       const c = CELL[d.st];
       const val = (d.st === 't' || d.st === 's')
         ? (typeof d.e?.v === 'number' ? String(d.e.v).replace('.', ',') : 'sv')
@@ -287,16 +309,17 @@ export const PlayerCard = {
 
     box.innerHTML = `
       <div class="pc-body">
-        <div class="pc-big">${big.map(b => `<div><div class="pc-num">${b.v}</div><div class="pc-lab">${b.l}</div>${b.sub ? `<div class="pc-sub">${b.sub}</div>` : ''}</div>`).join('')}</div>
+        <div class="pc-big">${big.map(b => `<div><div class="pc-num">${b.v}</div><div class="pc-lab">${b.l}</div><div class="pc-sub">${b.sub || '&nbsp;'}</div></div>`).join('')}</div>
         <div class="pc-avg">${avg.map(a => `<div><span class="pc-lab">${a.l}</span><span class="pc-num sm">${a.v}</span></div>`).join('')}</div>
         <div class="pc-extra">${extra.map(x => `<div>${x.icon || ''}<span class="pc-lab">${x.l}</span><b>${x.v}</b></div>`).join('')}</div>
 
         <h3 class="pc-h3">Stagione giornata per giornata</h3>
         <div class="pc-strip">${cells}</div>
         <div class="pc-legend">${legend}</div>
-        <div class="pc-day" id="pc-day">Tocca una giornata per il dettaglio.</div>
+        <div class="pc-day" id="pc-day">${loading ? 'Carico le statistiche…' : 'Tocca una giornata per il dettaglio.'}</div>
       </div>`;
 
+    if (loading) return;
     this._current.days = days;
     // dettaglio dell'ultima giornata giocata di default
     const lastPlayed = [...days].reverse().find(d => d.st !== 'f');
@@ -371,8 +394,7 @@ export const PlayerCard = {
 .pc-next{padding:.6rem 1.2rem;font-size:.78rem;color:var(--text2);font-family:var(--font-sub,inherit);border-bottom:1px solid var(--border)}
 .pc-next b{color:var(--text)}
 .pc-chip{display:inline-block;margin-left:.3rem;padding:0 7px;border-radius:9px;font-size:.66rem;font-weight:700;color:var(--c);border:1px solid var(--c);background:color-mix(in srgb,var(--c) 14%,transparent)}
-.pc-loading,.pc-empty{padding:2rem 1.2rem;text-align:center;color:var(--text2);font-family:var(--font-sub,inherit);font-size:.85rem}
-.pc-loading{min-height:40vh}
+.pc-empty{padding:2rem 1.2rem;text-align:center;color:var(--text2);font-family:var(--font-sub,inherit);font-size:.85rem}
 .pc-body{padding:1rem 1.2rem 0}
 .pc-big{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
 .pc-big>div{padding:.2rem 0}
@@ -382,6 +404,7 @@ export const PlayerCard = {
 .pc-sub{font-size:.68rem;color:var(--text3);font-family:var(--font-text3,inherit);margin-top:1px}
 .pc-avg{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:.9rem 0 .6rem}
 .pc-avg>div{display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;padding:.55rem .8rem;border-radius:12px;background:var(--bg2)}
+.pc-avg .pc-num{min-width:2.3em;text-align:right}
 .pc-extra{display:grid;grid-template-columns:1fr 1fr;column-gap:1.2rem}
 .pc-extra>div{display:flex;align-items:center;gap:.45rem;padding:.45rem 0;border-bottom:1px solid var(--border)}
 .pc-extra .pc-lab{flex:1}
@@ -404,6 +427,9 @@ export const PlayerCard = {
 .pc-n{background:transparent;border-color:rgba(255,255,255,.18);color:var(--text3);font-family:var(--font-text3,inherit)}
 .pc-i{background:#c2410c}
 .pc-q{background:#7e3fbf}
+.pc-sk{background:var(--bg3);color:var(--text3);animation:pcPulse 1.1s ease-in-out infinite}
+@keyframes pcPulse{0%,100%{opacity:.45}50%{opacity:.85}}
+@media (prefers-reduced-motion:reduce){.pc-sk{animation:none;opacity:.6}}
 .pc-f{background:transparent;border:1px dashed rgba(255,255,255,.1);color:var(--text3);font-family:var(--font-text3,inherit)}
 .pc-legend{display:flex;flex-wrap:wrap;gap:.35rem .9rem;margin-top:.6rem;font-size:.68rem;color:var(--text2);font-family:var(--font-sub,inherit)}
 .pc-legend span{display:flex;align-items:center;gap:.3rem}

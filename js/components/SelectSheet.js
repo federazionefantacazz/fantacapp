@@ -12,6 +12,8 @@
  * Attributi facoltativi:
  *   <select data-title="Scegli la squadra">      titolo della lista (altrimenti label / aria-label)
  *   <select data-native>                         resta la tendina del sistema
+ *   <select data-search="on|off">                campo di ricerca sempre / mai (di solito: solo per
+ *                                                 elenchi lunghi di nomi, non per giornate o numeri)
  *   <option data-img="url">                      logo a sinistra (squadre, competizioni)
  *   <option data-icon="ri-...">                  icona a sinistra
  *   <option data-label="Nome" data-sub="...">    testo della riga e riga sotto (il pulsante usa il testo dell'option)
@@ -20,7 +22,13 @@ import { BackNav } from '../services/backNav.js';
 import { esc } from '../utils.js';
 
 const STYLE_ID = 'select-sheet-style';
-const SEARCH_FROM = 15; // con tante voci compare il campo di ricerca
+const SEARCH_FROM = 15; // con tante voci (di nomi) compare il campo di ricerca
+
+/** Voci tutte uguali a parte il numero ("Giornata 1", "Giornata 2"...): si scorrono, non si cercano */
+function isNumbered(items) {
+  const shapes = new Set(items.map(it => String(it.label).replace(/[\dªº°]+/g, '#').trim()));
+  return shapes.size <= 3;
+}
 
 function injectStyle() {
   if (document.getElementById(STYLE_ID)) return;
@@ -75,13 +83,13 @@ let current = null; // lista aperta: { ov, close }
  * Apre la lista. items = [{ value, label, sub, img, icon, disabled, group }]
  * onChoose(value) parte quando si tocca una riga (la lista si chiude da sola).
  */
-export function openChoiceSheet({ title = 'Scegli', items = [], value = null, onChoose, onClose } = {}) {
+export function openChoiceSheet({ title = 'Scegli', items = [], value = null, search: wantSearch, onChoose, onClose } = {}) {
   injectStyle();
   if (current) current.close();
 
   const ov = document.createElement('div');
   ov.className = 'cs-overlay';
-  const search = items.length >= SEARCH_FROM;
+  const search = wantSearch ?? (items.length >= SEARCH_FROM && !isNumbered(items));
   ov.innerHTML = `
     <div class="cs-sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}" tabindex="-1">
       <div class="cs-head">
@@ -241,6 +249,7 @@ function enhance(select) {
       title: titleOf(select),
       items: itemsOf(select),
       value: select.value,
+      search: select.dataset.search === 'on' ? true : select.dataset.search === 'off' ? false : undefined,
       onChoose: (v) => {
         if (String(v) === select.value) return;
         select.value = v;
