@@ -1,12 +1,38 @@
-import { ref, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { ref, update, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { uploadBackgroundToImgBB } from "../services/integrationImgBB.js";
 import { DiviseSection } from "./divise.js";
 import { THEME_PAGES, THEME_VERSION, THEME_FONTS, normalizeTheme } from "../services/themeService.js";
 
 let database = null;
 
+/*
+ * Temi modificabili: quelli delle competizioni (competitions/{id}) e i temi aggiuntivi
+ * (themes/{id} = { name, theme, backgroundImage }), che gli utenti scelgono in Impostazioni → Tema.
+ * Nel selettore il valore è "comp:<id>" oppure "custom:<id>"; tema e sfondo hanno la stessa forma.
+ */
+function targetOf(value) {
+  const v = String(value || '');
+  if (v.startsWith('custom:')) {
+    const id = v.slice(7);
+    const t = ThemesSection.customCache.find(x => x.id === id);
+    return t ? { kind: 'custom', id, path: `themes/${id}`, data: t, name: t.name || id } : null;
+  }
+  const id = v.startsWith('comp:') ? v.slice(5) : v;
+  const c = id && ThemesSection.competitionsCache.find(x => x.id === id);
+  return c ? { kind: 'comp', id, path: `competitions/${id}`, data: c, name: c.name || id } : null;
+}
+
+const selectedTarget = () => targetOf(document.getElementById('themeCompSelect')?.value);
+
+// firma di ciò che è nei campi: tema scelto + suo tema/sfondo nel DB
+function sigOf(value) {
+  const t = targetOf(value);
+  return String(value || '') + JSON.stringify(t ? [t.data.theme, t.data.backgroundImage, t.name] : null);
+}
+
 export const ThemesSection = {
   competitionsCache: [],
+  customCache: [],
 
   init(databaseInstance) {
     database = databaseInstance;
@@ -21,7 +47,7 @@ export const ThemesSection = {
       <!-- NAVIGAZIONE SOTTO-MENU (TAB) -->
       <div style="display: flex; gap: .5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: .8rem;">
         <button id="tab-btn-theme-competizioni" class="btn btn-blue" onclick="window.switchThemeSubTab('competizioni')" style="padding: .4rem .8rem; font-size: .85rem; width: auto;">
-          <i class="ri-trophy-line"></i> Competizioni
+          <i class="ri-palette-line"></i> Temi
         </button>
         <button id="tab-btn-theme-squadre" class="btn" onclick="window.switchThemeSubTab('squadre')" style="padding: .4rem .8rem; font-size: .85rem; width: auto; background: var(--bg3); color: var(--text2); font-family: var(--font-sub, inherit);">
           <i class="ri-shirt-line"></i> Squadre
@@ -31,17 +57,28 @@ export const ThemesSection = {
       <!-- SOTTO-PAGINA 1: COMPETIZIONI -->
       <div id="subtab-theme-competizioni" style="display: block;">
         <div class="card" style="max-width: 600px; margin-bottom: 1.5rem;">
-          <div class="label" style="color: var(--accent); margin-bottom: 1rem; font-size: .85rem;">Seleziona Competizione</div>
+          <div class="label" style="color: var(--accent); margin-bottom: 1rem; font-size: .85rem;">Seleziona Tema</div>
 
-          <label class="label">Competizione</label>
-          <select id="themeCompSelect" class="input-login" onchange="window.onThemeCompChange(this.value)">
-            <option value="">-- Seleziona una competizione --</option>
+          <label class="label">Tema da modificare</label>
+          <select id="themeCompSelect" class="input-login" data-title="Tema da modificare" onchange="window.onThemeCompChange(this.value)">
+            <option value="">-- Seleziona un tema --</option>
           </select>
+
+          <div style="display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .3rem;">
+            <button type="button" class="btn btn-blue" onclick="window.nuovoTemaAggiuntivo()" style="width: auto; padding: .4rem .8rem; font-size: .8rem;"><i class="ri-add-line"></i> Nuovo tema</button>
+            <button type="button" id="btn-dup-theme" class="btn" onclick="window.duplicaTema()" style="width: auto; padding: .4rem .8rem; font-size: .8rem; background: var(--bg3); color: var(--text2); display: none;"><i class="ri-file-copy-line"></i> Duplica</button>
+            <button type="button" id="btn-ren-theme" class="btn" onclick="window.rinominaTemaAggiuntivo()" style="width: auto; padding: .4rem .8rem; font-size: .8rem; background: var(--bg3); color: var(--text2); display: none;"><i class="ri-edit-line"></i> Rinomina</button>
+            <button type="button" id="btn-del-theme" class="btn btn-red" onclick="window.eliminaTemaAggiuntivo()" style="width: auto; padding: .4rem .8rem; font-size: .8rem; display: none;"><i class="ri-delete-bin-line"></i> Elimina</button>
+          </div>
+          <div style="font-size: .75rem; color: var(--text3); font-family: var(--font-text3, inherit); margin-top: .6rem;">
+            Ogni competizione ha il suo tema. I <strong>temi aggiuntivi</strong> non sono legati a una competizione:
+            gli utenti li scelgono in Impostazioni → Tema, insieme a quelli delle competizioni.
+          </div>
         </div>
 
-        <!-- Sfondo Competizione -->
+        <!-- Sfondo del tema -->
         <div class="card" style="max-width: 600px; margin-bottom: 1.5rem;">
-          <div class="label" style="color: var(--accent); margin-bottom: 1rem; font-size: .85rem;">Personalizza Sfondo Competizione</div>
+          <div class="label" style="color: var(--accent); margin-bottom: 1rem; font-size: .85rem;">Personalizza Sfondo</div>
 
           <!-- Preview Sfondo Attuale -->
           <div id="themePreviewContainer" style="margin-top: 1rem; display: none; text-align: center;">
@@ -72,7 +109,7 @@ export const ThemesSection = {
           </div>
 
           <div id="themeLegacyNotice" style="display:none; font-size:.75rem; color: var(--gold); margin-bottom: .8rem;">
-            Questa competizione ha un tema nel vecchio formato: è stato convertito qui sotto e passerà al nuovo formato al primo salvataggio.
+            Questo tema è nel vecchio formato: è stato convertito qui sotto e passerà al nuovo formato al primo salvataggio.
           </div>
 
           <div id="themePageTabs" style="display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1rem;">
@@ -147,27 +184,37 @@ export const ThemesSection = {
   },
 
   render(globalState) {
-    const comps = globalState.competitions || [];
-    this.competitionsCache = comps;
+    this.competitionsCache = globalState.competitions || [];
+    this.customCache = globalState.customThemes || [];
 
     const select = document.getElementById('themeCompSelect');
     if (!select) return;
 
-    const currentSelected = select.value;
+    // tema appena creato: si seleziona appena arriva dal DB
+    let currentSelected = this._pendingSelect && targetOf(this._pendingSelect) ? this._pendingSelect : select.value;
+    if (this._pendingSelect && currentSelected === this._pendingSelect) this._pendingSelect = null;
+    this.fillSelect(currentSelected);
 
-    select.innerHTML = `<option value="">-- Seleziona una competizione --</option>` +  
-      comps.map(c => `<option value="${c.id}" ${c.id === currentSelected ? 'selected' : ''}>${c.name} (${c.id})</option>`).join('');
-
-    // Ripopola i campi solo se è cambiata la competizione o il suo tema/sfondo nel DB:
+    // Ripopola i campi solo se è cambiato il tema scelto o il suo tema/sfondo nel DB:
     // altrimenti un aggiornamento in tempo reale cancellerebbe le modifiche non ancora salvate
-    if (currentSelected) {
-      const comp = comps.find(c => c.id === currentSelected);
-      const sig = currentSelected + JSON.stringify([comp && comp.theme, comp && comp.backgroundImage]);
-      if (sig !== this._lastSig) {
-        this._lastSig = sig;
-        window.onThemeCompChange(currentSelected);
-      }
+    if (sigOf(select.value) !== this._lastSig) window.onThemeCompChange(select.value);
+  },
+
+  /** Elenco: competizioni e temi aggiuntivi (si ridisegna solo se cambia) */
+  fillSelect(value) {
+    const select = document.getElementById('themeCompSelect');
+    if (!select) return;
+    const comps = this.competitionsCache, custom = this.customCache;
+    const html = `<option value="">-- Seleziona un tema --</option>` +
+      (comps.length ? `<optgroup label="Competizioni">${comps.map(c =>
+        `<option value="comp:${c.id}" ${c.logo ? `data-img="${c.logo}"` : 'data-icon="ri-trophy-line"'}>${c.name || c.id} (${c.id})</option>`).join('')}</optgroup>` : '') +
+      (custom.length ? `<optgroup label="Temi aggiuntivi">${custom.map(t =>
+        `<option value="custom:${t.id}" data-icon="ri-palette-line">${t.name || t.id}</option>`).join('')}</optgroup>` : '');
+    if (select.dataset.sig !== html) {
+      select.dataset.sig = html;
+      select.innerHTML = html;
     }
+    select.value = targetOf(value) ? value : '';
   },
 
   registerGlobalActions() {
@@ -252,20 +299,27 @@ export const ThemesSection = {
       }
     };
 
-    // Cambio opzione select competizione
-    window.onThemeCompChange = (compId) => {
-      ThemesSection._lastSig = null;
+    // Cambio del tema da modificare
+    window.onThemeCompChange = (value) => {
+      ThemesSection._lastSig = sigOf(value); // i campi ora mostrano questo
       const previewContainer = document.getElementById('themePreviewContainer');
       const bgPreview = document.getElementById('themeBgPreview');
       const btnRemove = document.getElementById('btn-remove-theme-bg');
+      const target = targetOf(value);
+      const comp = target ? target.data : null;
 
-      if (!compId || !previewContainer || !bgPreview) {
+      // duplica: per tutti; rinomina ed elimina: solo per i temi aggiuntivi
+      const show = (id, on) => { const b = document.getElementById(id); if (b) b.style.display = on ? 'inline-flex' : 'none'; };
+      show('btn-dup-theme', !!target);
+      show('btn-ren-theme', target && target.kind === 'custom');
+      show('btn-del-theme', target && target.kind === 'custom');
+
+      if (!target || !previewContainer || !bgPreview) {
         if (previewContainer) previewContainer.style.display = 'none';
         fillThemeFields(null);
         return;
       }
 
-      const comp = ThemesSection.competitionsCache.find(c => c.id === compId);
       previewContainer.style.display = 'block';
 
       if (comp && comp.backgroundImage) {
@@ -285,16 +339,15 @@ export const ThemesSection = {
       fillThemeFields(normalizeTheme(saved));
     };
 
-    // Salva/Aggiorna Sfondo Competizione
+    // Salva/Aggiorna Sfondo del tema scelto
     window.salvaSfondoCompetizione = async () => {
       if (!database) return console.error("Database non inizializzato");
 
-      const select = document.getElementById('themeCompSelect');
+      const target = selectedTarget();
       const bgFileInput = document.getElementById('themeBgFile');
-      const compId = select ? select.value : '';
 
-      if (!compId) {
-        return window.toast("Seleziona una competizione!", "err");
+      if (!target) {
+        return window.toast("Seleziona un tema!", "err");
       }
 
       if (!bgFileInput || !bgFileInput.files || bgFileInput.files.length === 0) {
@@ -313,7 +366,7 @@ export const ThemesSection = {
         
         const cleanBgFile = new File(
           [originalBgFile], 
-          `bg-${compId}.${extensionBg}`, 
+          `bg-${target.id}.${extensionBg}`, 
           { type: mimeTypeBg }
         );
 
@@ -323,7 +376,7 @@ export const ThemesSection = {
           throw new Error("Impossibile caricare l'immagine su ImgBB");
         }
 
-        await update(ref(database, `competitions/${compId}`), {
+        await update(ref(database, target.path), {
           backgroundImage: uploadedBgUrl
         });
 
@@ -333,9 +386,8 @@ export const ThemesSection = {
         newBgInput.value = '';
         bgFileInput.parentNode.replaceChild(newBgInput, bgFileInput);
 
-        const comp = ThemesSection.competitionsCache.find(c => c.id === compId);
-        if (comp) comp.backgroundImage = uploadedBgUrl;
-        window.onThemeCompChange(compId);
+        target.data.backgroundImage = uploadedBgUrl;
+        window.onThemeCompChange(document.getElementById('themeCompSelect').value);
 
       } catch (err) {
         console.error("Errore salvataggio sfondo:", err);
@@ -346,25 +398,23 @@ export const ThemesSection = {
       }
     };
 
-    // Rimuovi Sfondo Competizione
+    // Rimuovi Sfondo del tema scelto
     window.rimuoviSfondoCompetizione = async () => {
       if (!database) return;
-      const select = document.getElementById('themeCompSelect');
-      const compId = select ? select.value : '';
+      const target = selectedTarget();
 
-      if (!compId) return;
+      if (!target) return;
 
-      if (confirm("Sei sicuro di voler rimuovere lo sfondo per questa competizione?")) {
+      if (confirm(`Sei sicuro di voler rimuovere lo sfondo di "${target.name}"?`)) {
         try {
-          await update(ref(database, `competitions/${compId}`), {
+          await update(ref(database, target.path), {
             backgroundImage: ""
           });
 
           window.toast("Sfondo rimosso!", "info");
 
-          const comp = ThemesSection.competitionsCache.find(c => c.id === compId);
-          if (comp) comp.backgroundImage = "";
-          window.onThemeCompChange(compId);
+          target.data.backgroundImage = "";
+          window.onThemeCompChange(document.getElementById('themeCompSelect').value);
 
         } catch (err) {
           console.error("Errore rimozione sfondo:", err);
@@ -376,11 +426,10 @@ export const ThemesSection = {
     // Salva Palette Colori Tema
     window.salvaPaletteColori = async () => {
       if (!database) return console.error("Database non inizializzato");
-      const select = document.getElementById('themeCompSelect');
-      const compId = select ? select.value : '';
+      const target = selectedTarget();
 
-      if (!compId) {
-        return window.toast("Seleziona una competizione!", "err");
+      if (!target) {
+        return window.toast("Seleziona un tema!", "err");
       }
 
       // { v: 2, home: { title: '#...' }, ... } : le pagine senza valori non vengono salvate
@@ -394,15 +443,14 @@ export const ThemesSection = {
       const isEmpty = Object.keys(newTheme).length === 1;
 
       try {
-        await update(ref(database, `competitions/${compId}`), {
+        await update(ref(database, target.path), {
           theme: isEmpty ? null : newTheme
         });
 
         window.toast("Tema salvato con successo!", "ok");
 
-        const comp = ThemesSection.competitionsCache.find(c => c.id === compId);
-        if (comp) comp.theme = isEmpty ? null : newTheme;
-        window.onThemeCompChange(compId);
+        target.data.theme = isEmpty ? null : newTheme;
+        window.onThemeCompChange(document.getElementById('themeCompSelect').value);
 
       } catch (err) {
         console.error("Errore salvataggio palette colori:", err);
@@ -413,27 +461,88 @@ export const ThemesSection = {
     // Reset/Rimuovi Palette Colori Tema
     window.resetPaletteColori = async () => {
       if (!database) return;
-      const select = document.getElementById('themeCompSelect');
-      const compId = select ? select.value : '';
+      const target = selectedTarget();
 
-      if (!compId) return;
+      if (!target) return;
 
-      if (confirm("Sei sicuro di voler resettare il tema personalizzato (tutte le pagine) per questa competizione?")) {
+      if (confirm(`Sei sicuro di voler resettare il tema personalizzato (tutte le pagine) di "${target.name}"?`)) {
         try {
-          await update(ref(database, `competitions/${compId}`), {
+          await update(ref(database, target.path), {
             theme: null
           });
 
           window.toast("Tema resettato!", "info");
 
-          const comp = ThemesSection.competitionsCache.find(c => c.id === compId);
-          if (comp) comp.theme = null;
-          window.onThemeCompChange(compId);
+          target.data.theme = null;
+          window.onThemeCompChange(document.getElementById('themeCompSelect').value);
 
         } catch (err) {
           console.error("Errore reset palette:", err);
           window.toast("Errore durante il reset della palette", "err");
         }
+      }
+    };
+
+    // Nuovo tema aggiuntivo: vuoto, oppure copia del tema scelto (Duplica)
+    window.nuovoTemaAggiuntivo = async (fromValue = null) => {
+      if (!database) return;
+      const src = fromValue ? targetOf(fromValue) : null;
+      const name = (prompt(src ? 'Nome della copia' : 'Nome del nuovo tema', src ? `Copia di ${src.name}` : '') || '').trim();
+      if (!name) return;
+      const id = 't' + Date.now().toString(36);
+      const data = { name, createdAt: Date.now() };
+      if (src && src.data.theme) data.theme = src.data.theme;
+      if (src && src.data.backgroundImage) data.backgroundImage = src.data.backgroundImage;
+      try {
+        await set(ref(database, `themes/${id}`), data);
+        // subito selezionato (il DB lo riconferma con il prossimo aggiornamento)
+        if (!ThemesSection.customCache.some(t => t.id === id)) ThemesSection.customCache = [...ThemesSection.customCache, { id, ...data }];
+        ThemesSection._pendingSelect = `custom:${id}`;
+        ThemesSection.fillSelect(`custom:${id}`);
+        window.onThemeCompChange(`custom:${id}`);
+        window.toast(`Tema "${name}" creato: ora personalizzalo qui sotto`, "ok");
+      } catch (err) {
+        console.error("Errore creazione tema:", err);
+        window.toast("Errore durante la creazione del tema", "err");
+      }
+    };
+
+    window.duplicaTema = () => {
+      const value = document.getElementById('themeCompSelect')?.value;
+      if (!targetOf(value)) return window.toast("Seleziona il tema da duplicare!", "err");
+      window.nuovoTemaAggiuntivo(value);
+    };
+
+    window.rinominaTemaAggiuntivo = async () => {
+      const target = selectedTarget();
+      if (!target || target.kind !== 'custom') return;
+      const name = (prompt('Nuovo nome del tema', target.name) || '').trim();
+      if (!name || name === target.name) return;
+      try {
+        await update(ref(database, target.path), { name });
+        target.data.name = name;
+        ThemesSection.fillSelect(document.getElementById('themeCompSelect').value);
+        window.toast("Tema rinominato", "ok");
+      } catch (err) {
+        console.error("Errore rinomina tema:", err);
+        window.toast("Errore durante la rinomina del tema", "err");
+      }
+    };
+
+    // Chi lo stava usando torna al tema Automatico (vedi index.html, themeSourcePath)
+    window.eliminaTemaAggiuntivo = async () => {
+      const target = selectedTarget();
+      if (!target || target.kind !== 'custom') return;
+      if (!confirm(`Eliminare il tema "${target.name}"? Chi lo usa tornerà al tema automatico.`)) return;
+      try {
+        await set(ref(database, target.path), null);
+        ThemesSection.customCache = ThemesSection.customCache.filter(t => t.id !== target.id);
+        ThemesSection.fillSelect('');
+        window.onThemeCompChange('');
+        window.toast("Tema eliminato", "info");
+      } catch (err) {
+        console.error("Errore eliminazione tema:", err);
+        window.toast("Errore durante l'eliminazione del tema", "err");
       }
     };
   }

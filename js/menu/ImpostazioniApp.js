@@ -1,4 +1,4 @@
-import { esc } from './menuUtils.js';
+import { esc, sid } from './menuUtils.js';
 import { NotificationCenter } from '../services/notificationCenter.js';
 import { notificationsSupported, permissionState } from '../services/notificationService.js';
 
@@ -41,6 +41,7 @@ export const ImpostazioniApp = {
 
     root.addEventListener('change', async (e) => {
       if (e.target.id === 'set-notifiche') return this._toggleNotifiche(e.target);
+      if (e.target.id === 'set-theme') return window.setUserSetting('theme', e.target.value);
       const input = e.target.closest('input[data-setting]');
       if (!input) return;
       const def = SCHEMA.find(s => s.key === input.dataset.setting);
@@ -53,6 +54,12 @@ export const ImpostazioniApp = {
   refresh(STATE) {
     // Riallinea gli interruttori se le impostazioni cambiano (es. arrivano dal DB dopo l'apertura)
     if (!this._root) return;
+    const themeSel = this._root.querySelector('#set-theme');
+    if (themeSel) {
+      const { html, value } = this._themeOptions(STATE);
+      if (themeSel.dataset.sig !== html) { themeSel.dataset.sig = html; themeSel.innerHTML = html; }
+      if (themeSel.value !== value) themeSel.value = value;
+    }
     SCHEMA.forEach(def => {
       const input = this._root.querySelector(`input[data-setting="${def.key}"]`);
       const v = (STATE.settings || {})[def.key];
@@ -65,6 +72,27 @@ export const ImpostazioniApp = {
   },
 
   unmount() { this._root = null; },
+
+  /**
+   * Temi tra cui scegliere: Automatico (tema della competizione aperta), i temi delle
+   * competizioni (quelle con tema o sfondo) e i temi aggiuntivi creati dal Patron.
+   */
+  _themeOptions(STATE) {
+    const comps = (STATE.competitions || []).filter(c => c && (c.theme || c.backgroundImage));
+    const custom = Object.entries(STATE.customThemes || {})
+      .filter(([, t]) => t && typeof t === 'object')
+      .map(([id, t]) => ({ id, name: t.name || id }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'it'));
+    const values = ['auto', ...comps.map(c => `comp:${sid(c.id)}`), ...custom.map(t => `custom:${t.id}`)];
+    const chosen = String((STATE.settings || {}).theme || '');
+    const html = `
+      <option value="auto" data-icon="ri-magic-line" data-sub="Tema e sfondo della competizione aperta">Automatico</option>
+      ${comps.length ? `<optgroup label="Competizioni">${comps.map(c => `
+        <option value="comp:${esc(c.id)}" ${c.logo ? `data-img="${esc(c.logo)}"` : 'data-icon="ri-trophy-line"'}>${esc(c.name || c.id)}</option>`).join('')}</optgroup>` : ''}
+      ${custom.length ? `<optgroup label="Altri temi">${custom.map(t => `
+        <option value="custom:${esc(t.id)}" data-icon="ri-palette-line">${esc(t.name)}</option>`).join('')}</optgroup>` : ''}`;
+    return { html, value: values.includes(chosen) ? chosen : 'auto' };
+  },
 
   /** Notifiche sul dispositivo: accendere l'interruttore chiede il permesso (serve il tocco dell'utente). */
   async _toggleNotifiche(input) {
@@ -102,9 +130,17 @@ export const ImpostazioniApp = {
 
   _render(STATE) {
     const s = STATE.settings || {};
+    const theme = this._themeOptions(STATE);
     this._root.innerHTML = `
       <div class="mp-card">
         <div class="mp-card-title">Aspetto</div>
+        <div class="mp-row" style="flex-wrap:wrap;">
+          <div class="mp-row-main">
+            <div class="mp-row-label">Tema</div>
+            <div class="mp-muted">Automatico usa colori e sfondo della competizione aperta. Puoi sceglierne uno da tenere sempre.</div>
+          </div>
+          <select id="set-theme" class="mp-select" data-title="Tema dell'app">${theme.html}</select>
+        </div>
         ${SCHEMA.map(def => def.type === 'choice' ? `
           <div class="mp-row" style="flex-wrap:wrap;">
             <div class="mp-row-main">
@@ -129,5 +165,8 @@ export const ImpostazioniApp = {
       ${this._notificheCard(s)}
       <div class="mp-muted" style="text-align:center;">Le impostazioni sono legate al tuo account e salvate anche su questo dispositivo.</div>
     `;
+    const themeSel = this._root.querySelector('#set-theme');
+    themeSel.dataset.sig = theme.html;
+    themeSel.value = theme.value;
   }
 };

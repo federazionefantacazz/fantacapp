@@ -22,6 +22,8 @@ import { esc } from '../utils.js';
 const fmt1 = (n) => (n === null || n === undefined || !Number.isFinite(n)) ? '–' : n.toFixed(2).replace(/0$/, '');
 const ROLE_NAMES = { P: 'Portiere', D: 'Difensore', C: 'Centrocampista', A: 'Attaccante' };
 const favLabel = (on) => on ? 'Togli dai preferiti' : 'Aggiungi ai preferiti';
+// statistiche già lette in questa sessione: riaprendo la scheda si vedono subito
+const statsCache = new Map();
 
 // Stato di una giornata -> aspetto della cella
 const CELL = {
@@ -72,14 +74,21 @@ export const PlayerCard = {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && this._current) this.close();
     });
+    // stile e finestra si preparano prima, a riposo: al primo tocco la scheda si apre subito
+    const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1200));
+    idle(() => this._ensureDom());
   },
 
   _ensureDom() {
     let ov = document.getElementById('pc-overlay');
     if (ov) return ov;
+    const style = document.createElement('style');
+    style.id = 'pc-style';
+    style.textContent = this._css();
+    document.head.appendChild(style);
     ov = document.createElement('div');
     ov.id = 'pc-overlay';
-    ov.innerHTML = `<style>${this._css()}</style><div class="pc-sheet" role="dialog" aria-modal="true" aria-labelledby="pc-name" tabindex="-1"></div>`;
+    ov.innerHTML = `<div class="pc-sheet" role="dialog" aria-modal="true" aria-labelledby="pc-name" tabindex="-1"><div class="pc-top"></div><div class="pc-content"></div></div>`;
     document.body.appendChild(ov);
     ov.addEventListener('click', (e) => {
       if (e.target === ov || e.target.closest('[data-pc-close]')) this.close();
@@ -94,7 +103,6 @@ export const PlayerCard = {
   close() {
     const ov = document.getElementById('pc-overlay');
     if (ov) ov.classList.remove('open');
-    document.body.style.overflow = '';
     this._current = null;
     BackNav.pop('player-card');
     // il focus torna dove si era toccato (lettori di schermo / tastiera)
@@ -109,30 +117,42 @@ export const PlayerCard = {
     if (!p) return;
 
     const ov = this._ensureDom();
-    this._current = { p, rows: null };
-    this._render();
+    const path = `playerStats/${p.id}`;
+    const cur = this._current = { p, rows: statsCache.get(path) || null };
+    this._renderTop();
+    this._renderBody();
     ov.classList.add('open');
-    document.body.style.overflow = 'hidden';
     this._opener = this._opener || document.activeElement;
     BackNav.push('player-card', () => this.close());
     // il focus va sulla scheda (resta valido anche quando il contenuto si ridisegna)
-    ov.querySelector('.pc-sheet').focus({ preventScroll: true });
+    const sheet = ov.querySelector('.pc-sheet');
+    sheet.scrollTop = 0;
+    sheet.focus({ preventScroll: true });
 
-    const path = `playerStats/${p.id}`;
+    const still = () => this._current === cur; // chiusa o cambiata nel frattempo?
+    // intanto l'ultima copia salvata sul dispositivo (arriva prima della rete)
+    if (!cur.rows) {
+      OfflineStore.read(path).then(cached => {
+        if (still() && !cur.rows && cached !== undefined) { cur.rows = cached; this._renderBody(); }
+      });
+    }
     try {
       const snap = await OfflineStore.withTimeout(get(ref(db, path)));
-      if (!this._current || this._current.p !== p) return; // chiusa o cambiata nel frattempo
-      this._current.rows = snap.val() || {};
-      OfflineStore.save(path, this._current.rows);
+      if (!still()) return;
+      const fresh = snap.val() || {};
+      statsCache.set(path, fresh);
+      OfflineStore.save(path, fresh);
+      if (JSON.stringify(fresh) === JSON.stringify(cur.rows)) return; // già quella mostrata
+      cur.rows = fresh;
     } catch (err) {
       console.warn('Statistiche non leggibili:', err?.message);
-      // offline: l'ultima copia vista su questo dispositivo
+      if (!still() || cur.rows) return; // offline: resta la copia già mostrata
       const cached = await OfflineStore.read(path);
-      if (!this._current || this._current.p !== p) return;
-      this._current.rows = cached || {};
-      if (cached === undefined) this._current.error = true;
+      if (!still()) return;
+      cur.rows = cached || {};
+      if (cached === undefined) cur.error = true;
     }
-    this._render();
+    this._renderBody();
   },
 
   /** Riassunto delle giornate: stato per ognuna + totali */
@@ -173,12 +193,12 @@ export const PlayerCard = {
     return { days, tot, lastImported };
   },
 
-  _render() {
-    const ov = document.getElementById('pc-overlay');
-    if (!ov || !this._current) return;
-    const { p, rows, error } = this._current;
+  /** Parte alta: foto, nome, squadra, prossima partita (disegnata una volta per apertura) */
+  _renderTop() {
+    const top = document.querySelector('#pc-overlay .pc-top');
+    if (!top || !this._current) return;
+    const { p } = this._current;
     const STATE = window.STATE || {};
-    const sheet = ov.querySelector('.pc-sheet');
 
     const photo = p.photoPersonal || p.photoStandard || '';
     const team = (STATE.teams || []).find(t => String(t.id) === String(p.teamId));
@@ -207,16 +227,24 @@ export const PlayerCard = {
         </div>
       </div>
       ${next}`;
+    top.innerHTML = hero;
+  },
+
+  /** Statistiche: si ridisegnano solo queste quando arrivano i dati */
+  _renderBody() {
+    const box = document.querySelector('#pc-overlay .pc-content');
+    if (!box || !this._current) return;
+    const { p, rows, error } = this._current;
 
     if (!rows) {
-      sheet.innerHTML = hero + `<div class="pc-loading">Carico le statistiche…</div>`;
+      box.innerHTML = `<div class="pc-loading">Carico le statistiche…</div>`;
       return;
     }
 
     const { days, tot, lastImported } = this._compute(p, rows);
 
     if (!lastImported) {
-      sheet.innerHTML = hero + `<div class="pc-empty">${error
+      box.innerHTML = `<div class="pc-empty">${error
         ? 'Non riesco a leggere le statistiche. Controlla la connessione e riapri la scheda.'
         : 'Le statistiche compaiono dopo il primo "Calcola giornata" del Patron.'}</div>`;
       return;
@@ -257,7 +285,7 @@ export const PlayerCard = {
 
     const legend = ['t', 's', 'n', 'i', 'q'].map(k => `<span><i class="pc-sw ${CELL[k].cls}"></i>${CELL[k].label}</span>`).join('');
 
-    sheet.innerHTML = hero + `
+    box.innerHTML = `
       <div class="pc-body">
         <div class="pc-big">${big.map(b => `<div><div class="pc-num">${b.v}</div><div class="pc-lab">${b.l}</div>${b.sub ? `<div class="pc-sub">${b.sub}</div>` : ''}</div>`).join('')}</div>
         <div class="pc-avg">${avg.map(a => `<div><span class="pc-lab">${a.l}</span><span class="pc-num sm">${a.v}</span></div>`).join('')}</div>
@@ -320,7 +348,7 @@ export const PlayerCard = {
 
   _css() {
     return `
-#pc-overlay{position:fixed;inset:0;z-index:10050;background:var(--overlay-bg, rgba(5,8,15,.7));backdrop-filter:blur(3px);display:none;align-items:flex-end;justify-content:center}
+#pc-overlay{position:fixed;inset:0;z-index:10050;background:var(--overlay-bg, rgba(5,8,15,.7));display:none;align-items:flex-end;justify-content:center}
 #pc-overlay.open{display:flex}
 #pc-overlay .pc-sheet{width:100%;max-width:560px;max-height:92vh;overflow-y:auto;background:var(--bg,#1a1e24);border:1px solid var(--border);border-radius:20px 20px 0 0;padding-bottom:calc(1rem + env(safe-area-inset-bottom,0px));animation:pcUp .2s ease-out;outline:none}
 @media (min-width:700px){#pc-overlay{align-items:center}#pc-overlay .pc-sheet{border-radius:20px}}
@@ -344,6 +372,7 @@ export const PlayerCard = {
 .pc-next b{color:var(--text)}
 .pc-chip{display:inline-block;margin-left:.3rem;padding:0 7px;border-radius:9px;font-size:.66rem;font-weight:700;color:var(--c);border:1px solid var(--c);background:color-mix(in srgb,var(--c) 14%,transparent)}
 .pc-loading,.pc-empty{padding:2rem 1.2rem;text-align:center;color:var(--text2);font-family:var(--font-sub,inherit);font-size:.85rem}
+.pc-loading{min-height:40vh}
 .pc-body{padding:1rem 1.2rem 0}
 .pc-big{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
 .pc-big>div{padding:.2rem 0}

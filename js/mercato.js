@@ -147,7 +147,7 @@ export const MercatoPage = {
     if (select.dataset.key === key) return;
     select.dataset.key = key;
     select.innerHTML = '<option value="">-- Scegli la squadra --</option>' +
-      others.map(t => `<option value="${esc(t.id)}">${esc(t.name)}${t.owner ? ` (${esc(t.owner)})` : ''}</option>`).join('');
+      others.map(t => `<option value="${esc(t.id)}" data-img="${esc(t.logo || 'icons/icon-192.png')}" data-label="${esc(t.name)}" data-sub="${esc(t.owner ? 'Patron: ' + t.owner : '')}">${esc(t.name)}${t.owner ? ` (${esc(t.owner)})` : ''}</option>`).join('');
     select.value = this.ui.dest || '';
   },
 
