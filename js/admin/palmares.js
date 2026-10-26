@@ -102,7 +102,7 @@ export const PalmaresSection = {
     // Popola select squadre
     if (teamsList.length > 0) {
       teamSelect.innerHTML = '<option value="">-- Seleziona Squadra --</option>' +
-        teamsList.map(t => `<option value="${t.id}">${t.name || t.id} (${t.id})</option>`).join('');
+        teamsList.map(t => `<option value="${t.id}" data-img="${t.logo || 'icons/icon-192.png'}" data-label="${t.name || t.id}" data-sub="${t.id}">${t.name || t.id} (${t.id})</option>`).join('');
     } else {
       teamSelect.innerHTML = '<option value="">-- Nessuna squadra trovata --</option>';
     }

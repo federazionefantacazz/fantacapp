@@ -16,7 +16,7 @@ export const SettingsService = {
   // Valori predefiniti nel caso in cui l'utente non abbia ancora salvato nulla
   getDefaultSettings() {
     return {
-      theme: 'default',
+      theme: 'auto',                // tema dell'app: auto (della competizione aperta) | comp:<id> | custom:<id>
       notificationsEnabled: true,
       soundEnabled: false,
       compactView: false,

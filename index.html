@@ -184,7 +184,7 @@
 .side-menu-item.patron i { color: var(--gold); }
 .side-menu-item.danger, .side-menu-item.danger i { color: var(--accent3); }
 
-#userCompSelect {
+#userCompSelect, [data-cs-for="userCompSelect"] {
   appearance: none;
   -webkit-appearance: none;
   background-color: rgba(255, 255, 255, 0.07) !important;
@@ -208,6 +208,7 @@
 }
 
 #userCompSelect option { background: var(--drawer-bg); color: var(--bar-text); }
+[data-cs-for="userCompSelect"] .cs-caret { display: none; }
 
 .field-player select {
   -webkit-appearance: none;
@@ -667,6 +668,10 @@ import { OfflineStore } from './js/services/offlineStore.js';
 import { esc, sameId } from './js/utils.js';
 import { BackNav } from './js/services/backNav.js';
 import { Connectivity } from './js/services/connectivity.js';
+import { installSelectSheets } from './js/components/SelectSheet.js';
+
+// tutte le tendine (<select>) diventano la lista dell'app al posto della scelta del sistema
+installSelectSheets();
 
 // Dati di Firebase con copia locale: all'avvio (anche offline) si vede subito l'ultimo stato noto
 // cachedPaths = nodi che mostrano ancora la copia locale (non ancora riallineati col server)
@@ -699,6 +704,13 @@ window.STATE = {
   compBackgroundUrl: '',
   booted: false 
 };
+
+// Temi aggiuntivi creati dal Patron (themes/{id} = { name, theme, backgroundImage }): si scelgono nelle Impostazioni
+watch('themes', snap => {
+  window.STATE.customThemes = snap.val() || {};
+  caricaTema();
+  refreshUI();
+});
 
 // SOTTOSCRIZIONE AI TROFEI DA FIREBASE
 watch('trophies', snap => {
@@ -859,23 +871,56 @@ function caricaDatiCompetizione(compId) {
     gestisciSwitchLive(liveAttivo);
   });
 
-  subCached(`competitions/${compId}/backgroundImage`, snap => {
-    window.STATE.compBackgroundUrl = snap.val() || '';
-    refreshBackground();
-    cacheUserTheme(currentUid(), { comp: compId, bg: window.STATE.compBackgroundUrl });
-  });
-
-  /* Mappatura completa delle variabili CSS del tema (vedi js/services/themeService.js) */
-  subCached(`competitions/${compId}/theme`, snap => {
-    const css = applyThemeVars(snap.val());
-    // il tema resta legato all'utente: al prossimo avvio è già applicato
-    cacheUserTheme(currentUid(), { comp: compId, css });
-  });
+  // tema e sfondo: di questa competizione se nelle Impostazioni il tema è "Automatico"
+  caricaTema();
 
   subCached(`competitions/${compId}/matches`, snap => { 
     window.STATE.matches = snap.val() || {}; 
     refreshUI(); 
   });
+}
+
+/* ─── Tema dell'app ──────────────────────────────────────────────────────
+   Impostazioni → Tema: "auto" (predefinito) = tema e sfondo della competizione aperta;
+   "comp:<id>" = sempre quello di una competizione; "custom:<id>" = un tema aggiuntivo del Patron.
+   Se il tema scelto non esiste più si torna ad Automatico. */
+let themeUnsubs = [];
+let themeSrc = '';
+
+function themeSourcePath() {
+  const pick = String((window.STATE.settings || {}).theme || '');
+  if (pick.startsWith('comp:')) {
+    const id = pick.slice(5);
+    const comps = window.STATE.competitions || [];
+    if (!comps.length || comps.some(c => String(c.id) === id)) return `competitions/${id}`;
+  } else if (pick.startsWith('custom:')) {
+    const id = pick.slice(7);
+    const custom = window.STATE.customThemes; // undefined finché non arrivano: si dà fiducia alla scelta
+    if (!custom || custom[id]) return `themes/${id}`;
+  }
+  const cur = window.STATE.currentCompetition;
+  return cur ? `competitions/${cur}` : '';
+}
+
+function caricaTema() {
+  const src = themeSourcePath();
+  if (!src || src === themeSrc) return;
+  themeSrc = src;
+  themeUnsubs.forEach(unsub => { try { unsub(); } catch (e) {} });
+  themeUnsubs = [];
+
+  themeUnsubs.push(watch(`${src}/backgroundImage`, snap => {
+    window.STATE.compBackgroundUrl = snap.val() || '';
+    refreshBackground();
+    cacheUserTheme(currentUid(), { bg: window.STATE.compBackgroundUrl });
+  }));
+
+  /* Mappatura completa delle variabili CSS del tema (vedi js/services/themeService.js) */
+  themeUnsubs.push(watch(`${src}/theme`, snap => {
+    const css = applyThemeVars(snap.val());
+    // il tema resta legato all'utente: al prossimo avvio è già applicato
+    cacheUserTheme(currentUid(), { css });
+  }));
 }
 
 function gestisciSwitchLive(liveAttivo) {
@@ -1113,6 +1158,7 @@ async function loadUserSettings(firebaseUser) {
   if (!firebaseUser) {
     window.STATE.settings = SettingsService.getDefaultSettings();
     refreshBackground();
+    caricaTema();
     return;
   }
   localStorage.setItem(LAST_UID_KEY, firebaseUser.uid);
@@ -1126,12 +1172,15 @@ async function loadUserSettings(firebaseUser) {
   }
   refreshBackground();
 
+  caricaTema();
+
   // 2) poi dal DB
   const fresh = await SettingsService.getSettings(firebaseUser.uid);
   if (auth.currentUser && auth.currentUser.uid === firebaseUser.uid) {
     window.STATE.settings = fresh;
     refreshBackground();
     applyPreferredCompetition();
+    caricaTema();
     refreshUI();
   }
 }
@@ -1150,6 +1199,7 @@ function applyPreferredCompetition() {
 window.setUserSetting = async function(key, value) {
   window.STATE.settings = { ...window.STATE.settings, [key]: value };
   refreshBackground();
+  if (key === 'theme') caricaTema();
   const uid = auth.currentUser && auth.currentUser.uid;
   if (!uid) return;
   try {
@@ -1259,7 +1309,7 @@ function populateLoginDropdown() {
 
   let optionsHTML = '<option value="">Scegli la tua squadra...</option>';
   window.STATE.teams.forEach(t => {
-    optionsHTML += `<option value="${esc(t.id)}">${esc(t.name)} (${esc(t.owner || 'Nessun proprietario')})</option>`;
+    optionsHTML += `<option value="${esc(t.id)}" data-img="${esc(t.logo || 'icons/icon-192.png')}" data-label="${esc(t.name)}" data-sub="${esc(t.owner ? 'Patron: ' + t.owner : 'Nessun proprietario')}">${esc(t.name)} (${esc(t.owner || 'Nessun proprietario')})</option>`;
   });
   select.innerHTML = optionsHTML;
   endResume(); // nessuna squadra associata: serve la scelta
@@ -1306,9 +1356,10 @@ watch('competitions', snap => {
         window.STATE.currentCompetition = pick;
         caricaDatiCompetizione(pick);
       }
-      userSelect.innerHTML = list.map(c => `<option value="${esc(c.id)}" ${sameId(window.STATE.currentCompetition, c.id) ? 'selected' : ''}>${esc(c.name || c.id)}</option>`).join('');
+      userSelect.innerHTML = list.map(c => `<option value="${esc(c.id)}" ${c.logo ? `data-img="${esc(c.logo)}"` : 'data-icon="ri-trophy-line"'} ${sameId(window.STATE.currentCompetition, c.id) ? 'selected' : ''}>${esc(c.name || c.id)}</option>`).join('');
     }
   }
+  caricaTema(); // il tema scelto nelle Impostazioni potrebbe essere di una competizione eliminata
   refreshUI();
 });
 
