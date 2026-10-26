@@ -34,6 +34,8 @@ function injectStadiumStyle() {
     .kit-preview > #std-3d { position: absolute; inset: 0; }
     .kit-hint.std-hint { top: .4rem; bottom: auto; } /* in basso ci sono i pulsanti delle viste */
     .std-views { flex-wrap: wrap; justify-content: flex-end; }
+    .kit-zoom-btn.std-ext-btn { top: calc(.4rem + 44px); }
+    .kit-zoom-btn.std-ext-btn.on, .kit-zoom-bar button.on { border-color: var(--accent); color: var(--accent); }
     .std-cap { text-align: center; font-size: .75rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-top: .35rem; }
     .std-cap b { color: var(--text); font-variant-numeric: tabular-nums; }
     .std-preset { width: 100%; text-align: left; background: var(--bg3); border: 2px solid transparent; border-radius: 12px; padding: .6rem .75rem;
@@ -86,6 +88,7 @@ export const StadioSquadra = {
   _open: 'name',
   _busy: false,
   _night: false,
+  _hideExt: false, // esterno nascosto nell'anteprima (non si salva)
 
   mount(body, STATE) {
     injectStadiumStyle();
@@ -103,6 +106,7 @@ export const StadioSquadra = {
     this._saved = sig(this._st);
     this._open = 'name';
     this._night = false;
+    this._hideExt = false;
     this._renderAll();
 
     root.addEventListener('click', (e) => this._onClick(e));
@@ -149,6 +153,7 @@ export const StadioSquadra = {
           <div class="kit-hint std-hint"><i class="ri-drag-move-line"></i> Trascina per ruotare</div>
           <div class="kit-view-btns std-views">${VIEWS.map(([v, l]) => `<button data-act="view" data-v="${v}">${l}</button>`).join('')}<button data-act="night">${this._night ? 'Giorno' : 'Notte'}</button></div>
           <button class="kit-zoom-btn" data-act="zoom-open" title="Ingrandisci lo stadio" aria-label="Ingrandisci lo stadio"><i class="ri-zoom-in-line"></i></button>
+          ${this._extBtn()}
         </div>
         <div class="std-cap" id="std-cap"></div>
         <div class="kit-dirty" id="std-dirty"></div>
@@ -177,6 +182,7 @@ export const StadioSquadra = {
     if (box && !this._viewer) {
       this._viewer = createStadiumViewer(box);
       if (this._night) this._viewer.setNight(true);
+      if (this._hideExt) this._viewer.setExterior(false);
       this._viewer.ready.then(() => { const l = this._root && this._root.querySelector('#std-loading'); if (l) l.remove(); })
         .catch(e => { console.error(e); const l = this._root && this._root.querySelector('#std-loading'); if (l) l.textContent = 'Il 3D non è supportato su questo dispositivo'; });
     }
@@ -350,10 +356,7 @@ export const StadioSquadra = {
       ${this._opts('roofReach', ROOF_REACHES, s.roofReach)}
       ${s.roof === 'shell' ? `
       <div class="kit-sub">Disegno dell'involucro</div>
-      ${this._opts('shellPattern', SHELL_PATTERNS, s.shellPattern)}
-      <div class="kit-sub">Cuscini scuri sul bordo</div>
-      ${this._seg([['1', 'Sì', s.shellDots], ['0', 'No', !s.shellDots]], 'data-act="set" data-k="shellDots"')}
-      <div class="std-desc">${s.shellDots ? 'Cuscini trasparenti sparsi sulla parte più gonfia dell\'involucro: dall\'alto fanno il contorno scuro tutto intorno, come all\'Allianz Arena. Di notte restano spenti.' : 'Tutti i cuscini dell\'involucro uguali.'}</div>` : ''}
+      ${this._opts('shellPattern', SHELL_PATTERNS, s.shellPattern)}` : ''}
       ${s.roof === 'dome' ? `
       <div class="kit-sub">Denti triangolari alla base</div>
       ${this._seg([['1', 'Sì', s.domeTeeth], ['0', 'No', !s.domeTeeth]], 'data-act="set" data-k="domeTeeth"')}
@@ -629,6 +632,12 @@ export const StadioSquadra = {
     o[parts[parts.length - 1]] = value;
   },
 
+  /** Pulsante per nascondere l'esterno (copertura, facciata...) e guardare dentro: solo anteprima, non si salva. */
+  _extBtn() {
+    const t = this._hideExt ? 'Mostra l\'esterno' : 'Nascondi l\'esterno (si vede dentro)';
+    return `<button class="kit-zoom-btn std-ext-btn ${this._hideExt ? 'on' : ''}" data-act="exterior" title="${t}" aria-label="${t}"><i class="${this._hideExt ? 'ri-eye-line' : 'ri-eye-off-line'}"></i></button>`;
+  },
+
   /** Finestra a tutto schermo con lo stadio: ruota in ogni direzione, zoom (due dita, rotella o + / −) e spostamento. */
   _openZoom() {
     if (this._zoom) return;
@@ -640,12 +649,14 @@ export const StadioSquadra = {
       <div class="kit-zoom-bar">
         ${VIEWS.map(([v, l]) => `<button data-z="${v}">${l}</button>`).join('')}
         <button data-z="night">${this._night ? 'Giorno' : 'Notte'}</button>
+        <button data-z="ext" class="${this._hideExt ? 'on' : ''}">${this._hideExt ? 'Mostra esterno' : 'Nascondi esterno'}</button>
         <button data-z="in" aria-label="Avvicina">＋ Zoom</button>
         <button data-z="out" aria-label="Allontana">− Zoom</button>
       </div>`;
     document.body.appendChild(el);
     const viewer = createStadiumViewer(el.querySelector('.kit-zoom-stage > div'), { zoom: true });
     let night = this._night;
+    viewer.setExterior(!this._hideExt);
     viewer.update(this._st, { logo: this._logo() }).then(() => viewer.setNight(night)).catch(err => console.error('Stadio:', err));
     const close = () => { viewer.dispose(); el.remove(); this._zoom = null; };
     el.addEventListener('click', (e) => {
@@ -656,9 +667,23 @@ export const StadioSquadra = {
       else if (z === 'in') viewer.zoomBy(.75);
       else if (z === 'out') viewer.zoomBy(1 / .75);
       else if (z === 'night') { night = !night; b.textContent = night ? 'Giorno' : 'Notte'; viewer.setNight(night); }
+      else if (z === 'ext') {
+        // nascosto anche nell'anteprima sotto, che resta uguale quando si chiude lo zoom
+        this._setExterior(!this._hideExt);
+        b.textContent = this._hideExt ? 'Mostra esterno' : 'Nascondi esterno';
+        b.classList.toggle('on', this._hideExt);
+        viewer.setExterior(!this._hideExt);
+      }
       else viewer.setView(z);
     });
     this._zoom = { close };
+  },
+
+  _setExterior(hide) {
+    this._hideExt = !!hide;
+    if (this._viewer) this._viewer.setExterior(!this._hideExt);
+    const old = this._root && this._root.querySelector('.std-ext-btn');
+    if (old) old.outerHTML = this._extBtn();
   },
 
   _onClick(e) {
@@ -685,6 +710,7 @@ export const StadioSquadra = {
       case 'view':
         if (this._viewer) this._viewer.setView(v);
         return;
+      case 'exterior': this._setExterior(!this._hideExt); return;
       case 'night':
         this._night = !this._night;
         btn.textContent = this._night ? 'Giorno' : 'Notte';
@@ -702,7 +728,7 @@ export const StadioSquadra = {
           if (inp) { inp.focus(); inp.select(); }
           return;
         }
-        const value = k === 'rings' || k === 'ringsEnds' || k === 'standTextRing' ? Number(v) : ['track', 'ramps', 'boxes', 'horseshoe', 'vomitories', 'domeTeeth', 'shellDots'].includes(k) ? v === '1' : v;
+        const value = k === 'rings' || k === 'ringsEnds' || k === 'standTextRing' ? Number(v) : ['track', 'ramps', 'boxes', 'horseshoe', 'vomitories', 'domeTeeth'].includes(k) ? v === '1' : v;
         // "Ogni settore e anello": si parte dai colori che lo stadio ha adesso
         if (k === 'seatMode' && v === 'grid' && this._st.seatMode !== 'grid') this._update(st => { st.seatGrid = seatGridFrom(st); st.seatMode = 'grid'; });
         else if (k === 'entrance' && v !== 'none') this._update(st => {
