@@ -1,12 +1,13 @@
 import { BackNav } from './services/backNav.js';
-import { mountKitShowcase, kitPairHTML } from './components/Kit3D.js';
-import { renderStadiumImage } from './components/Stadium3D.js';
+import { mountKitShowcase, kitPairHTML, kitPairShown, openKitOverlay } from './components/Kit3D.js';
+import { renderStadiumImage, openStadiumOverlay } from './components/Stadium3D.js';
 import { getWonTrophies } from './services/palmaresService.js';
 import { esc, sameId } from './utils.js';
 
 // riquadri sopra la rosa (maglie e stadio), come quelli della Home
 const BOX = 'background: var(--subbox-bg, rgba(0,0,0,0.18)); border: 1px solid var(--border); border-radius: 14px; padding: 0.6rem 0.7rem; min-width: 0;';
-const BOX_LABEL = 'font-size: 0.7rem; font-weight: 700; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase; margin-bottom: 0.3rem;';
+const BOX_LABEL = 'display: flex; align-items: center; justify-content: space-between; gap: .3rem; font-size: 0.7rem; font-weight: 700; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase; margin-bottom: 0.3rem;';
+const ZOOM_HINT = '<i class="ri-zoom-in-line" style="font-size: .9rem; color: var(--accent);" aria-hidden="true"></i>';
 
 /* Nome della squadra nella testata: mai tagliato. Si rimpicciolisce (da 26px a 16px) per stare
    su una riga; se non basta, alla misura minima va a capo. */
@@ -151,10 +152,25 @@ export const TeamsPage = {
     if (opts.info) this.openInfoModal(team, STATE);
   },
 
-  /** Maglie (prima e seconda, come in Home) e stadio della squadra, sopra la rosa */
+  /**
+   * Maglie (prima e seconda, come in Home) e stadio della squadra, sopra la rosa.
+   * Toccando la maglia mostrata in grande (o lo stadio) si apre lo zoom 3D; la maglia piccola le scambia.
+   */
   drawBoxes(team) {
     const box = document.getElementById('team-detail-boxes');
     if (!box) return;
+    this._boxTeam = team;
+    if (!box.dataset.bound) {
+      box.dataset.bound = '1';
+      const open = (e) => {
+        const t = this._boxTeam;
+        if (!t) return;
+        if (e.target.closest('[data-zoom="kit"]')) this.openKitZoom(t, kitPairShown(box));
+        else if (e.target.closest('[data-zoom="stadium"]')) this.openStadiumZoom(t);
+      };
+      box.addEventListener('click', open);
+      box.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(e); } });
+    }
     const st = team.stadium;
     const hasKit = !!(team.kit || team.kit2);
     // si ridisegna solo se cambiano maglie, logo o stadio (i refresh dei dati sono frequenti)
@@ -164,15 +180,15 @@ export const TeamsPage = {
     if (!hasKit && !st) { box.innerHTML = ''; return; }
 
     const kitBox = hasKit ? `
-      <div style="${BOX} display:flex; flex-direction:column;">
-        <div style="${BOX_LABEL}">${team.kit && team.kit2 ? 'Maglie' : 'Maglia'}</div>
+      <div data-zoom="kit" role="button" tabindex="0" aria-label="Ingrandisci la maglia" style="${BOX} display:flex; flex-direction:column; cursor:pointer;">
+        <div style="${BOX_LABEL}">${team.kit && team.kit2 ? 'Maglie' : 'Maglia'} ${ZOOM_HINT}</div>
         <div style="flex:1; display:flex; align-items:center; justify-content:center;">
           ${kitPairHTML(team.kit, team.kit2, { crestUrl: team.logo || '', width: 360 }, `style="width:100%; max-width:${team.kit && team.kit2 ? 190 : 150}px; margin:0 auto;"`)}
         </div>
       </div>` : '';
     const stadiumBox = st ? `
-      <div style="${BOX} display:flex; flex-direction:column;">
-        <div style="${BOX_LABEL}">Stadio</div>
+      <div data-zoom="stadium" role="button" tabindex="0" aria-label="Ingrandisci lo stadio" style="${BOX} display:flex; flex-direction:column; cursor:pointer;">
+        <div style="${BOX_LABEL}">Stadio ${ZOOM_HINT}</div>
         <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:.3rem;">
           <div class="td-stadium" style="width:100%; aspect-ratio:5 / 3; display:flex; align-items:center; justify-content:center;">
             ${st.image ? `<img src="${esc(st.image)}" alt="Stadio" loading="lazy" decoding="async" style="width:100%; height:100%; object-fit:contain;">` : '<i class="ri-building-2-line" style="font-size:2.4rem; color:var(--text3);"></i>'}
@@ -190,6 +206,31 @@ export const TeamsPage = {
         if (url && ph && box.dataset.key === key) ph.innerHTML = `<img src="${url}" alt="Stadio" style="width:100%; height:100%; object-fit:contain;">`;
       });
     }
+  },
+
+  /** Zoom 3D delle maglie, a partire da quella mostrata in grande (1 o 2) */
+  openKitZoom(team, shown = 1) {
+    const items = [
+      team.kit && { kit: team.kit, label: 'Prima maglia', title: `${team.name || ''} · Prima maglia`, crestUrl: team.logo || '' },
+      team.kit2 && { kit: team.kit2, label: 'Seconda maglia', title: `${team.name || ''} · Seconda maglia`, crestUrl: team.logo || '' }
+    ].filter(Boolean);
+    if (!items.length) return;
+    this._closeZoom();
+    const start = team.kit && team.kit2 && shown === 2 ? 1 : 0;
+    this._zoom = openKitOverlay(items, start, { onClose: () => { this._zoom = null; BackNav.pop('team-zoom'); } });
+    BackNav.push('team-zoom', () => this._closeZoom());
+  },
+
+  /** Zoom 3D dello stadio (come nell'editor: inquadrature, notte, zoom) */
+  openStadiumZoom(team) {
+    if (!team.stadium) return;
+    this._closeZoom();
+    this._zoom = openStadiumOverlay(team.stadium, { logo: team.logo || '', onClose: () => { this._zoom = null; BackNav.pop('team-zoom'); } });
+    BackNav.push('team-zoom', () => this._closeZoom());
+  },
+
+  _closeZoom() {
+    if (this._zoom) this._zoom.close();
   },
 
   drawRosa(teamId, STATE) {
@@ -339,6 +380,7 @@ export const TeamsPage = {
   },
 
   backToTeamsList() {
+    this._closeZoom();
     BackNav.pop('team-detail');
     this.activeTeamId = null;
     this.returnTo = null;

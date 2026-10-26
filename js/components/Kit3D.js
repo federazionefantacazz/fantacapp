@@ -516,7 +516,7 @@ export function mountKitShowcase(container, kit, kit2, opts = {}) {
 }
 
 const ZOOM_STYLE_ID = 'kit-zoom-style';
-function injectZoomStyle() {
+export function injectZoomStyle() {
   if (document.getElementById(ZOOM_STYLE_ID)) return;
   const style = document.createElement('style');
   style.id = ZOOM_STYLE_ID;
