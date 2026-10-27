@@ -1,15 +1,16 @@
 /**
- * ImageCropper - ritaglio quadrato di un'immagine prima del caricamento (logo squadra).
+ * ImageCropper - ritaglio di un'immagine prima del caricamento (logo squadra).
  * ------------------------------------------------------------------
- * cropSquare(file) apre una schermata con l'immagine e un riquadro quadrato:
+ * cropImage(file) apre una schermata con l'immagine e un riquadro rettangolare:
  *  - si trascina il riquadro per spostarlo
- *  - si tirano gli angoli (o si usa il cursore "Dimensione") per farlo grande quanto si vuole
- * Risolve con un File PNG ritagliato (trasparenza mantenuta), con il file originale
- * se si sceglie "Intera", oppure con null se si annulla.
+ *  - si tirano gli angoli per sceglierne larghezza e altezza (qualsiasi forma)
+ *  - il cursore "Dimensione" lo ingrandisce o rimpicciolisce mantenendo la forma
+ * All'inizio il riquadro prende tutta l'immagine. Risolve con un File PNG ritagliato
+ * (trasparenza mantenuta) oppure con null se si annulla.
  */
 import { BackNav } from '../services/backNav.js';
 
-const MAX_OUT = 1024;  // lato massimo del PNG ritagliato (poi l'upload lo comprime comunque)
+const MAX_OUT = 1024;  // lato più lungo del PNG ritagliato (poi l'upload lo comprime comunque)
 const MIN_SIDE = 32;   // lato minimo del riquadro, in pixel dell'immagine
 const MIN_SCREEN = 56; // ...e a schermo, così gli angoli restano afferrabili
 const STYLE_ID = 'image-cropper-style';
@@ -63,7 +64,7 @@ function loadImage(url) {
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
-export async function cropSquare(file, { title = 'Ritaglia il logo' } = {}) {
+export async function cropImage(file, { title = 'Ritaglia il logo' } = {}) {
   injectStyle();
   const url = URL.createObjectURL(file);
   let img;
@@ -75,10 +76,9 @@ export async function cropSquare(file, { title = 'Ritaglia il logo' } = {}) {
     return file;
   }
   const W = img.naturalWidth, H = img.naturalHeight;
-  const maxS = Math.min(W, H);
-  let minS = Math.min(MIN_SIDE, maxS);
-  // riquadro in pixel dell'immagine: all'inizio il quadrato più grande, al centro
-  const box = { s: maxS, x: (W - maxS) / 2, y: (H - maxS) / 2 };
+  let minS = Math.min(MIN_SIDE, W, H);
+  // riquadro in pixel dell'immagine: all'inizio tutta l'immagine
+  const box = { x: 0, y: 0, w: W, h: H };
 
   const ov = document.createElement('div');
   ov.id = 'crop-overlay';
@@ -86,7 +86,7 @@ export async function cropSquare(file, { title = 'Ritaglia il logo' } = {}) {
   ov.setAttribute('aria-modal', 'true');
   ov.innerHTML = `
     <div class="cr-title">${title}</div>
-    <div class="cr-hint">Trascina il quadrato e tira gli angoli per sceglierne la grandezza</div>
+    <div class="cr-hint">Trascina il riquadro e tira gli angoli per sceglierne larghezza e altezza</div>
     <div class="cr-stage">
       <div class="cr-wrap">
         <img src="${url}" alt="">
@@ -97,12 +97,11 @@ export async function cropSquare(file, { title = 'Ritaglia il logo' } = {}) {
       </div>
     </div>
     <label class="cr-size"><i class="ri-zoom-out-line"></i>
-      <input type="range" min="${minS}" max="${maxS}" step="1" value="${maxS}" aria-label="Dimensione del ritaglio">
+      <input type="range" min="0" max="1000" step="1" value="1000" aria-label="Dimensione del ritaglio">
       <i class="ri-zoom-in-line"></i>
     </label>
     <div class="cr-actions">
       <button type="button" data-act="cancel">Annulla</button>
-      <button type="button" data-act="full" title="Carica l'immagine senza ritagliarla">Intera</button>
       <button type="button" class="cr-ok" data-act="ok"><i class="ri-crop-line"></i> Ritaglia</button>
     </div>`;
   document.body.appendChild(ov);
@@ -113,13 +112,19 @@ export async function cropSquare(file, { title = 'Ritaglia il logo' } = {}) {
   const range = ov.querySelector('input[type="range"]');
   let k = 1; // pixel a schermo per pixel dell'immagine
 
+  // il riquadro più grande con la forma attuale che sta nell'immagine
+  const maxBox = () => {
+    const a = box.w / box.h;
+    const w = Math.min(W, H * a);
+    return { w, h: w / a };
+  };
+
   // immagine adattata allo spazio disponibile (si ricalcola se ruota lo schermo)
   function layout() {
     const availW = stage.clientWidth, availH = stage.clientHeight;
     if (!availW || !availH) return;
     k = Math.min(availW / W, availH / H);
-    minS = Math.min(maxS, Math.max(MIN_SIDE, MIN_SCREEN / k));
-    range.min = Math.round(minS);
+    minS = Math.min(W, H, Math.max(MIN_SIDE, MIN_SCREEN / k));
     wrap.style.width = Math.round(W * k) + 'px';
     wrap.style.height = Math.round(H * k) + 'px';
     draw();
@@ -127,15 +132,19 @@ export async function cropSquare(file, { title = 'Ritaglia il logo' } = {}) {
   function draw() {
     boxEl.style.left = (box.x * k) + 'px';
     boxEl.style.top = (box.y * k) + 'px';
-    boxEl.style.width = boxEl.style.height = (box.s * k) + 'px';
-    range.value = Math.round(box.s);
+    boxEl.style.width = (box.w * k) + 'px';
+    boxEl.style.height = (box.h * k) + 'px';
+    range.value = Math.round(box.w / maxBox().w * 1000);
   }
-  // nuovo lato mantenendo il centro del riquadro
-  function resizeAroundCenter(s) {
-    const cx = box.x + box.s / 2, cy = box.y + box.s / 2;
-    box.s = clamp(s, minS, maxS);
-    box.x = clamp(cx - box.s / 2, 0, W - box.s);
-    box.y = clamp(cy - box.s / 2, 0, H - box.s);
+  // cursore: stessa forma, più grande o più piccolo, attorno al centro
+  function resizeAroundCenter(t) {
+    const m = maxBox();
+    const tMin = Math.max(minS / m.w, minS / m.h);
+    const f = clamp(t, tMin, 1);
+    const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+    box.w = m.w * f; box.h = m.h * f;
+    box.x = clamp(cx - box.w / 2, 0, W - box.w);
+    box.y = clamp(cy - box.h / 2, 0, H - box.h);
     draw();
   }
 
@@ -149,27 +158,26 @@ export async function cropSquare(file, { title = 'Ritaglia il logo' } = {}) {
     e.preventDefault();
     const p = toImg(e);
     const corner = e.target.closest('.cr-h')?.dataset.c || null;
-    drag = { id: e.pointerId, corner, p0: p, x0: box.x, y0: box.y, s0: box.s,
-      ax: corner && corner.includes('w') ? box.x + box.s : box.x,
-      ay: corner && corner.includes('n') ? box.y + box.s : box.y };
+    drag = { id: e.pointerId, corner, p0: p, x0: box.x, y0: box.y,
+      ax: corner && corner.includes('w') ? box.x + box.w : box.x,
+      ay: corner && corner.includes('n') ? box.y + box.h : box.y };
     boxEl.setPointerCapture(e.pointerId);
   });
   boxEl.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.id) return;
     const p = toImg(e);
     if (!drag.corner) {
-      box.x = clamp(drag.x0 + p.x - drag.p0.x, 0, W - box.s);
-      box.y = clamp(drag.y0 + p.y - drag.p0.y, 0, H - box.s);
+      box.x = clamp(drag.x0 + p.x - drag.p0.x, 0, W - box.w);
+      box.y = clamp(drag.y0 + p.y - drag.p0.y, 0, H - box.h);
     } else {
+      // larghezza e altezza libere, fino al bordo dell'immagine
       const west = drag.corner.includes('w'), north = drag.corner.includes('n');
       const dx = west ? drag.ax - p.x : p.x - drag.ax;
       const dy = north ? drag.ay - p.y : p.y - drag.ay;
-      // spazio libero dal lato dell'angolo che si tira
-      const roomX = west ? drag.ax : W - drag.ax;
-      const roomY = north ? drag.ay : H - drag.ay;
-      box.s = clamp(Math.max(dx, dy), minS, Math.min(roomX, roomY));
-      box.x = west ? drag.ax - box.s : drag.ax;
-      box.y = north ? drag.ay - box.s : drag.ay;
+      box.w = clamp(dx, minS, west ? drag.ax : W - drag.ax);
+      box.h = clamp(dy, minS, north ? drag.ay : H - drag.ay);
+      box.x = west ? drag.ax - box.w : drag.ax;
+      box.y = north ? drag.ay - box.h : drag.ay;
     }
     draw();
   });
@@ -177,7 +185,7 @@ export async function cropSquare(file, { title = 'Ritaglia il logo' } = {}) {
   boxEl.addEventListener('pointerup', endDrag);
   boxEl.addEventListener('pointercancel', endDrag);
 
-  range.addEventListener('input', () => resizeAroundCenter(Number(range.value)));
+  range.addEventListener('input', () => resizeAroundCenter(Number(range.value) / 1000));
 
   const ro = 'ResizeObserver' in window ? new ResizeObserver(layout) : null;
   if (ro) ro.observe(stage); else window.addEventListener('resize', layout);
@@ -203,15 +211,16 @@ export async function cropSquare(file, { title = 'Ritaglia il logo' } = {}) {
     ov.addEventListener('click', (e) => {
       const act = e.target.closest('[data-act]')?.dataset.act;
       if (act === 'cancel') finish(null);
-      else if (act === 'full') finish(file);
       else if (act === 'ok') {
-        const sx = Math.round(box.x), sy = Math.round(box.y), ss = Math.round(box.s);
-        const out = Math.min(ss, MAX_OUT);
+        const sx = Math.round(box.x), sy = Math.round(box.y);
+        const sw = Math.round(box.w), sh = Math.round(box.h);
+        const scale = Math.min(1, MAX_OUT / Math.max(sw, sh));
         const canvas = document.createElement('canvas');
-        canvas.width = canvas.height = out;
+        canvas.width = Math.max(1, Math.round(sw * scale));
+        canvas.height = Math.max(1, Math.round(sh * scale));
         const ctx = canvas.getContext('2d');
         ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, sx, sy, ss, ss, 0, 0, out, out);
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
         canvas.toBlob((blob) => {
           if (!blob) return finish(file); // canvas non esportabile: meglio l'originale che niente
           const name = String(file.name || 'logo').replace(/\.[^/.]+$/, '') + '.png';
