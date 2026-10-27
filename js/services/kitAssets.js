@@ -12,7 +12,7 @@ import { db, ref, onValue } from '../firebase-config.js';
  * MARCHI (kitAssets/brands/{id}: { name, url }): PNG del logo su trasparente.
  * PATCH  (kitAssets/patches/{id}: { name, url, kind, compId }): PNG della patch su trasparente.
  *   kind 'champ' (campione): la squadra la sceglie nell'editor e decide dove metterla (non sulla manica sinistra).
- *   kind 'comp' (competizione): legata alla competizione compId, va da sola sulla manica sinistra delle maglie
+ *   kind 'comp' (competizione): legata alla competizione compId (anche più patch per competizione), vanno tutte da sole sulla manica sinistra delle maglie
  *   quando si guarda una partita di quella competizione (Live). Senza kind: 'comp' se nel nome c'è "manica".
  * SIMBOLI (kitAssets/symbols/{id}: { name, url }): PNG di un simbolo su trasparente, da ripetere come forma nei disegni.
  */
@@ -48,9 +48,9 @@ export function getPngPatches() {
 export function getChampPatches() { return getPngPatches().filter(b => b.kind === 'champ'); }
 /** Patch delle competizioni (manica sinistra, automatiche). */
 export function getCompPatches() { return getPngPatches().filter(b => b.kind === 'comp'); }
-/** Patch della competizione compId (o null). */
-export function getCompPatch(compId) {
-  if (compId === undefined || compId === null || compId === '') return null;
-  return getCompPatches().find(b => String(b.compId) === String(compId)) || null;
+/** Patch della competizione compId (anche più di una: vanno tutte sulla manica sinistra). */
+export function getCompPatchesOf(compId) {
+  if (compId === undefined || compId === null || compId === '') return [];
+  return getCompPatches().filter(b => String(b.compId) === String(compId));
 }
 export function getPngSymbols() { subscribe(); return list(raw.symbols).filter(b => b.url); }

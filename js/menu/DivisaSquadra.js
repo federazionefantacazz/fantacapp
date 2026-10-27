@@ -3,10 +3,10 @@ import { db, ref, update } from '../firebase-config.js';
 import { uploadPngToImgBB } from '../services/integrationImgBB.js';
 import { createKitViewer, renderKitImage, kitImageHTML, dataUrlToBlob } from '../components/Kit3D.js';
 import { getCutout } from '../services/imageCutout.js';
-import { getPngPatterns, getPngBrands, getChampPatches, getCompPatches, getPngSymbols, onKitAssetsChange } from '../services/kitAssets.js';
+import { getPngPatterns, getPngBrands, getChampPatches, getCompPatches, getCompPatchesOf, getPngSymbols, onKitAssetsChange } from '../services/kitAssets.js';
 import { esc } from './menuUtils.js';
 import {
-  normalizeKit, defaultKit, patternLabel, motifParams, motifMax, shapePath,
+  normalizeKit, defaultKit, patternLabel, motifParams, motifMax, shapePath, compPatchTf,
   PRESETS, PATTERNS, PATTERN_CATS, MOTIF_SHAPES, MOTIF_LIMITS, BRANDS, SPONSOR_FONTS, NUMBER_FONTS, PATCH_POSITIONS, ZONES, COLLARS, COLLAR_SHAPES, CUFFS,
   SLEEVE_DECO, SLEEVE_STRIPES_MAX, SHOULDER_SHAPES, SLEEVE_CUTS
 } from '../components/KitRenderer.js';
@@ -256,6 +256,12 @@ function availablePatches() {
   return getChampPatches().map(p => ({ id: 'png:' + p.id, name: p.name || 'Patch', src: p.url }));
 }
 
+/** Le patch di competizione scelte in passato ora sono automatiche (manica sinistra nel Live): restano solo le campione. */
+function champOnly(patches) {
+  const comp = new Set(getCompPatches().map(p => 'png:' + p.id));
+  return patches.filter(p => String(p.id).startsWith('png:') && !comp.has(p.id));
+}
+
 export const DivisaSquadra = {
   title: 'Divisa squadra',
   _open: 'model',
@@ -325,9 +331,7 @@ export const DivisaSquadra = {
       this._layerPage = null;
       const team = window.STATE.user || {};
       this._kit = normalizeKit(team[this._field(slot)] || defaultKit());
-      // le patch di competizione scelte in passato ora sono automatiche (manica sinistra nel Live): restano solo le campione
-      const comp = new Set(getCompPatches().map(p => 'png:' + p.id));
-      this._kit.patches = this._kit.patches.filter(p => String(p.id).startsWith('png:') && !comp.has(p.id));
+      this._kit.patches = champOnly(this._kit.patches);
       this._saved = JSON.stringify(this._kit);
       this._layer = 0;
     }
@@ -425,9 +429,7 @@ export const DivisaSquadra = {
       })
         .catch(e => { console.error(e); const l = this._root && this._root.querySelector('#kit-loading'); if (l) l.textContent = 'Il 3D non è supportato su questo dispositivo'; });
     }
-    // nella fase delle patch si vede anche la patch della competizione sulla manica sinistra (non finisce nella foto salvata)
-    const compPatch = this._open === 'patches' ? (this._compPreview() || {}).url || '' : '';
-    if (this._viewer) this._viewer.update(this._kit, { crestUrl: this._crest(), compPatch }).catch(e => console.error('Divisa:', e));
+    if (this._viewer) this._viewer.update(this._kit, { crestUrl: this._crest(), ...this._compPatchOpts() }).catch(e => console.error('Divisa:', e));
     const dirty = this._root.querySelector('#kit-dirty');
     if (dirty) dirty.textContent = this._dirty() ? 'Modifiche non salvate' : '';
     const tab = this._root.querySelector(`#kit-slots [data-v="${this._slot}"]`);
@@ -878,21 +880,41 @@ export const DivisaSquadra = {
       </div>`;
   },
 
-  /** Patch della competizione da mostrare in anteprima (manica sinistra) mentre è aperta la fase delle patch. */
+  /**
+   * Patch della competizione in anteprima (manica sinistra) mentre è aperta la fase delle patch: quelle della competizione
+   * scelta (_compPrev), altrimenti di una a cui partecipa la squadra, altrimenti della prima. Una competizione può averne più di una.
+   */
   _compPreview() {
-    const list = getCompPatches().filter(p => p.compId);
-    if (!list.length) return null;
+    const all = getCompPatches().filter(p => p.compId);
+    if (!all.length) return null;
+    const ids = [...new Set(all.map(p => String(p.compId)))];
     const mine = (window.STATE.competitions || []).filter(c => c && c.teams && Object.values(c.teams).some(t => String(t && t.id !== undefined ? t.id : t) === String(this._teamId)));
-    return list.find(p => p.id === this._compPrev) || list.find(p => mine.some(c => String(c.id) === String(p.compId))) || list[0];
+    const compId = ids.find(id => id === String(this._compPrev)) || ids.find(id => mine.some(c => String(c.id) === id)) || ids[0];
+    const list = getCompPatchesOf(compId);
+    // _compOnly: nell'editor si vede (e si regola) una sola patch; null = tutte, come nel Live
+    const only = list.some(p => p.id === this._compOnly) ? this._compOnly : '';
+    return { ids, compId, list, only };
+  },
+
+  /** Opzioni dell'anteprima 3D: nella fase delle patch anche quelle della competizione (non finiscono nella foto salvata). */
+  _compPatchOpts() {
+    const pv = this._open === 'patches' && this._compPreview();
+    return pv ? { compPatches: pv.list.map(p => ({ id: p.id, url: p.url })), compPatchOnly: pv.only } : {};
+  },
+
+  /** Dimensione e posizione attuali della patch di competizione `id` (quelle di partenza se non è ancora stata regolata). */
+  _compTf(id) {
+    const p = getCompPatches().find(x => x.id === id);
+    const list = p ? getCompPatchesOf(p.compId) : [];
+    return compPatchTf(this._kit, id, Math.max(0, list.findIndex(x => x.id === id)), list.length || 1);
   },
 
   _secPatches() {
     const k = this._kit;
     const avail = availablePatches();
-    const comps = getCompPatches().filter(p => p.compId);
-    const prev = this._compPreview();
+    const pv = this._compPreview();
+    const shown = pv ? pv.list.filter(p => !pv.only || p.id === pv.only) : [];
     const compName = (id) => ((window.STATE.competitions || []).find(c => String(c.id) === String(id)) || {}).name || '';
-    const tf = k.compPatchTf;
     const current = k.patches.map((p, i) => `
       <div class="kit-patch" data-focus="${PATCH_FOCUS[p.pos] || 'front'}">
         <img data-cut="${esc(p.src)}" alt="">
@@ -910,14 +932,26 @@ export const DivisaSquadra = {
       </div>`).join('');
     const full = k.patches.length >= MAX_PATCHES;
     return `
-      ${this._group('Patch della competizione · manica sinistra', 'sleevePatch', comps.length ? `
-        <div class="kd-desc" style="margin:0 0 .5rem;">Si mette <b>da sola</b> sulla manica sinistra: nel Live (e nei replay) la tua maglia ha la patch della competizione della partita. Qui scegli solo dimensione e posizione; la vedi in anteprima con la patch scelta qui sotto.</div>
-        ${comps.length > 1 ? `<div class="kd-opts">${comps.map(p => `<button class="lv-chip ${prev && prev.id === p.id ? 'on' : ''}" data-act="comp-prev" data-v="${esc(p.id)}">${esc(compName(p.compId) || p.name || 'Competizione')}</button>`).join('')}</div>` : `<div class="mp-muted">Anteprima: ${esc(compName(prev.compId) || prev.name)}</div>`}
-        ${this._range('compPatchTf.size', 'Dimensione', tf.size, 50, 200, '%')}
-        ${this._range('compPatchTf.x', 'Sposta ↔', tf.x, -30, 30)}
-        ${this._range('compPatchTf.y', 'Sposta ↕', tf.y, -30, 30)}
-        <div class="kit-chips" style="margin-top:.4rem;">${this._chip('comp-patch-reset', '1', 'Ripristina posizione', false)}</div>`
-        : '<div class="kd-desc" style="margin:0;">La patch della competizione si mette da sola sulla manica sinistra quando giochi. Il Patron non ne ha ancora caricata nessuna.</div>')}
+      ${this._group('Patch della competizione · manica sinistra', 'sleevePatch', pv ? `
+        <div class="kd-desc" style="margin:0 0 .5rem;">Si mettono <b>da sole</b> sulla manica sinistra: nel Live (e nei replay) la tua maglia ha <b>tutte</b> le patch della competizione della partita. Qui scegli dimensione e posizione di ognuna.</div>
+        ${pv.ids.length > 1 ? `<div class="kit-sub">Competizione</div><div class="kd-opts">${pv.ids.map(id => `<button class="lv-chip ${id === pv.compId ? 'on' : ''}" data-act="comp-prev" data-v="${esc(id)}">${esc(compName(id) || 'Competizione')}</button>`).join('')}</div>`
+          : `<div class="mp-muted">Competizione: ${esc(compName(pv.compId) || 'Competizione')}</div>`}
+        ${pv.list.length > 1 ? `<div class="kit-sub">Cosa vedere</div>
+        <div class="kd-opts">${this._chip('comp-only', '', `Tutte (${pv.list.length})`, !pv.only)}${pv.list.map(p => this._chip('comp-only', p.id, `Solo ${p.name || 'patch'}`, pv.only === p.id)).join('')}</div>` : ''}
+        ${shown.map(p => {
+          const tf = this._compTf(p.id), path = `compPatches.${p.id}`;
+          return `<div class="kit-patch">
+            <img data-cut="${esc(p.url)}" alt="">
+            <div class="nm">${esc(p.name || 'Patch')}</div>
+            <div style="order:6; flex-basis:100%;">
+              ${this._range(`${path}.size`, 'Dimensione', tf.size, 50, 200, '%')}
+              ${this._range(`${path}.x`, 'Sposta ↔', tf.x, -30, 30)}
+              ${this._range(`${path}.y`, 'Sposta ↕', tf.y, -30, 30)}
+              <div class="kit-chips" style="margin-top:.3rem;">${this._chip('comp-patch-reset', p.id, 'Ripristina posizione', false)}</div>
+            </div>
+          </div>`;
+        }).join('')}`
+        : '<div class="kd-desc" style="margin:0;">Le patch della competizione si mettono da sole sulla manica sinistra quando giochi. Il Patron non ne ha ancora caricata nessuna.</div>')}
       ${this._group(`Patch campione (${k.patches.length}/${MAX_PATCHES})`, 'chest', `
         ${current || '<div class="mp-muted">Nessuna patch campione sulla maglia.</div>'}
         ${full ? `<div class="mp-muted" style="margin-top:.6rem;">Hai raggiunto il massimo di ${MAX_PATCHES} patch.</div>` : avail.length ? `
@@ -934,6 +968,8 @@ export const DivisaSquadra = {
   /* ------------------------------------------------------------- eventi */
   _set(path, value) {
     const parts = path.split('.');
+    // patch della competizione regolata per la prima volta: parte dalla dimensione e posizione che si vedono
+    if (parts[0] === 'compPatches' && !this._kit.compPatches[parts[1]]) this._kit.compPatches[parts[1]] = { ...this._compTf(parts[1]) };
     let o = this._kit;
     parts.slice(0, -1).forEach(p => { o = o[p]; });
     o[parts[parts.length - 1]] = value;
@@ -954,7 +990,7 @@ export const DivisaSquadra = {
       </div>`;
     document.body.appendChild(el);
     const viewer = createKitViewer(el.querySelector('.kit-zoom-stage > div'), { zoom: true });
-    viewer.update(this._kit, { crestUrl: this._crest() }).catch(err => console.error('Divisa:', err));
+    viewer.update(this._kit, { crestUrl: this._crest(), ...this._compPatchOpts() }).catch(err => console.error('Divisa:', err));
     const close = () => { viewer.dispose(); el.remove(); this._zoom = null; };
     el.addEventListener('click', (e) => {
       const b = e.target.closest('[data-z]');
@@ -985,7 +1021,8 @@ export const DivisaSquadra = {
         this._renderSection();
         if (wasPatches !== (this._open === 'patches')) this._renderPreview(); // patch della competizione in anteprima
         this._scrollToOpen();
-        if (this._open) this._focusTo(SEC_FOCUS[this._open] || 'front', true);
+        // senza patch di competizione la fase delle patch inquadra il petto (la manica sinistra resterebbe vuota)
+        if (this._open) this._focusTo(this._open === 'patches' && !this._compPreview() ? 'chest' : SEC_FOCUS[this._open] || 'front', true);
         return;
       case 'slot': this._switchSlot(Number(v)); return;
       case 'copy-first': this._copyFirst(); return;
@@ -1172,11 +1209,16 @@ export const DivisaSquadra = {
         return;
       }
       case 'comp-prev':
-        this._compPrev = v;
+        this._compPrev = v; this._compOnly = null;
+        this._renderPreview(); this._renderSection();
+        return;
+      case 'comp-only':
+        this._compOnly = v || null;
         this._renderPreview(); this._renderSection();
         return;
       case 'comp-patch-reset':
-        this._update(kit => { kit.compPatchTf = { size: 100, x: 0, y: 0 }; });
+        // torna alla posizione di partenza (con una sola patch nella competizione anche quella del formato di prima)
+        this._update(kit => { delete kit.compPatches[v]; kit.compPatchTf = { size: 100, x: 0, y: 0 }; });
         return;
       case 'patch-reset':
         this._update(kit => { Object.assign(kit.patches[i], { size: 100, x: 0, y: 0 }); });
@@ -1305,6 +1347,7 @@ export const DivisaSquadra = {
     if (!first) { window.showToast('Crea prima la prima maglia', 'err'); return; }
     if (this._dirty() && !confirm('Sostituire la seconda maglia con una copia della prima? Le modifiche non salvate andranno perse.')) return;
     const kit = normalizeKit(clone(first));
+    kit.patches = champOnly(kit.patches);
     delete kit.image;
     this._kit = kit;
     this._layer = 0; this._layerPage = null;

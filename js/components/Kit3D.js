@@ -344,7 +344,7 @@ export const FOCUS = {
 /**
  * Maglia 3D ruotabile dentro `container` (zoom: true = vista ingrandita con zoom e spostamento).
  * Restituisce { update(kit, opts), setView('front'|'back'), zoomBy(f), dispose() }.
- * opts di update: { crestUrl, compPatch }
+ * opts di update: { crestUrl, compPatches, compPatchOnly } (vedi paintKitTexture)
  */
 export function createKitViewer(container, { zoom = false } = {}) {
   const canvas = document.createElement('canvas');
@@ -404,11 +404,11 @@ const shotCache = new Map();
 /**
  * Foto PNG della maglia (data URL, sfondo trasparente).
  * opts: { crestUrl, width (default 600), view ('front'|'back' o angolo in gradi), textureSize (default 2048), plain,
- *         compPatch (PNG della patch della competizione sulla manica sinistra) }
+ *         compPatches ([{ id, url }] patch della competizione sulla manica sinistra) }
  */
 export function renderKitImage(kit, opts = {}) {
   const width = Math.round(opts.width || 600), height = Math.round(width * 16 / 15);
-  const key = JSON.stringify([kit, opts.crestUrl || '', width, opts.view || 'front', opts.textureSize || 2048, !!opts.plain, opts.compPatch || '']);
+  const key = JSON.stringify([kit, opts.crestUrl || '', width, opts.view || 'front', opts.textureSize || 2048, !!opts.plain, opts.compPatches || [], opts.compPatchOnly || '']);
   if (shotCache.has(key)) return shotCache.get(key);
   const job = queue.then(async () => {
     if (opts.isWanted && !opts.isWanted()) { shotCache.delete(key); return ''; }
@@ -417,7 +417,7 @@ export function renderKitImage(kit, opts = {}) {
     shot.resize(width, height);
     const k = normalizeKit(kit);
     const [tex, variant] = await Promise.all([
-      paintKitTexture(k, { crestUrl: opts.crestUrl, size: opts.textureSize || 2048, plain: opts.plain, compPatch: opts.compPatch }),
+      paintKitTexture(k, { crestUrl: opts.crestUrl, size: opts.textureSize || 2048, plain: opts.plain, compPatches: opts.compPatches, compPatchOnly: opts.compPatchOnly }),
       loadVariant(k)
     ]);
     shot.setModel(variant);
@@ -595,8 +595,8 @@ export function injectZoomStyle() {
 }
 
 /**
- * Maglie in 3D a tutto schermo (es. dal live): items = [{ kit, crestUrl, label, compPatch }], start = indice iniziale
- * (compPatch: patch della competizione della partita, sulla manica sinistra).
+ * Maglie in 3D a tutto schermo (es. dal live): items = [{ kit, crestUrl, label, compPatches }], start = indice iniziale
+ * (compPatches: patch della competizione della partita, tutte sulla manica sinistra).
  * Si ruota in ogni direzione, zoom e spostamento come nella vista ingrandita dell'editor; con più maglie
  * le schede in alto passano dall'una all'altra. Restituisce { close() }; opts.onClose alla chiusura.
  */
@@ -624,7 +624,7 @@ export function openKitOverlay(items, start = 0, opts = {}) {
     const it = list[cur];
     el.querySelector('.kit-zoom-head span').textContent = it.title || it.label || 'Maglia';
     el.querySelectorAll('[data-z="pick"]').forEach(b => b.classList.toggle('on', Number(b.dataset.i) === cur));
-    viewer.update(it.kit, { crestUrl: it.crestUrl || '', compPatch: it.compPatch || '' }).catch(err => console.error('Divisa:', err));
+    viewer.update(it.kit, { crestUrl: it.crestUrl || '', compPatches: it.compPatches || [] }).catch(err => console.error('Divisa:', err));
     viewer.setView('front');
   };
   show();
