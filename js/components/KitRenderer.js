@@ -573,7 +573,8 @@ export const UV_RAGLAN = {
 
 // Modelli della maglia: mappa UV, maschera dei pezzi, cuciture e altezza del polsino (frazione della manica dove inizia)
 export const MODELS = {
-  setin:  { uv: UV, mask: KIT3D_FILES.mask, seams: KIT3D_FILES.seams, cuffTop: .84 },
+  // mirrored: pezzi che il modello mostra specchiati (loghi e scritte vanno disegnati al contrario per leggersi dritti)
+  setin:  { uv: UV, mask: KIT3D_FILES.mask, seams: KIT3D_FILES.seams, cuffTop: .84, mirrored: ['sleeveL'] },
   raglan: {
     uv: UV_RAGLAN, mask: KIT3D_FILES.raglanMask, seams: KIT3D_FILES.raglanSeams, cuffTop: .91,
     // il riquadro del davanti parte più in alto (angoli del colletto) e la manica comprende la spalla
@@ -708,7 +709,7 @@ function tint(img, color, w, h) {
   return c;
 }
 
-function drawContain(ctx, img, cx, cy, bw, bh, rot = 0) {
+function drawContain(ctx, img, cx, cy, bw, bh, rot = 0, flip = false) {
   if (!img) return;
   const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
   if (!iw || !ih) return;
@@ -719,6 +720,7 @@ function drawContain(ctx, img, cx, cy, bw, bh, rot = 0) {
   ctx.imageSmoothingQuality = 'high';
   ctx.translate(cx, cy);
   if (rot) ctx.rotate(rot * Math.PI / 180);
+  if (flip) ctx.scale(-1, 1);
   ctx.drawImage(img, -w / 2, -h / 2, w, h);
   ctx.restore();
 }
@@ -1180,7 +1182,7 @@ export async function paintKitTexture(rawKit, opts = {}) {
     [...new Set(patches.map(p => p.A.part))].forEach(part => inPart(part, (x) => patches.forEach(p => {
       if (p.A.part !== part || !p.img) return;
       const a = at(moved(p.A, p.tf)), ps = a.s * p.tf.size / 100;
-      drawContain(x, p.img, a.x, a.y, ps, ps);
+      drawContain(x, p.img, a.x, a.y, ps, ps, 0, (model.mirrored || []).includes(part));
     })));
   }
 
