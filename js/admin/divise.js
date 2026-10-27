@@ -78,7 +78,7 @@ export const DiviseSection = {
 
       <div class="card">
         <div class="label">Patch delle competizioni (manica sinistra, automatiche)</div>
-        <div style="font-size:.8rem; color:var(--text3);font-family:var(--font-text3,inherit); margin-top:.2rem;">Ogni patch è legata a una competizione e si mette <b>da sola sulla manica sinistra</b>: nel Live (e nei replay) le maglie 3D delle due squadre hanno la patch della competizione della partita. Le squadre ne scelgono solo dimensione e posizione sulla manica (FASE 7: Patch).</div>
+        <div style="font-size:.8rem; color:var(--text3);font-family:var(--font-text3,inherit); margin-top:.2rem;">Ogni patch è legata a una competizione e si mette <b>da sola sulla manica sinistra</b>: nel Live (e nei replay) le maglie 3D delle due squadre hanno <b>tutte</b> le patch della competizione della partita (una competizione può averne più di una). Le squadre scelgono dimensione e posizione di ognuna sulla manica (FASE 7: Patch).</div>
         <div id="kitCompPatchesList" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:.6rem; margin:.5rem 0 1rem;"></div>
         <input type="text" id="kitCompPatchName" class="input-login" placeholder="Nome della patch (es: Fantacazz)">
         <select id="kitCompPatchComp" class="input-login"></select>
@@ -152,11 +152,11 @@ export const DiviseSection = {
     const cpl = document.getElementById('kitCompPatchesList');
     const compName = (id) => ((this._comps || []).find(c => c.id === String(id)) || {}).name;
     if (cpl) cpl.innerHTML = compP.map(b => {
-      const twin = b.compId && compP.some(o => o.id !== b.id && String(o.compId) === String(b.compId));
+      const twins = b.compId ? compP.filter(o => o.id !== b.id && String(o.compId) === String(b.compId)).length : 0;
       return card('patch', b, sampleKit(), b.compId && compName(b.compId) ? `Manica sinistra · ${esc(compName(b.compId))}` : '<span style="color:var(--accent3)">Scegli la competizione</span>', `
         <select class="input-login" style="font-size:.7rem; padding:.3rem; margin:0 0 .3rem;" onchange="window.diviseAction('patch-comp','${esc(b.id)}',this.value)">${this._compOptions(b.compId)}</select>
-        ${twin ? '<div style="font-size:.62rem; color:var(--accent3); margin-bottom:.3rem;">Questa competizione ha già un\'altra patch: si usa la prima.</div>' : ''}
-        ${moveBtn(b, 'champ', 'È una patch campione')}`, { compPatch: b.url, view: -60 });
+        ${twins ? `<div style="font-size:.62rem; color:var(--text3); margin-bottom:.3rem;">Sulla manica sinistra insieme ${twins === 1 ? "all'altra patch" : `alle altre ${twins} patch`} di questa competizione.</div>` : ''}
+        ${moveBtn(b, 'champ', 'È una patch campione')}`, { compPatches: [{ id: b.id, url: b.url }], view: -60 });
     }).join('')
       || `<div style="grid-column:1/-1; font-size:.8rem; color:var(--text3);font-family:var(--font-text3,inherit);">Nessuna patch di competizione caricata.</div>`;
     const sl = document.getElementById('kitSymbolsList');

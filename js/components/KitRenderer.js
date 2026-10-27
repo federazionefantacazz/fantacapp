@@ -27,8 +27,9 @@ export { COLLAR_SHAPES };
  *   backSponsor: { ...come sponsor },                       // sponsor sul retro (sotto il numero)
  *   backPrint: { show, name, number, font, color, outline, nameSize, numSize, y },  // nome e numero sul retro
  *   patches: [{ id, src, name, pos, size, x, y }],          // patch campione: pos (mai la manica sinistra), size in %, x/y spostamento
- *   compPatchTf: { size, x, y },                            // patch della competizione (manica sinistra, messa in automatico
- *                                                           // nel Live: opts.compPatch di paintKitTexture): dimensione e spostamento
+ *   compPatches: { [idPatch]: { size, x, y } },             // patch delle competizioni (manica sinistra, messe in automatico
+ *                                                           // nel Live: opts.compPatches di paintKitTexture): dimensione e spostamento di ognuna
+ *   compPatchTf: { size, x, y },                            // formato di prima (una sola patch): vale se la competizione ne ha una
  *   image                                                   // foto PNG della maglia (fronte) generata al salvataggio
  * }
  * I disegni integrati sono SVG pensati sulla vista frontale 0 0 400 420 e vengono adattati a ogni pezzo della maglia.
@@ -454,6 +455,7 @@ export function defaultKit() {
     backSponsor: { mode: 'none', url: '', text: '', font: 'bebas', color: '#ffffff', mono: false, scale: 100, y: 0 },
     backPrint: { show: false, name: '', number: '10', font: 'seriea', color: '#ffffff', outline: '', nameSize: 100, numSize: 100, y: 0 },
     patches: [],
+    compPatches: {},
     compPatchTf: { size: 100, x: 0, y: 0 }
   };
 }
@@ -486,9 +488,24 @@ export function normalizeKit(raw) {
       ...l, zone: l.zone || (l.onSleeves ? 'all' : 'body')
     })),
     patches: toArr(k.patches).map(p => ({ id: p.id, name: p.name || '', src: p.src || '', pos: p.pos === 'sleeveL' ? 'sleeveR' : p.pos || 'chest', size: Math.round(clamp(p.size || 100, 50, 200)), x: Math.round(clamp(p.x || 0, -30, 30)), y: Math.round(clamp(p.y || 0, -30, 30)) })),
+    compPatches: Object.fromEntries(Object.entries(k.compPatches && typeof k.compPatches === 'object' ? k.compPatches : {})
+      .filter(([, t]) => t && typeof t === 'object')
+      .map(([id, t]) => [id, { size: Math.round(clamp(t.size || 100, 50, 200)), x: Math.round(clamp(t.x || 0, -30, 30)), y: Math.round(clamp(t.y || 0, -30, 30)) }])),
     compPatchTf: { ...d.compPatchTf, ...(k.compPatchTf || {}) },
     ...(k.image ? { image: k.image } : {})
   };
+}
+
+/**
+ * Dimensione e posizione della patch `id`, la i-esima delle n patch della sua competizione (tutte sulla manica sinistra).
+ * Senza una scelta salvata: con una sola patch vale il formato di prima (compPatchTf), con più patch
+ * partono più piccole e messe una sotto l'altra.
+ */
+export function compPatchTf(k, id, i = 0, n = 1) {
+  const own = k.compPatches && k.compPatches[id];
+  if (own) return own;
+  if (n <= 1) return k.compPatchTf || { size: 100, x: 0, y: 0 };
+  return { size: Math.max(50, Math.round(140 / n)), x: 0, y: Math.round(22 - i * 44 / (n - 1)) };
 }
 
 /** Etichetta di un disegno (integrato o PNG del Patron). */
@@ -804,7 +821,8 @@ function loadMask(model) {
 /* --------------------------------------------------------- composizione */
 /**
  * Dipinge la texture UV della maglia. Restituisce un canvas size×size (default 2048).
- * opts: { crestUrl, size, plain (senza loghi) }
+ * opts: { crestUrl, size, plain (senza loghi), compPatches ([{ id, url }] patch della competizione, manica sinistra),
+ *         compPatchOnly (id: di quelle si disegna solo questa) }
  */
 export async function paintKitTexture(rawKit, opts = {}) {
   const k = normalizeKit(rawKit);
@@ -1132,7 +1150,12 @@ export async function paintKitTexture(rawKit, opts = {}) {
       if (!A || !p.src || compIds.has(p.id) || !String(p.id).startsWith('png:')) continue;
       patches.push({ A, tf: tfOf(p), img: await loadCut(p.src) });
     }
-    if (opts.compPatch && A0.sleeveL) patches.push({ A: A0.sleeveL, tf: tfOf(k.compPatchTf), img: await loadCut(opts.compPatch) });
+    // patch della competizione: tutte sulla manica sinistra (opts.compPatchOnly: nell'editor se ne vede una sola)
+    const comp = (opts.compPatches || []).filter(c => c && c.url);
+    for (const [i, c] of comp.entries()) {
+      if (!A0.sleeveL || (opts.compPatchOnly && opts.compPatchOnly !== c.id)) continue;
+      patches.push({ A: A0.sleeveL, tf: tfOf(compPatchTf(k, c.id, i, comp.length)), img: await loadCut(c.url) });
+    }
     // ritagliate sulla sagoma del loro pezzo: ingrandite o spostate non sconfinano sui pezzi vicini della texture
     [...new Set(patches.map(p => p.A.part))].forEach(part => inPart(part, (x) => patches.forEach(p => {
       if (p.A.part !== part || !p.img) return;
