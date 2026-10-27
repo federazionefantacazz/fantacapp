@@ -26,7 +26,7 @@ export { COLLAR_SHAPES };
  *   sponsor: { mode: 'none'|'image'|'text', url, text, font, color, mono, scale, y },
  *   backSponsor: { ...come sponsor },                       // sponsor sul retro (sotto il numero)
  *   backPrint: { show, name, number, font, color, outline, nameSize, numSize, y },  // nome e numero sul retro
- *   patches: [{ id, src, name, pos, size }],                // patch campione: pos (mai la manica sinistra), size in %
+ *   patches: [{ id, src, name, pos, size, x, y }],          // patch campione: pos (mai la manica sinistra), size in %, x/y spostamento
  *   compPatchTf: { size, x, y },                            // patch della competizione (manica sinistra, messa in automatico
  *                                                           // nel Live: opts.compPatch di paintKitTexture): dimensione e spostamento
  *   image                                                   // foto PNG della maglia (fronte) generata al salvataggio
@@ -485,7 +485,7 @@ export function normalizeKit(raw) {
       type: 'stripes', color: '#ffffff', opacity: 100, scale: 100, flipX: false, flipY: false, x: 0, y: 0, rot: 0, wrap: 'repeat',
       ...l, zone: l.zone || (l.onSleeves ? 'all' : 'body')
     })),
-    patches: toArr(k.patches).map(p => ({ id: p.id, name: p.name || '', src: p.src || '', pos: p.pos === 'sleeveL' ? 'sleeveR' : p.pos || 'chest', size: Math.round(clamp(p.size || 100, 50, 200)) })),
+    patches: toArr(k.patches).map(p => ({ id: p.id, name: p.name || '', src: p.src || '', pos: p.pos === 'sleeveL' ? 'sleeveR' : p.pos || 'chest', size: Math.round(clamp(p.size || 100, 50, 200)), x: Math.round(clamp(p.x || 0, -30, 30)), y: Math.round(clamp(p.y || 0, -30, 30)) })),
     compPatchTf: { ...d.compPatchTf, ...(k.compPatchTf || {}) },
     ...(k.image ? { image: k.image } : {})
   };
@@ -1128,7 +1128,7 @@ export async function paintKitTexture(rawKit, opts = {}) {
       const A = A0[p.pos];
       if (!A || !p.src || compIds.has(p.id) || !String(p.id).startsWith('png:')) continue;
       const img = await loadCut(p.src);
-      const a = at(A), ps = a.s * clamp(p.size || 100, 50, 200) / 100;
+      const a = at(moved(A, { x: clamp(p.x || 0, -30, 30), y: clamp(p.y || 0, -30, 30) })), ps = a.s * clamp(p.size || 100, 50, 200) / 100;
       drawContain(ctx, img, a.x, a.y, ps, ps);
     }
     // patch della competizione: manica sinistra

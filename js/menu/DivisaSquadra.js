@@ -901,7 +901,12 @@ export const DivisaSquadra = {
         <select class="kit-patch-pos" data-patch-pos="${i}">
           ${PATCH_POSITIONS.map(pp => `<option value="${pp.id}" ${p.pos === pp.id ? 'selected' : ''}>${pp.label}</option>`).join('')}
         </select>
-        <div style="order:6; flex-basis:100%;">${this._range(`patches.${i}.size`, 'Dimensione', p.size || 100, 50, 200, '%')}</div>
+        <div style="order:6; flex-basis:100%;">
+          ${this._range(`patches.${i}.size`, 'Dimensione', p.size || 100, 50, 200, '%')}
+          ${this._range(`patches.${i}.x`, 'Sposta ↔', p.x || 0, -30, 30)}
+          ${this._range(`patches.${i}.y`, 'Sposta ↕', p.y || 0, -30, 30)}
+          <div class="kit-chips" style="margin-top:.3rem;"><button class="lv-chip" data-act="patch-reset" data-i="${i}">Ripristina posizione</button></div>
+        </div>
       </div>`).join('');
     const full = k.patches.length >= MAX_PATCHES;
     return `
@@ -922,7 +927,7 @@ export const DivisaSquadra = {
           ${avail.map(a => `<button class="kit-opt kit-comp" data-act="patch-add" data-v="${esc(a.id)}" title="${esc(a.name)}">
             <img data-cut="${esc(a.src)}" alt=""><span class="lb">${esc(a.name)}</span></button>`).join('')}
         </div>`) : ''}
-        <div class="kd-desc">Le patch vengono scontornate automaticamente. Per ognuna scegli posizione (centro petto, sotto lo sponsor, manica destra o fondo maglia) e dimensione: la manica sinistra è della patch della competizione.</div>`)}`;
+        <div class="kd-desc">Le patch vengono scontornate automaticamente. Per ognuna scegli il punto (centro petto, sotto lo sponsor, manica destra o fondo maglia), poi regola dimensione e posizione con i cursori: la manica sinistra è della patch della competizione.</div>`)}`;
   },
 
 
@@ -1162,7 +1167,7 @@ export const DivisaSquadra = {
         if (!a) return;
         const used = new Set(k.patches.map(p => p.pos));
         const pos = (PATCH_POSITIONS.find(pp => !used.has(pp.id)) || PATCH_POSITIONS[0]).id;
-        this._update(kit => { kit.patches.push({ id: a.id, name: a.name, src: a.src, pos, size: 100 }); });
+        this._update(kit => { kit.patches.push({ id: a.id, name: a.name, src: a.src, pos, size: 100, x: 0, y: 0 }); });
         this._focusTo(PATCH_FOCUS[pos] || 'front');
         return;
       }
@@ -1172,6 +1177,9 @@ export const DivisaSquadra = {
         return;
       case 'comp-patch-reset':
         this._update(kit => { kit.compPatchTf = { size: 100, x: 0, y: 0 }; });
+        return;
+      case 'patch-reset':
+        this._update(kit => { Object.assign(kit.patches[i], { size: 100, x: 0, y: 0 }); });
         return;
       case 'patch-del':
         this._update(kit => { kit.patches.splice(i, 1); });
