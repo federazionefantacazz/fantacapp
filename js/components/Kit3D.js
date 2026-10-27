@@ -397,6 +397,58 @@ class Stage {
   }
 
   /**
+   * Fascia indossata: copia dei triangoli della manica sinistra nel tratto della fascia, spostati di poco verso l'esterno.
+   * u = giro intorno al braccio (0,5 = lato esterno, dove sta la "C"), v = altezza (la fascia occupa v 0,12..0,88, il resto è trasparente).
+   */
+  _wornBand(row, r) {
+    const { THREE } = this.L;
+    const rm = (r.rOut + r.rSide) / 2, half = rm * Math.PI / BAND_RING_ASPECT * .9; // metà altezza della fascia
+    const lift = rm * .045; // spessore: quanto sta sopra la stoffa
+    const pos = [], nor = [], uvs = [];
+    const P = new THREE.Vector3(), N = new THREE.Vector3(), D = new THREE.Vector3();
+    this.model.updateMatrixWorld(true);
+    this.model.traverse(o => {
+      if (!o.isMesh || o.material.name !== 'shirt_outer') return;
+      const g = o.geometry, ap = g.attributes.position, an = g.attributes.normal, au = g.attributes.uv;
+      if (!ap || !au) return;
+      const nm = new THREE.Matrix3().getNormalMatrix(o.matrixWorld);
+      const idx = g.index ? g.index.array : null, n = idx ? idx.length : ap.count;
+      const vert = (i) => {
+        P.set(ap.getX(i), ap.getY(i), ap.getZ(i)).applyMatrix4(o.matrixWorld);
+        D.copy(P).sub(r.center);
+        const a = D.dot(r.axis);
+        D.addScaledVector(r.axis, -a);
+        if (an) N.set(an.getX(i), an.getY(i), an.getZ(i)).applyMatrix3(nm).normalize(); else N.copy(D).normalize();
+        if (N.dot(D) < 0) N.negate(); // verso l'esterno del braccio
+        const ang = Math.atan2(D.dot(r.side), D.dot(r.out));
+        return { p: P.clone().addScaledVector(N, lift), n: N.clone(), a, u: .5 + ang / (2 * Math.PI) };
+      };
+      const inRect = (i) => { const u = au.getX(i), v = au.getY(i); return u >= row.rect.x && u <= row.rect.x + row.rect.w && v >= row.rect.y && v <= row.rect.y + row.rect.h; };
+      for (let t = 0; t + 2 < n; t += 3) {
+        const ids = idx ? [idx[t], idx[t + 1], idx[t + 2]] : [t, t + 1, t + 2];
+        if (!ids.every(inRect)) continue;
+        const vs = ids.map(vert);
+        if (vs.every(v => v.a > half * 1.25) || vs.every(v => v.a < -half * 1.25)) continue; // fuori dal tratto della fascia
+        // triangolo a cavallo del retro (u da 1 a 0): lo porto tutto dalla stessa parte
+        const us = vs.map(v => v.u);
+        if (Math.max(...us) - Math.min(...us) > .5) vs.forEach(v => { if (v.u < .5) v.u += 1; });
+        vs.forEach(v => {
+          pos.push(v.p.x, v.p.y, v.p.z); nor.push(v.n.x, v.n.y, v.n.z);
+          uvs.push(v.u, .5 - v.a / half * .38); // v: in alto verso la spalla
+        });
+      }
+    });
+    if (!pos.length) return null;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    const mesh = new THREE.Mesh(geo, this.bandMats.worn);
+    mesh.renderOrder = 2;
+    return mesh;
+  }
+
+  /**
    * Fascia da capitano 3D. ab = { canvas (disegno steso, components/CaptainBand.js → bandRaster con aspect BAND_RING_ASPECT),
    * bg, border, row } o null (niente fascia). Con ab.row la fascia è indossata sulla manica sinistra della maglia;
    * senza, è da sola al posto della maglia.
@@ -425,8 +477,13 @@ class Stage {
       const bump = new THREE.CanvasTexture(ribs);
       bump.wrapS = bump.wrapT = THREE.RepeatWrapping;
       const mat = (map, extra = {}) => new THREE.MeshStandardMaterial({ map, bumpMap: bump, bumpScale: 1.2, roughness: .9, metalness: 0, ...extra });
+      this.bandWornCanvas = document.createElement('canvas');
+      this.bandWornTex = tex(this.bandWornCanvas);
+      this.bandWornTex.wrapS = THREE.RepeatWrapping;
       this.bandMats = { outer: mat(this.bandTex), inner: mat(this.bandInnerTex, { side: THREE.BackSide }), flap: mat(this.bandFlapTex),
-        edge: new THREE.MeshStandardMaterial({ roughness: .9, metalness: 0 }) };
+        edge: new THREE.MeshStandardMaterial({ roughness: .9, metalness: 0 }),
+        // indossata: bordi netti dove finisce la fascia (parte trasparente della texture), sempre sopra la stoffa
+        worn: mat(this.bandWornTex, { alphaTest: .5, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 }) };
     }
     const worn = !!ab.row;
     if (!worn && !this.band) {
@@ -440,19 +497,16 @@ class Stage {
       this.scene.add(g);
     }
     if (worn) {
-      // indossata: infilata sulla manica sinistra, appena più larga del braccio, con la "C" sul lato esterno
+      // indossata: la fascia è la stoffa della manica sinistra in quel tratto, appena sollevata, con il tessuto della fascia
+      // sopra: segue pieghe e forma della maglia. La "C" sul lato esterno del braccio.
       const r = this._sleeveRing(ab.row);
-      if (!this.bandWorn) { this.bandWorn = new THREE.Group(); this.bandWorn.add(this._bandRing()); this.scene.add(this.bandWorn); }
-      if (r) {
-        const g = this.bandWorn, ring = g.children[0];
-        const k = r.tight ? 1.04 : 1.1, rm = (r.rOut + r.rSide) / 2;
-        // anello: y = asse del braccio, z = lato esterno; l'altezza segue la circonferenza (come una fascia vera)
-        g.matrix.makeBasis(r.side, r.axis, r.out).setPosition(r.center);
-        g.matrixAutoUpdate = false;
-        g.matrixWorldNeedsUpdate = true;
-        ring.scale.set(r.rSide * k, rm * k * .8, r.rOut * k);
+      if (r && this._wornKey !== this._ringKey) {
+        if (this.bandWorn) { this.scene.remove(this.bandWorn); this.bandWorn.geometry.dispose(); }
+        this.bandWorn = this._wornBand(ab.row, r);
+        this._wornKey = this._ringKey;
+        if (this.bandWorn) this.scene.add(this.bandWorn);
       }
-      this.bandWorn.visible = !!r;
+      if (this.bandWorn) this.bandWorn.visible = !!r;
       if (this.band) this.band.visible = false;
       if (this.model) this.model.visible = true;
     } else {
@@ -496,7 +550,13 @@ class Stage {
     weave(fc, 128, 256);
     fx.strokeStyle = 'rgba(0,0,0,.35)'; fx.lineWidth = 2; fx.setLineDash([8, 6]); fx.strokeRect(9, 12, 110, 232); fx.setLineDash([]);
     fx.fillStyle = 'rgba(0,0,0,.25)'; fx.fillRect(0, 0, 3, 256); fx.fillRect(125, 0, 3, 256); // bordi della linguetta
-    [this.bandTex, this.bandInnerTex, this.bandFlapTex].forEach(t => { t.dispose(); t.needsUpdate = true; });
+    // indossata: la stessa stoffa con sopra e sotto un margine trasparente (v 0,12..0,88) e la linguetta col velcro sul retro
+    const wc = this.bandWornCanvas; wc.width = W; wc.height = Math.round(H / .76);
+    const wx = wc.getContext('2d'), m0 = Math.round(wc.height * .12);
+    wx.clearRect(0, 0, W, wc.height);
+    wx.drawImage(oc, 0, m0, W, H);
+    wx.fillStyle = 'rgba(0,0,0,.28)'; wx.fillRect(W * .045, m0, Math.max(2, W * .004), H); wx.fillRect(W * .955, m0, Math.max(2, W * .004), H);
+    [this.bandTex, this.bandInnerTex, this.bandFlapTex, this.bandWornTex].forEach(t => { t.dispose(); t.needsUpdate = true; });
     this.bandMats.edge.color.set(border);
   }
 
@@ -519,7 +579,7 @@ class Stage {
   dispose() {
     if (this._raf) cancelAnimationFrame(this._raf);
     if (this._tween) cancelAnimationFrame(this._tween);
-    [this.bandTex, this.bandInnerTex, this.bandFlapTex].forEach(t => t && t.dispose());
+    [this.bandTex, this.bandInnerTex, this.bandFlapTex, this.bandWornTex].forEach(t => t && t.dispose());
     if (this.controls) this.controls.dispose();
     this.controls = null;
     this.texture.dispose();
