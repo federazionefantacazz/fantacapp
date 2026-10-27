@@ -1,6 +1,7 @@
 /**
- * Fascia da capitano: icona in SVG accanto al capitano (Formazione, Live) e anteprima sulla manica sinistra
- * della maglia 3D nell'editor della divisa (js/menu/DivisaSquadra.js → FASE 8: Fascia da capitano).
+ * Fascia da capitano: fascia elastica 3D (components/Kit3D.js) con il disegno stampato sopra, da sola o indossata
+ * sulla manica sinistra della maglia, nell'editor della divisa (js/menu/DivisaSquadra.js → FASE 8: Fascia da capitano).
+ * Accanto al capitano (Formazione, Live) si vede la sua foto (image, generata al salvataggio) o, senza foto, l'icona in SVG.
  * Il capitano si sceglie in Formazione.
  *
  * Firebase: teams/{id}/captainBand = {
@@ -8,7 +9,8 @@
  *   layers: [{ type, color, opacity, scale, x, y, rot, flipX, flipY, url, mono, ...parametri dei motivi }],
  *                                                         // come i livelli della maglia: disegni integrati e motivi,
  *                                                         // PNG del Patron ('png:<id>') o immagine del giocatore ('img')
- *   text, font, fg, textSize, textX, textY, textOutline  // la "C" del capitano
+ *   text, font, fg, textSize, textX, textY, textOutline, // la "C" del capitano
+ *   image                                                // foto PNG della fascia 3D (ImgBB)
  * }
  * Le fasce di prima ({ pattern, bg2 }) diventano un livello.
  */
@@ -77,7 +79,8 @@ export function normalizeBand(b) {
     font: pick(BAND_FONTS, src.font, BAND_DEFAULT.font),
     fg: color('fg'),
     textSize: num(src.textSize, 40, 180, 100), textX: num(src.textX, -45, 45, 0), textY: num(src.textY, -45, 45, 0),
-    textOutline: HEX.test(String(src.textOutline || '')) ? String(src.textOutline).toLowerCase() : ''
+    textOutline: HEX.test(String(src.textOutline || '')) ? String(src.textOutline).toLowerCase() : '',
+    ...(src.image ? { image: String(src.image) } : {})
   };
 }
 
@@ -89,6 +92,8 @@ const SHAPES = {
 };
 // porzione della vista frontale dei disegni (400×420, vedi KitRenderer.js) che finisce sulla fascia
 const VB = [100, 146, 200, 128];
+/** Porzione per una fascia larga `aspect` volte l'altezza: sempre tutta l'altezza di VB, più o meno larga attorno al centro. */
+const vbFor = (aspect) => [200 - VB[3] * aspect / 2, VB[1], VB[3] * aspect, VB[3]].map(v => +v.toFixed(2)).join(' ');
 
 /** URL dell'immagine di un livello (il tuo PNG, un PNG del Patron o il simbolo di una forma). */
 function layerUrl(l) {
@@ -132,6 +137,8 @@ let N = 0;
  */
 export function captainBandSVG(band, { height = 18, title = 'Capitano' } = {}) {
   const b = normalizeBand(band);
+  // foto della fascia 3D (salvata dall'editor della divisa)
+  if (b.image) return `<img class="captain-band" src="${esc(b.image)}" alt="${esc(title)}" title="${esc(title)}" style="height:${height * 1.25}px; width:auto; display:inline-block; vertical-align:middle; filter:drop-shadow(0 1px 1px rgba(0,0,0,.45));">`;
   const s = SHAPES[b.shape];
   const id = `cb${++N}`;
   const { w, h } = s;
@@ -143,7 +150,7 @@ export function captainBandSVG(band, { height = 18, title = 'Capitano' } = {}) {
         ${b.textOutline ? `stroke="${b.textOutline}" stroke-width="${(size * .14).toFixed(2)}" stroke-linejoin="round" paint-order="stroke"` : ''}>${esc(b.text)}</text>`
     : '';
   const width = Math.round(height * w / h);
-  const art = b.layers.length ? `<svg x="0" y="0" width="${w}" height="${h}" viewBox="${VB.join(' ')}" preserveAspectRatio="xMidYMid slice">${layersSVG(b, id, u => u)}</svg>` : '';
+  const art = b.layers.length ? `<svg x="0" y="0" width="${w}" height="${h}" viewBox="${vbFor(w / h)}" preserveAspectRatio="none">${layersSVG(b, id, u => u)}</svg>` : '';
   return `<svg class="captain-band" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${width}" height="${height}" role="img" aria-label="${esc(title)}">
     <title>${esc(title)}</title>
     <defs><clipPath id="${id}">${s.outline}</clipPath></defs>
@@ -157,7 +164,7 @@ export function captainBandSVG(band, { height = 18, title = 'Capitano' } = {}) {
  * Disegno della fascia stesa (striscia larga `aspect` volte l'altezza) su un canvas, per la manica della maglia 3D.
  * La lettera sta al centro (lato esterno del braccio). Restituisce { canvas, bg, border }.
  */
-export async function bandRaster(band, aspect = 12, height = 160) {
+export async function bandRaster(band, aspect = 12, height = 200) {
   const b = normalizeBand(band);
   const w = Math.round(height * aspect), h = height;
   const urls = [...new Set(b.layers.map(layerUrl).filter(Boolean))];
@@ -168,7 +175,7 @@ export async function bandRaster(band, aspect = 12, height = 160) {
   ctx.fillStyle = b.bg; ctx.fillRect(0, 0, w, h);
   if (b.layers.length) {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-      <svg x="0" y="0" width="${w}" height="${h}" viewBox="${VB.join(' ')}" preserveAspectRatio="xMidYMid slice">${layersSVG(b, 'r' + (++N), u => data.get(u) || '')}</svg></svg>`;
+      <svg x="0" y="0" width="${w}" height="${h}" viewBox="${vbFor(w / h)}" preserveAspectRatio="none">${layersSVG(b, 'r' + (++N), u => data.get(u) || '')}</svg></svg>`;
     const img = await new Promise(res => {
       const im = new Image();
       im.onload = () => res(im); im.onerror = () => res(null);

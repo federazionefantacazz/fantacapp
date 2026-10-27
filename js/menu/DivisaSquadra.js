@@ -1,11 +1,11 @@
 import { installColorPicker } from '../components/ColorPicker.js';
 import { db, ref, update } from '../firebase-config.js';
 import { uploadPngToImgBB } from '../services/integrationImgBB.js';
-import { createKitViewer, renderKitImage, kitImageHTML, dataUrlToBlob } from '../components/Kit3D.js';
+import { createKitViewer, renderKitImage, renderBandImage, kitImageHTML, dataUrlToBlob, BAND_RING_ASPECT } from '../components/Kit3D.js';
 import { getCutout } from '../services/imageCutout.js';
 import { getPngPatterns, getPngBrands, getChampPatches, getCompPatches, getPngSymbols, onKitAssetsChange } from '../services/kitAssets.js';
 import { esc } from './menuUtils.js';
-import { captainBandSVG, bandRaster, normalizeBand, BAND_SHAPES, BAND_FONTS, BAND_MAX_TEXT, BAND_MAX_LAYERS } from '../components/CaptainBand.js';
+import { captainBandSVG, bandRaster, normalizeBand, BAND_FONTS, BAND_MAX_TEXT, BAND_MAX_LAYERS } from '../components/CaptainBand.js';
 import {
   normalizeKit, defaultKit, patternLabel, motifParams, motifMax, shapePath,
   PRESETS, PATTERNS, PATTERN_CATS, MOTIF_SHAPES, MOTIF_LIMITS, BRANDS, SPONSOR_FONTS, NUMBER_FONTS, PATCH_POSITIONS, ZONES, COLLARS, COLLAR_SHAPES, CUFFS,
@@ -67,7 +67,7 @@ const MOTIF_UI = {
   'm-checker': { count: 'Quadri per riga' }
 };
 // dove guarda la maglia 3D quando si apre una fase (vedi FOCUS in Kit3D.js)
-const SEC_FOCUS = { model: 'front', styles: 'front', design: 'front', band: 'bandArm', sponsor: 'sponsor', back: 'backTop', brand: 'chest', patches: 'sleevePatch' };
+const SEC_FOCUS = { model: 'front', styles: 'front', design: 'front', band: 'bandAlone', sponsor: 'sponsor', back: 'backTop', brand: 'chest', patches: 'sleevePatch' };
 const ZONE_FOCUS = { sleeves: 'sleeve', back: 'back' };
 const PATCH_FOCUS = { chest: 'chest', belly: 'sponsor', sleeveR: 'sleeveR', hem: 'hem' };
 const COLOR_FOCUS = { base: 'front', sleeves: 'sleeve', sleevesR: 'sleeveR', shoulders: 'shoulder', collar: 'collar', cuffs: 'cuff', trim: 'collar' };
@@ -241,10 +241,6 @@ export function injectStyle() {
     .kd-title + .kd-group { border-top: 0; margin-top: 0; padding-top: 0; }
     .kd-shape img { width: 62%; height: 62%; object-fit: contain; pointer-events: none; }
     .kd-shape.up i { font-size: 1.2rem; pointer-events: none; }
-    .kd-band-stage { display: flex; align-items: center; justify-content: center; gap: 1.2rem; padding: 1.1rem .6rem; border-radius: 14px;
-      background: repeating-linear-gradient(to bottom, #2e7d32 0 22px, #2a7230 22px 44px); }
-    .kd-band-stage .big { filter: drop-shadow(0 4px 10px rgba(0,0,0,.45)); line-height: 0; }
-    .kd-band-sizes { display: flex; flex-direction: column; align-items: center; gap: .5rem; line-height: 0; }
     .kd-band-th { height: 44px; display: flex; align-items: center; justify-content: center; }
     .kd-layer-go { color: var(--text2); font-size: 1.2rem; pointer-events: none; }
   `;
@@ -268,6 +264,7 @@ export const DivisaSquadra = {
   _layer: 0,
   _busy: false,
   _previewToken: 0,
+  _bandView: 'alone', // fascia da capitano 3D: 'alone' (da sola) o 'shirt' (indossata sulla maglia)
   _slot: 1,
   /** Maglia da aprire (1 o 2) alla prossima apertura dell'editor; poi torna null. */
   startSlot: null,
@@ -451,18 +448,20 @@ export const DivisaSquadra = {
     const compPatch = this._open === 'patches' ? (this._compPreview() || {}).url || '' : '';
     if (this._viewer) {
       // nella fase della fascia il capitano la indossa sulla manica sinistra (solo anteprima)
+      // fascia da capitano: da sola (fascia 3D al posto della maglia) o indossata sulla manica sinistra
       const my = ++this._previewToken;
-      const band = this._isBand() ? bandRaster(this._band) : Promise.resolve(null);
-      band.then(armband => {
+      const alone = this._isBand() && this._bandView === 'alone';
+      const band = this._isBand() ? bandRaster(this._band, alone ? BAND_RING_ASPECT : 12, alone ? 256 : 200) : Promise.resolve(null);
+      band.then(raster => {
         if (!this._viewer || my !== this._previewToken) return;
-        this._viewer.update(this._kit, { crestUrl: this._crest(), compPatch, armband }).catch(e => console.error('Divisa:', e));
+        this._viewer.setArmband(alone ? raster : null);
+        this._viewer.update(this._kit, { crestUrl: this._crest(), compPatch, armband: alone ? null : raster }).catch(e => console.error('Divisa:', e));
       });
     }
     const dirty = this._root.querySelector('#kit-dirty');
     if (dirty) dirty.textContent = this._dirty() ? 'Modifiche non salvate' : '';
     const tab = this._root.querySelector(`#kit-slots [data-v="${this._slot}"]`);
     if (tab) tab.classList.toggle('dirty', this._kitDirty());
-    this._bandPreview();
   },
 
   /** Durante trascinamenti (cursori, selettore colore) ridisegno al massimo una volta per frame. */
@@ -484,7 +483,6 @@ export const DivisaSquadra = {
       sponsor: this._secSponsor, back: this._secBack, brand: this._secBrand, patches: this._secPatches
     }[key];
     box.innerHTML = fn.call(this);
-    this._bandPreview();
     box.querySelectorAll('img[data-cut]').forEach(img => getCutout(img.dataset.cut).then(u => { if (u) img.src = u; }));
   },
 
@@ -696,7 +694,7 @@ export const DivisaSquadra = {
   _layerList() {
     const band = this._isBand(), L = this._L(), max = this._maxL();
     const zoneLabel = (z) => (ZONES.find(x => x.id === z) || {}).label || '';
-    const thumb = (l) => band ? `<div class="kd-band-th">${captainBandSVG({ ...this._band, layers: [l], text: '' }, { height: 26 })}</div>` : this._thumb({ ...this._kit, layers: [l] });
+    const thumb = (l) => band ? `<div class="kd-band-th">${captainBandSVG({ ...this._band, image: '', layers: [l], text: '' }, { height: 26 })}</div>` : this._thumb({ ...this._kit, layers: [l] });
     const rows = L.map((l, i) => `
       <div class="kit-layer" data-act="open-layer" data-i="${i}">
         <div class="th">${thumb(l)}</div>
@@ -805,11 +803,8 @@ export const DivisaSquadra = {
     return this._layerView(sel);
   },
 
-  /** Anteprime 2D della fascia (grande e come appare in Formazione e nel Live): si aggiornano anche mentre si trascina. */
-  _bandPreview() {
-    if (!this._root || !this._band) return;
-    this._root.querySelectorAll('[data-band-prev]').forEach(el => { el.innerHTML = captainBandSVG(this._band, { height: Number(el.dataset.bandPrev) }); });
-  },
+  /** Dove guarda la maglia 3D nella fase della fascia. */
+  _bandFocus() { return this._bandView === 'alone' ? 'bandAlone' : 'bandArm'; },
 
   _secBand() {
     const b = this._band;
@@ -817,23 +812,20 @@ export const DivisaSquadra = {
     const sel = Math.min(this._layer, b.layers.length - 1);
     if (this._layerPage && sel >= 0) return this._layerView(sel);
     const row = (label, path, value) => `<div class="kit-color-row"><div class="nm">${esc(label)}</div>${this._colorPicker(path, value)}</div>`;
+    const f = this._bandFocus();
     return `
-      <div class="kd-band-stage">
-        <div class="big" data-band-prev="84"></div>
-        <div class="kd-band-sizes"><div data-band-prev="15"></div><div data-band-prev="13"></div></div>
-      </div>
-      <div class="kd-desc" style="margin:.4rem 0 0;">Sulla maglia il capitano la porta sulla <b>manica sinistra</b>; a destra come appare in Formazione e nel Live. <b>Chi la indossa</b> lo scegli quando schieri la formazione.</div>
-      ${this._group('Forma e colori', 'bandArm', `
-        ${this._seg(BAND_SHAPES.map(sh => [sh.id, sh.label, b.shape === sh.id]), 'data-act="band-shape"')}
+      ${this._seg([['alone', 'Fascia da sola', this._bandView === 'alone'], ['shirt', 'Sulla maglia', this._bandView === 'shirt']], 'data-act="band-view"')}
+      <div class="kd-desc" style="margin:.2rem 0 0;">La fascia elastica 3D del tuo capitano: guardala da sola (trascina per girarla) o indossata sulla <b>manica sinistra</b> della maglia. <b>Chi la indossa</b> lo scegli quando schieri la formazione; lì e nel Live si vede la sua foto.</div>
+      ${this._group('Colori della fascia', f, `
         ${row('Fondo', '@band.bg', b.bg)}
-        ${row('Bordo', '@band.border', b.border)}`)}
-      ${this._group('Disegni a livelli', 'bandArm', `
-        <div class="kd-desc" style="margin:0 0 .6rem;">Come per la maglia: strisce, forme, motivi, disegni del Patron o una tua immagine PNG, con colore, dimensione, posizione e rotazione (fino a ${BAND_MAX_LAYERS} livelli).</div>
+        ${row('Bordi', '@band.border', b.border)}`)}
+      ${this._group('Disegni a livelli', f, `
+        <div class="kd-desc" style="margin:0 0 .6rem;">Come per la maglia: strisce, forme, motivi, disegni del Patron o una tua immagine PNG, con colore, dimensione, posizione e rotazione (fino a ${BAND_MAX_LAYERS} livelli). Il centro del disegno sta davanti, dove c'è la "C".</div>
         ${this._layerList()}`)}
-      ${this._group('La "C" del capitano', 'bandArm', `
+      ${this._group('La "C" del capitano', f, `
         <label class="kit-field"><span>Lettera (max ${BAND_MAX_TEXT})</span><input type="text" maxlength="${BAND_MAX_TEXT * 2}" value="${esc(b.text)}" data-text="@band.text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="C"></label>
         <div class="kit-sub">Carattere</div>
-        <div class="kd-opts">${BAND_FONTS.map(f => `<button class="lv-chip ${b.font === f.id ? 'on' : ''}" data-act="band-font" data-v="${f.id}" style="font-family:${esc(f.css)}; font-weight:${f.weight};${f.style === 'italic' ? ' font-style:italic;' : ''}">${esc(f.label)}</button>`).join('')}</div>
+        <div class="kd-opts">${BAND_FONTS.map(ft => `<button class="lv-chip ${b.font === ft.id ? 'on' : ''}" data-act="band-font" data-v="${ft.id}" style="font-family:${esc(ft.css)}; font-weight:${ft.weight};${ft.style === 'italic' ? ' font-style:italic;' : ''}">${esc(ft.label)}</button>`).join('')}</div>
         ${row('Colore', '@band.fg', b.fg)}
         ${this._seg([['0', 'Senza contorno', !b.textOutline], ['1', 'Con contorno', !!b.textOutline]], 'data-act="band-outline"')}
         ${b.textOutline ? row('Contorno', '@band.textOutline', b.textOutline) : ''}
@@ -1075,7 +1067,7 @@ export const DivisaSquadra = {
         // patch della competizione e fascia da capitano in anteprima
         if (wasPatches !== (this._open === 'patches') || wasBand !== this._isBand()) this._renderPreview();
         this._scrollToOpen();
-        if (this._open) this._focusTo(SEC_FOCUS[this._open] || 'front', true);
+        if (this._open) this._focusTo(this._isBand() ? this._bandFocus() : SEC_FOCUS[this._open] || 'front', true);
         return;
       case 'slot': this._switchSlot(Number(v)); return;
       case 'copy-first': this._copyFirst(); return;
@@ -1152,7 +1144,7 @@ export const DivisaSquadra = {
         this._layer = i; this._layerPage = 'menu';
         this._renderSection();
         this._scrollToOpen();
-        this._focusTo(this._isBand() ? 'bandArm' : ZONE_FOCUS[(this._L()[i] || {}).zone] || 'front');
+        this._focusTo(this._isBand() ? this._bandFocus() : ZONE_FOCUS[(this._L()[i] || {}).zone] || 'front');
         return;
       case 'layer-page':
         this._layerPage = v || null;
@@ -1233,7 +1225,11 @@ export const DivisaSquadra = {
         return;
 
       // fascia da capitano
-      case 'band-shape': this._update(() => { this._band.shape = v; }); return;
+      case 'band-view':
+        this._bandView = v === 'shirt' ? 'shirt' : 'alone';
+        this._renderPreview(); this._renderSection();
+        this._focusTo(this._bandFocus(), true);
+        return;
       case 'band-font': this._update(() => { this._band.font = v; }); return;
       case 'band-outline': this._update(() => { this._band.textOutline = v === '1' ? (this._band.fg === '#ffffff' ? '#111111' : '#ffffff') : ''; }); return;
       case 'band-text-reset': this._update(() => { Object.assign(this._band, { textSize: 100, textX: 0, textY: 0 }); }); return;
@@ -1450,11 +1446,21 @@ export const DivisaSquadra = {
     const slot = this._slot;
     const band = this._bandDirty() ? clone(this._band) : null;
     try {
+      // foto della fascia 3D per Formazione e Live
+      if (band) {
+        delete band.image;
+        try {
+          const raster = await bandRaster(band, BAND_RING_ASPECT, 256);
+          const dataUrl = await renderBandImage(raster);
+          if (dataUrl) band.image = await uploadPngToImgBB(new File([await dataUrlToBlob(dataUrl)], `fascia-${team.id}.png`, { type: 'image/png' }), 400);
+        } catch (e) { console.warn('Foto della fascia non caricata', e); }
+      }
       // solo la fascia cambiata (maglia già salvata): salvo solo quella
       if (band && !this._kitDirty() && team[field]) {
         await update(ref(db, `teams/${team.id}`), { captainBand: band });
         team.captainBand = band;
-        this._bandSaved = JSON.stringify(band);
+        if (this._band) { this._band.image = band.image; if (!band.image) delete this._band.image; }
+        this._bandSaved = JSON.stringify(this._band);
         this._renderPreview();
         window.showToast('Fascia da capitano salvata!', 'ok');
         return;
@@ -1469,7 +1475,11 @@ export const DivisaSquadra = {
       } catch (e) { console.warn('Foto della divisa non caricata', e); }
       await update(ref(db, `teams/${team.id}`), { [field]: kit, ...(band ? { captainBand: band } : {}) });
       team[field] = kit; // aggiornamento immediato; il listener del DB lo riconferma
-      if (band) { team.captainBand = band; this._bandSaved = JSON.stringify(band); }
+      if (band) {
+        team.captainBand = band;
+        if (this._band) { this._band.image = band.image; if (!band.image) delete this._band.image; }
+        this._bandSaved = JSON.stringify(this._band);
+      }
       if (!this._kit) return;
       if (kit.image) this._kit.image = kit.image;
       this._saved = JSON.stringify(this._kit);

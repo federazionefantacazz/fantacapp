@@ -63,7 +63,9 @@ function floatGeometry(THREE, geometry) {
  *         (icons/kit3d/neck-cut-raglan.bin).
  */
 const variants = new Map();
-const COLLAR_TOP = 1.675; // punto più alto del colletto alto (collar-polo.glb), con un po' di margine
+const COLLAR_TOP = 1.675;
+/** Fascia da capitano 3D: circonferenza / altezza (il disegno della fascia va steso con queste proporzioni). */
+export const BAND_RING_ASPECT = 4.3; // punto più alto del colletto alto (collar-polo.glb), con un po' di margine
 function loadVariant(kit) {
   const raglan = kit.sleeveCut === 'raglan', shape = isDeformed(kit.collarShape) ? kit.collarShape : 'v';
   const key = (raglan ? 'raglan:' : 'setin:') + shape;
@@ -285,7 +287,7 @@ class Stage {
     if (this._tween) cancelAnimationFrame(this._tween);
     const start = performance.now();
     const step = (now) => {
-      const p = Math.min(1, (now - start) / ms), e = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+      const p = ms > 0 ? Math.min(1, (now - start) / ms) : 1, e = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
       const t = t0.clone().lerp(t1, e), a = a0 + da * e, d = d0 + (d1 - d0) * e;
       this.camera.position.set(t.x + Math.sin(a) * d, t.y, t.z + Math.cos(a) * d);
       this.camera.lookAt(t);
@@ -293,7 +295,50 @@ class Stage {
       this.render();
       this._tween = p < 1 ? requestAnimationFrame(step) : 0;
     };
-    this._tween = requestAnimationFrame(step);
+    if (ms > 0) this._tween = requestAnimationFrame(step); else step(start);
+  }
+
+  /**
+   * Fascia da capitano 3D "da sola" al posto della maglia: elastico ad anello con il disegno stampato sopra.
+   * ab = { canvas (disegno steso, components/CaptainBand.js → bandRaster con aspect BAND_RING_ASPECT), bg, border } o null (torna la maglia).
+   */
+  setArmband(ab) {
+    const { THREE } = this.L;
+    if (!ab || !ab.canvas) {
+      if (this.band) this.band.visible = false;
+      if (this.model) this.model.visible = true;
+      return;
+    }
+    if (!this.band) {
+      // misure di una fascia vera (circonferenza ~30 cm, altezza ~7 cm) rispetto alla maglia
+      const R = this.size.x * .13, Hh = R * 2 * Math.PI / BAND_RING_ASPECT;
+      const g = new THREE.Group();
+      this.bandTex = new THREE.CanvasTexture(ab.canvas);
+      this.bandTex.colorSpace = THREE.SRGBColorSpace;
+      this.bandTex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+      // u = 0.5 (centro del disegno, la "C") davanti alla camera: l'anello parte dal retro
+      const outer = new THREE.Mesh(new THREE.CylinderGeometry(R, R * .97, Hh, 128, 1, true, Math.PI, Math.PI * 2),
+        new THREE.MeshStandardMaterial({ map: this.bandTex, roughness: .82, metalness: 0 }));
+      const innerMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 1, side: THREE.BackSide });
+      const inner = new THREE.Mesh(new THREE.CylinderGeometry(R * .985, R * .955, Hh * .98, 128, 1, true), innerMat);
+      this.bandRimMat = new THREE.MeshStandardMaterial({ roughness: .7, metalness: 0 });
+      const rim = (y, r) => { const t = new THREE.Mesh(new THREE.TorusGeometry(r, Hh * .035, 10, 128), this.bandRimMat); t.rotation.x = Math.PI / 2; t.position.y = y; return t; };
+      g.add(outer, inner, rim(Hh / 2, R * .995), rim(-Hh / 2, R * .965));
+      g.position.copy(this.center);
+      g.rotation.x = .18; // un po' inclinata: si vede anche l'interno
+      this.band = g;
+      this.bandInner = innerMat;
+      this.scene.add(g);
+    } else if (this.bandTex.image !== ab.canvas) {
+      const old = this.bandTex.image;
+      if (old && (old.width !== ab.canvas.width || old.height !== ab.canvas.height)) this.bandTex.dispose();
+      this.bandTex.image = ab.canvas;
+    }
+    this.bandTex.needsUpdate = true;
+    this.bandRimMat.color.set(validColor(ab.border, '#111111'));
+    this.bandInner.color.set(validColor(ab.bg, '#888888')).multiplyScalar(.25);
+    this.band.visible = true;
+    if (this.model) this.model.visible = false;
   }
 
   setTexture(canvas) {
@@ -315,6 +360,7 @@ class Stage {
   dispose() {
     if (this._raf) cancelAnimationFrame(this._raf);
     if (this._tween) cancelAnimationFrame(this._tween);
+    if (this.bandTex) this.bandTex.dispose();
     if (this.controls) this.controls.dispose();
     this.controls = null;
     this.texture.dispose();
@@ -334,6 +380,7 @@ export const FOCUS = {
   sleeveR:  { yaw: 50, x: .38, y: .18, d: .55 },
   sleevePatch: { yaw: -82, x: -.35, y: .2, d: .6 }, // patch della competizione (esterno della manica sinistra)
   bandArm:  { yaw: -82, x: -.35, y: .12, d: .6 },  // fascia da capitano (manica sinistra, sotto la patch)
+  bandAlone: { yaw: 0, d: .5 },                      // fascia da capitano 3D da sola (al centro della scena)
   cuff:     { yaw: -50, x: -.46, y: .13, d: .45 },
   chest:    { yaw: 0, y: .22, d: .55 },
   sponsor:  { yaw: 0, y: .05, d: .62 },
@@ -389,6 +436,13 @@ export function createKitViewer(container, { zoom = false } = {}) {
       const f = FOCUS[name] || FOCUS.all;
       stage.focus(f);
     },
+    /** Fascia da capitano 3D da sola al posto della maglia (ab = bandRaster) o null per tornare alla maglia. */
+    async setArmband(ab) {
+      const st = await ready;
+      if (!st || disposed) return;
+      st.setArmband(ab);
+      st.render();
+    },
     dispose() {
       disposed = true;
       if (ro) ro.disconnect();
@@ -430,6 +484,28 @@ export function renderKitImage(kit, opts = {}) {
   queue = job;
   if (shotCache.size > 150) shotCache.delete(shotCache.keys().next().value);
   shotCache.set(key, job);
+  return job;
+}
+
+/**
+ * Foto PNG della fascia da capitano 3D (data URL, sfondo trasparente) per Formazione e Live.
+ * ab = disegno steso (components/CaptainBand.js → bandRaster(band, BAND_RING_ASPECT)).
+ */
+const BAND_PHOTO = { yaw: 0, d: .27 }; // inquadratura della foto della fascia
+export function renderBandImage(ab, { width = 360, height = 240 } = {}) {
+  const job = queue.then(async () => {
+    const [L, model] = await Promise.all([loadLib(), loadModel()]);
+    if (!shot) shot = new Stage(L, model, document.createElement('canvas'), { width, height });
+    shot.resize(width, height);
+    shot.setArmband(ab);
+    shot.focus(BAND_PHOTO, 0);
+    shot.render();
+    const url = shot.renderer.domElement.toDataURL('image/png');
+    shot.setArmband(null);
+    shot.setView(0);
+    return url;
+  }).catch(e => { console.error('Fascia 3D:', e); return ''; });
+  queue = job;
   return job;
 }
 
