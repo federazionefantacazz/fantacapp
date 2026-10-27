@@ -5,6 +5,7 @@ import { createKitViewer, renderKitImage, kitImageHTML, dataUrlToBlob } from '..
 import { getCutout } from '../services/imageCutout.js';
 import { getPngPatterns, getPngBrands, getChampPatches, getCompPatches, getPngSymbols, onKitAssetsChange } from '../services/kitAssets.js';
 import { esc } from './menuUtils.js';
+import { captainBandSVG, bandRaster, normalizeBand, BAND_SHAPES, BAND_FONTS, BAND_MAX_TEXT, BAND_MAX_LAYERS } from '../components/CaptainBand.js';
 import {
   normalizeKit, defaultKit, patternLabel, motifParams, motifMax, shapePath,
   PRESETS, PATTERNS, PATTERN_CATS, MOTIF_SHAPES, MOTIF_LIMITS, BRANDS, SPONSOR_FONTS, NUMBER_FONTS, PATCH_POSITIONS, ZONES, COLLARS, COLLAR_SHAPES, CUFFS,
@@ -66,7 +67,7 @@ const MOTIF_UI = {
   'm-checker': { count: 'Quadri per riga' }
 };
 // dove guarda la maglia 3D quando si apre una fase (vedi FOCUS in Kit3D.js)
-const SEC_FOCUS = { model: 'front', styles: 'front', design: 'front', sponsor: 'sponsor', back: 'backTop', brand: 'chest', patches: 'sleevePatch' };
+const SEC_FOCUS = { model: 'front', styles: 'front', design: 'front', band: 'bandArm', sponsor: 'sponsor', back: 'backTop', brand: 'chest', patches: 'sleevePatch' };
 const ZONE_FOCUS = { sleeves: 'sleeve', back: 'back' };
 const PATCH_FOCUS = { chest: 'chest', belly: 'sponsor', sleeveR: 'sleeveR', hem: 'hem' };
 const COLOR_FOCUS = { base: 'front', sleeves: 'sleeve', sleevesR: 'sleeveR', shoulders: 'shoulder', collar: 'collar', cuffs: 'cuff', trim: 'collar' };
@@ -240,6 +241,11 @@ export function injectStyle() {
     .kd-title + .kd-group { border-top: 0; margin-top: 0; padding-top: 0; }
     .kd-shape img { width: 62%; height: 62%; object-fit: contain; pointer-events: none; }
     .kd-shape.up i { font-size: 1.2rem; pointer-events: none; }
+    .kd-band-stage { display: flex; align-items: center; justify-content: center; gap: 1.2rem; padding: 1.1rem .6rem; border-radius: 14px;
+      background: repeating-linear-gradient(to bottom, #2e7d32 0 22px, #2a7230 22px 44px); }
+    .kd-band-stage .big { filter: drop-shadow(0 4px 10px rgba(0,0,0,.45)); line-height: 0; }
+    .kd-band-sizes { display: flex; flex-direction: column; align-items: center; gap: .5rem; line-height: 0; }
+    .kd-band-th { height: 44px; display: flex; align-items: center; justify-content: center; }
     .kd-layer-go { color: var(--text2); font-size: 1.2rem; pointer-events: none; }
   `;
   document.head.appendChild(style);
@@ -261,9 +267,12 @@ export const DivisaSquadra = {
   _open: 'model',
   _layer: 0,
   _busy: false,
+  _previewToken: 0,
   _slot: 1,
   /** Maglia da aprire (1 o 2) alla prossima apertura dell'editor; poi torna null. */
   startSlot: null,
+  /** Fase da aprire alla prossima apertura (es. 'band' da Configurazione squadra); poi torna null. */
+  startSection: null,
 
   mount(body, STATE) {
     injectStyle();
@@ -281,9 +290,13 @@ export const DivisaSquadra = {
     this._slot = this.startSlot === 2 ? 2 : 1;
     this.startSlot = null;
     this._loadSlot(this._slot);
-    this._open = 'model';
+    // fascia da capitano: della squadra (non di una maglia), si salva insieme alla divisa
+    this._band = normalizeBand(team.captainBand);
+    this._bandSaved = JSON.stringify(this._band);
+    this._open = this.startSection || 'model';
+    this.startSection = null;
     this._layerPage = null;
-    this._focusName = 'front';
+    this._focusName = SEC_FOCUS[this._open] || 'front'; // la maglia inquadra la fase aperta appena il 3D è pronto
     this._renderAll();
 
     root.addEventListener('pointerdown', (e) => this._onPointerDown(e));
@@ -365,7 +378,15 @@ export const DivisaSquadra = {
 
   /* -------------------------------------------------------------- render */
   _crest() { return (window.STATE.user && window.STATE.user.logo) || ''; },
-  _dirty() { return JSON.stringify(this._kit) !== this._saved; },
+  _dirty() { return JSON.stringify(this._kit) !== this._saved || this._bandDirty(); },
+  _kitDirty() { return JSON.stringify(this._kit) !== this._saved; },
+  _bandDirty() { return !!this._band && JSON.stringify(this._band) !== this._bandSaved; },
+
+  /* livelli: quelli della maglia (FASE 3) o della fascia da capitano (FASE 8) */
+  _isBand() { return this._open === 'band'; },
+  _L() { return this._isBand() ? this._band.layers : this._kit.layers; },
+  _LP() { return this._isBand() ? '@band.layers' : 'layers'; },
+  _maxL() { return this._isBand() ? BAND_MAX_LAYERS : MAX_LAYERS; },
 
   /** Miniatura: maglia disegnata su canvas a bassa risoluzione. */
   _thumb(kit, plain = true) { return kitImageHTML(kit, { crestUrl: this._crest(), width: 180, textureSize: 512, plain, live: true }); },
@@ -378,7 +399,8 @@ export const DivisaSquadra = {
       ['sponsor', 'FASE 4: Scelta dello SPONSOR'],
       ['back',    'FASE 5: Retro: nome, numero e sponsor'],
       ['brand',   'FASE 6: Stemma e marchio tecnico'],
-      ['patches', 'FASE 7: Scelta delle PATCH']
+      ['patches', 'FASE 7: Scelta delle PATCH'],
+      ['band',    'FASE 8: Fascia da capitano']
     ];
     this._root.innerHTML = `
       <div class="kit-stage">
@@ -427,11 +449,20 @@ export const DivisaSquadra = {
     }
     // nella fase delle patch si vede anche la patch della competizione sulla manica sinistra (non finisce nella foto salvata)
     const compPatch = this._open === 'patches' ? (this._compPreview() || {}).url || '' : '';
-    if (this._viewer) this._viewer.update(this._kit, { crestUrl: this._crest(), compPatch }).catch(e => console.error('Divisa:', e));
+    if (this._viewer) {
+      // nella fase della fascia il capitano la indossa sulla manica sinistra (solo anteprima)
+      const my = ++this._previewToken;
+      const band = this._isBand() ? bandRaster(this._band) : Promise.resolve(null);
+      band.then(armband => {
+        if (!this._viewer || my !== this._previewToken) return;
+        this._viewer.update(this._kit, { crestUrl: this._crest(), compPatch, armband }).catch(e => console.error('Divisa:', e));
+      });
+    }
     const dirty = this._root.querySelector('#kit-dirty');
     if (dirty) dirty.textContent = this._dirty() ? 'Modifiche non salvate' : '';
     const tab = this._root.querySelector(`#kit-slots [data-v="${this._slot}"]`);
-    if (tab) tab.classList.toggle('dirty', this._dirty());
+    if (tab) tab.classList.toggle('dirty', this._kitDirty());
+    this._bandPreview();
   },
 
   /** Durante trascinamenti (cursori, selettore colore) ridisegno al massimo una volta per frame. */
@@ -449,10 +480,11 @@ export const DivisaSquadra = {
     const box = key && this._root.querySelector(`#kit-sec-${key}`);
     if (!box) return;
     const fn = {
-      model: this._secModel, styles: this._secStyles, design: this._secDesign,
+      model: this._secModel, styles: this._secStyles, design: this._secDesign, band: this._secBand,
       sponsor: this._secSponsor, back: this._secBack, brand: this._secBrand, patches: this._secPatches
     }[key];
     box.innerHTML = fn.call(this);
+    this._bandPreview();
     box.querySelectorAll('img[data-cut]').forEach(img => getCutout(img.dataset.cut).then(u => { if (u) img.src = u; }));
   },
 
@@ -655,26 +687,34 @@ export const DivisaSquadra = {
     if (!k.layers.length) this._layerPage = null;
     const sel = Math.min(this._layer, k.layers.length - 1);
     if (this._layerPage && sel >= 0) return this._layerView(sel);
+    return `
+      <div class="kd-desc" style="margin:0 0 .7rem;">Sovrapponi fino a ${MAX_LAYERS} livelli: tocca un livello per aprire il suo menu (disegno, numero e misure, colore, posizione). Il primo livello è quello più in basso.</div>
+      ${this._layerList()}`;
+  },
+
+  /** Elenco dei livelli (della maglia o della fascia) con sposta, copia, elimina e "Aggiungi livello". */
+  _layerList() {
+    const band = this._isBand(), L = this._L(), max = this._maxL();
     const zoneLabel = (z) => (ZONES.find(x => x.id === z) || {}).label || '';
-    const layers = k.layers.map((l, i) => `
+    const thumb = (l) => band ? `<div class="kd-band-th">${captainBandSVG({ ...this._band, layers: [l], text: '' }, { height: 26 })}</div>` : this._thumb({ ...this._kit, layers: [l] });
+    const rows = L.map((l, i) => `
       <div class="kit-layer" data-act="open-layer" data-i="${i}">
-        <div class="th">${this._thumb({ ...k, layers: [l] })}</div>
-        <div class="nm">Livello ${i + 1}<small>${esc(patternLabel(l.type))} · ${esc(zoneLabel(l.zone))}</small></div>
+        <div class="th">${thumb(l)}</div>
+        <div class="nm">Livello ${i + 1}<small>${esc(patternLabel(l.type))}${band ? '' : ` · ${esc(zoneLabel(l.zone))}`}</small></div>
         <button class="kit-icon-btn" data-act="layer-up" data-i="${i}" ${i === 0 ? 'disabled' : ''} title="Porta sotto"><i class="ri-arrow-up-line"></i></button>
-        <button class="kit-icon-btn" data-act="layer-down" data-i="${i}" ${i === k.layers.length - 1 ? 'disabled' : ''} title="Porta sopra"><i class="ri-arrow-down-line"></i></button>
-        <button class="kit-icon-btn" data-act="layer-dup" data-i="${i}" ${k.layers.length >= MAX_LAYERS ? 'disabled' : ''} title="Crea una copia"><i class="ri-file-copy-line"></i></button>
+        <button class="kit-icon-btn" data-act="layer-down" data-i="${i}" ${i === L.length - 1 ? 'disabled' : ''} title="Porta sopra"><i class="ri-arrow-down-line"></i></button>
+        <button class="kit-icon-btn" data-act="layer-dup" data-i="${i}" ${L.length >= max ? 'disabled' : ''} title="Crea una copia"><i class="ri-file-copy-line"></i></button>
         <button class="kit-icon-btn" data-act="layer-del" data-i="${i}" title="Elimina"><i class="ri-delete-bin-line"></i></button>
         <i class="ri-arrow-right-s-line kd-layer-go"></i>
       </div>`).join('');
     return `
-      <div class="kd-desc" style="margin:0 0 .7rem;">Sovrapponi fino a ${MAX_LAYERS} livelli: tocca un livello per aprire il suo menu (disegno, numero e misure, colore, posizione). Il primo livello è quello più in basso.</div>
-      ${layers || '<div class="mp-muted" style="text-align:center; padding:.6rem 0;">Nessun livello: maglia in tinta unita.</div>'}
-      <button class="mp-btn" data-act="layer-add" ${k.layers.length >= MAX_LAYERS ? 'disabled' : ''} style="width:100%; margin-top:.3rem;"><i class="ri-add-line"></i> Aggiungi livello</button>`;
+      ${rows || `<div class="mp-muted" style="text-align:center; padding:.6rem 0;">Nessun livello: ${band ? 'fascia' : 'maglia'} in tinta unita.</div>`}
+      <button class="mp-btn" data-act="layer-add" ${L.length >= max ? 'disabled' : ''} style="width:100%; margin-top:.3rem;"><i class="ri-add-line"></i> Aggiungi livello</button>`;
   },
 
   /** Menu di un livello (pagina 'menu') e le sue pagine: disegno, misure, colore, posizione, zona. */
   _layerView(sel) {
-    const k = this._kit, l = k.layers[sel], path = `layers.${sel}`;
+    const band = this._isBand(), L = this._L(), l = L[sel], path = `${this._LP()}.${sel}`;
     const page = this._layerPage;
     const pt = PATTERNS.find(x => x.id === l.type);
     const motif = !!(pt && pt.motif);
@@ -686,21 +726,22 @@ export const DivisaSquadra = {
     if (page === 'menu') {
       const thumb = this._patternThumb(l);
       return `
-        ${head('', 'Livelli', `${name} · ${patternLabel(l.type)}`)}
+        ${head('', band ? 'Fascia' : 'Livelli', `${name} · ${patternLabel(l.type)}`)}
         ${this._nav('layer-page', 'pattern', thumb ? `<img src="${esc(thumb)}" alt="">` : '<i class="ri-image-line"></i>', 'Disegno', patternLabel(l.type))}
         ${motif ? this._nav('layer-page', 'shape', '<i class="ri-hashtag"></i>', 'Numero e misure', this._motifSummary(l)) : ''}
         ${this._nav('layer-page', 'color', `<span class="dot" style="background:${esc(own && !l.mono ? 'transparent' : l.color)}"></span>`, 'Colore e opacità', `${own && !l.mono ? 'Colori originali' : String(l.color).toUpperCase()} · ${l.opacity}%`)}
         ${this._nav('layer-page', 'pos', '<i class="ri-drag-move-2-line"></i>', 'Posizione e rotazione', `↔ ${l.x || 0} · ↕ ${l.y || 0} · ${l.rot || 0}°${motif ? '' : ` · ${l.scale}%`}${l.flipX ? ' · specchiato' : ''}${l.flipY ? ' · capovolto' : ''}`)}
-        ${this._nav('layer-page', 'zone', '<i class="ri-shirt-line"></i>', 'Dove applicarlo', zoneLabel)}
+        ${band ? '' : this._nav('layer-page', 'zone', '<i class="ri-shirt-line"></i>', 'Dove applicarlo', zoneLabel)}
         <div class="kd-opts" style="margin-top:.6rem;">
-          <button class="lv-chip" data-act="layer-dup" data-i="${sel}" ${k.layers.length >= MAX_LAYERS ? 'disabled' : ''}><i class="ri-file-copy-line"></i> Crea una copia</button>
+          <button class="lv-chip" data-act="layer-dup" data-i="${sel}" ${L.length >= this._maxL() ? 'disabled' : ''}><i class="ri-file-copy-line"></i> Crea una copia</button>
           <button class="lv-chip" data-act="layer-del" data-i="${sel}"><i class="ri-delete-bin-line"></i> Elimina livello</button>
         </div>`;
     }
 
     const top = head('menu', name, { pattern: 'Disegno', shape: 'Numero e misure', color: 'Colore e opacità', pos: 'Posizione e rotazione', zone: 'Dove applicarlo' }[page] || '');
     if (page === 'pattern') {
-      const png = getPngPatterns();
+      // sulla fascia non c'è la mappa UV della maglia: niente grafiche UV complete
+      const png = getPngPatterns().filter(pp => !band || pp.mode !== 'uv');
       const box = (inner) => `<div class="kit-brand" style="height:auto; aspect-ratio:400/420; background:#2b323c;">${inner}</div>`;
       const pic = (src) => `<img src="${esc(src)}" alt="" style="width:100%; height:100%; max-width:none; max-height:none; object-fit:cover;">`;
       const cell = (type, src, label) => this._opt('layer-type', type, box(pic(src)), label, l.type === type);
@@ -762,6 +803,45 @@ export const DivisaSquadra = {
     }
     this._layerPage = 'menu';
     return this._layerView(sel);
+  },
+
+  /** Anteprime 2D della fascia (grande e come appare in Formazione e nel Live): si aggiornano anche mentre si trascina. */
+  _bandPreview() {
+    if (!this._root || !this._band) return;
+    this._root.querySelectorAll('[data-band-prev]').forEach(el => { el.innerHTML = captainBandSVG(this._band, { height: Number(el.dataset.bandPrev) }); });
+  },
+
+  _secBand() {
+    const b = this._band;
+    if (!b.layers.length) this._layerPage = null;
+    const sel = Math.min(this._layer, b.layers.length - 1);
+    if (this._layerPage && sel >= 0) return this._layerView(sel);
+    const row = (label, path, value) => `<div class="kit-color-row"><div class="nm">${esc(label)}</div>${this._colorPicker(path, value)}</div>`;
+    return `
+      <div class="kd-band-stage">
+        <div class="big" data-band-prev="84"></div>
+        <div class="kd-band-sizes"><div data-band-prev="15"></div><div data-band-prev="13"></div></div>
+      </div>
+      <div class="kd-desc" style="margin:.4rem 0 0;">Sulla maglia il capitano la porta sulla <b>manica sinistra</b>; a destra come appare in Formazione e nel Live. <b>Chi la indossa</b> lo scegli quando schieri la formazione.</div>
+      ${this._group('Forma e colori', 'bandArm', `
+        ${this._seg(BAND_SHAPES.map(sh => [sh.id, sh.label, b.shape === sh.id]), 'data-act="band-shape"')}
+        ${row('Fondo', '@band.bg', b.bg)}
+        ${row('Bordo', '@band.border', b.border)}`)}
+      ${this._group('Disegni a livelli', 'bandArm', `
+        <div class="kd-desc" style="margin:0 0 .6rem;">Come per la maglia: strisce, forme, motivi, disegni del Patron o una tua immagine PNG, con colore, dimensione, posizione e rotazione (fino a ${BAND_MAX_LAYERS} livelli).</div>
+        ${this._layerList()}`)}
+      ${this._group('La "C" del capitano', 'bandArm', `
+        <label class="kit-field"><span>Lettera (max ${BAND_MAX_TEXT})</span><input type="text" maxlength="${BAND_MAX_TEXT * 2}" value="${esc(b.text)}" data-text="@band.text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="C"></label>
+        <div class="kit-sub">Carattere</div>
+        <div class="kd-opts">${BAND_FONTS.map(f => `<button class="lv-chip ${b.font === f.id ? 'on' : ''}" data-act="band-font" data-v="${f.id}" style="font-family:${esc(f.css)}; font-weight:${f.weight};${f.style === 'italic' ? ' font-style:italic;' : ''}">${esc(f.label)}</button>`).join('')}</div>
+        ${row('Colore', '@band.fg', b.fg)}
+        ${this._seg([['0', 'Senza contorno', !b.textOutline], ['1', 'Con contorno', !!b.textOutline]], 'data-act="band-outline"')}
+        ${b.textOutline ? row('Contorno', '@band.textOutline', b.textOutline) : ''}
+        ${this._range('@band.textSize', 'Dimensione', b.textSize, 40, 180, '%')}
+        ${this._range('@band.textX', 'Sposta ↔', b.textX, -45, 45)}
+        ${this._range('@band.textY', 'Sposta ↕', b.textY, -45, 45)}
+        <div class="kit-chips" style="margin-top:.4rem;">${this._chip('band-text-reset', '1', 'Ripristina posizione', false)}</div>`)}
+      <div class="kd-desc" style="margin-top:.9rem;">La fascia è della squadra (uguale per prima e seconda maglia) e si salva con <b>Salva divisa</b>.</div>`;
   },
 
   _uploadBtn(kind, has, label) {
@@ -932,11 +1012,19 @@ export const DivisaSquadra = {
 
 
   /* ------------------------------------------------------------- eventi */
+  /** Imposta un valore: path della divisa ('colors.base') o della fascia ('@band.fg'). */
   _set(path, value) {
-    const parts = path.split('.');
-    let o = this._kit;
+    const band = path.startsWith('@band.');
+    const parts = (band ? path.slice(6) : path).split('.');
+    let o = band ? this._band : this._kit;
     parts.slice(0, -1).forEach(p => { o = o[p]; });
     o[parts[parts.length - 1]] = value;
+    if (band && parts[0] === 'text') this._band.text = Array.from(String(value).trim().toUpperCase()).slice(0, BAND_MAX_TEXT).join('');
+  },
+
+  _get(path) {
+    const band = path.startsWith('@band.');
+    return (band ? path.slice(6) : path).split('.').reduce((o, k2) => (o ? o[k2] : undefined), band ? this._band : this._kit);
   },
 
   /** Finestra a tutto schermo con la maglia: ruota in ogni direzione, zoom (due dita, rotella o + / −) e spostamento. */
@@ -979,11 +1067,13 @@ export const DivisaSquadra = {
     switch (act) {
       case 'toggle':
         this._picker = null;
-        const wasPatches = this._open === 'patches';
+        const wasPatches = this._open === 'patches', wasBand = this._isBand();
         this._open = this._open === btn.dataset.sec ? null : btn.dataset.sec;
+        if (wasBand !== this._isBand()) { this._layer = 0; this._layerPage = null; } // livelli della maglia ↔ della fascia
         this._root.querySelectorAll('.kit-acc').forEach(a => a.classList.toggle('open', a.dataset.sec === this._open));
         this._renderSection();
-        if (wasPatches !== (this._open === 'patches')) this._renderPreview(); // patch della competizione in anteprima
+        // patch della competizione e fascia da capitano in anteprima
+        if (wasPatches !== (this._open === 'patches') || wasBand !== this._isBand()) this._renderPreview();
         this._scrollToOpen();
         if (this._open) this._focusTo(SEC_FOCUS[this._open] || 'front', true);
         return;
@@ -994,6 +1084,7 @@ export const DivisaSquadra = {
       case 'undo':
         if (!this._dirty()) return;
         this._kit = normalizeKit(JSON.parse(this._saved));
+        this._band = normalizeBand(JSON.parse(this._bandSaved));
         this._layer = 0; this._layerPage = null;
         this._renderPreview(); this._renderSection();
         return;
@@ -1002,7 +1093,7 @@ export const DivisaSquadra = {
         this._focusTo(v, true);
         return;
       case 'layer-reset':
-        this._update(kit => { const l = kit.layers[Math.min(this._layer, kit.layers.length - 1)]; if (l) Object.assign(l, { x: 0, y: 0, rot: 0, scale: 100 }); });
+        this._update(kit => { const l = this._L()[Math.min(this._layer, this._L().length - 1)]; if (l) Object.assign(l, { x: 0, y: 0, rot: 0, scale: 100 }); });
         return;
       case 'sleeve-reset':
         this._update(kit => { kit.sleeveTf = { x: 0, y: 0, scale: 100, rot: 0 }; });
@@ -1048,11 +1139,11 @@ export const DivisaSquadra = {
 
       // livelli
       case 'layer-add':
-        if (k.layers.length >= MAX_LAYERS) return;
+        if (this._L().length >= this._maxL()) return;
         this._update(kit => {
           // nuovo livello: una striscia singola, poi si sceglie il disegno e si aumenta il numero
-          kit.layers.push({ type: 'm-stripe', ...motifParams({ type: 'm-stripe' }), color: kit.colors.collar || '#ffffff', opacity: 100, scale: 100, flipX: false, flipY: false, x: 0, y: 0, rot: 0, zone: 'body', wrap: 'whole' });
-          this._layer = kit.layers.length - 1;
+          this._L().push({ type: 'm-stripe', ...motifParams({ type: 'm-stripe' }), color: this._isBand() ? (this._band.fg === this._band.bg ? '#ffffff' : this._band.fg) : kit.colors.collar || '#ffffff', opacity: 100, scale: 100, flipX: false, flipY: false, x: 0, y: 0, rot: 0, zone: 'body', wrap: 'whole' });
+          this._layer = this._L().length - 1;
           this._layerPage = 'menu';
         });
         this._scrollToOpen();
@@ -1061,7 +1152,7 @@ export const DivisaSquadra = {
         this._layer = i; this._layerPage = 'menu';
         this._renderSection();
         this._scrollToOpen();
-        this._focusTo(ZONE_FOCUS[(k.layers[i] || {}).zone] || 'front');
+        this._focusTo(this._isBand() ? 'bandArm' : ZONE_FOCUS[(this._L()[i] || {}).zone] || 'front');
         return;
       case 'layer-page':
         this._layerPage = v || null;
@@ -1071,16 +1162,16 @@ export const DivisaSquadra = {
       case 'layer-dup': {
         // copia del livello subito sopra l'originale: si apre la copia per modificarla
         e.stopPropagation();
-        if (k.layers.length >= MAX_LAYERS) { window.showToast(`Massimo ${MAX_LAYERS} livelli`, 'err'); return; }
+        if (this._L().length >= this._maxL()) { window.showToast(`Massimo ${this._maxL()} livelli`, 'err'); return; }
         const src = Number.isFinite(i) ? i : this._layer;
-        this._update(kit => { kit.layers.splice(src + 1, 0, clone(kit.layers[src])); this._layer = src + 1; this._layerPage = 'menu'; });
+        this._update(kit => { this._L().splice(src + 1, 0, clone(this._L()[src])); this._layer = src + 1; this._layerPage = 'menu'; });
         window.showToast(`Copia creata: è il livello ${this._layer + 1}`, 'ok');
         return;
       }
       case 'layer-param': {
         const key = btn.dataset.k;
         this._update(kit => {
-          const l = kit.layers[this._layer];
+          const l = this._L()[this._layer];
           l[key] = ['stagger', 'all', 'symMono'].includes(key) ? v === '1' : v;
           if (key === 'shape' && v === 'png') l.symUrl = btn.dataset.url || l.symUrl; // simbolo PNG del Patron
         });
@@ -1089,20 +1180,20 @@ export const DivisaSquadra = {
       case 'layer-del':
         e.stopPropagation();
         this._update(kit => {
-          kit.layers.splice(i, 1);
-          this._layer = Math.max(0, Math.min(this._layer, kit.layers.length - 1));
+          this._L().splice(i, 1);
+          this._layer = Math.max(0, Math.min(this._layer, this._L().length - 1));
           this._layerPage = null;
         });
         return;
       case 'layer-up': case 'layer-down': {
         e.stopPropagation();
         const j = act === 'layer-up' ? i - 1 : i + 1;
-        if (j < 0 || j >= k.layers.length) return;
-        this._update(kit => { [kit.layers[i], kit.layers[j]] = [kit.layers[j], kit.layers[i]]; this._layer = j; });
+        if (j < 0 || j >= this._L().length) return;
+        this._update(kit => { [this._L()[i], this._L()[j]] = [this._L()[j], this._L()[i]]; this._layer = j; });
         return;
       }
       case 'copy-color': {
-        const hex = String(btn.dataset.path.split('.').reduce((o, k2) => (o ? o[k2] : undefined), this._kit) || '').toLowerCase();
+        const hex = String(this._get(btn.dataset.path) || '').toLowerCase();
         const text = btn.dataset.fmt === 'rgb' ? hexToRgb(hex) : hex;
         copyText(text).then(ok => window.showToast(ok ? `Copiato: ${text}` : 'Copia non riuscita', ok ? 'ok' : 'err'));
         return;
@@ -1118,7 +1209,7 @@ export const DivisaSquadra = {
       case 'layer-type': {
         const pt = PATTERNS.find(x => x.id === v);
         this._update(kit => {
-          const l = kit.layers[this._layer];
+          const l = this._L()[this._layer];
           // un motivo nuovo riparte dai suoi valori (striscia singola, una forma, ...)
           if (pt && pt.motif && l.type !== v) Object.assign(l, motifParams({ type: v }));
           l.type = v;
@@ -1128,18 +1219,24 @@ export const DivisaSquadra = {
         return;
       }
       case 'layer-zone':
-        this._update(kit => { kit.layers[this._layer].zone = v; });
+        this._update(kit => { this._L()[this._layer].zone = v; });
         this._focusTo(ZONE_FOCUS[v] || 'front');
         return;
       case 'layer-wrap':
-        this._update(kit => { kit.layers[this._layer].wrap = v; });
+        this._update(kit => { this._L()[this._layer].wrap = v; });
         return;
       case 'layer-flag':
-        this._update(kit => { const l = kit.layers[this._layer]; l[v] = !l[v]; });
+        this._update(kit => { const l = this._L()[this._layer]; l[v] = !l[v]; });
         return;
       case 'layer-mono':
-        this._update(kit => { kit.layers[this._layer].mono = v === '1'; });
+        this._update(kit => { this._L()[this._layer].mono = v === '1'; });
         return;
+
+      // fascia da capitano
+      case 'band-shape': this._update(() => { this._band.shape = v; }); return;
+      case 'band-font': this._update(() => { this._band.font = v; }); return;
+      case 'band-outline': this._update(() => { this._band.textOutline = v === '1' ? (this._band.fg === '#ffffff' ? '#111111' : '#ffffff') : ''; }); return;
+      case 'band-text-reset': this._update(() => { Object.assign(this._band, { textSize: 100, textX: 0, textY: 0 }); }); return;
 
       // sponsor
       case 'sponsor-mode': this._update(kit => { kit[btn.dataset.key].mode = v; }); return;
@@ -1279,13 +1376,13 @@ export const DivisaSquadra = {
       const url = await uploadPngToImgBB(file, li >= 0 ? 1600 : si >= 0 ? 600 : undefined);
       if (!this._kit) return;
       if (si >= 0) {
-        this._update(kit => { const l = kit.layers[si]; if (l) Object.assign(l, { shape: 'png', symUrl: url }); });
+        this._update(() => { const l = this._L()[si]; if (l) Object.assign(l, { shape: 'png', symUrl: url }); });
         window.showToast('Simbolo caricato: ricorda di salvare la divisa', 'ok');
         return;
       }
       if (li >= 0) { this._picker = null; this._layerPage = 'menu'; }
       this._update(kit => {
-        if (li >= 0) { const l = kit.layers[li]; if (l) Object.assign(l, { type: 'img', url, mono: !!l.mono && l.type === 'img' }); }
+        if (li >= 0) { const l = this._L()[li]; if (l) Object.assign(l, { type: 'img', url, mono: !!l.mono && l.type === 'img' }); }
         else if (kind === 'sponsor' || kind === 'backSponsor') kit[kind].url = url;
         else kit.brand.url = url;
       });
@@ -1351,7 +1448,17 @@ export const DivisaSquadra = {
     delete kit.image;
     const field = this._field();
     const slot = this._slot;
+    const band = this._bandDirty() ? clone(this._band) : null;
     try {
+      // solo la fascia cambiata (maglia già salvata): salvo solo quella
+      if (band && !this._kitDirty() && team[field]) {
+        await update(ref(db, `teams/${team.id}`), { captainBand: band });
+        team.captainBand = band;
+        this._bandSaved = JSON.stringify(band);
+        this._renderPreview();
+        window.showToast('Fascia da capitano salvata!', 'ok');
+        return;
+      }
       // foto della maglia per il resto dell'app (scheda club, configurazione squadra)
       try {
         const dataUrl = await renderKitImage(kit, { crestUrl: this._crest(), width: 600 });
@@ -1360,14 +1467,15 @@ export const DivisaSquadra = {
           kit.image = await uploadPngToImgBB(new File([blob], `divisa-${team.id}${slot === 2 ? '-2' : ''}.png`, { type: 'image/png' }), 600);
         }
       } catch (e) { console.warn('Foto della divisa non caricata', e); }
-      await update(ref(db, `teams/${team.id}`), { [field]: kit });
+      await update(ref(db, `teams/${team.id}`), { [field]: kit, ...(band ? { captainBand: band } : {}) });
       team[field] = kit; // aggiornamento immediato; il listener del DB lo riconferma
+      if (band) { team.captainBand = band; this._bandSaved = JSON.stringify(band); }
       if (!this._kit) return;
       if (kit.image) this._kit.image = kit.image;
       this._saved = JSON.stringify(this._kit);
       this._renderSlots();
       this._renderPreview();
-      window.showToast(`${slot === 2 ? 'Seconda' : 'Prima'} maglia salvata!`, 'ok');
+      window.showToast(`${slot === 2 ? 'Seconda' : 'Prima'} maglia${band ? ' e fascia' : ''} salvate!`.replace('maglia salvate', 'maglia salvata'), 'ok');
     } catch (err) {
       console.error(err);
       window.showToast('Salvataggio non riuscito, riprova', 'err');

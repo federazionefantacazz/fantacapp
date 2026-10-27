@@ -333,6 +333,7 @@ export const FOCUS = {
   sleeve:   { yaw: -50, x: -.38, y: .18, d: .55 },
   sleeveR:  { yaw: 50, x: .38, y: .18, d: .55 },
   sleevePatch: { yaw: -82, x: -.35, y: .2, d: .6 }, // patch della competizione (esterno della manica sinistra)
+  bandArm:  { yaw: -82, x: -.35, y: .12, d: .6 },  // fascia da capitano (manica sinistra, sotto la patch)
   cuff:     { yaw: -50, x: -.46, y: .13, d: .45 },
   chest:    { yaw: 0, y: .22, d: .55 },
   sponsor:  { yaw: 0, y: .05, d: .62 },

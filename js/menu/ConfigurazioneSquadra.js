@@ -7,7 +7,6 @@ import { kitPairHTML } from '../components/Kit3D.js';
 import { cropImage } from '../components/ImageCropper.js';
 import { DivisaSquadra } from './DivisaSquadra.js';
 import { StadioSquadra } from './StadioSquadra.js';
-import { FasciaCapitano } from './FasciaCapitano.js';
 import { captainBandSVG } from '../components/CaptainBand.js';
 import { createStaffEditor } from '../components/StaffEditor.js';
 import { getStaff, staffToSave } from '../services/staffService.js';
@@ -50,7 +49,7 @@ export const ConfigurazioneSquadra = {
       if (!btn) return;
       if (btn.dataset.action === 'open-kit') MenuPanel.open(DivisaSquadra, 'kit');
       else if (btn.dataset.action === 'open-stadium') MenuPanel.open(StadioSquadra, 'stadium');
-      else if (btn.dataset.action === 'open-band') MenuPanel.open(FasciaCapitano, 'band');
+      else if (btn.dataset.action === 'open-band') { DivisaSquadra.startSection = 'band'; MenuPanel.open(DivisaSquadra, 'kit'); } // fascia: nell'editor della divisa
       else if (btn.dataset.action === 'remove-logo') this._removeLogo();
       else if (btn.dataset.action === 'save-staff') this._saveStaff();
       else if (btn.dataset.action === 'reset-photo') this._resetPlayerPhoto(btn.dataset.pid);
@@ -134,7 +133,7 @@ export const ConfigurazioneSquadra = {
       <div style="display:flex; align-items:center; gap:1rem;">
         <div style="width:100px; flex-shrink:0; display:flex; justify-content:center; line-height:0;">${captainBandSVG(band, { height: 52 })}</div>
         <div style="min-width:0;">
-          <div class="mp-muted">${band ? 'La tua fascia: si vede accanto al capitano in Formazione e nel Live.' : 'Disegna la fascia del tuo capitano: forma, colori e lettera.'}</div>
+          <div class="mp-muted">${band ? 'La tua fascia: si vede accanto al capitano in Formazione e nel Live.' : 'Disegna la fascia del tuo capitano nell\'editor della divisa: livelli, immagini e lettera.'}</div>
           <button class="mp-btn" data-action="open-band" style="margin-top:.6rem;"><i class="ri-brush-line"></i> ${band ? 'Modifica fascia' : 'Crea fascia'}</button>
         </div>
       </div>
