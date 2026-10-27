@@ -298,22 +298,119 @@ class Stage {
     if (ms > 0) this._tween = requestAnimationFrame(step); else step(start);
   }
 
+  /** Anello della fascia di raggio 1 (alto 2π / BAND_RING_ASPECT) con i materiali condivisi; la "C" guarda verso +z. */
+  _bandRing() {
+    const { THREE } = this.L;
+    const Hh = 2 * Math.PI / BAND_RING_ASPECT;
+    const m = this.bandMats;
+    // davanti (+z) il centro del disegno (la "C"): l'anello parte dal retro
+    const outer = new THREE.Mesh(new THREE.CylinderGeometry(1, .975, Hh, 160, 1, true, Math.PI, Math.PI * 2), m.outer);
+    const inner = new THREE.Mesh(new THREE.CylinderGeometry(.985, .96, Hh * .995, 160, 1, true, Math.PI, Math.PI * 2), m.inner);
+    // linguetta col velcro sul retro: sovrapposta, con la cucitura
+    const flap = new THREE.Mesh(new THREE.CylinderGeometry(1.014, .989, Hh * .97, 40, 1, true, Math.PI - .45, .9), m.flap);
+    // spessore del bordo (sottile, cucito)
+    const edge = (y, r) => { const t = new THREE.Mesh(new THREE.TorusGeometry(r, Hh * .012, 6, 160), m.edge); t.rotation.x = Math.PI / 2; t.position.y = y; return t; };
+    const ring = new THREE.Group();
+    ring.add(outer, inner, flap, edge(Hh / 2, .993), edge(-Hh / 2, .968));
+    [outer, inner, flap].forEach(o => { o.material.polygonOffset = true; o.material.polygonOffsetFactor = -2; o.material.polygonOffsetUnits = -4; });
+    return ring;
+  }
+
   /**
-   * Fascia da capitano 3D "da sola" al posto della maglia: elastico ad anello con il disegno stampato sopra.
-   * ab = { canvas (disegno steso, components/CaptainBand.js → bandRaster con aspect BAND_RING_ASPECT), bg, border } o null (torna la maglia).
+   * Dove sta la fascia sul braccio: anello della manica sinistra del modello alla riga row = { rect (riquadro UV della manica), t }.
+   * Restituisce { center, axis (verso la spalla), out (lato esterno del braccio), side, rOut, rSide } in coordinate del mondo.
+   */
+  _sleeveRing(row) {
+    const { THREE } = this.L;
+    const key = this.source.uuid + JSON.stringify(row);
+    if (this._ringKey === key) return this._ring;
+    this.model.updateMatrixWorld(true);
+    const pick = (v0, tol) => {
+      const pts = [];
+      this.model.traverse(o => {
+        if (!o.isMesh || !o.visible || o.material.name !== 'shirt_outer') return;
+        const pos = o.geometry.attributes.position, uv = o.geometry.attributes.uv;
+        if (!pos || !uv) return;
+        const v = new THREE.Vector3();
+        for (let i = 0; i < pos.count; i++) {
+          const u = uv.getX(i), w = uv.getY(i);
+          if (u < row.rect.x || u > row.rect.x + row.rect.w || Math.abs(w - v0) > tol) continue;
+          pts.push(v.set(pos.getX(i), pos.getY(i), pos.getZ(i)).applyMatrix4(o.matrixWorld).clone());
+        }
+      });
+      return pts;
+    };
+    const mean = (ps) => ps.reduce((a, p) => a.add(p), new THREE.Vector3()).divideScalar(ps.length || 1);
+    const ringAt = (t) => {
+      const v0 = row.rect.y + row.rect.h * t;
+      let tol = row.rect.h * .015, ps = pick(v0, tol);
+      while (ps.length < 40 && tol < row.rect.h * .2) { tol *= 1.6; ps = pick(v0, tol); }
+      return ps;
+    };
+    let c, axis, pts, fit = null;
+    if (row.mode === 'rows') {
+      // raglan: le righe del riquadro della manica girano intorno al braccio
+      pts = ringAt(row.t);
+      if (pts.length < 8) { this._ringKey = key; this._ring = null; return null; }
+      c = mean(pts);
+      axis = mean(ringAt(Math.max(0, row.t - .25))).sub(c).normalize(); // verso la spalla
+    } else {
+      // manica attaccata sulla spalla: le righe interne del riquadro non girano dritte intorno al braccio,
+      // ma il bordo in fondo al pezzo è l'orlo del polsino: da lì ricavo asse e larghezza del braccio
+      const edge = pick(row.rect.y + row.rect.h * .985, row.rect.h * .015);
+      if (edge.length < 12) { this._ringKey = key; this._ring = null; return null; }
+      const cc = mean(edge);
+      // asse: perpendicolare all'orlo (direzione in cui i punti variano meno), verso la spalla
+      const cov = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+      edge.forEach(p => { const d = [p.x - cc.x, p.y - cc.y, p.z - cc.z]; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) cov[i][j] += d[i] * d[j]; });
+      const mul = (m, v) => new THREE.Vector3(m[0][0] * v.x + m[0][1] * v.y + m[0][2] * v.z, m[1][0] * v.x + m[1][1] * v.y + m[1][2] * v.z, m[2][0] * v.x + m[2][1] * v.y + m[2][2] * v.z);
+      const eig = (m, seed) => { let v = seed.clone().normalize(); for (let i = 0; i < 80; i++) v = mul(m, v).normalize(); return v; };
+      const e1 = eig(cov, new THREE.Vector3(.3, 1, .2));
+      const l1 = mul(cov, e1).dot(e1);
+      const def = cov.map((r, i) => r.map((x, j) => x - l1 * e1.getComponent(i) * e1.getComponent(j)));
+      const seed = new THREE.Vector3(.2, .3, 1); seed.sub(e1.clone().multiplyScalar(e1.dot(seed)));
+      const e2 = eig(def, seed);
+      axis = new THREE.Vector3().crossVectors(e1, e2).normalize();
+      const toBody = new THREE.Vector3(this.center.x, cc.y, this.center.z).sub(cc);
+      if (axis.dot(toBody) < 0) axis.negate();
+      pts = edge;
+      // la fascia sta un po' sopra il polsino (row.t = quante altezze della fascia)
+      const rm = Math.sqrt(2 * edge.reduce((a, p) => { const d = p.clone().sub(cc); d.sub(axis.clone().multiplyScalar(d.dot(axis))); return a + d.lengthSq(); }, 0) / edge.length / 2);
+      c = cc.clone().add(axis.clone().multiplyScalar(rm * 2 * Math.PI / BAND_RING_ASPECT * .88 * row.t));
+      // la stoffa dentro l'altezza della fascia non deve sporgere: larghezze massime della manica in quel tratto
+      const half = rm * Math.PI / BAND_RING_ASPECT * .88;
+      const sec = pick(row.rect.y + row.rect.h / 2, row.rect.h / 2).filter(p => Math.abs(p.clone().sub(c).dot(axis)) < half);
+      fit = sec.length > 8 ? sec : null;
+      pts = edge.map(p => p.clone().add(c.clone().sub(cc)));
+    }
+    // lato esterno: lontano dal centro della maglia, perpendicolare al braccio
+    const out = c.clone().sub(new THREE.Vector3(this.center.x, c.y, this.center.z));
+    out.sub(axis.clone().multiplyScalar(out.dot(axis))).normalize();
+    const side = new THREE.Vector3().crossVectors(axis, out).normalize();
+    // raggi: quanto è largo il braccio verso l'esterno e di lato (la manica non è tonda)
+    const rad = (dir) => Math.sqrt(2 * pts.reduce((a, p) => { const d = p.clone().sub(c); d.sub(axis.clone().multiplyScalar(d.dot(axis))); return a + d.dot(dir) ** 2; }, 0) / pts.length);
+    this._ringKey = key;
+    const rmax = (dir) => Math.max(...fit.map(p => { const d = p.clone().sub(c); d.sub(axis.clone().multiplyScalar(d.dot(axis))); return Math.abs(d.dot(dir)); })) * .96;
+    this._ring = fit ? { tight: true, center: c, axis, out, side, rOut: Math.max(rad(out), rmax(out)), rSide: Math.max(rad(side), rmax(side)) }
+      : { center: c, axis, out, side, rOut: rad(out), rSide: rad(side) };
+    return this._ring;
+  }
+
+  /**
+   * Fascia da capitano 3D. ab = { canvas (disegno steso, components/CaptainBand.js → bandRaster con aspect BAND_RING_ASPECT),
+   * bg, border, row } o null (niente fascia). Con ab.row la fascia è indossata sulla manica sinistra della maglia;
+   * senza, è da sola al posto della maglia.
    */
   setArmband(ab) {
     const { THREE } = this.L;
     if (!ab || !ab.canvas) {
       if (this.band) this.band.visible = false;
+      if (this.bandWorn) this.bandWorn.visible = false;
       if (this.model) this.model.visible = true;
       return;
     }
     const src = ab.canvas, bg = validColor(ab.bg, '#888888'), border = validColor(ab.border, '#111111');
-    if (!this.band) {
-      // misure di una fascia vera (circonferenza ~30 cm, altezza ~7 cm) rispetto alla maglia; un po' ovale come quando è chiusa
-      const R = this.size.x * .13, Hh = R * 2 * Math.PI / BAND_RING_ASPECT;
-      const g = new THREE.Group();
+    if (!this.bandMats) {
       const tex = (c) => { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = this.renderer.capabilities.getMaxAnisotropy(); return t; };
       this.bandCanvas = document.createElement('canvas');
       this.bandInnerCanvas = document.createElement('canvas');
@@ -328,22 +425,40 @@ class Stage {
       const bump = new THREE.CanvasTexture(ribs);
       bump.wrapS = bump.wrapT = THREE.RepeatWrapping;
       const mat = (map, extra = {}) => new THREE.MeshStandardMaterial({ map, bumpMap: bump, bumpScale: 1.2, roughness: .9, metalness: 0, ...extra });
-      // davanti alla camera il centro del disegno (la "C"): l'anello parte dal retro
-      const outer = new THREE.Mesh(new THREE.CylinderGeometry(R, R * .975, Hh, 160, 1, true, Math.PI, Math.PI * 2), mat(this.bandTex));
-      const inner = new THREE.Mesh(new THREE.CylinderGeometry(R * .985, R * .96, Hh * .995, 160, 1, true, Math.PI, Math.PI * 2), mat(this.bandInnerTex, { side: THREE.BackSide }));
-      // linguetta col velcro sul retro: sovrapposta, con la cucitura
-      const flap = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.014, R * .989, Hh * .97, 40, 1, true, Math.PI - .45, .9), mat(this.bandFlapTex));
-      // spessore del bordo (sottile, cucito)
-      this.bandEdgeMat = new THREE.MeshStandardMaterial({ roughness: .9, metalness: 0 });
-      const edge = (y, r) => { const t = new THREE.Mesh(new THREE.TorusGeometry(r, Hh * .012, 6, 160), this.bandEdgeMat); t.rotation.x = Math.PI / 2; t.position.y = y; return t; };
-      const ring = new THREE.Group();
-      ring.add(outer, inner, flap, edge(Hh / 2, R * .993), edge(-Hh / 2, R * .968));
-      ring.scale.set(1.1, 1, .9); // ovale
+      this.bandMats = { outer: mat(this.bandTex), inner: mat(this.bandInnerTex, { side: THREE.BackSide }), flap: mat(this.bandFlapTex),
+        edge: new THREE.MeshStandardMaterial({ roughness: .9, metalness: 0 }) };
+    }
+    const worn = !!ab.row;
+    if (!worn && !this.band) {
+      // da sola: misure di una fascia vera (circonferenza ~30 cm, altezza ~7 cm) rispetto alla maglia, un po' ovale come quando è chiusa
+      const g = new THREE.Group(), ring = this._bandRing(), R = this.size.x * .13;
+      ring.scale.set(R * 1.1, R, R * .9);
       g.add(ring);
       g.position.copy(this.center);
       g.rotation.x = .24; // un po' dall'alto: si vede anche l'interno, come nelle foto
       this.band = g;
       this.scene.add(g);
+    }
+    if (worn) {
+      // indossata: infilata sulla manica sinistra, appena più larga del braccio, con la "C" sul lato esterno
+      const r = this._sleeveRing(ab.row);
+      if (!this.bandWorn) { this.bandWorn = new THREE.Group(); this.bandWorn.add(this._bandRing()); this.scene.add(this.bandWorn); }
+      if (r) {
+        const g = this.bandWorn, ring = g.children[0];
+        const k = r.tight ? 1.04 : 1.1, rm = (r.rOut + r.rSide) / 2;
+        // anello: y = asse del braccio, z = lato esterno; l'altezza segue la circonferenza (come una fascia vera)
+        g.matrix.makeBasis(r.side, r.axis, r.out).setPosition(r.center);
+        g.matrixAutoUpdate = false;
+        g.matrixWorldNeedsUpdate = true;
+        ring.scale.set(r.rSide * k, rm * k * .8, r.rOut * k);
+      }
+      this.bandWorn.visible = !!r;
+      if (this.band) this.band.visible = false;
+      if (this.model) this.model.visible = true;
+    } else {
+      this.band.visible = true;
+      if (this.bandWorn) this.bandWorn.visible = false;
+      if (this.model) this.model.visible = false;
     }
     // stoffa: il disegno con le costine e i bordi cuciti
     const W = src.width, H = src.height;
@@ -382,9 +497,7 @@ class Stage {
     fx.strokeStyle = 'rgba(0,0,0,.35)'; fx.lineWidth = 2; fx.setLineDash([8, 6]); fx.strokeRect(9, 12, 110, 232); fx.setLineDash([]);
     fx.fillStyle = 'rgba(0,0,0,.25)'; fx.fillRect(0, 0, 3, 256); fx.fillRect(125, 0, 3, 256); // bordi della linguetta
     [this.bandTex, this.bandInnerTex, this.bandFlapTex].forEach(t => { t.dispose(); t.needsUpdate = true; });
-    this.bandEdgeMat.color.set(border);
-    this.band.visible = true;
-    if (this.model) this.model.visible = false;
+    this.bandMats.edge.color.set(border);
   }
 
   setTexture(canvas) {

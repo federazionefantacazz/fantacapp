@@ -9,7 +9,7 @@ import { captainBandSVG, bandRaster, normalizeBand, BAND_FONTS, BAND_MAX_TEXT, B
 import {
   normalizeKit, defaultKit, patternLabel, motifParams, motifMax, shapePath,
   PRESETS, PATTERNS, PATTERN_CATS, MOTIF_SHAPES, MOTIF_LIMITS, BRANDS, SPONSOR_FONTS, NUMBER_FONTS, PATCH_POSITIONS, ZONES, COLLARS, COLLAR_SHAPES, CUFFS,
-  SLEEVE_DECO, SLEEVE_STRIPES_MAX, SHOULDER_SHAPES, SLEEVE_CUTS
+  SLEEVE_DECO, SLEEVE_STRIPES_MAX, SHOULDER_SHAPES, SLEEVE_CUTS, armbandRow
 } from '../components/KitRenderer.js';
 
 /**
@@ -451,11 +451,13 @@ export const DivisaSquadra = {
       // fascia da capitano: da sola (fascia 3D al posto della maglia) o indossata sulla manica sinistra
       const my = ++this._previewToken;
       const alone = this._isBand() && this._bandView === 'alone';
-      const band = this._isBand() ? bandRaster(this._band, alone ? BAND_RING_ASPECT : 12, alone ? 256 : 200) : Promise.resolve(null);
+      const band = this._isBand() ? bandRaster(this._band, BAND_RING_ASPECT, 256) : Promise.resolve(null);
       band.then(raster => {
         if (!this._viewer || my !== this._previewToken) return;
-        this._viewer.setArmband(alone ? raster : null);
-        this._viewer.update(this._kit, { crestUrl: this._crest(), compPatch, armband: alone ? null : raster }).catch(e => console.error('Divisa:', e));
+        // sulla maglia la fascia 3D è infilata sulla manica sinistra
+        this._viewer.update(this._kit, { crestUrl: this._crest(), compPatch })
+          .then(() => { if (this._viewer && my === this._previewToken) this._viewer.setArmband(raster && (alone ? raster : { ...raster, row: armbandRow(this._kit) })); })
+          .catch(e => console.error('Divisa:', e));
       });
     }
     const dirty = this._root.querySelector('#kit-dirty');

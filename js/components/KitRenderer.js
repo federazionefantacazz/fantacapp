@@ -567,6 +567,9 @@ export const MODELS = {
   }
 };
 export const kitModel = (k) => MODELS[k && k.sleeveCut] || MODELS.setin;
+/** Dove si porta la fascia da capitano 3D sulla manica sinistra (sotto la patch della competizione). */
+// raglan: t = altezza nel riquadro UV della manica (le righe girano intorno al braccio); manica sulla spalla: t = distanza dall'orlo del polsino, in altezze della fascia
+export const armbandRow = (k) => { const m = kitModel(normalizeKit(k)); return m === MODELS.raglan ? { rect: m.uv.sleeveL, t: .76, mode: 'rows' } : { rect: m.uv.sleeveL, t: .62, mode: 'cuff' }; };
 
 /* ------------------------------------------------------------ utilità */
 const svgUrl = (svg) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
@@ -1147,19 +1150,6 @@ export async function paintKitTexture(rawKit, opts = {}) {
       const img = await loadCut(p.src);
       const a = at(moved(A, { x: clamp(p.x || 0, -30, 30), y: clamp(p.y || 0, -30, 30) })), ps = a.s * clamp(p.size || 100, 50, 200) / 100;
       drawContain(ctx, img, a.x, a.y, ps, ps);
-    }
-    // fascia da capitano (anteprima dell'editor): giro intorno alla manica sinistra, sotto la patch della competizione.
-    // opts.armband = { canvas (disegno della fascia, components/CaptainBand.js), bg, border }: il disegno sta sul lato esterno
-    if (opts.armband && opts.armband.canvas) {
-      const ab = opts.armband, cv = ab.canvas;
-      inPart('sleeveL', (x, r) => {
-        const cy = r.y + r.h * (raglan ? .76 : .66), bh = r.h * (raglan ? .13 : .15), top = cy - bh / 2;
-        x.fillStyle = safeColor(ab.bg); x.fillRect(r.x - 2, top, r.w + 4, bh);
-        const dw = Math.min(r.w, bh * cv.width / cv.height);
-        x.drawImage(cv, r.x + r.w / 2 - dw / 2, top, dw, bh);
-        x.fillStyle = safeColor(ab.border, '#111111');
-        x.fillRect(r.x - 2, top, r.w + 4, bh * .07); x.fillRect(r.x - 2, top + bh * .93, r.w + 4, bh * .07);
-      });
     }
     // patch della competizione: manica sinistra
     if (opts.compPatch && A0.sleeveL) {
