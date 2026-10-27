@@ -256,6 +256,12 @@ function availablePatches() {
   return getChampPatches().map(p => ({ id: 'png:' + p.id, name: p.name || 'Patch', src: p.url }));
 }
 
+/** Le patch di competizione scelte in passato ora sono automatiche (manica sinistra nel Live): restano solo le campione. */
+function champOnly(patches) {
+  const comp = new Set(getCompPatches().map(p => 'png:' + p.id));
+  return patches.filter(p => String(p.id).startsWith('png:') && !comp.has(p.id));
+}
+
 export const DivisaSquadra = {
   title: 'Divisa squadra',
   _open: 'model',
@@ -325,9 +331,7 @@ export const DivisaSquadra = {
       this._layerPage = null;
       const team = window.STATE.user || {};
       this._kit = normalizeKit(team[this._field(slot)] || defaultKit());
-      // le patch di competizione scelte in passato ora sono automatiche (manica sinistra nel Live): restano solo le campione
-      const comp = new Set(getCompPatches().map(p => 'png:' + p.id));
-      this._kit.patches = this._kit.patches.filter(p => String(p.id).startsWith('png:') && !comp.has(p.id));
+      this._kit.patches = champOnly(this._kit.patches);
       this._saved = JSON.stringify(this._kit);
       this._layer = 0;
     }
@@ -425,9 +429,7 @@ export const DivisaSquadra = {
       })
         .catch(e => { console.error(e); const l = this._root && this._root.querySelector('#kit-loading'); if (l) l.textContent = 'Il 3D non è supportato su questo dispositivo'; });
     }
-    // nella fase delle patch si vede anche la patch della competizione sulla manica sinistra (non finisce nella foto salvata)
-    const compPatch = this._open === 'patches' ? (this._compPreview() || {}).url || '' : '';
-    if (this._viewer) this._viewer.update(this._kit, { crestUrl: this._crest(), compPatch }).catch(e => console.error('Divisa:', e));
+    if (this._viewer) this._viewer.update(this._kit, { crestUrl: this._crest(), compPatch: this._compPatchUrl() }).catch(e => console.error('Divisa:', e));
     const dirty = this._root.querySelector('#kit-dirty');
     if (dirty) dirty.textContent = this._dirty() ? 'Modifiche non salvate' : '';
     const tab = this._root.querySelector(`#kit-slots [data-v="${this._slot}"]`);
@@ -886,6 +888,11 @@ export const DivisaSquadra = {
     return list.find(p => p.id === this._compPrev) || list.find(p => mine.some(c => String(c.id) === String(p.compId))) || list[0];
   },
 
+  /** Nella fase delle patch si vede anche la patch della competizione sulla manica sinistra (non finisce nella foto salvata). */
+  _compPatchUrl() {
+    return this._open === 'patches' ? (this._compPreview() || {}).url || '' : '';
+  },
+
   _secPatches() {
     const k = this._kit;
     const avail = availablePatches();
@@ -954,7 +961,7 @@ export const DivisaSquadra = {
       </div>`;
     document.body.appendChild(el);
     const viewer = createKitViewer(el.querySelector('.kit-zoom-stage > div'), { zoom: true });
-    viewer.update(this._kit, { crestUrl: this._crest() }).catch(err => console.error('Divisa:', err));
+    viewer.update(this._kit, { crestUrl: this._crest(), compPatch: this._compPatchUrl() }).catch(err => console.error('Divisa:', err));
     const close = () => { viewer.dispose(); el.remove(); this._zoom = null; };
     el.addEventListener('click', (e) => {
       const b = e.target.closest('[data-z]');
@@ -985,7 +992,8 @@ export const DivisaSquadra = {
         this._renderSection();
         if (wasPatches !== (this._open === 'patches')) this._renderPreview(); // patch della competizione in anteprima
         this._scrollToOpen();
-        if (this._open) this._focusTo(SEC_FOCUS[this._open] || 'front', true);
+        // senza patch di competizione la fase delle patch inquadra il petto (la manica sinistra resterebbe vuota)
+        if (this._open) this._focusTo(this._open === 'patches' && !this._compPreview() ? 'chest' : SEC_FOCUS[this._open] || 'front', true);
         return;
       case 'slot': this._switchSlot(Number(v)); return;
       case 'copy-first': this._copyFirst(); return;
@@ -1305,6 +1313,7 @@ export const DivisaSquadra = {
     if (!first) { window.showToast('Crea prima la prima maglia', 'err'); return; }
     if (this._dirty() && !confirm('Sostituire la seconda maglia con una copia della prima? Le modifiche non salvate andranno perse.')) return;
     const kit = normalizeKit(clone(first));
+    kit.patches = champOnly(kit.patches);
     delete kit.image;
     this._kit = kit;
     this._layer = 0; this._layerPage = null;

@@ -1123,21 +1123,22 @@ export async function paintKitTexture(rawKit, opts = {}) {
     await drawSponsor(ctx, k.backSponsor, A0.backSponsor, R('back'));
     await drawBackPrint(ctx, k.backPrint, R('back'));
     // patch campione (quelle di competizione scelte in passato non si disegnano più: ora sono automatiche)
+    // e patch della competizione sulla manica sinistra
     const compIds = new Set(getCompPatches().map(x => 'png:' + x.id));
+    const patches = [];
+    const tfOf = (o) => ({ x: clamp(o.x || 0, -30, 30), y: clamp(o.y || 0, -30, 30), size: clamp(o.size || 100, 50, 200) });
     for (const p of k.patches) {
       const A = A0[p.pos];
       if (!A || !p.src || compIds.has(p.id) || !String(p.id).startsWith('png:')) continue;
-      const img = await loadCut(p.src);
-      const a = at(moved(A, { x: clamp(p.x || 0, -30, 30), y: clamp(p.y || 0, -30, 30) })), ps = a.s * clamp(p.size || 100, 50, 200) / 100;
-      drawContain(ctx, img, a.x, a.y, ps, ps);
+      patches.push({ A, tf: tfOf(p), img: await loadCut(p.src) });
     }
-    // patch della competizione: manica sinistra
-    if (opts.compPatch && A0.sleeveL) {
-      const tf = k.compPatchTf;
-      const img = await loadCut(opts.compPatch);
-      const a = at(moved(A0.sleeveL, { x: clamp(tf.x, -30, 30), y: clamp(tf.y, -30, 30) })), ps = a.s * clamp(tf.size, 50, 200) / 100;
-      if (img) drawContain(ctx, img, a.x, a.y, ps, ps);
-    }
+    if (opts.compPatch && A0.sleeveL) patches.push({ A: A0.sleeveL, tf: tfOf(k.compPatchTf), img: await loadCut(opts.compPatch) });
+    // ritagliate sulla sagoma del loro pezzo: ingrandite o spostate non sconfinano sui pezzi vicini della texture
+    [...new Set(patches.map(p => p.A.part))].forEach(part => inPart(part, (x) => patches.forEach(p => {
+      if (p.A.part !== part || !p.img) return;
+      const a = at(moved(p.A, p.tf)), ps = a.s * p.tf.size / 100;
+      drawContain(x, p.img, a.x, a.y, ps, ps);
+    })));
   }
 
   // 6. cuciture e dettagli di stampa della base (moltiplica)
