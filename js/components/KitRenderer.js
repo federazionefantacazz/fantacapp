@@ -1,4 +1,4 @@
-import { getPngPatterns, getPngBrands } from '../services/kitAssets.js';
+import { getPngPatterns, getPngBrands, getCompPatches } from '../services/kitAssets.js';
 import { getCutout } from '../services/imageCutout.js';
 import { COLLAR_SHAPES } from './kitShapes.js';
 
@@ -26,7 +26,9 @@ export { COLLAR_SHAPES };
  *   sponsor: { mode: 'none'|'image'|'text', url, text, font, color, mono, scale, y },
  *   backSponsor: { ...come sponsor },                       // sponsor sul retro (sotto il numero)
  *   backPrint: { show, name, number, font, color, outline, nameSize, numSize, y },  // nome e numero sul retro
- *   patches: [{ id, src, name, pos }],
+ *   patches: [{ id, src, name, pos, size }],                // patch campione: pos (mai la manica sinistra), size in %
+ *   compPatchTf: { size, x, y },                            // patch della competizione (manica sinistra, messa in automatico
+ *                                                           // nel Live: opts.compPatch di paintKitTexture): dimensione e spostamento
  *   image                                                   // foto PNG della maglia (fronte) generata al salvataggio
  * }
  * I disegni integrati sono SVG pensati sulla vista frontale 0 0 400 420 e vengono adattati a ogni pezzo della maglia.
@@ -382,10 +384,10 @@ export const NUMBER_FONTS = [
   { id: 'serif',     label: 'Classico',  css: "Georgia, 'Times New Roman', serif", weight: 700, style: 'normal' }
 ];
 
+// posizioni delle patch campione: la manica sinistra è riservata alla patch della competizione
 export const PATCH_POSITIONS = [
   { id: 'chest',  label: 'Centro petto' },
   { id: 'belly',  label: 'Sotto lo sponsor' },
-  { id: 'sleeveL', label: 'Manica sinistra' },
   { id: 'sleeveR', label: 'Manica destra' },
   { id: 'hem',    label: 'Fondo maglia' }
 ];
@@ -451,7 +453,8 @@ export function defaultKit() {
     sponsor: { mode: 'none', url: '', text: '', font: 'bebas', color: '#ffffff', mono: false, scale: 100, y: 0 },
     backSponsor: { mode: 'none', url: '', text: '', font: 'bebas', color: '#ffffff', mono: false, scale: 100, y: 0 },
     backPrint: { show: false, name: '', number: '10', font: 'seriea', color: '#ffffff', outline: '', nameSize: 100, numSize: 100, y: 0 },
-    patches: []
+    patches: [],
+    compPatchTf: { size: 100, x: 0, y: 0 }
   };
 }
 
@@ -482,7 +485,8 @@ export function normalizeKit(raw) {
       type: 'stripes', color: '#ffffff', opacity: 100, scale: 100, flipX: false, flipY: false, x: 0, y: 0, rot: 0, wrap: 'repeat',
       ...l, zone: l.zone || (l.onSleeves ? 'all' : 'body')
     })),
-    patches: toArr(k.patches).map(p => ({ id: p.id, name: p.name || '', src: p.src || '', pos: p.pos || 'chest' })),
+    patches: toArr(k.patches).map(p => ({ id: p.id, name: p.name || '', src: p.src || '', pos: p.pos === 'sleeveL' ? 'sleeveR' : p.pos || 'chest', size: Math.round(clamp(p.size || 100, 50, 200)) })),
+    compPatchTf: { ...d.compPatchTf, ...(k.compPatchTf || {}) },
     ...(k.image ? { image: k.image } : {})
   };
 }
@@ -1118,12 +1122,21 @@ export async function paintKitTexture(rawKit, opts = {}) {
     await drawSponsor(ctx, k.sponsor, A0.sponsor, R('front'));
     await drawSponsor(ctx, k.backSponsor, A0.backSponsor, R('back'));
     await drawBackPrint(ctx, k.backPrint, R('back'));
+    // patch campione (quelle di competizione scelte in passato non si disegnano più: ora sono automatiche)
+    const compIds = new Set(getCompPatches().map(x => 'png:' + x.id));
     for (const p of k.patches) {
       const A = A0[p.pos];
-      if (!A || !p.src) continue;
+      if (!A || !p.src || compIds.has(p.id) || !String(p.id).startsWith('png:')) continue;
       const img = await loadCut(p.src);
-      const a = at(A);
-      drawContain(ctx, img, a.x, a.y, a.s, a.s);
+      const a = at(A), ps = a.s * clamp(p.size || 100, 50, 200) / 100;
+      drawContain(ctx, img, a.x, a.y, ps, ps);
+    }
+    // patch della competizione: manica sinistra
+    if (opts.compPatch && A0.sleeveL) {
+      const tf = k.compPatchTf;
+      const img = await loadCut(opts.compPatch);
+      const a = at(moved(A0.sleeveL, { x: clamp(tf.x, -30, 30), y: clamp(tf.y, -30, 30) })), ps = a.s * clamp(tf.size, 50, 200) / 100;
+      if (img) drawContain(ctx, img, a.x, a.y, ps, ps);
     }
   }
 

@@ -3,7 +3,7 @@ import { db, ref, update } from '../firebase-config.js';
 import { uploadPngToImgBB } from '../services/integrationImgBB.js';
 import { createKitViewer, renderKitImage, kitImageHTML, dataUrlToBlob } from '../components/Kit3D.js';
 import { getCutout } from '../services/imageCutout.js';
-import { getPngPatterns, getPngBrands, getPngPatches, getPngSymbols, onKitAssetsChange } from '../services/kitAssets.js';
+import { getPngPatterns, getPngBrands, getChampPatches, getCompPatches, getPngSymbols, onKitAssetsChange } from '../services/kitAssets.js';
 import { esc } from './menuUtils.js';
 import {
   normalizeKit, defaultKit, patternLabel, motifParams, motifMax, shapePath,
@@ -66,14 +66,13 @@ const MOTIF_UI = {
   'm-checker': { count: 'Quadri per riga' }
 };
 // dove guarda la maglia 3D quando si apre una fase (vedi FOCUS in Kit3D.js)
-const SEC_FOCUS = { model: 'front', styles: 'front', design: 'front', sponsor: 'sponsor', back: 'backTop', brand: 'chest', patches: 'front' };
+const SEC_FOCUS = { model: 'front', styles: 'front', design: 'front', sponsor: 'sponsor', back: 'backTop', brand: 'chest', patches: 'sleevePatch' };
 const ZONE_FOCUS = { sleeves: 'sleeve', back: 'back' };
-const PATCH_FOCUS = { chest: 'chest', belly: 'sponsor', sleeveL: 'sleeve', sleeveR: 'sleeveR', hem: 'hem' };
+const PATCH_FOCUS = { chest: 'chest', belly: 'sponsor', sleeveR: 'sleeveR', hem: 'hem' };
 const COLOR_FOCUS = { base: 'front', sleeves: 'sleeve', sleevesR: 'sleeveR', shoulders: 'shoulder', collar: 'collar', cuffs: 'cuff', trim: 'collar' };
 const MAX_PATCHES = 4;
 const SLOTS = { 1: { field: 'kit', label: 'Prima maglia' }, 2: { field: 'kit2', label: 'Seconda maglia' } };
 const MAX_FILE_MB = 8;
-const FEDERAZIONE_LOGO = 'icons/logo-federazione.jpg';
 
 export const SWATCHES = ['#ffffff', '#000000', '#c62828', '#7a1f1f', '#e65100', '#ffd400', '#f5a623', '#2e7d32',
   '#0b5d3b', '#00bcd4', '#1e88e5', '#1e5bb8', '#0d1b4c', '#6a1b9a', '#ec407a', '#9e9e9e'];
@@ -252,14 +251,9 @@ const svgUrl = (svg) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent
 const brandThumbUrl = (b, color, base) => svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40">${b.draw(color, base)}</svg>`);
 const patternThumbUrl = (p, m) => svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${400} ${420}" preserveAspectRatio="xMidYMid slice"><rect width="400" height="420" fill="#2b323c"/>${p.draw('#ffffff', 1, 'th' + p.id, m)}</svg>`);
 
-/** Patch disponibili: loghi delle competizioni + logo della Federazione. */
-/** Patch disponibili: quella del Fantacazz e quelle caricate dal Patron (Patron → Divise → Patch). */
-function availablePatches(STATE) {
-  const comps = Array.isArray(STATE.competitions) ? STATE.competitions : Object.values(STATE.competitions || {});
-  const list = comps.filter(c => c && c.logo && /fantacazz/i.test(c.name || '')).map(c => ({ id: String(c.id), name: c.name, src: c.logo }));
-  if (!list.length) list.push({ id: 'federazione', name: 'Fantacazz', src: FEDERAZIONE_LOGO });
-  getPngPatches().forEach(p => list.push({ id: 'png:' + p.id, name: p.name || 'Patch', src: p.url }));
-  return list;
+/** Patch campione disponibili: quelle caricate dal Patron (Patron → Divise → Patch campione). */
+function availablePatches() {
+  return getChampPatches().map(p => ({ id: 'png:' + p.id, name: p.name || 'Patch', src: p.url }));
 }
 
 export const DivisaSquadra = {
@@ -331,6 +325,9 @@ export const DivisaSquadra = {
       this._layerPage = null;
       const team = window.STATE.user || {};
       this._kit = normalizeKit(team[this._field(slot)] || defaultKit());
+      // le patch di competizione scelte in passato ora sono automatiche (manica sinistra nel Live): restano solo le campione
+      const comp = new Set(getCompPatches().map(p => 'png:' + p.id));
+      this._kit.patches = this._kit.patches.filter(p => String(p.id).startsWith('png:') && !comp.has(p.id));
       this._saved = JSON.stringify(this._kit);
       this._layer = 0;
     }
@@ -428,7 +425,9 @@ export const DivisaSquadra = {
       })
         .catch(e => { console.error(e); const l = this._root && this._root.querySelector('#kit-loading'); if (l) l.textContent = 'Il 3D non è supportato su questo dispositivo'; });
     }
-    if (this._viewer) this._viewer.update(this._kit, { crestUrl: this._crest() }).catch(e => console.error('Divisa:', e));
+    // nella fase delle patch si vede anche la patch della competizione sulla manica sinistra (non finisce nella foto salvata)
+    const compPatch = this._open === 'patches' ? (this._compPreview() || {}).url || '' : '';
+    if (this._viewer) this._viewer.update(this._kit, { crestUrl: this._crest(), compPatch }).catch(e => console.error('Divisa:', e));
     const dirty = this._root.querySelector('#kit-dirty');
     if (dirty) dirty.textContent = this._dirty() ? 'Modifiche non salvate' : '';
     const tab = this._root.querySelector(`#kit-slots [data-v="${this._slot}"]`);
@@ -879,30 +878,53 @@ export const DivisaSquadra = {
       </div>`;
   },
 
+  /** Patch della competizione da mostrare in anteprima (manica sinistra) mentre è aperta la fase delle patch. */
+  _compPreview() {
+    const list = getCompPatches().filter(p => p.compId);
+    if (!list.length) return null;
+    const mine = (window.STATE.competitions || []).filter(c => c && c.teams && Object.values(c.teams).some(t => String(t && t.id !== undefined ? t.id : t) === String(this._teamId)));
+    return list.find(p => p.id === this._compPrev) || list.find(p => mine.some(c => String(c.id) === String(p.compId))) || list[0];
+  },
+
   _secPatches() {
     const k = this._kit;
-    const avail = availablePatches(window.STATE);
+    const avail = availablePatches();
+    const comps = getCompPatches().filter(p => p.compId);
+    const prev = this._compPreview();
+    const compName = (id) => ((window.STATE.competitions || []).find(c => String(c.id) === String(id)) || {}).name || '';
+    const tf = k.compPatchTf;
     const current = k.patches.map((p, i) => `
       <div class="kit-patch" data-focus="${PATCH_FOCUS[p.pos] || 'front'}">
         <img data-cut="${esc(p.src)}" alt="">
         <div class="nm">${esc(p.name || 'Patch')}</div>
+        <button class="kit-icon-btn" data-act="patch-del" data-i="${i}" title="Rimuovi"><i class="ri-delete-bin-line"></i></button>
         <select class="kit-patch-pos" data-patch-pos="${i}">
           ${PATCH_POSITIONS.map(pp => `<option value="${pp.id}" ${p.pos === pp.id ? 'selected' : ''}>${pp.label}</option>`).join('')}
         </select>
-        <button class="kit-icon-btn" data-act="patch-del" data-i="${i}" title="Rimuovi"><i class="ri-delete-bin-line"></i></button>
+        <div style="order:6; flex-basis:100%;">${this._range(`patches.${i}.size`, 'Dimensione', p.size || 100, 50, 200, '%')}</div>
       </div>`).join('');
     const full = k.patches.length >= MAX_PATCHES;
     return `
-      <div class="kit-sub">Patch sulla maglia (${k.patches.length}/${MAX_PATCHES})</div>
-      ${current || '<div class="mp-muted">Nessuna patch: scegline una qui sotto.</div>'}
-      ${full ? `<div class="mp-muted" style="margin-top:.6rem;">Hai raggiunto il massimo di ${MAX_PATCHES} patch.</div>` : `
-      <button class="mp-btn" data-act="open-picker" data-v="patch" style="width:100%; margin-top:.6rem;"><i class="ri-add-line"></i> Aggiungi una patch</button>`}
-      ${this._picker === 'patch' && !full ? this._modal('Aggiungi una patch', `<div class="kit-grid wide">
-        ${avail.map(a => `<button class="kit-opt kit-comp" data-act="patch-add" data-v="${esc(a.id)}" title="${esc(a.name)}">
-          <img data-cut="${esc(a.src)}" alt=""><span class="lb">${esc(a.name)}</span></button>`).join('')}
-      </div>`) : ''}
-      <div class="mp-muted" style="margin-top:.6rem;">Le patch vengono scontornate automaticamente; il Patron può aggiungerne di nuove. Per ogni patch scegli la posizione: centro petto, sotto lo sponsor, sulle maniche o in fondo alla maglia.</div>`;
+      ${this._group('Patch della competizione · manica sinistra', 'sleevePatch', comps.length ? `
+        <div class="kd-desc" style="margin:0 0 .5rem;">Si mette <b>da sola</b> sulla manica sinistra: nel Live (e nei replay) la tua maglia ha la patch della competizione della partita. Qui scegli solo dimensione e posizione; la vedi in anteprima con la patch scelta qui sotto.</div>
+        ${comps.length > 1 ? `<div class="kd-opts">${comps.map(p => `<button class="lv-chip ${prev && prev.id === p.id ? 'on' : ''}" data-act="comp-prev" data-v="${esc(p.id)}">${esc(compName(p.compId) || p.name || 'Competizione')}</button>`).join('')}</div>` : `<div class="mp-muted">Anteprima: ${esc(compName(prev.compId) || prev.name)}</div>`}
+        ${this._range('compPatchTf.size', 'Dimensione', tf.size, 50, 200, '%')}
+        ${this._range('compPatchTf.x', 'Sposta ↔', tf.x, -30, 30)}
+        ${this._range('compPatchTf.y', 'Sposta ↕', tf.y, -30, 30)}
+        <div class="kit-chips" style="margin-top:.4rem;">${this._chip('comp-patch-reset', '1', 'Ripristina posizione', false)}</div>`
+        : '<div class="kd-desc" style="margin:0;">La patch della competizione si mette da sola sulla manica sinistra quando giochi. Il Patron non ne ha ancora caricata nessuna.</div>')}
+      ${this._group(`Patch campione (${k.patches.length}/${MAX_PATCHES})`, 'chest', `
+        ${current || '<div class="mp-muted">Nessuna patch campione sulla maglia.</div>'}
+        ${full ? `<div class="mp-muted" style="margin-top:.6rem;">Hai raggiunto il massimo di ${MAX_PATCHES} patch.</div>` : avail.length ? `
+        <button class="mp-btn" data-act="open-picker" data-v="patch" style="width:100%; margin-top:.6rem;"><i class="ri-add-line"></i> Aggiungi una patch campione</button>`
+          : '<div class="mp-muted" style="margin-top:.4rem;">Il Patron non ha ancora caricato patch campione.</div>'}
+        ${this._picker === 'patch' && !full ? this._modal('Aggiungi una patch campione', `<div class="kit-grid wide">
+          ${avail.map(a => `<button class="kit-opt kit-comp" data-act="patch-add" data-v="${esc(a.id)}" title="${esc(a.name)}">
+            <img data-cut="${esc(a.src)}" alt=""><span class="lb">${esc(a.name)}</span></button>`).join('')}
+        </div>`) : ''}
+        <div class="kd-desc">Le patch vengono scontornate automaticamente. Per ognuna scegli posizione (centro petto, sotto lo sponsor, manica destra o fondo maglia) e dimensione: la manica sinistra è della patch della competizione.</div>`)}`;
   },
+
 
   /* ------------------------------------------------------------- eventi */
   _set(path, value) {
@@ -952,9 +974,11 @@ export const DivisaSquadra = {
     switch (act) {
       case 'toggle':
         this._picker = null;
+        const wasPatches = this._open === 'patches';
         this._open = this._open === btn.dataset.sec ? null : btn.dataset.sec;
         this._root.querySelectorAll('.kit-acc').forEach(a => a.classList.toggle('open', a.dataset.sec === this._open));
         this._renderSection();
+        if (wasPatches !== (this._open === 'patches')) this._renderPreview(); // patch della competizione in anteprima
         this._scrollToOpen();
         if (this._open) this._focusTo(SEC_FOCUS[this._open] || 'front', true);
         return;
@@ -1134,13 +1158,21 @@ export const DivisaSquadra = {
       case 'patch-add': {
         this._picker = null;
         if (k.patches.length >= MAX_PATCHES) return;
-        const a = availablePatches(window.STATE).find(x => x.id === v);
+        const a = availablePatches().find(x => x.id === v);
         if (!a) return;
         const used = new Set(k.patches.map(p => p.pos));
         const pos = (PATCH_POSITIONS.find(pp => !used.has(pp.id)) || PATCH_POSITIONS[0]).id;
-        this._update(kit => { kit.patches.push({ id: a.id, name: a.name, src: a.src, pos }); });
+        this._update(kit => { kit.patches.push({ id: a.id, name: a.name, src: a.src, pos, size: 100 }); });
+        this._focusTo(PATCH_FOCUS[pos] || 'front');
         return;
       }
+      case 'comp-prev':
+        this._compPrev = v;
+        this._renderPreview(); this._renderSection();
+        return;
+      case 'comp-patch-reset':
+        this._update(kit => { kit.compPatchTf = { size: 100, x: 0, y: 0 }; });
+        return;
       case 'patch-del':
         this._update(kit => { kit.patches.splice(i, 1); });
         return;
@@ -1218,6 +1250,7 @@ export const DivisaSquadra = {
       this._renderSection();
     } else if (t.dataset.patchPos !== undefined) {
       this._update(kit => { kit.patches[Number(t.dataset.patchPos)].pos = t.value; });
+      this._focusTo(PATCH_FOCUS[t.value] || 'front');
     } else if (t.dataset.upload && t.files && t.files[0]) {
       const file = t.files[0];
       t.value = '';

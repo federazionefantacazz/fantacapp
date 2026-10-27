@@ -332,6 +332,7 @@ export const FOCUS = {
   shoulder: { yaw: -40, x: -.2, y: .3, d: .5 },
   sleeve:   { yaw: -50, x: -.38, y: .18, d: .55 },
   sleeveR:  { yaw: 50, x: .38, y: .18, d: .55 },
+  sleevePatch: { yaw: -82, x: -.35, y: .2, d: .6 }, // patch della competizione (esterno della manica sinistra)
   cuff:     { yaw: -50, x: -.46, y: .13, d: .45 },
   chest:    { yaw: 0, y: .22, d: .55 },
   sponsor:  { yaw: 0, y: .05, d: .62 },
@@ -343,7 +344,7 @@ export const FOCUS = {
 /**
  * Maglia 3D ruotabile dentro `container` (zoom: true = vista ingrandita con zoom e spostamento).
  * Restituisce { update(kit, opts), setView('front'|'back'), zoomBy(f), dispose() }.
- * opts di update: { crestUrl }
+ * opts di update: { crestUrl, compPatch }
  */
 export function createKitViewer(container, { zoom = false } = {}) {
   const canvas = document.createElement('canvas');
@@ -402,11 +403,12 @@ const shotCache = new Map();
 
 /**
  * Foto PNG della maglia (data URL, sfondo trasparente).
- * opts: { crestUrl, width (default 600), view ('front'|'back' o angolo in gradi), textureSize (default 2048), plain }
+ * opts: { crestUrl, width (default 600), view ('front'|'back' o angolo in gradi), textureSize (default 2048), plain,
+ *         compPatch (PNG della patch della competizione sulla manica sinistra) }
  */
 export function renderKitImage(kit, opts = {}) {
   const width = Math.round(opts.width || 600), height = Math.round(width * 16 / 15);
-  const key = JSON.stringify([kit, opts.crestUrl || '', width, opts.view || 'front', opts.textureSize || 2048, !!opts.plain]);
+  const key = JSON.stringify([kit, opts.crestUrl || '', width, opts.view || 'front', opts.textureSize || 2048, !!opts.plain, opts.compPatch || '']);
   if (shotCache.has(key)) return shotCache.get(key);
   const job = queue.then(async () => {
     if (opts.isWanted && !opts.isWanted()) { shotCache.delete(key); return ''; }
@@ -415,7 +417,7 @@ export function renderKitImage(kit, opts = {}) {
     shot.resize(width, height);
     const k = normalizeKit(kit);
     const [tex, variant] = await Promise.all([
-      paintKitTexture(k, { crestUrl: opts.crestUrl, size: opts.textureSize || 2048, plain: opts.plain }),
+      paintKitTexture(k, { crestUrl: opts.crestUrl, size: opts.textureSize || 2048, plain: opts.plain, compPatch: opts.compPatch }),
       loadVariant(k)
     ]);
     shot.setModel(variant);
@@ -447,7 +449,8 @@ export function kitImageHTML(kit, opts = {}, attrs = '') {
   const id = `ki${++IMG}`;
   requestAnimationFrame(() => {
     const isWanted = () => !!document.querySelector(`img[data-kit-img="${id}"]`);
-    renderKitImage(kit, { ...opts, isWanted }).then(src => {
+    // se la foto era stata chiesta da un'immagine poi tolta (lista ridisegnata) il lavoro è annullato: la richiedo
+    renderKitImage(kit, { ...opts, isWanted }).then(src => (!src && isWanted() ? renderKitImage(kit, { ...opts, isWanted }) : src)).then(src => {
       const el = document.querySelector(`img[data-kit-img="${id}"]`);
       if (el && src) { el.src = src; el.style.opacity = 1; }
     });
@@ -592,7 +595,8 @@ export function injectZoomStyle() {
 }
 
 /**
- * Maglie in 3D a tutto schermo (es. dal live): items = [{ kit, crestUrl, label }], start = indice iniziale.
+ * Maglie in 3D a tutto schermo (es. dal live): items = [{ kit, crestUrl, label, compPatch }], start = indice iniziale
+ * (compPatch: patch della competizione della partita, sulla manica sinistra).
  * Si ruota in ogni direzione, zoom e spostamento come nella vista ingrandita dell'editor; con più maglie
  * le schede in alto passano dall'una all'altra. Restituisce { close() }; opts.onClose alla chiusura.
  */
@@ -620,7 +624,7 @@ export function openKitOverlay(items, start = 0, opts = {}) {
     const it = list[cur];
     el.querySelector('.kit-zoom-head span').textContent = it.title || it.label || 'Maglia';
     el.querySelectorAll('[data-z="pick"]').forEach(b => b.classList.toggle('on', Number(b.dataset.i) === cur));
-    viewer.update(it.kit, { crestUrl: it.crestUrl || '' }).catch(err => console.error('Divisa:', err));
+    viewer.update(it.kit, { crestUrl: it.crestUrl || '', compPatch: it.compPatch || '' }).catch(err => console.error('Divisa:', err));
     viewer.setView('front');
   };
   show();

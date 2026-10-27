@@ -25,6 +25,7 @@ import { GwService } from "./services/gwService.js";
 import { ProbabiliService } from "./services/probabiliService.js";
 import { esc, fitName } from './utils.js';
 import { kitImageHTML, openKitOverlay } from './components/Kit3D.js';
+import { getCompPatch } from './services/kitAssets.js';
 import { BackNav } from './services/backNav.js';
 import { captainBandSVG } from './components/CaptainBand.js';
 
@@ -891,9 +892,12 @@ export const LiveMatchModule = {
       return hit ? { kit: t.info[hit[0]], label: hit[1] } : { kit: null, label: '' };
     };
     // maglie per la vista 3D (tocco sulla maglia): prima la squadra di casa, poi l'ospite
+    // patch della competizione della partita (Patron → Divise): va da sola sulla manica sinistra
+    const comp = mode === 'live' ? this._getCompData() : this._viewer && this._viewer.comp;
+    const compPatch = (getCompPatch(comp && comp.id) || {}).url || '';
     const setKey = `${home.id}|${away.id}`;
     const items = [home, away].map(t => ({ t, ...kitOf(t) })).filter(x => x.kit)
-      .map(x => ({ kit: x.kit, crestUrl: x.t.info.logo || '', label: x.t.info.name, title: `${x.t.info.name} · ${x.label}`, id: String(x.t.id) }));
+      .map(x => ({ kit: x.kit, crestUrl: x.t.info.logo || '', label: x.t.info.name, title: `${x.t.info.name} · ${x.label}`, id: String(x.t.id), compPatch }));
     (this._kitSets ||= {})[setKey] = items;
     const team = (t) => {
       const { kit, label: kitLabel } = kitOf(t);
