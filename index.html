@@ -672,6 +672,7 @@ import { esc, sameId } from './js/utils.js';
 import { BackNav } from './js/services/backNav.js';
 import { Connectivity } from './js/services/connectivity.js';
 import { installSelectSheets } from './js/components/SelectSheet.js';
+import { leadersLine } from './js/services/staffService.js';
 
 // tutte le tendine (<select>) diventano la lista dell'app al posto della scelta del sistema
 installSelectSheets();
@@ -1312,7 +1313,7 @@ function populateLoginDropdown() {
 
   let optionsHTML = '<option value="">Scegli la tua squadra...</option>';
   window.STATE.teams.forEach(t => {
-    optionsHTML += `<option value="${esc(t.id)}" data-img="${esc(t.logo || 'icons/icon-192.png')}" data-label="${esc(t.name)}" data-sub="${esc(t.owner ? 'Patron: ' + t.owner : 'Nessun proprietario')}">${esc(t.name)} (${esc(t.owner || 'Nessun proprietario')})</option>`;
+    optionsHTML += `<option value="${esc(t.id)}" data-img="${esc(t.logo || 'icons/icon-192.png')}" data-label="${esc(t.name)}" data-sub="${esc(leadersLine(t) || 'Nessun presidente')}">${esc(t.name)} (${esc(t.owner || 'Nessun presidente')})</option>`;
   });
   select.innerHTML = optionsHTML;
   endResume(); // nessuna squadra associata: serve la scelta

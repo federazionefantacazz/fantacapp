@@ -2,6 +2,7 @@ import { db, auth, ref, set, update } from './firebase-config.js';
 import { MercatoService, ROLES, LOAN_MIN, LOAN_MAX } from './services/mercatoService.js';
 import { tradeNotificationUpdates } from './services/notificationService.js';
 import { esc, sid } from './utils.js';
+import { leadersLine } from './services/staffService.js';
 
 const ROLE_NAME = { P: 'Portieri', D: 'Difensori', C: 'Centrocampisti', A: 'Attaccanti' };
 
@@ -147,7 +148,7 @@ export const MercatoPage = {
     if (select.dataset.key === key) return;
     select.dataset.key = key;
     select.innerHTML = '<option value="">-- Scegli la squadra --</option>' +
-      others.map(t => `<option value="${esc(t.id)}" data-img="${esc(t.logo || 'icons/icon-192.png')}" data-label="${esc(t.name)}" data-sub="${esc(t.owner ? 'Patron: ' + t.owner : '')}">${esc(t.name)}${t.owner ? ` (${esc(t.owner)})` : ''}</option>`).join('');
+      others.map(t => `<option value="${esc(t.id)}" data-img="${esc(t.logo || 'icons/icon-192.png')}" data-label="${esc(t.name)}" data-sub="${esc(leadersLine(t))}">${esc(t.name)}${t.owner ? ` (${esc(t.owner)})` : ''}</option>`).join('');
     select.value = this.ui.dest || '';
   },
 
