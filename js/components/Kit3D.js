@@ -65,7 +65,7 @@ function floatGeometry(THREE, geometry) {
 const variants = new Map();
 const COLLAR_TOP = 1.675;
 /** Fascia da capitano 3D: circonferenza / altezza (il disegno della fascia va steso con queste proporzioni). */
-export const BAND_RING_ASPECT = 4.3; // punto più alto del colletto alto (collar-polo.glb), con un po' di margine
+export const BAND_RING_ASPECT = 3.8; // punto più alto del colletto alto (collar-polo.glb), con un po' di margine
 function loadVariant(kit) {
   const raglan = kit.sleeveCut === 'raglan', shape = isDeformed(kit.collarShape) ? kit.collarShape : 'v';
   const key = (raglan ? 'raglan:' : 'setin:') + shape;
@@ -309,34 +309,80 @@ class Stage {
       if (this.model) this.model.visible = true;
       return;
     }
+    const src = ab.canvas, bg = validColor(ab.bg, '#888888'), border = validColor(ab.border, '#111111');
     if (!this.band) {
-      // misure di una fascia vera (circonferenza ~30 cm, altezza ~7 cm) rispetto alla maglia
+      // misure di una fascia vera (circonferenza ~30 cm, altezza ~7 cm) rispetto alla maglia; un po' ovale come quando è chiusa
       const R = this.size.x * .13, Hh = R * 2 * Math.PI / BAND_RING_ASPECT;
       const g = new THREE.Group();
-      this.bandTex = new THREE.CanvasTexture(ab.canvas);
-      this.bandTex.colorSpace = THREE.SRGBColorSpace;
-      this.bandTex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
-      // u = 0.5 (centro del disegno, la "C") davanti alla camera: l'anello parte dal retro
-      const outer = new THREE.Mesh(new THREE.CylinderGeometry(R, R * .97, Hh, 128, 1, true, Math.PI, Math.PI * 2),
-        new THREE.MeshStandardMaterial({ map: this.bandTex, roughness: .82, metalness: 0 }));
-      const innerMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 1, side: THREE.BackSide });
-      const inner = new THREE.Mesh(new THREE.CylinderGeometry(R * .985, R * .955, Hh * .98, 128, 1, true), innerMat);
-      this.bandRimMat = new THREE.MeshStandardMaterial({ roughness: .7, metalness: 0 });
-      const rim = (y, r) => { const t = new THREE.Mesh(new THREE.TorusGeometry(r, Hh * .035, 10, 128), this.bandRimMat); t.rotation.x = Math.PI / 2; t.position.y = y; return t; };
-      g.add(outer, inner, rim(Hh / 2, R * .995), rim(-Hh / 2, R * .965));
+      const tex = (c) => { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = this.renderer.capabilities.getMaxAnisotropy(); return t; };
+      this.bandCanvas = document.createElement('canvas');
+      this.bandInnerCanvas = document.createElement('canvas');
+      this.bandFlapCanvas = document.createElement('canvas');
+      this.bandTex = tex(this.bandCanvas);
+      this.bandInnerTex = tex(this.bandInnerCanvas);
+      this.bandFlapTex = tex(this.bandFlapCanvas);
+      // costine del tessuto elastico (rilievo)
+      const ribs = document.createElement('canvas'); ribs.width = 8; ribs.height = 512;
+      const rc = ribs.getContext('2d');
+      for (let y = 0; y < 512; y++) { const v = Math.round(128 + 120 * Math.sin(y / 512 * Math.PI * 2 * 34)); rc.fillStyle = `rgb(${v},${v},${v})`; rc.fillRect(0, y, 8, 1); }
+      const bump = new THREE.CanvasTexture(ribs);
+      bump.wrapS = bump.wrapT = THREE.RepeatWrapping;
+      const mat = (map, extra = {}) => new THREE.MeshStandardMaterial({ map, bumpMap: bump, bumpScale: 1.2, roughness: .9, metalness: 0, ...extra });
+      // davanti alla camera il centro del disegno (la "C"): l'anello parte dal retro
+      const outer = new THREE.Mesh(new THREE.CylinderGeometry(R, R * .975, Hh, 160, 1, true, Math.PI, Math.PI * 2), mat(this.bandTex));
+      const inner = new THREE.Mesh(new THREE.CylinderGeometry(R * .985, R * .96, Hh * .995, 160, 1, true, Math.PI, Math.PI * 2), mat(this.bandInnerTex, { side: THREE.BackSide }));
+      // linguetta col velcro sul retro: sovrapposta, con la cucitura
+      const flap = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.014, R * .989, Hh * .97, 40, 1, true, Math.PI - .45, .9), mat(this.bandFlapTex));
+      // spessore del bordo (sottile, cucito)
+      this.bandEdgeMat = new THREE.MeshStandardMaterial({ roughness: .9, metalness: 0 });
+      const edge = (y, r) => { const t = new THREE.Mesh(new THREE.TorusGeometry(r, Hh * .012, 6, 160), this.bandEdgeMat); t.rotation.x = Math.PI / 2; t.position.y = y; return t; };
+      const ring = new THREE.Group();
+      ring.add(outer, inner, flap, edge(Hh / 2, R * .993), edge(-Hh / 2, R * .968));
+      ring.scale.set(1.1, 1, .9); // ovale
+      g.add(ring);
       g.position.copy(this.center);
-      g.rotation.x = .18; // un po' inclinata: si vede anche l'interno
+      g.rotation.x = .24; // un po' dall'alto: si vede anche l'interno, come nelle foto
       this.band = g;
-      this.bandInner = innerMat;
       this.scene.add(g);
-    } else if (this.bandTex.image !== ab.canvas) {
-      const old = this.bandTex.image;
-      if (old && (old.width !== ab.canvas.width || old.height !== ab.canvas.height)) this.bandTex.dispose();
-      this.bandTex.image = ab.canvas;
     }
-    this.bandTex.needsUpdate = true;
-    this.bandRimMat.color.set(validColor(ab.border, '#111111'));
-    this.bandInner.color.set(validColor(ab.bg, '#888888')).multiplyScalar(.25);
+    // stoffa: il disegno con le costine e i bordi cuciti
+    const W = src.width, H = src.height;
+    const weave = (c, w, h) => {
+      const x = c.getContext('2d');
+      x.globalCompositeOperation = 'multiply';
+      for (let i = 0; i < 34; i++) {
+        const y = i / 34 * h;
+        x.fillStyle = 'rgba(0,0,0,.16)'; x.fillRect(0, y + h / 34 * .55, w, h / 34 * .45);
+      }
+      x.globalCompositeOperation = 'source-over';
+    };
+    const stitch = (x, w, h, inset) => {
+      x.strokeStyle = 'rgba(0,0,0,.35)'; x.lineWidth = Math.max(1, h * .012); x.setLineDash([h * .035, h * .025]);
+      x.beginPath(); x.moveTo(0, inset); x.lineTo(w, inset); x.moveTo(0, h - inset); x.lineTo(w, h - inset); x.stroke();
+      x.setLineDash([]);
+    };
+    const oc = this.bandCanvas; oc.width = W; oc.height = H;
+    const o = oc.getContext('2d');
+    o.drawImage(src, 0, 0);
+    weave(oc, W, H);
+    o.fillStyle = border; o.fillRect(0, 0, W, H * .035); o.fillRect(0, H * .965, W, H * .035);
+    stitch(o, W, H, H * .06);
+    // interno: tessuto scuro a righe del colore della fascia
+    const ic = this.bandInnerCanvas; ic.width = 64; ic.height = 256;
+    const ix = ic.getContext('2d');
+    const dark = new THREE.Color(bg).multiplyScalar(.18), mid = new THREE.Color(bg).multiplyScalar(.55);
+    ix.fillStyle = '#' + dark.getHexString(); ix.fillRect(0, 0, 64, 256);
+    ix.fillStyle = '#' + mid.getHexString();
+    for (let i = 0; i < 22; i++) ix.fillRect(0, i * 256 / 22, 64, 256 / 22 * .3);
+    // linguetta: tinta della fascia, costine e cucitura tutto intorno
+    const fc = this.bandFlapCanvas; fc.width = 128; fc.height = 256;
+    const fx = fc.getContext('2d');
+    fx.fillStyle = bg; fx.fillRect(0, 0, 128, 256);
+    weave(fc, 128, 256);
+    fx.strokeStyle = 'rgba(0,0,0,.35)'; fx.lineWidth = 2; fx.setLineDash([8, 6]); fx.strokeRect(9, 12, 110, 232); fx.setLineDash([]);
+    fx.fillStyle = 'rgba(0,0,0,.25)'; fx.fillRect(0, 0, 3, 256); fx.fillRect(125, 0, 3, 256); // bordi della linguetta
+    [this.bandTex, this.bandInnerTex, this.bandFlapTex].forEach(t => { t.dispose(); t.needsUpdate = true; });
+    this.bandEdgeMat.color.set(border);
     this.band.visible = true;
     if (this.model) this.model.visible = false;
   }
@@ -360,7 +406,7 @@ class Stage {
   dispose() {
     if (this._raf) cancelAnimationFrame(this._raf);
     if (this._tween) cancelAnimationFrame(this._tween);
-    if (this.bandTex) this.bandTex.dispose();
+    [this.bandTex, this.bandInnerTex, this.bandFlapTex].forEach(t => t && t.dispose());
     if (this.controls) this.controls.dispose();
     this.controls = null;
     this.texture.dispose();
