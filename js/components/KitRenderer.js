@@ -585,6 +585,9 @@ export const MODELS = {
   }
 };
 export const kitModel = (k) => MODELS[k && k.sleeveCut] || MODELS.setin;
+/** Dove si porta la fascia da capitano 3D sulla manica sinistra (sotto la patch della competizione). */
+// raglan: t = altezza nel riquadro UV della manica (le righe girano intorno al braccio); manica sulla spalla: t = distanza dall'orlo del polsino, in altezze della fascia
+export const armbandRow = (k) => { const m = kitModel(normalizeKit(k)); return m === MODELS.raglan ? { rect: m.uv.sleeveL, t: .87, mode: 'rows' } : { rect: m.uv.sleeveL, t: .25, mode: 'cuff' }; };
 
 /* ------------------------------------------------------------ utilità */
 const svgUrl = (svg) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
@@ -618,55 +621,72 @@ export function loadCleanImage(url) {
   return job;
 }
 
-/** Disegno integrato rasterizzato in bianco su un pezzo (viewBox = porzione della vista frontale). */
-const rasterCache = new Map();
-/** Simbolo PNG di una forma come data URL (dentro un SVG si possono usare solo immagini incorporate). */
-const symbolCache = new Map();
-function symbolData(url) {
-  if (!symbolCache.has(url)) symbolCache.set(url, loadCleanImage(url).then(img => {
+/** Immagine (URL) come data URL ridotta a `max` px: dentro un SVG usato come immagine si possono usare solo immagini incorporate. */
+const dataUrlCache = new Map();
+export function imageDataUrl(url, max = 320) {
+  const key = max + '|' + url;
+  if (!dataUrlCache.has(key)) dataUrlCache.set(key, loadCleanImage(url).then(img => {
     if (!img) return '';
-    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height, k = Math.min(1, 320 / Math.max(iw, ih, 1));
+    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height, k = Math.min(1, max / Math.max(iw, ih, 1));
     const c = canvasOf(Math.max(1, Math.round(iw * k)), Math.max(1, Math.round(ih * k)));
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
     try { return c.toDataURL('image/png'); } catch (e) { return ''; }
   }));
-  return symbolCache.get(url);
+  return dataUrlCache.get(key);
 }
+const symbolData = (url) => imageDataUrl(url, 320);
 /** Il livello usa un simbolo PNG con i suoi colori (non va colorato col colore del livello). */
-const keepsColors = (l) => l.type === 'm-shape' && l.shape === 'png' && !!l.symUrl && l.symMono === false;
+export const keepsColors = (l) => l.type === 'm-shape' && l.shape === 'png' && !!l.symUrl && l.symMono === false;
 
+/**
+ * Disegno integrato di un livello in SVG (gruppo <g>) sulla porzione vb = [x, y, w, h] della vista frontale:
+ * dimensione, specchiature, spostamento (in % di pw × vb[3], attorno a cx, cy) e rotazione.
+ * opts: { color, id (prefisso unico degli id interni), cx, cy, pw, symData (simbolo PNG come data URL), wide (area da coprire più larga) }.
+ * Usato per la texture della maglia e per la fascia da capitano (components/CaptainBand.js).
+ */
+export function patternArtSVG(layer, vb, opts = {}) {
+  const p = PATTERNS.find(x => x.id === layer.type);
+  if (!p) return '';
+  const { color = '#ffffff', id = 'p', symData = '', wide = false } = opts;
+  const s = clamp(layer.scale, 30, 250) / 100;
+  const tx = clamp(layer.x || 0, -50, 50), ty = clamp(layer.y || 0, -50, 50), rot = clamp(layer.rot || 0, -180, 180);
+  const m = p.motif ? { ...motifParams(layer), symData } : null;
+  const cx = opts.cx ?? vb[0] + vb[2] / 2, cy = opts.cy ?? vb[1] + vb[3] / 2, pw = opts.pw ?? vb[2];
+  const sx = layer.flipX ? -1 : 1, sy = layer.flipY ? -1 : 1;
+  const tf = (sx < 0 || sy < 0) ? `transform="translate(${sx < 0 ? W : 0},${sy < 0 ? H : 0}) scale(${sx},${sy})"` : '';
+  // spostamento (in % del pezzo, positivo = a destra / in alto) e rotazione attorno al centro del pezzo
+  const move = (tx || ty || rot) ? `transform="translate(${cx + tx / 100 * pw},${cy - ty / 100 * vb[3]}) rotate(${rot}) translate(${-cx},${-cy})"` : '';
+  let art;
+  if (p.tile && (move || wide)) {
+    // motivo ripetuto: lo disegno su un'area tre volte più grande, così spostato o ruotato copre sempre tutto il pezzo
+    const w0 = W, h0 = H;
+    W = w0 * 3; H = h0 * 3;
+    try { art = `<g transform="translate(${-w0},${-h0})">${p.draw(color, s, id)}</g>`; } finally { W = w0; H = h0; }
+  } else {
+    art = p.draw(color, s, id, m);
+  }
+  return `<g ${move}><g ${tf}>${art}</g></g>`;
+}
+
+/** Disegno integrato rasterizzato in bianco su un pezzo (viewBox = porzione della vista frontale). */
+const rasterCache = new Map();
 function builtinPattern(layer, part, w, h) {
   const p = PATTERNS.find(x => x.id === layer.type);
   if (!p) return Promise.resolve(null);
-  const s = clamp(layer.scale, 30, 250) / 100;
-  const tx = clamp(layer.x || 0, -50, 50), ty = clamp(layer.y || 0, -50, 50), rot = clamp(layer.rot || 0, -180, 180);
   const m = p.motif ? motifParams(layer) : null;
-  const key = [layer.type, s, !!layer.flipX, !!layer.flipY, tx, ty, rot, part, w, h, m ? JSON.stringify(m) : ''].join('|');
+  const key = [layer.type, clamp(layer.scale, 30, 250), !!layer.flipX, !!layer.flipY, layer.x || 0, layer.y || 0, layer.rot || 0, part, w, h, m ? JSON.stringify(m) : ''].join('|');
   if (rasterCache.has(key)) return rasterCache.get(key);
   // il busto (davanti/dietro) corrisponde a x 100..300, y 20..400 della vista frontale;
   // le maniche a una porzione con la stessa densità
   // 'whole': davanti e dietro affiancati come un unico pezzo (x 100..500), il disegno continua dal davanti al dietro
   const vb = part === 'whole' ? [100, 20, 400, 380] : part === 'front' || part === 'back' ? [100, 20, 200, 380] : [100, 20, 159, 103];
-  const sx = layer.flipX ? -1 : 1, sy = layer.flipY ? -1 : 1;
-  const tf = (sx < 0 || sy < 0) ? `transform="translate(${sx < 0 ? W : 0},${sy < 0 ? H : 0}) scale(${sx},${sy})"` : '';
-  // spostamento (in % del pezzo, positivo = a destra / in alto) e rotazione attorno al centro del pezzo
-  const cx = part === 'whole' ? 200 : vb[0] + vb[2] / 2, cy = vb[1] + vb[3] / 2; // 'whole': si sposta/ruota attorno al centro del davanti
-  const pw = part === 'whole' ? vb[2] / 2 : vb[2];
-  const move = (tx || ty || rot) ? `transform="translate(${cx + tx / 100 * pw},${cy - ty / 100 * vb[3]}) rotate(${rot}) translate(${-cx},${-cy})"` : '';
+  // 'whole': si sposta/ruota attorno al centro del davanti
+  const place = part === 'whole' ? { cx: 200, pw: vb[2] / 2, wide: true } : {};
   const needSym = m && m.shape === 'png' && m.symUrl;
   const job = (needSym ? symbolData(m.symUrl) : Promise.resolve('')).then(symData => {
-  if (m) m.symData = symData;
-  let art;
-  if (p.tile && (move || part === 'whole')) {
-    // motivo ripetuto: lo disegno su un'area tre volte più grande, così spostato o ruotato copre sempre tutto il pezzo
-    const w0 = W, h0 = H;
-    W = w0 * 3; H = h0 * 3;
-    try { art = `<g transform="translate(${-w0},${-h0})">${p.draw('#ffffff', s, 'p' + rasterCache.size)}</g>`; } finally { W = w0; H = h0; }
-  } else {
-    art = p.draw('#ffffff', s, 'p' + rasterCache.size, m);
-  }
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}" viewBox="${vb.join(' ')}" preserveAspectRatio="none"><g ${move}><g ${tf}>${art}</g></g></svg>`;
-  return loadCleanImage(svgUrl(svg));
+    const art = patternArtSVG(layer, vb, { ...place, id: 'p' + rasterCache.size, symData });
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}" viewBox="${vb.join(' ')}" preserveAspectRatio="none">${art}</svg>`;
+    return loadCleanImage(svgUrl(svg));
   });
   if (rasterCache.size > 200) rasterCache.delete(rasterCache.keys().next().value);
   rasterCache.set(key, job);
