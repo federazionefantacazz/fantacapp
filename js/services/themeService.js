@@ -239,7 +239,7 @@ export const THEME_PAGES = [
       ...PCARD_FIELDS,
       { key: 'teamName',  css: '--team-name',  kind: 'color', def: '#e2e8f0', label: 'Nome squadra', hint: 'Nome della tua squadra in alto (vuoto = come Testi)',
         font: { key: 'teamNameFont', css: '--font-team-name', def: "'Bebas Neue', sans-serif", defLabel: 'Bebas Neue' } },
-      { key: 'teamOwner', css: '--team-owner', kind: 'color', def: '#94a3b8', label: 'Allenatore',   hint: 'Nome dell\'allenatore sotto il nome della squadra (vuoto = come Sottotesti)',
+      { key: 'teamOwner', css: '--team-owner', kind: 'color', def: '#94a3b8', label: 'Presidente',   hint: 'Presidente o copresidenti sotto il nome della squadra (vuoto = come Sottotesti)',
         font: { key: 'teamOwnerFont', css: '--font-team-owner', def: "'DM Sans', sans-serif", defLabel: 'DM Sans' } },
       ...withGroup('Riquadri della squadra', [
         { key: 'logoBg',          css: '--home-logo-bg',       kind: 'text',  def: '#2b323c',                label: 'Card logo · sfondo',       hint: 'Riquadro del logo della squadra (vuoto = come Campi input)' },

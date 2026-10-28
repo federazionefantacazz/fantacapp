@@ -15,9 +15,11 @@
  *   <select data-search="on|off">                campo di ricerca sempre / mai (di solito: solo per
  *                                                 elenchi lunghi di nomi, non per giornate o numeri)
  *   <option data-img="url">                      logo a sinistra (squadre, competizioni)
+ *   <option data-img="url" data-img2="url">      partite: logo di casa a sinistra del testo, ospite a destra
+ * Il campo chiuso mostra anche lui i loghi della voce scelta.
  *   <option data-icon="ri-...">                  icona a sinistra
  *   <option data-label="Nome" data-sub="...">    testo della riga e riga sotto (il pulsante usa il testo dell'option)
- *   <option data-mine>                           la propria squadra: in cima alla lista (nel suo gruppo)
+ *   <option data-mine>                           la propria squadra (o partita): in cima alla lista, nel suo gruppo
  */
 import { BackNav } from '../services/backNav.js';
 import { esc } from '../utils.js';
@@ -40,7 +42,12 @@ function injectStyle() {
 :where(.cs-btn){font:inherit;color:inherit;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:.5rem .7rem;min-height:36px}
 .cs-btn{display:flex;align-items:center;gap:.5rem;text-align:left;cursor:pointer;-webkit-appearance:none;appearance:none;max-width:100%}
 .cs-btn .cs-val{flex:1;min-width:0;overflow-wrap:anywhere}
-.cs-btn .cs-caret{flex-shrink:0;font-size:1.1em;line-height:1;opacity:.75}
+.cs-btn .cs-lead,.cs-btn .cs-trail{display:flex;flex-shrink:0;line-height:0}
+.cs-btn .cs-lead:empty,.cs-btn .cs-trail:empty{display:none}
+.cs-btn .cs-lead img,.cs-btn .cs-trail img{width:1.6em;height:1.6em;object-fit:contain}
+.cs-btn .cs-caret{flex-shrink:0;font-size:1.1em;line-height:1;opacity:.75;margin-left:auto}
+/* partite: il logo dell'ospite resta attaccato al testo, come quello di casa */
+.cs-btn.cs-pair .cs-val{flex:0 1 auto}
 .cs-btn:disabled{opacity:.5;cursor:default}
 .cs-btn[hidden]{display:none}
 .cs-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -70,9 +77,8 @@ function injectStyle() {
 .cs-main{flex:1;min-width:0}
 .cs-label{font-weight:600;font-size:.9rem;line-height:1.25;overflow-wrap:anywhere}
 .cs-sub{font-size:.72rem;color:var(--text2);font-family:var(--font-sub, inherit);margin-top:2px}
-.cs-mine{display:inline-block;margin-left:.4rem;padding:0 .4rem;border-radius:6px;font-size:.6rem;font-weight:700;letter-spacing:.3px;text-transform:uppercase;vertical-align:2px;
-  color:var(--accent);border:1px solid color-mix(in srgb, var(--accent) 50%, transparent)}
-.cs-check{color:var(--accent);font-size:1.2rem;flex-shrink:0}
+.cs-check{color:var(--accent);font-size:1.2rem;flex-shrink:0;margin-left:auto}
+.cs-row.cs-pair .cs-main{flex:0 1 auto}
 .cs-empty{text-align:center;color:var(--text3);font-family:var(--font-text3, inherit);padding:1.5rem 1rem;font-size:.85rem}
 `;
   document.head.appendChild(style);
@@ -113,12 +119,13 @@ export function openChoiceSheet({ title = 'Scegli', items = [], value = null, se
       const head = it.group && it.group !== group ? `<div class="cs-group">${esc(it.group)}</div>` : '';
       group = it.group || null;
       const on = value !== null && String(it.value) === String(value);
-      const lead = it.img
-        ? `<img class="cs-img" src="${esc(it.img)}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;cs-ico&quot;><i class=&quot;ri-shield-fill&quot;></i></span>'">`
-        : it.icon ? `<span class="cs-ico"><i class="${esc(it.icon)}"></i></span>` : '';
-      return `${head}<button type="button" class="cs-row${on ? ' on' : ''}" role="option" aria-selected="${on}" data-i="${i}" ${it.disabled ? 'disabled' : ''}>
+      const logo = (src) => `<img class="cs-img" src="${esc(src)}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;cs-ico&quot;><i class=&quot;ri-shield-fill&quot;></i></span>'">`;
+      const lead = it.img ? logo(it.img) : it.icon ? `<span class="cs-ico"><i class="${esc(it.icon)}"></i></span>` : '';
+      const trail = it.img2 ? logo(it.img2) : ''; // partite: logo della squadra ospite, a destra del testo
+      return `${head}<button type="button" class="cs-row${on ? ' on' : ''}${it.img2 ? ' cs-pair' : ''}" role="option" aria-selected="${on}" data-i="${i}" ${it.disabled ? 'disabled' : ''}>
           ${lead}
-          <span class="cs-main"><span class="cs-label">${esc(it.label)}${it.mine ? '<span class="cs-mine">La tua</span>' : ''}</span>${it.sub ? `<span class="cs-sub" style="display:block">${esc(it.sub)}</span>` : ''}</span>
+          <span class="cs-main"><span class="cs-label">${esc(it.label)}</span>${it.sub ? `<span class="cs-sub" style="display:block">${esc(it.sub)}</span>` : ''}</span>
+          ${trail}
           ${on ? '<i class="ri-check-line cs-check"></i>' : ''}
         </button>`;
     }).join('') || '<div class="cs-empty">Nessun risultato.</div>';
@@ -194,6 +201,7 @@ function itemsOf(select) {
       label: o.dataset.label || o.text,
       sub: o.dataset.sub || '',
       img: o.dataset.img || '',
+      img2: o.dataset.img2 || '',
       icon: o.dataset.icon || '',
       disabled: o.disabled || (grp !== null && o.parentElement.disabled),
       group: grp,
@@ -218,20 +226,28 @@ function enhance(select) {
   if (select._cs || skip(select)) return;
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.innerHTML = '<span class="cs-val"></span><i class="ri-arrow-down-s-line cs-caret" aria-hidden="true"></i>';
-  const val = btn.firstChild;
+  btn.innerHTML = '<span class="cs-lead"></span><span class="cs-val"></span><span class="cs-trail"></span><i class="ri-arrow-down-s-line cs-caret" aria-hidden="true"></i>';
+  const [lead, val, trail] = btn.children;
+  // loghi della voce scelta (si ridisegnano solo se cambiano: niente sfarfallio)
+  const setImg = (box, src = '') => {
+    if (box.dataset.src === src) return;
+    box.dataset.src = src;
+    box.innerHTML = src ? `<img src="${esc(src)}" alt="" onerror="this.remove()">` : '';
+  };
   if (select.id) btn.dataset.csFor = select.id;
 
   const sync = () => {
     // aspetto e posizione del <select>: stesse classi e stesso stile in linea
     const cls = Array.from(select.classList).filter(c => c !== 'cs-native').join(' ');
-    btn.className = (cls ? cls + ' ' : '') + 'cs-btn';
+    const o = select.options[INDEX.get.call(select)];
+    btn.className = (cls ? cls + ' ' : '') + 'cs-btn' + (o && o.dataset.img2 ? ' cs-pair' : '');
     btn.style.cssText = select.style.cssText;
     btn.disabled = select.disabled;
     btn.hidden = select.hidden;
     btn.title = select.title || '';
-    const o = select.options[INDEX.get.call(select)];
     val.textContent = o ? o.text : '';
+    setImg(lead, (o && o.dataset.img) || '');
+    setImg(trail, (o && o.dataset.img2) || '');
     btn.setAttribute('aria-label', `${titleOf(select)}: ${o ? o.text : ''}`);
   };
   select._cs = { btn, sync };

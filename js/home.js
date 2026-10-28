@@ -11,6 +11,7 @@ import { StadioSquadra } from './menu/StadioSquadra.js';
 import { renderStadiumImage } from './components/Stadium3D.js';
 import { getWonTrophies } from './services/palmaresService.js';
 import { esc, sameId, toArray } from './utils.js';
+import { leadersLine } from './services/staffService.js';
 
 const isByeId = (id) => /BYE|RIPOSO/i.test(String(id ?? ''));
 
@@ -217,7 +218,7 @@ export const HomePage = {
 
     if (myTeam) {
       if (tn) { tn.textContent = myTeam.name || "Senza Nome"; watchTeamName(tn); }
-      if (to) to.textContent = `Patron: ${myTeam.owner || "Sconosciuto"}`;
+      if (to) to.textContent = leadersLine(myTeam) || 'Presidente: —';
       
       if (onFireTitle) {
         onFireTitle.textContent = `Giocatori ${myTeam.name || ''} On Fire`;

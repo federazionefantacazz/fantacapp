@@ -25,7 +25,9 @@ import { GwService } from "./services/gwService.js";
 import { ProbabiliService } from "./services/probabiliService.js";
 import { esc, fitName } from './utils.js';
 import { kitImageHTML, openKitOverlay } from './components/Kit3D.js';
+import { getCompPatchesOf } from './services/kitAssets.js';
 import { BackNav } from './services/backNav.js';
+import { captainBandSVG } from './components/CaptainBand.js';
 
 const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
 const fmt = (n) => {
@@ -128,6 +130,8 @@ const LIVE_STYLES = `
 .lv-ph .lv-ph-r{font-weight:700;font-size:.8rem;color:var(--text3);font-family:var(--font-text3,inherit);align-self:center}
 .lv-role{position:absolute;top:-3px;left:-3px;width:15px;height:15px;border-radius:50%;font-size:.55rem;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px var(--pcard-bg, var(--card2))}
 .lv-half.away .lv-role{left:auto;right:-3px}
+.lv-cap{position:absolute;bottom:-3px;right:-7px;line-height:0;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+.lv-half.away .lv-cap{right:auto;left:-7px}
 .lv-info{flex:1;min-width:0}
 .lv-name{font-weight:600;font-size:.82rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lv-evs{display:flex;gap:3px;align-items:center;margin-top:3px;min-height:12px;flex-wrap:wrap}
@@ -200,6 +204,7 @@ const LIVE_STYLES = `
 .lf-shirt.is-circle{width:40px;height:40px;border-radius:50%;border:2px solid #fff}
 .lf-score{position:absolute;top:-6px;right:-16px;min-width:24px;padding:1px 5px;border-radius:10px;background:#fff;color:#0a0f1e;font-family:'DM Mono',monospace;font-size:.66rem;font-weight:700;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.5)}
 .lf-score.live{background:#5ec82b}
+.lf-cap{position:absolute;top:-6px;left:-14px;line-height:0;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
 .lf-score.sv{background:#94a3b8}
 .lf-name{margin-top:2px;background:rgba(10,15,30,.85);color:#fff;font-size:.64rem;font-weight:600;padding:2px 6px;border-radius:6px;max-width:84px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
 
@@ -375,7 +380,7 @@ export const LiveMatchModule = {
     const sid = String(id ?? '');
     if (/BYE|RIPOSO/i.test(sid)) return { name: 'Riposo', logo: '', owner: '' };
     const team = (window.STATE?.teams || []).find(t => String(t.id) === sid);
-    if (team) return { name: team.name || sid, logo: team.logo || '', owner: team.owner || '', kit: team.kit || null, kit2: team.kit2 || null };
+    if (team) return { name: team.name || sid, logo: team.logo || '', owner: team.owner || '', kit: team.kit || null, kit2: team.kit2 || null, captainBand: team.captainBand || null };
     if (sid.startsWith('VINCENTE_')) return { name: `Vincente ${sid.replace('VINCENTE_', '')}`, logo: '', owner: '' };
     return { name: sid || '—', logo: '', owner: '' };
   },
@@ -421,7 +426,8 @@ export const LiveMatchModule = {
       const h = this._teamInfo(c.homeId).name;
       const a = this._teamInfo(c.awayId).name;
       const label = c.label ? `${c.label}: ` : '';
-      return `<option value="${esc(c.key)}" ${c.key === selKey ? 'selected' : ''} ${isMyKey(c) ? 'data-mine' : ''}>${esc(label)}${esc(h)} vs ${esc(a)}${isMyKey(c) ? ' ★' : ''}</option>`;
+      const lh = this._teamInfo(c.homeId).logo, la = this._teamInfo(c.awayId).logo;
+      return `<option value="${esc(c.key)}" data-img="${esc(lh || 'icons/icon-192.png')}" data-img2="${esc(la || 'icons/icon-192.png')}" ${c.key === selKey ? 'selected' : ''} ${isMyKey(c) ? 'data-mine' : ''}>${esc(label)}${esc(h)} vs ${esc(a)}</option>`;
     }).join('');
 
     const notice = d.status.canPlay ? '' : `
@@ -452,7 +458,7 @@ export const LiveMatchModule = {
       <div class="lv-wrap">
         ${notice}
         <div class="lv-toolbar">
-          <select id="live-match-select" class="select-rose">${options}</select>
+          <select id="live-match-select" class="select-rose" data-title="Scegli la partita">${options}</select>
           ${this._viewSwitchMarkup()}
         </div>
         ${body}
@@ -886,9 +892,12 @@ export const LiveMatchModule = {
       return hit ? { kit: t.info[hit[0]], label: hit[1] } : { kit: null, label: '' };
     };
     // maglie per la vista 3D (tocco sulla maglia): prima la squadra di casa, poi l'ospite
+    // patch della competizione della partita (Patron → Divise): tutte, da sole sulla manica sinistra
+    const comp = mode === 'live' ? this._getCompData() : this._viewer && this._viewer.comp;
+    const compPatches = getCompPatchesOf(comp && comp.id).map(p => ({ id: p.id, url: p.url }));
     const setKey = `${home.id}|${away.id}`;
     const items = [home, away].map(t => ({ t, ...kitOf(t) })).filter(x => x.kit)
-      .map(x => ({ kit: x.kit, crestUrl: x.t.info.logo || '', label: x.t.info.name, title: `${x.t.info.name} · ${x.label}`, id: String(x.t.id) }));
+      .map(x => ({ kit: x.kit, crestUrl: x.t.info.logo || '', label: x.t.info.name, title: `${x.t.info.name} · ${x.label}`, id: String(x.t.id), compPatches }));
     (this._kitSets ||= {})[setKey] = items;
     const team = (t) => {
       const { kit, label: kitLabel } = kitOf(t);
@@ -973,7 +982,7 @@ export const LiveMatchModule = {
       const n = Math.max(a.length, b.length);
       let html = '';
       for (let i = 0; i < n; i++) {
-        html += `<div class="lv-row">${this._halfMarkup(a[i], 'home', sim, ma)}${this._halfMarkup(b[i], 'away', sim, mb)}</div>`;
+        html += `<div class="lv-row">${this._halfMarkup(a[i], 'home', sim, ma, home)}${this._halfMarkup(b[i], 'away', sim, mb, away)}</div>`;
       }
       return html;
     };
@@ -991,7 +1000,14 @@ export const LiveMatchModule = {
     `;
   },
 
-  _halfMarkup(pl, side, sim, marks) {
+  /** Fascia da capitano (della squadra) se il giocatore è il capitano della formazione */
+  _captainMark(team, pl, cls, height) {
+    const cap = team && team.lineup && team.lineup.capitano;
+    if (!cap || !pl || String(cap) !== String(pl.id)) return '';
+    return `<span class="${cls}">${captainBandSVG(team.info && team.info.captainBand, { height })}</span>`;
+  },
+
+  _halfMarkup(pl, side, sim, marks, team) {
     if (!pl) return `<div class="lv-half ${side} empty"></div>`;
     const out = marks?.out.has(pl.id);
     const inn = marks?.in.has(pl.id);
@@ -1001,7 +1017,7 @@ export const LiveMatchModule = {
       : `<span class="lv-ph-r">${esc(pl.role)}</span>`;
     return `
       <div class="lv-half ${side}${out ? ' out' : ''}${inn ? ' in' : ''}" data-player-id="${esc(pl.id)}">
-        <div class="lv-ph">${photo}<span class="lv-role rbadge r${esc(pl.role)}">${esc(pl.role)}</span></div>
+        <div class="lv-ph">${photo}<span class="lv-role rbadge r${esc(pl.role)}">${esc(pl.role)}</span>${this._captainMark(team, pl, 'lv-cap', 13)}</div>
         <div class="lv-info">
           <div class="lv-name">${esc(pl.name)}</div>
           <div class="lv-evs">${this._eventsMarkup(simOv ? { ...pl, ev: simOv.ev || {} } : pl, { out, inn })}</div>
@@ -1095,7 +1111,7 @@ export const LiveMatchModule = {
             : `<div class="lf-shirt is-circle" style="background-color:var(--role-${role.toLowerCase()});color:var(--role-${role.toLowerCase()}-text)">${role}`;
           html += `
             <div class="lf-player" style="left:${x}%; top:${rowY[role]}%;" data-player-id="${esc(p.id)}">
-              ${shirt}${scoreTag}</div>
+              ${shirt}${scoreTag}${this._captainMark(t, p, 'lf-cap', 15)}</div>
               <div class="lf-name">${esc(p.name)}</div>
             </div>`;
         });

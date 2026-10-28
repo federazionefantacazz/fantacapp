@@ -1,14 +1,16 @@
 import { ref, set, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 // IMPORTA IL SERVIZIO CENTRALIZZATO PER L'UPLOAD (Verifica che il percorso relativo sia corretto)
 import { uploadImageToImgBB } from "../services/integrationImgBB.js"; 
-import { cropSquare } from "../components/ImageCropper.js";
+import { cropImage } from "../components/ImageCropper.js";
+import { createStaffEditor } from "../components/StaffEditor.js";
+import { getStaff, staffToSave, titleOf } from "../services/staffService.js";
 
 export const TeamsSection = {
   db: null,
   isEditing: false,    // Flag per capire se siamo in modalità "Crea" o "Modifica"
   editingId: null,     // Memorizza l'ID della squadra che stiamo modificando
   currentLogoUrl: '',  // Tiene in memoria il vecchio logo se non viene cambiato in modifica
-  croppedLogo: null,   // Logo scelto e ritagliato (quadrato), da caricare al salvataggio
+  croppedLogo: null,   // Logo scelto e ritagliato, da caricare al salvataggio
 
   // 1. PUNTO DI INIZIALIZZAZIONE (Riceve solo l'istanza db di Firebase Realtime)
   init(databaseInstance) {
@@ -20,7 +22,7 @@ export const TeamsSection = {
     window.prepareEditTeam = (id, name, owner, logo, motto, desc) => this.prepareEditTeam(id, name, owner, logo, motto, desc);
     window.cancelEditTeam = () => this.cancelEditTeam();
 
-    // Appena si sceglie il logo si apre il ritaglio quadrato
+    // Appena si sceglie il logo si apre il ritaglio
     document.addEventListener('change', (e) => {
       if (e.target && e.target.id === 'tLogoFile') this.cropLogo(e.target);
     });
@@ -30,7 +32,7 @@ export const TeamsSection = {
     this.croppedLogo = null;
     const file = input.files && input.files[0];
     if (!file) return;
-    const logo = await cropSquare(file);
+    const logo = await cropImage(file);
     if (!logo) { input.value = ''; return; } // annullato: nessun logo nuovo
     this.croppedLogo = logo;
   },
@@ -44,7 +46,8 @@ export const TeamsSection = {
         <div id="formTitle" class="label" style="margin-bottom:.5rem">Aggiungi Nuova Squadra</div>
         
         <input type="text" id="tName" class="input-login" placeholder="Nome Fantasquadra">
-        <input type="text" id="tOwner" class="input-login" placeholder="Nome Presidente">
+        <div class="label" style="font-size:.8rem; margin-top:.2rem; color:var(--text2);font-family:var(--font-sub,inherit)">Presidenza</div>
+        <div id="tStaff" style="margin-bottom:1rem;"></div>
         
         <div class="label" style="font-size:.8rem; margin-top:.5rem; color:var(--text2);font-family:var(--font-sub,inherit)">Logo Squadra (Seleziona da Android)</div>
         <input type="file" id="tLogoFile" class="input-login" accept="image/png, image/jpeg, image/jpg" style="padding-top:.5rem;">
@@ -74,6 +77,13 @@ export const TeamsSection = {
 
   // 3. RENDERING DELLA TABELLA (Loghi ingranditi a 48px e centrati)
   render({ TEAMS }) {
+    this.teamsCache = TEAMS || [];
+    // editor della presidenza (Presidente / Copresidenti / altri titoli), creato una volta
+    const staffBox = document.getElementById('tStaff');
+    if (staffBox && (!this.staffEditor || this.staffBox !== staffBox)) {
+      this.staffBox = staffBox;
+      this.staffEditor = createStaffEditor(staffBox, []);
+    }
     const tbody = document.getElementById('teamsTableBody');
     if (!tbody) return;
     tbody.innerHTML = TEAMS.map(t => {
@@ -101,7 +111,7 @@ export const TeamsSection = {
           <strong>${t.name}</strong>
           ${t.motto ? `<br><small style="color:var(--text2);font-family:var(--font-sub,inherit); font-style:italic;">"${t.motto}"</small>` : ''}
         </td>
-        <td style="vertical-align:middle;">${t.owner || '—'}</td>
+        <td style="vertical-align:middle;">${getStaff(t).map(m => `${m.name} <small style="color:var(--text2);font-family:var(--font-sub,inherit);">(${titleOf(m)})</small>`).join('<br>') || '—'}</td>
         <td style="vertical-align:middle;"><span class="badge badge-green">${t.pts || 0} pts</span></td>
         <td style="vertical-align:middle;">
           <div style="display:flex; gap:.25rem;">
@@ -122,7 +132,8 @@ export const TeamsSection = {
 
     document.getElementById('formTitle').textContent = "Modifica Squadra (" + id + ")";
     document.getElementById('tName').value = name;
-    document.getElementById('tOwner').value = owner;
+    const team = (this.teamsCache || []).find(t => String(t.id) === String(id));
+    if (this.staffEditor) this.staffEditor.set(team ? getStaff(team) : (owner && owner !== 'undefined' ? [{ name: owner, role: 'presidente' }] : []));
     document.getElementById('tMotto').value = motto === 'undefined' ? '' : motto;
     document.getElementById('tDesc').value = desc === 'undefined' ? '' : desc;
     
@@ -140,7 +151,8 @@ export const TeamsSection = {
     this.croppedLogo = null;
 
     document.getElementById('formTitle').textContent = "Aggiungi Nuova Squadra";
-    ['tName', 'tOwner', 'tLogoFile', 'tMotto', 'tDesc'].forEach(f => document.getElementById(f).value = '');
+    ['tName', 'tLogoFile', 'tMotto', 'tDesc'].forEach(f => document.getElementById(f).value = '');
+    if (this.staffEditor) this.staffEditor.set([]);
     
     document.getElementById('btnSubmitTeam').textContent = "Crea Squadra";
     document.getElementById('btnCancelEdit').style.display = "none";
@@ -149,7 +161,11 @@ export const TeamsSection = {
   // 6. CREAZIONE E AGGIORNAMENTO LOGICO (Gestisce l'upload automatico e il salvataggio Firebase)
   async addTeam() {
     const name = document.getElementById('tName').value.trim();
-    const owner = document.getElementById('tOwner').value.trim();
+    // presidenza facoltativa per il Patron: se c'è almeno un nome deve rispettare le regole
+    const staffList = this.staffEditor ? this.staffEditor.get() : [];
+    const hasStaff = staffList.some(m => m.name);
+    if (hasStaff && this.staffEditor.error()) return window.toast(this.staffEditor.error(), "err");
+    const { staff, owner } = hasStaff ? staffToSave(staffList) : { staff: null, owner: '' };
     const motto = document.getElementById('tMotto').value.trim();
     const desc = document.getElementById('tDesc').value.trim();
     const fileInput = document.getElementById('tLogoFile');
@@ -182,17 +198,18 @@ export const TeamsSection = {
 
       if (this.isEditing) {
         // MODIFICA: Aggiorna solo l'anagrafica preservando punti storici e record di gioco
-        await update(ref(this.db, 'teams/' + targetId), { name, owner, logo: finalLogoUrl, motto, desc });
+        await update(ref(this.db, 'teams/' + targetId), { name, owner, staff, logo: finalLogoUrl, motto, desc });
         window.toast("Squadra aggiornata con successo!", "ok");
         this.cancelEditTeam();
       } else {
         // CREAZIONE: Salva una nuova squadra azzerando i parametri della classifica
         await set(ref(this.db, 'teams/' + targetId), { 
-          id: targetId, name, owner, logo: finalLogoUrl, motto, desc,
+          id: targetId, name, owner, staff, logo: finalLogoUrl, motto, desc,
           pts: 0, lastGW: 0, w: 0, d: 0, l: 0 
         });
         window.toast("Squadra creata con successo!", "ok");
-        ['tName', 'tOwner', 'tLogoFile', 'tMotto', 'tDesc'].forEach(f => document.getElementById(f).value = '');
+        ['tName', 'tLogoFile', 'tMotto', 'tDesc'].forEach(f => document.getElementById(f).value = '');
+        if (this.staffEditor) this.staffEditor.set([]);
         this.croppedLogo = null;
       }
     } catch (err) { 

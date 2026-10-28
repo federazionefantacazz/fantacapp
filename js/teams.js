@@ -1,13 +1,8 @@
 import { BackNav } from './services/backNav.js';
-import { mountKitShowcase, kitPairHTML, kitPairShown, openKitOverlay } from './components/Kit3D.js';
-import { renderStadiumImage, openStadiumOverlay } from './components/Stadium3D.js';
+import { mountKitShowcase } from './components/Kit3D.js';
 import { getWonTrophies } from './services/palmaresService.js';
 import { esc, sameId } from './utils.js';
-
-// riquadri sopra la rosa (maglie e stadio), come quelli della Home
-const BOX = 'background: var(--subbox-bg, rgba(0,0,0,0.18)); border: 1px solid var(--border); border-radius: 14px; padding: 0.6rem 0.7rem; min-width: 0;';
-const BOX_LABEL = 'display: flex; align-items: center; justify-content: space-between; gap: .3rem; font-size: 0.7rem; font-weight: 700; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase; margin-bottom: 0.3rem;';
-const ZOOM_HINT = '<i class="ri-zoom-in-line" style="font-size: .9rem; color: var(--accent);" aria-hidden="true"></i>';
+import { getStaff, leadersOf, titleOf } from './services/staffService.js';
 
 /* Nome della squadra nella testata: mai tagliato. Si rimpicciolisce (da 26px a 16px) per stare
    su una riga; se non basta, alla misura minima va a capo. */
@@ -46,7 +41,6 @@ export const TeamsPage = {
             </button>
           </div>
           
-          <div id="team-detail-boxes"></div>
           <div id="team-roster-container"></div>
         </div>
 
@@ -88,7 +82,6 @@ export const TeamsPage = {
 
     container.innerHTML = sortedTeams.map(t => {
       const logoUrl = esc(t.logo || 'icons/icon-192.png');
-      const mineTag = isMine(t) ? `<span style="flex-shrink:0; font-size:.6rem; font-weight:700; letter-spacing:.3px; text-transform:uppercase; color:var(--accent); border:1px solid color-mix(in srgb, var(--accent) 50%, transparent); border-radius:6px; padding:0 .4rem;">La tua</span>` : '';
 
       return `
         <div class="card card-mini" data-team-id="${esc(t.id)}" onclick="window.openTeamDetail(this.dataset.teamId)" style="display:flex; align-items:center; gap:1.25rem; padding:.5rem; margin-bottom:0; background:var(--mini-bg,var(--card)); border-color:var(--border); cursor:pointer; transition:transform 0.15s, background-color 0.15s;">
@@ -96,9 +89,8 @@ export const TeamsPage = {
           <div style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
               <h3 style="font-size:1.1rem; font-weight:600; color:var(--text); overflow-wrap:anywhere; margin:0; line-height:1.2;">${esc(t.name)}</h3>
-              ${mineTag}
             </div>
-            <p style="font-size:.72rem; color:var(--text2);font-family:var(--font-sub,inherit); margin-top:2px;">Proprietario: <span style="color:var(--accent); font-weight:500;">${esc(t.owner || 'Nessuno')}</span></p>
+            <p style="font-size:.72rem; color:var(--text2);font-family:var(--font-sub,inherit); margin-top:2px;">${esc((leadersOf(t) || { label: 'Presidente' }).label)}: <span style="color:var(--accent); font-weight:500;">${esc((leadersOf(t) || { names: 'Nessuno' }).names)}</span></p>
           </div>
           <svg viewBox="0 0 24 24" style="width:18px; height:18px; stroke:var(--text3); stroke-width:2; fill:none;"><polyline points="9 18 15 12 9 6"></polyline></svg>
         </div>
@@ -106,8 +98,6 @@ export const TeamsPage = {
     }).join('');
 
     if(document.getElementById('team-detail-view')?.style.display === 'block' && this.activeTeamId) {
-      const active = STATE.teams.find(t => sameId(t.id, this.activeTeamId));
-      if (active) this.drawBoxes(active);
       this.drawRosa(this.activeTeamId, STATE);
     }
   },
@@ -136,7 +126,6 @@ export const TeamsPage = {
       btnInfo.onclick = () => this.openInfoModal(team, STATE);
     }
 
-    this.drawBoxes(team);
     this.drawRosa(teamId, STATE);
 
     listView.style.display = 'none';
@@ -150,87 +139,6 @@ export const TeamsPage = {
     if (pageContainer) pageContainer.scrollTop = 0;
 
     if (opts.info) this.openInfoModal(team, STATE);
-  },
-
-  /**
-   * Maglie (prima e seconda, come in Home) e stadio della squadra, sopra la rosa.
-   * Toccando la maglia mostrata in grande (o lo stadio) si apre lo zoom 3D; la maglia piccola le scambia.
-   */
-  drawBoxes(team) {
-    const box = document.getElementById('team-detail-boxes');
-    if (!box) return;
-    this._boxTeam = team;
-    if (!box.dataset.bound) {
-      box.dataset.bound = '1';
-      const open = (e) => {
-        const t = this._boxTeam;
-        if (!t) return;
-        if (e.target.closest('[data-zoom="kit"]')) this.openKitZoom(t, kitPairShown(box));
-        else if (e.target.closest('[data-zoom="stadium"]')) this.openStadiumZoom(t);
-      };
-      box.addEventListener('click', open);
-      box.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(e); } });
-    }
-    const st = team.stadium;
-    const hasKit = !!(team.kit || team.kit2);
-    // si ridisegna solo se cambiano maglie, logo o stadio (i refresh dei dati sono frequenti)
-    const key = JSON.stringify([team.id, team.kit || null, team.kit2 || null, team.logo || '', st || null]);
-    if (box.dataset.key === key) return;
-    box.dataset.key = key;
-    if (!hasKit && !st) { box.innerHTML = ''; return; }
-
-    const kitBox = hasKit ? `
-      <div data-zoom="kit" role="button" tabindex="0" aria-label="Ingrandisci la maglia" style="${BOX} display:flex; flex-direction:column; cursor:pointer;">
-        <div style="${BOX_LABEL}">${team.kit && team.kit2 ? 'Maglie' : 'Maglia'} ${ZOOM_HINT}</div>
-        <div style="flex:1; display:flex; align-items:center; justify-content:center;">
-          ${kitPairHTML(team.kit, team.kit2, { crestUrl: team.logo || '', width: 360 }, `style="width:100%; max-width:${team.kit && team.kit2 ? 190 : 150}px; margin:0 auto;"`)}
-        </div>
-      </div>` : '';
-    const stadiumBox = st ? `
-      <div data-zoom="stadium" role="button" tabindex="0" aria-label="Ingrandisci lo stadio" style="${BOX} display:flex; flex-direction:column; cursor:pointer;">
-        <div style="${BOX_LABEL}">Stadio ${ZOOM_HINT}</div>
-        <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:.3rem;">
-          <div class="td-stadium" style="width:100%; aspect-ratio:5 / 3; display:flex; align-items:center; justify-content:center;">
-            ${st.image ? `<img src="${esc(st.image)}" alt="Stadio" loading="lazy" decoding="async" style="width:100%; height:100%; object-fit:contain;">` : '<i class="ri-building-2-line" style="font-size:2.4rem; color:var(--text3);"></i>'}
-          </div>
-          <div style="font-size:.8rem; font-weight:700; color:var(--text); text-align:center; overflow-wrap:anywhere;">${esc(st.name || 'Stadio senza nome')}</div>
-          ${st.capacity ? `<div style="font-size:.68rem; color:var(--text2); font-family:var(--font-sub, inherit); text-align:center;">${Number(st.capacity).toLocaleString('it-IT')} posti</div>` : ''}
-        </div>
-      </div>` : '';
-    box.innerHTML = `<div style="display:grid; grid-template-columns:${hasKit && st ? '1fr 1fr' : '1fr'}; gap:.6rem; margin-bottom:.4rem;">${kitBox}${stadiumBox}</div>`;
-
-    // stadio salvato senza foto (caricamento non riuscito): la disegno qui, come in Home
-    if (st && !st.image) {
-      renderStadiumImage(st, { width: 600, logo: team.logo || '' }).then(url => {
-        const ph = box.querySelector('.td-stadium');
-        if (url && ph && box.dataset.key === key) ph.innerHTML = `<img src="${url}" alt="Stadio" style="width:100%; height:100%; object-fit:contain;">`;
-      });
-    }
-  },
-
-  /** Zoom 3D delle maglie, a partire da quella mostrata in grande (1 o 2) */
-  openKitZoom(team, shown = 1) {
-    const items = [
-      team.kit && { kit: team.kit, label: 'Prima maglia', title: `${team.name || ''} · Prima maglia`, crestUrl: team.logo || '' },
-      team.kit2 && { kit: team.kit2, label: 'Seconda maglia', title: `${team.name || ''} · Seconda maglia`, crestUrl: team.logo || '' }
-    ].filter(Boolean);
-    if (!items.length) return;
-    this._closeZoom();
-    const start = team.kit && team.kit2 && shown === 2 ? 1 : 0;
-    this._zoom = openKitOverlay(items, start, { onClose: () => { this._zoom = null; BackNav.pop('team-zoom'); } });
-    BackNav.push('team-zoom', () => this._closeZoom());
-  },
-
-  /** Zoom 3D dello stadio (come nell'editor: inquadrature, notte, zoom) */
-  openStadiumZoom(team) {
-    if (!team.stadium) return;
-    this._closeZoom();
-    this._zoom = openStadiumOverlay(team.stadium, { logo: team.logo || '', onClose: () => { this._zoom = null; BackNav.pop('team-zoom'); } });
-    BackNav.push('team-zoom', () => this._closeZoom());
-  },
-
-  _closeZoom() {
-    if (this._zoom) this._zoom.close();
   },
 
   drawRosa(teamId, STATE) {
@@ -290,6 +198,14 @@ export const TeamsPage = {
 
     const wonTrophies = getWonTrophies(team, STATE.trophies, STATE.competitions);
 
+    // presidenza: chi presiede (Presidente o Copresidenti) e gli altri titoli, una riga ciascuno
+    const leaders = leadersOf(team);
+    const others = getStaff(team).filter(m => m.role === 'altro' && m.name);
+    const staffHTML = [
+      leaders ? `${esc(leaders.label)}: <span style="color:var(--text); font-weight:500;">${esc(leaders.names)}</span>` : '',
+      ...others.map(m => `${esc(titleOf(m))}: <span style="color:var(--text); font-weight:500;">${esc(m.name)}</span>`)
+    ].filter(Boolean).join('<br>');
+
     let trophiesHTML = `<div style="color:var(--text2);font-family:var(--font-sub,inherit); font-size:.85rem; font-style:italic;">Bacheca vuota. Nessun trofeo vinto finora.</div>`;
 
     if (wonTrophies.length > 0) {
@@ -328,8 +244,8 @@ export const TeamsPage = {
         <h2 style="font-family:'Bebas Neue',sans-serif; font-size:2rem; color:var(--text); margin-bottom:0.2rem;">
           ${esc(team.name)}
         </h2>
-        <div style="font-size:.75rem; text-transform:uppercase; color:var(--text2);font-family:var(--font-sub,inherit);">
-          Allenatore: <span style="color:var(--text); font-weight:500;">${esc(team.owner || 'Senza Proprietario')}</span>
+        <div style="font-size:.75rem; text-transform:uppercase; color:var(--text2);font-family:var(--font-sub,inherit); line-height:1.6;">
+          ${staffHTML || 'Presidente: <span style="color:var(--text); font-weight:500;">Nessuno</span>'}
         </div>
         <p style="font-size:.85rem; color:var(--accent); font-style:italic; margin-top:0.5rem;">
           ${mottoText}
@@ -380,7 +296,6 @@ export const TeamsPage = {
   },
 
   backToTeamsList() {
-    this._closeZoom();
     BackNav.pop('team-detail');
     this.activeTeamId = null;
     this.returnTo = null;

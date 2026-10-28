@@ -4,9 +4,12 @@ import { AssetPreloader } from '../services/assetPreloader.js';
 import { esc, sid, playerThumb } from './menuUtils.js';
 import { MenuPanel } from '../components/MenuPanel.js';
 import { kitPairHTML } from '../components/Kit3D.js';
-import { cropSquare } from '../components/ImageCropper.js';
+import { cropImage } from '../components/ImageCropper.js';
 import { DivisaSquadra } from './DivisaSquadra.js';
 import { StadioSquadra } from './StadioSquadra.js';
+import { captainBandSVG } from '../components/CaptainBand.js';
+import { createStaffEditor } from '../components/StaffEditor.js';
+import { getStaff, staffToSave } from '../services/staffService.js';
 
 const MAX_FILE_MB = 8;
 const ROLE_ORDER = { P: 0, D: 1, C: 2, A: 3 };
@@ -46,7 +49,9 @@ export const ConfigurazioneSquadra = {
       if (!btn) return;
       if (btn.dataset.action === 'open-kit') MenuPanel.open(DivisaSquadra, 'kit');
       else if (btn.dataset.action === 'open-stadium') MenuPanel.open(StadioSquadra, 'stadium');
+      else if (btn.dataset.action === 'open-band') { DivisaSquadra.startSection = 'band'; MenuPanel.open(DivisaSquadra, 'kit'); } // fascia: nell'editor della divisa
       else if (btn.dataset.action === 'remove-logo') this._removeLogo();
+      else if (btn.dataset.action === 'save-staff') this._saveStaff();
       else if (btn.dataset.action === 'reset-photo') this._resetPlayerPhoto(btn.dataset.pid);
     });
   },
@@ -54,7 +59,9 @@ export const ConfigurazioneSquadra = {
   refresh(STATE) {
     if (!this._root || this._busy) return;
     this._renderLogo(STATE);
+    this._renderStaff(STATE);
     this._renderKit(STATE);
+    this._renderBand(STATE);
     this._renderStadium(STATE);
     this._renderPlayers(STATE);
   },
@@ -65,7 +72,14 @@ export const ConfigurazioneSquadra = {
   _renderAll(STATE) {
     this._root.innerHTML = `
       <div class="mp-card" id="cfg-logo-card"></div>
+      <div class="mp-card" id="cfg-staff-card">
+        <div class="mp-card-title">Presidenza</div>
+        <div class="mp-muted" style="margin-bottom:.6rem;">Chi guida la squadra: un Presidente oppure più Copresidenti. Puoi aggiungere altre persone con il titolo che vuoi (es. Vicepresidente).</div>
+        <div id="cfg-staff"></div>
+        <button class="mp-btn" data-action="save-staff" style="margin-top:.7rem;"><i class="ri-save-line"></i> Salva presidenza</button>
+      </div>
       <div class="mp-card" id="cfg-kit-card"></div>
+      <div class="mp-card" id="cfg-band-card"></div>
       <div class="mp-card" id="cfg-stadium-card"></div>
       <div class="mp-card">
         <div class="mp-card-title">Immagini dei giocatori</div>
@@ -73,10 +87,57 @@ export const ConfigurazioneSquadra = {
         <div id="cfg-players"></div>
       </div>
     `;
+    this._staffEditor = createStaffEditor(this._root.querySelector('#cfg-staff'), getStaff(STATE.user || {}));
+    this._staffKey = JSON.stringify(getStaff(STATE.user || {}));
     this._renderLogo(STATE);
     this._renderKit(STATE);
+    this._renderBand(STATE);
     this._renderStadium(STATE);
     this._renderPlayers(STATE);
+  },
+
+  /** Presidenza arrivata dal DB: si ridisegna solo se non si stanno facendo modifiche */
+  _renderStaff(STATE) {
+    if (!this._staffEditor) return;
+    const saved = getStaff(STATE.user || {});
+    const key = JSON.stringify(saved);
+    if (key === this._staffKey) return;
+    const editing = JSON.stringify(this._staffEditor.get()) !== this._staffKey;
+    this._staffKey = key;
+    if (!editing) this._staffEditor.set(saved);
+  },
+
+  async _saveStaff() {
+    const team = window.STATE.user;
+    if (!team || !this._staffEditor) return;
+    const err = this._staffEditor.error();
+    if (err) { window.showToast(err, 'err'); return; }
+    const data = staffToSave(this._staffEditor.get());
+    await this._run(async () => {
+      await update(ref(db, `teams/${team.id}`), data);
+      team.staff = data.staff; // subito, il listener del DB lo riconferma
+      team.owner = data.owner;
+      this._staffKey = JSON.stringify(getStaff(team));
+    }, 'Presidenza salvata!');
+  },
+
+  _renderBand(STATE) {
+    const card = this._root.querySelector('#cfg-band-card');
+    if (!card) return;
+    const band = (STATE.user || {}).captainBand || null;
+    const key = JSON.stringify(band);
+    if (card.dataset.key === key) return;
+    card.dataset.key = key;
+    card.innerHTML = `
+      <div class="mp-card-title">Fascia da capitano</div>
+      <div style="display:flex; align-items:center; gap:1rem;">
+        <div style="width:100px; flex-shrink:0; display:flex; justify-content:center; line-height:0;">${captainBandSVG(band, { height: 52 })}</div>
+        <div style="min-width:0;">
+          <div class="mp-muted">${band ? 'La tua fascia: si vede accanto al capitano in Formazione e nel Live.' : 'Disegna la fascia del tuo capitano nell\'editor della divisa: livelli, immagini e lettera.'}</div>
+          <button class="mp-btn" data-action="open-band" style="margin-top:.6rem;"><i class="ri-brush-line"></i> ${band ? 'Modifica fascia' : 'Crea fascia'}</button>
+        </div>
+      </div>
+    `;
   },
 
   _renderKit(STATE) {
@@ -190,8 +251,8 @@ export const ConfigurazioneSquadra = {
     if (!this._validate(file)) return;
     const team = window.STATE.user;
     if (!team || this._busy) return;
-    // prima del caricamento si sceglie il ritaglio quadrato (Annulla = non cambia niente)
-    const logo = await cropSquare(file);
+    // prima del caricamento si sceglie il ritaglio (Annulla = non cambia niente)
+    const logo = await cropImage(file);
     if (!logo) return;
     await this._run(async () => {
       const url = await uploadImageToImgBB(logo);
