@@ -5,12 +5,12 @@ import {
   createStadiumViewer, renderStadiumImage, openStadiumOverlay, STADIUM_VIEWS, stadiumCapacity, shownCapacity, normalizeStadium, defaultStadium, applyPreset,
   RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY,
   SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom, STAND_GAP_MAX, RAKE_MIN, RAKE_MAX, CORNER_GAP_MIN, CORNER_GAP_MAX, WALL_TEXTURES, WALL_TEX_FACADES, APRON_STYLES, GROUND_STYLES, AD_BOARDS, ROOF_GLOWS,
-  ringsBySide, maxRingsOf, LOGO_PLACES, logoPlacesFor, ENTRANCES, ENTRANCE_W, ENTRANCE_H, ENTRANCE_LOGO, ENTRANCE_FITS, entranceSkips,
-  MIX_ROOFS, ROOF_TEXTURES, TEXTURE_ROOFS, ROOF_WAVES, roofMixed
+  ringsBySide, maxRingsOf, TIER_SPREAD_MAX, LOGO_PLACES, logoPlacesFor, ENTRANCES, ENTRANCE_W, ENTRANCE_H, ENTRANCE_LOGO, ENTRANCE_FITS, entranceSkips,
+  MIX_ROOFS, ROOF_TEXTURES, TEXTURE_ROOFS, ROOF_WAVES, roofMixed, ARCHES
 } from '../components/Stadium3D.js';
 
 /** Nomi corti delle coperture nella scelta settore per settore. */
-const MIX_LABELS = { none: 'No', membrane: 'Moderna', truss: 'Reticolare', stands: 'Tribuna', dragon: 'Drago' };
+const MIX_LABELS = { none: 'No', membrane: 'Moderna', truss: 'Reticolare', stands: 'Tribuna', dragon: 'Drago', sliding: 'Wembley' };
 import { injectStyle, parseColor, SWATCHES } from './DivisaSquadra.js';
 import { esc } from './menuUtils.js';
 
@@ -304,6 +304,10 @@ export const StadioSquadra = {
         ? SEAT_SIDES.filter(sd => !(s.horseshoe && sd.id === 3)).map(sd => this._range(sd.label, `rakeSides.${sd.id}`, RAKE_MIN, RAKE_MAX, s.rakeSides[sd.id], v => `${v}%`)).join('')
         : this._range('Pendenza', 'rake', RAKE_MIN, RAKE_MAX, s.rake, v => `${v}%`)}
       <div class="std-desc">Più bassa: spalti schiacciati, più larghi che alti (come all'Olimpico). Più alta: spalti ripidi e alti.</div>
+      ${maxRingsOf(s) > 1 ? `
+      <div class="kit-sub">Differenza tra gli anelli</div>
+      ${this._range('Differenza', 'tierSpread', 0, TIER_SPREAD_MAX, s.tierSpread, v => `${v}%`)}
+      <div class="std-desc">A zero gli anelli salgono quasi uguali. Più alta: il primo anello diventa più lungo e quasi piatto, l'ultimo ripidissimo, quasi in verticale (come a Wembley).</div>` : ''}
       <div class="kit-sub">Una curva aperta (ferro di cavallo)</div>
       ${yesNo('horseshoe', s.horseshoe)}
       ${s.horseshoe ? `<div class="std-desc">Al posto di una curva un piazzale con le sculture bianche; con lo schermo sulle curve, lì c'è un maxischermo su pali.</div>` : ''}
@@ -334,7 +338,8 @@ export const StadioSquadra = {
         crown: 'Corona quasi tonda di vele bianche piegate a zig-zag tra due anelli di tubi bianchi: da fuori triangoli con la punta in giù su colonne a lama inclinate; dentro le travi sotto le creste, la passerella ad anello e il bordo a denti verso il campo. Di notte le vele si illuminano.',
         blades: 'Come il Bernabéu: pianta quasi quadrata, basamento vetrato scuro, facciata di grandi lame d\'acciaio orizzontali che si gonfia verso fuori con il bordo ondulato, camminamento scuro e tetto a lame concentriche fino all\'apertura, con le travi bianche sotto. Di notte la facciata si illumina.',
         dragon: 'Nastro largo di pannelli solari a scaglie retto da grandi tubi bianchi a spirale che salgono da terra. Dove la copertura finisce il nastro scende a terra; con una curva aperta (ferro di cavallo) esce dallo stadio come la coda di un drago.',
-        shell: 'Un unico involucro a cuscini che avvolge lo stadio: si gonfia verso fuori, copre gli spalti e diventa trasparente verso il campo. Di notte si illumina.'
+        shell: 'Un unico involucro a cuscini che avvolge lo stadio: si gonfia verso fuori, copre gli spalti e diventa trasparente verso il campo. Di notte si illumina.',
+        sliding: 'Come Wembley: tetto di grandi pannelli chiari, uguale sulle due tribune e quasi a semicerchio, con l\'apertura dai lati lunghi quasi dritti che gira tonda verso le curve; sopra le curve il tetto si apre un poco e la parte verso il campo è trasparente. Sopra i pannelli scorrevoli, i denti bianchi sul bordo e le diagonali reticolari, sotto il bordo esterno la fascia reticolare bianca a zig-zag. Con l\'arco (qui sotto) diventa Wembley.'
       }[s.roof] || 'Spalti scoperti.'}</div>
       </div>
       <div class="std-group">
@@ -367,10 +372,21 @@ export const StadioSquadra = {
       ${['shell', 'tent', 'petals'].includes(s.roof) ? this._colorRow(s.roof === 'tent' ? 'Luce della tenda e delle vetrate di notte' : 'Luce dell\'involucro di notte', 'colors.glow', s.colors.glow) : ''}
       ${ROOF_GLOWS[s.roof] ? this._colorRow('Luce della copertura di notte', 'colors.roofLight', s.colors.roofLight || ROOF_GLOWS[s.roof]) : ''}
       ${s.roof === 'stands' ? this._colorRow('Righe luminose (accese di notte)', 'colors.glow', s.colors.glow) : ''}
-      ${this._colorRow(s.roof === 'dragon' ? 'Acciaio (tubi a spirale e tralicci)' : s.roof === 'crown' ? 'Acciaio (colonne, anelli, passerella)' : s.roof === 'stands' ? 'Acciaio (piloni e tiranti)' : s.roof === 'blades' ? 'Travi sotto il tetto' : 'Acciaio (tralicci, pilastri, piloni)', 'colors.steel', s.colors.steel)}
+      ${this._colorRow(s.roof === 'dragon' ? 'Acciaio (tubi a spirale e tralicci)' : s.roof === 'crown' ? 'Acciaio (colonne, anelli, passerella)' : s.roof === 'stands' ? 'Acciaio (piloni e tiranti)' : s.roof === 'blades' || s.roof === 'sliding' ? 'Travi sotto il tetto' : 'Acciaio (tralicci, pilastri, piloni)', 'colors.steel', s.colors.steel)}
       ${s.roof === 'girders' ? this._colorRow('Reticolato sopra il tetto (travi e sbalzi)', 'colors.girder', s.colors.girder) : ''}
       ${s.roof === 'stands' ? this._colorRow('Travi sopra il tetto e fascia davanti', 'colors.girder', s.colors.girder) : ''}
+      ${s.roof === 'sliding' ? this._colorRow('Travi sopra il tetto, corona e pannelli scorrevoli', 'colors.girder', s.colors.girder) : ''}
       </div>` : ''}
+      <div class="std-group">
+      <div class="kit-sub">Arco sopra lo stadio</div>
+      ${this._opts('arch', ARCHES, s.arch)}
+      <div class="std-desc">${{
+        none: 'Come a Wembley: un grande arco reticolare da una curva all\'altra che regge la copertura con i cavi. Va con tutte le coperture.',
+        lean: 'Il grande arco reticolare bianco di Wembley: parte da oltre le curve, si piega sopra una tribuna e regge con i cavi il bordo della copertura (senza copertura i cavi scendono in cima agli spalti). Di notte si accende.',
+        upright: 'Arco reticolare dritto sopra il campo, da una curva all\'altra, con i cavi fino al bordo della copertura sulle due tribune. Di notte si accende.'
+      }[s.arch]}</div>
+      ${s.arch !== 'none' ? this._colorRow('Arco', 'colors.arch', s.colors.arch) : ''}
+      </div>
       <div class="std-group">
       <div class="kit-sub">Maxischermo</div>
       ${this._opts('screen', SCREENS, s.screen)}
