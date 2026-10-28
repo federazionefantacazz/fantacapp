@@ -397,14 +397,16 @@ class Stage {
   }
 
   /**
-   * Fascia indossata: copia dei triangoli della manica sinistra nel tratto della fascia, spostati di poco verso l'esterno.
-   * u = giro intorno al braccio (0,5 = lato esterno, dove sta la "C"), v = altezza (la fascia occupa v 0,12..0,88, il resto è trasparente).
+   * Fascia indossata: superficie che segue la manica sinistra (per ogni direzione intorno al braccio e altezza, quanto sporge
+   * la stoffa), appena sollevata; sotto l'orlo della manica prosegue dritta con la larghezza dell'orlo.
+   * u = giro intorno al braccio (0,5 = lato esterno, dove sta la "C"), v = altezza della fascia (0,12..0,88 della texture).
    */
   _wornBand(row, r) {
     const { THREE } = this.L;
     const rm = (r.rOut + r.rSide) / 2, half = rm * Math.PI / BAND_RING_ASPECT * .9; // metà altezza della fascia
-    const lift = rm * .045; // spessore: quanto sta sopra la stoffa
-    const pos = [], nor = [], uvs = [];
+    const lift = rm * .05; // spessore: quanto sta sopra la stoffa
+    const NT = 96, NA = 14;
+    const grid = Array.from({ length: NA }, () => new Float32Array(NT).fill(-1));
     const P = new THREE.Vector3(), N = new THREE.Vector3(), D = new THREE.Vector3();
     this.model.updateMatrixWorld(true);
     this.model.traverse(o => {
@@ -412,39 +414,62 @@ class Stage {
       const g = o.geometry, ap = g.attributes.position, an = g.attributes.normal, au = g.attributes.uv;
       if (!ap || !au) return;
       const nm = new THREE.Matrix3().getNormalMatrix(o.matrixWorld);
-      const idx = g.index ? g.index.array : null, n = idx ? idx.length : ap.count;
-      const vert = (i) => {
+      for (let i = 0; i < ap.count; i++) {
+        const u = au.getX(i), v = au.getY(i);
+        if (u < row.rect.x || u > row.rect.x + row.rect.w || v < row.rect.y || v > row.rect.y + row.rect.h) continue;
         P.set(ap.getX(i), ap.getY(i), ap.getZ(i)).applyMatrix4(o.matrixWorld);
         D.copy(P).sub(r.center);
         const a = D.dot(r.axis);
+        if (a < -half * 1.1 || a > half * 1.1) continue;
         D.addScaledVector(r.axis, -a);
-        if (an) N.set(an.getX(i), an.getY(i), an.getZ(i)).applyMatrix3(nm).normalize(); else N.copy(D).normalize();
-        const inward = N.dot(D) < 0; // stoffa girata verso l'interno (risvolto dell'orlo del polsino)
-        if (inward) N.negate(); // verso l'esterno del braccio
+        if (an && N.set(an.getX(i), an.getY(i), an.getZ(i)).applyMatrix3(nm).dot(D) < 0) continue; // risvolto interno dell'orlo
         const ang = Math.atan2(D.dot(r.side), D.dot(r.out));
-        return { p: P.clone().addScaledVector(N, lift), n: N.clone(), a, u: .5 + ang / (2 * Math.PI), inward };
-      };
-      const inRect = (i) => { const u = au.getX(i), v = au.getY(i); return u >= row.rect.x && u <= row.rect.x + row.rect.w && v >= row.rect.y && v <= row.rect.y + row.rect.h; };
-      for (let t = 0; t + 2 < n; t += 3) {
-        const ids = idx ? [idx[t], idx[t + 1], idx[t + 2]] : [t, t + 1, t + 2];
-        if (!ids.every(inRect)) continue;
-        const vs = ids.map(vert);
-        if (vs.every(v => v.a > half * 1.25) || vs.every(v => v.a < -half * 1.25)) continue; // fuori dal tratto della fascia
-        if (vs.filter(v => v.inward).length >= 2) continue; // risvolto interno: la fascia sta solo fuori
-        // triangolo a cavallo del retro (u da 1 a 0): lo porto tutto dalla stessa parte
-        const us = vs.map(v => v.u);
-        if (Math.max(...us) - Math.min(...us) > .5) vs.forEach(v => { if (v.u < .5) v.u += 1; });
-        vs.forEach(v => {
-          pos.push(v.p.x, v.p.y, v.p.z); nor.push(v.n.x, v.n.y, v.n.z);
-          uvs.push(v.u, .5 - v.a / half * .38); // v: in alto verso la spalla
-        });
+        const ti = Math.round((ang / (2 * Math.PI) + .5) * NT) % NT;
+        const aj = Math.round((a + half) / (2 * half) * (NA - 1));
+        if (aj < 0 || aj >= NA) continue;
+        grid[aj][ti] = Math.max(grid[aj][ti], D.length());
       }
     });
-    if (!pos.length) return null;
+    // buchi del giro: dai vicini; sotto l'orlo (nessuna stoffa): la larghezza della riga più vicina con la stoffa
+    const fillRow = (rw) => {
+      if (!rw.some(x => x > 0)) return false;
+      for (let pass = 0; pass < NT && rw.some(x => x < 0); pass++) {
+        const c = Float32Array.from(rw);
+        for (let i = 0; i < NT; i++) if (c[i] < 0) { const l = c[(i + NT - 1) % NT], rr = c[(i + 1) % NT]; if (l > 0 || rr > 0) rw[i] = l > 0 && rr > 0 ? (l + rr) / 2 : Math.max(l, rr); }
+      }
+      return true;
+    };
+    const ok = grid.map(fillRow);
+    if (!ok.some(Boolean)) return null;
+    for (let j = 0; j < NA; j++) if (!ok[j]) {
+      let k = j; while (k >= 0 && !ok[k]) k--;
+      if (k < 0) { k = j; while (k < NA && !ok[k]) k++; }
+      grid[j] = Float32Array.from(grid[k]);
+      ok[j] = 2; // copiata
+    }
+    // le righe senza stoffa vicina sono più strette di quelle sopra: niente scalini, la fascia scende dritta
+    for (let j = NA - 2; j >= 0; j--) for (let i = 0; i < NT; i++) grid[j][i] = Math.max(grid[j][i], grid[j + 1][i] * .985);
+    // ammorbidisco il giro (pieghe minute)
+    grid.forEach(rw => { const c = Float32Array.from(rw); for (let i = 0; i < NT; i++) rw[i] = (c[(i + NT - 1) % NT] + 2 * c[i] + c[(i + 1) % NT]) / 4; });
+    const pos = [], uvs = [], index = [];
+    for (let j = 0; j < NA; j++) {
+      const a = -half + 2 * half * j / (NA - 1);
+      for (let i = 0; i <= NT; i++) {
+        const ang = (i / NT - .5) * 2 * Math.PI, rho = grid[j][i % NT] + lift;
+        const p = r.center.clone().addScaledVector(r.axis, a).addScaledVector(r.out, Math.cos(ang) * rho).addScaledVector(r.side, Math.sin(ang) * rho);
+        pos.push(p.x, p.y, p.z);
+        uvs.push(i / NT, .5 - a / half * .38);
+      }
+    }
+    for (let j = 0; j < NA - 1; j++) for (let i = 0; i < NT; i++) {
+      const q = j * (NT + 1) + i, w = q + NT + 1;
+      index.push(q, q + 1, w, q + 1, w + 1, w);
+    }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
     geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(index);
+    geo.computeVertexNormals();
     const mesh = new THREE.Mesh(geo, this.bandMats.worn);
     mesh.renderOrder = 2;
     return mesh;
