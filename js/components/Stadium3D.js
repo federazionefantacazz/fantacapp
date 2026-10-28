@@ -262,7 +262,7 @@ export const TEXT_PLACES = [
 ];
 
 const DEFAULT = {
-  name: '', rings: 2, ringsEnds: 0, ringsSides: [0, 0, 0, 0], horseshoe: false, vomitories: false, standGap: 0, endGap: 0, rake: 100, rakeEach: false, rakeSides: [100, 100, 100, 100], cornerGap: 18, apronStyle: 'grass', groundStyle: 'concrete', adBoards: 'none', track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single',
+  name: '', rings: 2, ringsEnds: 0, ringsSides: [0, 0, 0, 0], horseshoe: false, vomitories: false, standGap: 0, endGap: 0, rake: 100, rakeEach: false, rakeSides: [100, 100, 100, 100], tierSpread: 0, cornerGap: 18, apronStyle: 'grass', groundStyle: 'concrete', adBoards: 'none', track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single',
   roof: 'none', roofCover: 'all', roofSectors: [true, false, false, false], roofReach: 'normal', lights: 'towers', facade: 'wall', ramps: false, boxes: false, shellPattern: 'rhombus', domeTeeth: true, arch: 'none', screen: 'none',
   roofSides: ['', '', '', ''], roofTexture: 'auto', roofWave: 0, roofWaves: 4, roofWaveShift: 0,
   seatMosaic: 'none', standText: '', standTextSide: 'far', standTextRing: 1, standTextFont: 'black',
@@ -334,7 +334,7 @@ export const PRESETS = [
     id: 'wembley', label: 'Stile Wembley',
     desc: 'Tre anelli di seggiolini rossi con i palchi sotto il tetto di grandi pannelli chiari, uguale sulle due tribune e aperto un poco sopra le curve, con i pannelli scorrevoli e le travi bianche, retto dal grande arco bianco inclinato che di notte si accende; fuori il rivestimento argento, la fascia reticolare bianca sotto il tetto e l\'ingresso con lo schermo rosso.',
     st: {
-      rings: 3, track: false, shape: 'oval', corners: 'closed', mowing: 'stripes', seatMode: 'single', roof: 'sliding', roofReach: 'max', arch: 'lean',
+      rings: 3, tierSpread: 100, track: false, shape: 'oval', corners: 'closed', mowing: 'stripes', seatMode: 'single', roof: 'sliding', roofReach: 'max', arch: 'lean',
       lights: 'roof', facade: 'panels', ramps: false, boxes: true, screen: 'ends', adBoards: 'both', entrance: 'portal', entranceSides: [true, false, false, false],
       entranceWidth: 40, entranceHeight: 18,
       colors: {
@@ -454,6 +454,7 @@ export function normalizeStadium(s) {
     endGap: Math.round(Math.min(STAND_GAP_MAX, Math.max(0, Number(src.endGap) || 0))),
     rake: Math.round(Math.min(RAKE_MAX, Math.max(RAKE_MIN, Number(src.rake) || 100))),
     rakeEach: !!src.rakeEach,
+    tierSpread: Math.round(Math.min(TIER_SPREAD_MAX, Math.max(0, Number(src.tierSpread) || 0))),
     rakeSides: [0, 1, 2, 3].map(i => Math.round(Math.min(RAKE_MAX, Math.max(RAKE_MIN, Number((src.rakeSides || [])[i]) || Number(src.rake) || 100)))),
     cornerGap: Math.round(Math.min(CORNER_GAP_MAX, Math.max(CORNER_GAP_MIN, Number(src.cornerGap) || 18))),
     // stadi salvati prima: "fondo colorato intorno alla pista" (trackApron) = resina colorata
@@ -552,10 +553,12 @@ const SOFT_R = 3, SOFT_N = 4; // angoli smussati: raggio vicino al campo ed espo
 export const CORNER_GAP_MIN = 6, CORNER_GAP_MAX = 40;
 export const STAND_GAP_MAX = 20;            // metri in più al massimo tra il campo e gli spalti
 export const RAKE_MIN = 50, RAKE_MAX = 130; // pendenza degli spalti in percentuale (100 = normale)
+/** Differenza tra gli anelli (0-100): più alta, il primo anello più lungo e quasi piatto e l'ultimo ripidissimo (Wembley). */
+export const TIER_SPREAD_MAX = 100;
 const M_PARAPET = 0, M_STEPS = 1, M_STRUCT = 2, M_BOX = 3;
 
 const seatKey = (st) => [ringsBySide(st).join(','), st.track ? 1 : 0, st.shape, st.corners, st.horseshoe ? 1 : 0, st.vomitories ? 1 : 0,
-  st.standGap || 0, st.endGap || 0, rakesBySide(st).join(','), st.corners === 'open' ? st.cornerGap || 18 : '',
+  st.standGap || 0, st.endGap || 0, rakesBySide(st).join(','), st.tierSpread || 0, st.corners === 'open' ? st.cornerGap || 18 : '',
   st.roof === 'wave' ? ['wave', st.facade, st.roofReach].join(',') : ''].join('|');
 const geomKey = (st) => [seatKey(st), st.roof, st.roofCover, st.roofCover === 'pick' ? st.roofSectors.map(Number).join('') : '', st.roofReach, st.lights, st.facade, WALL_TEX_FACADES.includes(st.facade) ? st.wallTexture : '', st.adBoards,
   st.entrance, st.entrance !== 'none' || st.roof === 'wave' ? [st.entranceSides.map(Number).join(''), st.entranceWidth, st.entranceHeight, st.entranceLogo].join(',') : '', st.ramps ? 1 : 0, st.shellPattern, st.roof === 'dome' && !st.domeTeeth ? 'noteeth' : '', st.arch, st.screen,
@@ -636,11 +639,15 @@ function shapeOf(st) {
   // anelli delle tribune (lati lunghi) e delle curve: gli anelli in comune sono larghi uguali, quelli in più salgono
   // sopra; la pendenza (gradoni più bassi = spalti schiacciati, più larghi che alti) può cambiare da un settore all'altro
   const counts = ringsBySide(st), maxRings = Math.max(...counts), rakes = rakesBySide(st);
+  // differenza tra gli anelli: dal primo (più file e gradoni bassi, quasi piatto) all'ultimo (gradoni altissimi, quasi
+  // in verticale)
+  const spread = (st.tierSpread || 0) / TIER_SPREAD_MAX, nR = ROWS[maxRings].length;
   const makeTiers = (rake) => {
     const out = [];
     let D = 0, H = 1.2;
-    ROWS[maxRings].forEach((rows, i) => {
-      const R = RISERS[i] * rake / 100, depth = rows * TREAD;
+    ROWS[maxRings].forEach((rows0, i) => {
+      const u = nR > 1 ? i / (nR - 1) : 0.5, steep = 1 + spread * (-0.5 + 1.4 * u), rows = Math.round(rows0 * (1 + spread * 0.4 * (1 - u)));
+      const R = RISERS[i] * rake / 100 * steep, depth = rows * TREAD;
       const t = { i, rows, R, Rx: R * 1.35, D, H, back: D + depth, top: H + (rows - 1) * R }; // Rx: file in più (sotto la copertura ondulata)
       t.soffit = (d) => t.H - 1.6 + (d - t.D) / TREAD * t.R; // sotto dell'anello (parallelo ai gradoni)
       // struttura a vista: anche il primo anello è sollevato da terra verso fuori (si vede il sotto)

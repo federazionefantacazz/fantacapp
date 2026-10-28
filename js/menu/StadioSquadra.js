@@ -5,7 +5,7 @@ import {
   createStadiumViewer, renderStadiumImage, openStadiumOverlay, STADIUM_VIEWS, stadiumCapacity, shownCapacity, normalizeStadium, defaultStadium, applyPreset,
   RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY,
   SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom, STAND_GAP_MAX, RAKE_MIN, RAKE_MAX, CORNER_GAP_MIN, CORNER_GAP_MAX, WALL_TEXTURES, WALL_TEX_FACADES, APRON_STYLES, GROUND_STYLES, AD_BOARDS, ROOF_GLOWS,
-  ringsBySide, maxRingsOf, LOGO_PLACES, logoPlacesFor, ENTRANCES, ENTRANCE_W, ENTRANCE_H, ENTRANCE_LOGO, ENTRANCE_FITS, entranceSkips,
+  ringsBySide, maxRingsOf, TIER_SPREAD_MAX, LOGO_PLACES, logoPlacesFor, ENTRANCES, ENTRANCE_W, ENTRANCE_H, ENTRANCE_LOGO, ENTRANCE_FITS, entranceSkips,
   MIX_ROOFS, ROOF_TEXTURES, TEXTURE_ROOFS, ROOF_WAVES, roofMixed, ARCHES
 } from '../components/Stadium3D.js';
 
@@ -304,6 +304,10 @@ export const StadioSquadra = {
         ? SEAT_SIDES.filter(sd => !(s.horseshoe && sd.id === 3)).map(sd => this._range(sd.label, `rakeSides.${sd.id}`, RAKE_MIN, RAKE_MAX, s.rakeSides[sd.id], v => `${v}%`)).join('')
         : this._range('Pendenza', 'rake', RAKE_MIN, RAKE_MAX, s.rake, v => `${v}%`)}
       <div class="std-desc">Più bassa: spalti schiacciati, più larghi che alti (come all'Olimpico). Più alta: spalti ripidi e alti.</div>
+      ${maxRingsOf(s) > 1 ? `
+      <div class="kit-sub">Differenza tra gli anelli</div>
+      ${this._range('Differenza', 'tierSpread', 0, TIER_SPREAD_MAX, s.tierSpread, v => `${v}%`)}
+      <div class="std-desc">A zero gli anelli salgono quasi uguali. Più alta: il primo anello diventa più lungo e quasi piatto, l'ultimo ripidissimo, quasi in verticale (come a Wembley).</div>` : ''}
       <div class="kit-sub">Una curva aperta (ferro di cavallo)</div>
       ${yesNo('horseshoe', s.horseshoe)}
       ${s.horseshoe ? `<div class="std-desc">Al posto di una curva un piazzale con le sculture bianche; con lo schermo sulle curve, lì c'è un maxischermo su pali.</div>` : ''}
