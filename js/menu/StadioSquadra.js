@@ -335,7 +335,7 @@ export const StadioSquadra = {
         blades: 'Come il Bernabéu: pianta quasi quadrata, basamento vetrato scuro, facciata di grandi lame d\'acciaio orizzontali che si gonfia verso fuori con il bordo ondulato, camminamento scuro e tetto a lame concentriche fino all\'apertura, con le travi bianche sotto. Di notte la facciata si illumina.',
         dragon: 'Nastro largo di pannelli solari a scaglie retto da grandi tubi bianchi a spirale che salgono da terra. Dove la copertura finisce il nastro scende a terra; con una curva aperta (ferro di cavallo) esce dallo stadio come la coda di un drago.',
         shell: 'Un unico involucro a cuscini che avvolge lo stadio: si gonfia verso fuori, copre gli spalti e diventa trasparente verso il campo. Di notte si illumina.',
-        sliding: 'Come Wembley: tetto di grandi pannelli chiari con l\'apertura rettangolare, aperto sulla tribuna verso l\'arco (si vedono i posti fino in cima, con i denti bianchi sul bordo) e con i pannelli scorrevoli raccolti sulla tribuna di fronte; agli angoli le diagonali reticolari bianche, sotto il bordo esterno la fascia reticolare bianca a zig-zag e sotto il tetto la struttura scura. Con l\'arco (qui sotto) diventa Wembley.'
+        sliding: 'Come Wembley: tetto di grandi pannelli chiari, uguale sulle due tribune e quasi a semicerchio, con l\'apertura dai lati lunghi quasi dritti che gira tonda verso le curve; sopra le curve il tetto si apre un poco e la parte verso il campo è trasparente. Sopra i pannelli scorrevoli, i denti bianchi sul bordo e le diagonali reticolari, sotto il bordo esterno la fascia reticolare bianca a zig-zag. Con l\'arco (qui sotto) diventa Wembley.'
       }[s.roof] || 'Spalti scoperti.'}</div>
       </div>
       <div class="std-group">
