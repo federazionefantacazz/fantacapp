@@ -534,8 +534,10 @@ function renderThemePicker() {
 let appliedThemeSig = null;
 function applyCompetitionTheme() {
   const comp = competitions.find(c => c.id === window.CURRENT_COMPETITION);
-  const theme = (comp && comp.theme) || null;
-  const bgUrl = (comp && typeof comp.backgroundImage === 'string') ? comp.backgroundImage.trim() : '';
+  // il tema della competizione sta in themes/{themeId} (le competizioni non ancora spostate lo hanno dentro)
+  const src = comp && comp.themeId ? customThemes.find(t => t.id === comp.themeId) : comp;
+  const theme = (src && src.theme) || null;
+  const bgUrl = (src && typeof src.backgroundImage === 'string') ? src.backgroundImage.trim() : '';
 
   const sig = JSON.stringify([theme, bgUrl]);
   if (sig === appliedThemeSig) return;

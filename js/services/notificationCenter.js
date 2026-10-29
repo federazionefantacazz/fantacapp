@@ -150,31 +150,43 @@ export const NotificationCenter = {
 
     setTimeout(() => {
       if (permissionState() !== 'default') return;
-      let box = document.getElementById('notif-invite');
-      if (!box) {
-        box = document.createElement('div');
-        box.id = 'notif-invite';
-        box.setAttribute('role', 'dialog');
-        box.setAttribute('aria-label', 'Attiva le notifiche');
-        box.innerHTML = `
-          <div class="ni-ico"><i class="ri-notification-3-line"></i></div>
-          <div class="ni-txt"><b>Attiva le notifiche</b>Saprai subito quando ricevi un'offerta di mercato o una comunicazione dalla lega.</div>
-          <div class="ni-btns">
-            <button type="button" class="ni-yes">Attiva</button>
-            <button type="button" class="ni-no">Non ora</button>
-          </div>`;
-        document.body.appendChild(box);
-        box.querySelector('.ni-yes').addEventListener('click', async () => {
-          box.classList.remove('show');
-          await this.enable();
-        });
-        box.querySelector('.ni-no').addEventListener('click', () => {
-          lsSet(ASK_KEY, String(Date.now()));
-          box.classList.remove('show');
-        });
-      }
+      const box = this._inviteBox();
       requestAnimationFrame(() => box.classList.add('show'));
     }, 2500);
+  },
+
+  /** Riquadro dell'invito (creato una volta). */
+  _inviteBox() {
+    let box = document.getElementById('notif-invite');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'notif-invite';
+      box.setAttribute('role', 'dialog');
+      box.setAttribute('aria-label', 'Attiva le notifiche');
+      box.innerHTML = `
+        <div class="ni-ico"><i class="ri-notification-3-line"></i></div>
+        <div class="ni-txt"><b>Attiva le notifiche</b>Saprai subito quando ricevi un'offerta di mercato o una comunicazione dalla lega.</div>
+        <div class="ni-btns">
+          <button type="button" class="ni-yes">Attiva</button>
+          <button type="button" class="ni-no">Non ora</button>
+        </div>`;
+      document.body.appendChild(box);
+      box.querySelector('.ni-yes').addEventListener('click', async () => {
+        box.classList.remove('show');
+        await this.enable();
+      });
+      box.querySelector('.ni-no').addEventListener('click', () => {
+        lsSet(ASK_KEY, String(Date.now()));
+        box.classList.remove('show');
+      });
+    }
+    return box;
+  },
+
+  /** Anteprima dei temi nel Patron: mostra l'invito senza chiedere nulla. */
+  previewInvite(on = true) {
+    const box = on ? this._inviteBox() : document.getElementById('notif-invite');
+    if (box) box.classList.toggle('show', on);
   },
 
   /** Push ad app chiusa: token registrato solo con permesso concesso e notifiche attive. */

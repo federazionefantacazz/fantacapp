@@ -525,11 +525,11 @@ export const LiveMatchModule = {
     overlay.id = 'match-viewer';
     overlay.style.cssText = 'position:fixed;inset:0;z-index:5000;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:2rem;';
     overlay.innerHTML = `
-      <div style="position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:.8rem;padding:.8rem 1rem;background:var(--bg2);border-bottom:1px solid var(--border);">
+      <div data-th="mv-bar" style="position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:.8rem;padding:.8rem 1rem;background:var(--bg2);border-bottom:1px solid var(--border);">
         <button id="mv-close" class="btn btn-outline" style="width:auto;padding:.45rem .8rem;"><i class="ri-arrow-left-line"></i> Indietro</button>
         <div style="min-width:0;">
-          <div style="font-size:.7rem;color:var(--text2);font-family:var(--font-sub,inherit);text-transform:uppercase;letter-spacing:.5px;">${isPast ? 'Replay match' : 'Formazioni schierate'} · ${esc(GwService.label(gwKey))}</div>
-          <div style="font-weight:700;font-size:.95rem;overflow-wrap:anywhere;">${esc(home.name)} vs ${esc(away.name)}</div>
+          <div data-th="mv-sub" style="font-size:.7rem;color:var(--text2);font-family:var(--font-sub,inherit);text-transform:uppercase;letter-spacing:.5px;">${isPast ? 'Replay match' : 'Formazioni schierate'} · ${esc(GwService.label(gwKey))}</div>
+          <div data-th="mv-title" style="font-weight:700;font-size:.95rem;overflow-wrap:anywhere;">${esc(home.name)} vs ${esc(away.name)}</div>
         </div>
       </div>
       <div id="mv-body" class="lv-wrap" style="padding:1rem;max-width:900px;margin:0 auto;"></div>`;

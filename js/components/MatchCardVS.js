@@ -3,7 +3,7 @@ import { esc, sameId, fitName } from '../utils.js';
 export const createMatchCardVS = (match, teamsList = []) => {
   if (!match) {
     return `
-      <div class="card card-sm card-mini" style="background:var(--mini-bg,var(--bg2)); border:1px solid var(--border); text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1rem; font-size:.85rem;">
+      <div class="card card-sm card-mini" data-th="empty" style="background:var(--mini-bg,var(--bg2)); border:1px solid var(--border); text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1rem; font-size:.85rem;">
         Nessun match programmato.
       </div>
     `;
@@ -34,7 +34,7 @@ export const createMatchCardVS = (match, teamsList = []) => {
       </div>
 
       <!-- Centro: VS -->
-      <div style="font-family:'Bebas Neue',sans-serif; font-size:1.3rem; color:var(--accent); letter-spacing:1px; flex-shrink:0; padding: 0 0.4rem;">VS</div>
+      <div data-th="match-vs" style="font-family:'Bebas Neue',sans-serif; font-size:1.3rem; color:var(--accent); letter-spacing:1px; flex-shrink:0; padding: 0 0.4rem;">VS</div>
 
       <!-- Squadra Ospite -->
       <div style="display:flex; align-items:center; gap:0.6rem; min-width:0; flex:1; justify-content:flex-start;">
