@@ -232,7 +232,8 @@ export const FACADES = [
   { id: 'esplanade', label: 'Spianata rialzata' },
   { id: 'glass',   label: 'Vetrate scure' },
   { id: 'panels',  label: 'Rivestimento a pannelli' },
-  { id: 'cladding', label: 'Inglese con ingresso' }
+  { id: 'cladding', label: 'Inglese con ingresso' },
+  { id: 'curtain',  label: 'Vetrate e colonnato (Wembley)' }
 ];
 /** Ingressi monumentali fuori dallo stadio (al centro dei lati scelti). */
 export const ENTRANCES = [
@@ -335,7 +336,7 @@ export const PRESETS = [
     desc: 'Tre anelli di seggiolini rossi con i palchi sotto il tetto di grandi pannelli chiari, uguale sulle due tribune e aperto un poco sopra le curve, con i pannelli scorrevoli e le travi bianche, retto dal grande arco bianco inclinato che di notte si accende; fuori il rivestimento argento, la fascia reticolare bianca sotto il tetto e l\'ingresso con lo schermo rosso.',
     st: {
       rings: 3, tierSpread: 100, track: false, shape: 'oval', corners: 'closed', mowing: 'stripes', seatMode: 'single', roof: 'sliding', roofReach: 'max', arch: 'lean',
-      lights: 'roof', facade: 'panels', ramps: false, boxes: true, screen: 'ends', adBoards: 'both', entrance: 'portal', entranceSides: [true, false, false, false],
+      lights: 'roof', facade: 'curtain', ramps: false, boxes: true, screen: 'ends', adBoards: 'both', entrance: 'portal', entranceSides: [true, false, false, false],
       entranceWidth: 40, entranceHeight: 18,
       colors: {
         grass: '#2f8f3a', seatA: '#c8102e', parapet: '#e4e6e9', structure: '#7f868d', roof: '#d3d7dc', steel: '#3b4046', girder: '#f1f2f3',
@@ -545,6 +546,9 @@ const ROWS = { 1: [30], 2: [24, 20], 3: [22, 17, 14] };            // file di se
 const RISERS = [0.4, 0.5, 0.56];                                    // alzata dei gradoni: più ripidi in alto
 const TREAD = 0.85;       // profondità di un gradone
 const WALL = 0.4;         // spessore dei muri
+const SLIDING_FACADE_OUT = 5.4; // copertura di Wembley: quanto la facciata sta fuori dagli spalti (m)
+// facciata a vetrate e colonnato: altezza del colonnato, sporgenza delle solette, passo dei pilastri e delle torri delle scale
+const CURTAIN_BASE = 7, CURTAIN_SLAB = 1.6, CURTAIN_COL = 9, CURTAIN_CORE = 46, CURTAIN_CORE_R = 3.6;
 const SEAT_W = 0.5;       // larghezza di un posto
 const AISLE_EVERY = 14;   // una scaletta ogni ~14 m di fronte del primo anello
 const AISLE_HALF = 0.55;
@@ -559,7 +563,7 @@ const M_PARAPET = 0, M_STEPS = 1, M_STRUCT = 2, M_BOX = 3;
 
 const seatKey = (st) => [ringsBySide(st).join(','), st.track ? 1 : 0, st.shape, st.corners, st.horseshoe ? 1 : 0, st.vomitories ? 1 : 0,
   st.standGap || 0, st.endGap || 0, rakesBySide(st).join(','), st.tierSpread || 0, st.corners === 'open' ? st.cornerGap || 18 : '',
-  st.roof === 'wave' ? ['wave', st.facade, st.roofReach].join(',') : ''].join('|');
+  st.roof === 'wave' ? ['wave', st.facade, st.roofReach].join(',') : st.roof === 'sliding' ? 'sliding' : ''].join('|');
 const geomKey = (st) => [seatKey(st), st.roof, st.roofCover, st.roofCover === 'pick' ? st.roofSectors.map(Number).join('') : '', st.roofReach, st.lights, st.facade, WALL_TEX_FACADES.includes(st.facade) ? st.wallTexture : '', st.adBoards,
   st.entrance, st.entrance !== 'none' || st.roof === 'wave' ? [st.entranceSides.map(Number).join(''), st.entranceWidth, st.entranceHeight, st.entranceLogo].join(',') : '', st.ramps ? 1 : 0, st.shellPattern, st.roof === 'dome' && !st.domeTeeth ? 'noteeth' : '', st.arch, st.screen,
   st.roofSides.join(','), st.roofTexture, st.roofWave ? [st.roofWave, st.roofWaves, st.roofWaveShift].join(',') : '', st.boxes ? 1 : 0, (st.logoPlaces || []).join(',')].join('|');
@@ -685,7 +689,11 @@ function shapeOf(st) {
     const keep = (p) => p.x > -(a - r) - 1e-6 && !(p.mx < 0 && Math.abs(p.mz) < 1e-6);
     runs = runs.flatMap(run => subRuns(run, keep).map(sub => ({ ...sub, tiers: run.tiers })));
   }
-  const shape = { a, b, r, tiers, path, runs, outer: Math.max(...tiers.map(t => t.back)) + WALL, height: last.top + 2.2 };
+  // sotto la copertura di Wembley la facciata sta fuori, fin quasi al bordo del tetto (tra gli spalti e la facciata
+  // l'atrio, coperto dal tetto): i muri esterni di ogni tratto (runOuter) e tutto quello che ci sta attaccato si spostano
+  const out = st.roof === 'sliding' ? SLIDING_FACADE_OUT : 0;
+  for (const T of new Set([tiers, ...runs.map(r => r.tiers)])) T.facadeOut = out;
+  const shape = { a, b, r, tiers, path, runs, outer: Math.max(...tiers.map(t => t.back)) + WALL + out, height: last.top + 2.2 };
   if (st.roof === 'wave') roofRows(shape, st);
   return shape;
 }
@@ -1342,8 +1350,9 @@ function roofOf(shape, roof, shift = 0) {
     return { dIn, dOut, h: (d) => hIn - (d - dIn) * 0.06, depth: () => 1.2 };
   }
   if (roof === 'sliding') {
-    // Wembley: alto e quasi piano, copre tutti i posti e sporge oltre la facciata (lì gira la corona reticolare bianca)
-    const dOut = shape.outer + 7, dIn = clampIn(Math.max(top.D - 6, 2), dOut), hIn = top.top + 14.5;
+    // Wembley: alto e quasi piano, copre tutti i posti e sporge appena oltre la facciata (che sta fuori, vedi
+    // SLIDING_FACADE_OUT): sotto il bordo gira la fascia reticolare bianca
+    const dOut = shape.outer + 7 - (shape.tiers.facadeOut || 0), dIn = clampIn(Math.max(top.D - 6, 2), dOut), hIn = top.top + 14.5;
     return { dIn, dOut, h: (d) => hIn - (d - dIn) * 0.05, depth: (d) => 2.2 + 3.8 * (d - dIn) / (dOut - dIn) };
   }
   // travi rosse (San Siro): il tetto sporge molto verso fuori e copre del tutto le torri delle rampe sui lati
@@ -1944,7 +1953,7 @@ const pylonHeight = (R) => R.h(R.dOut) + 7;
 
 /** Distanza dal bordo occupata dal muro esterno (con basamento o fasce). */
 const CLAD_PODIUM_W = 6, CLAD_MODULE = 12, CLAD_ENTRANCE = 30, CLAD_DRUM_R = 6.5; // facciata inglese: basamento, moduli, ingresso, torri
-const footOf = (shape, st) => shape.outer + ({ struts: PLATFORM_OUT + 0.2, bands: 1.8, columns: 0.8, cladding: CLAD_PODIUM_W + 0.2, esplanade: esplanadeW(st) + 0.2 + (st.roof === 'shell' ? SHELL_PLAZA_OUT : 0) }[st.facade] || 0);
+const footOf = (shape, st) => shape.outer + ({ struts: PLATFORM_OUT + 0.2, bands: 1.8, columns: 0.8, curtain: CURTAIN_SLAB + 0.3, cladding: CLAD_PODIUM_W + 0.2, esplanade: esplanadeW(st) + 0.2 + (st.roof === 'shell' ? SHELL_PLAZA_OUT : 0) }[st.facade] || 0);
 /** Facciata inglese: altezza del basamento e del cornicione colorato per una parete alta H. */
 const cladPodium = (H) => Math.min(10.5, H * 0.42), cladCornice = (H) => Math.min(3, H * 0.12);
 /** Facciata inglese: nastri di vetrate [da, a] all'altezza del corridoio sotto ogni anello superiore. */
@@ -1954,7 +1963,7 @@ const cladBands = (tiers) => tiers.slice(1).map(t => [t.H - 4.2, t.H - 1.6]);
 const esplanadeW = (st) => (st.roof === 'shell' ? ESPLANADE_W + 14 : ESPLANADE_W);
 
 /** Muro esterno e altezza di un tratto: i settori possono avere anelli diversi, la facciata segue ognuno. */
-const runOuter = (run) => Math.max(...run.tiers.map(t => t.back)) + WALL;
+const runOuter = (run) => Math.max(...run.tiers.map(t => t.back)) + WALL + (run.tiers.facadeOut || 0);
 const runTop = (run) => run.tiers[run.tiers.length - 1];
 /** Altezza del muro esterno di un tratto: sotto le file in più dell'ultimo anello (copertura ondulata), se ci sono. */
 const wallTopOf = (run) => { const T = runTop(run); return run.E ? Math.min(T.top + 2.2, T.soffit(runOuter(run)) - 0.3) : T.top + 2.2; };
@@ -3783,6 +3792,58 @@ function facadeTexture(kind) {
   }
   facadeTexCache.set(kind, out);
   return out;
+}
+
+/**
+ * Vetrate a piani (Wembley): un piano ogni 4 m con in basso la fascia argento (davanti alla soletta) e sopra il vetro
+ * verde-azzurro a lastre da 1,5 m, montanti chiari e un traverso; il vetro riflette il cielo (più chiaro in alto, nuvole
+ * e lastre appena diverse) e lascia intravedere dentro (soffitto con le luci, qualche tenda). emissive: di notte si
+ * accendono solo gli interni (non la fascia), con piani e lastre più o meno illuminati.
+ */
+let curtainTexCache = null;
+function curtainTexture() {
+  if (curtainTexCache) return curtainTexCache;
+  const W = 384, H = 512, TU = 6, TV = 8, sm = (a, b, t) => { const k = Math.min(1, Math.max(0, (t - a) / (b - a))); return k * k * (3 - 2 * k); };
+  const PANE = 1.5, FLOOR = 4, SPAN = 0.85, TRANSOM = 3.05;
+  const noise = (x, y) => { // nuvole riflesse: somma di onde (si ripete sulla tela)
+    const a = Math.sin((x / TU) * 2 * Math.PI * 2 + 1.3) * Math.sin((y / TV) * 2 * Math.PI + 0.4);
+    const b = Math.sin((x / TU) * 2 * Math.PI * 3 + (y / TV) * 2 * Math.PI * 2);
+    return 0.5 + 0.3 * a + 0.2 * b;
+  };
+  const at = (x, y) => {
+    const mx = x / W * TU, my = (1 - y / H) * TV, fl = Math.floor(my / FLOOR), fy = my - fl * FLOOR, pane = Math.floor(mx / PANE), px = mx - pane * PANE;
+    if (fy < SPAN) {
+      // fascia argento con una scanalatura in mezzo e i giunti ogni 3 m
+      const groove = Math.abs(fy - SPAN / 2) < 0.03 ? 0.82 : 1, joint = Math.min(mx % 3, 3 - (mx % 3)) < 0.02 ? 0.8 : 1;
+      const g = (206 + 24 * (fy / SPAN)) * groove * joint;
+      return { c: [g, g + 3, g + 6], h: 1, glow: 0 };
+    }
+    const mull = Math.min(px, PANE - px) < 0.045, tr = Math.abs(fy - TRANSOM) < 0.04 || fy < SPAN + 0.05 || fy > FLOOR - 0.05;
+    if (mull || tr) { const g = mull ? 196 : 184; return { c: [g, g + 2, g + 6], h: 0.8, glow: 0 }; }
+    const r = cellRnd(pane, fl, 57), t = (fy - SPAN) / (FLOOR - SPAN), cl = noise(mx, my);
+    // dentro: soffitto più chiaro in alto con le file di luci, in basso più scuro (persone, arredi); a volte una tenda
+    const inside = 0.35 + 0.45 * sm(0.55, 0.95, t) + (Math.abs(fy - 3.55) < 0.05 && px % 0.5 < 0.28 ? 0.6 : 0);
+    const blind = r > 0.86 && t > 0.55 ? 0.35 : 0;
+    // riflesso: cielo più chiaro in alto, nuvole, ogni lastra appena inclinata in modo diverso
+    const refl = 0.42 + 0.4 * t + 0.3 * (cl - 0.5) + 0.12 * (r - 0.5);
+    const mixIn = 0.34;
+    const R = (38 + 92 * refl) * (1 - mixIn) + (44 + 120 * inside + 120 * blind) * mixIn;
+    const G = (92 + 104 * refl) * (1 - mixIn) + (46 + 112 * inside + 108 * blind) * mixIn;
+    const B = (104 + 110 * refl) * (1 - mixIn) + (46 + 92 * inside + 86 * blind) * mixIn;
+    // di notte: interi tratti di piano accesi o spenti, più luce in alto (soffitto)
+    const lr = cellRnd(Math.floor(pane / 4), fl, 91), lit = lr > 0.35 ? 0.7 + 0.3 * lr : 0.08;
+    return { c: [R, G, B], h: 0, glow: lit * (0.25 + 0.75 * sm(0.45, 1, t)) * (1 - 0.6 * blind) };
+  };
+  const base = bakeTexture(W, H, TU, TV, 0.04, (x, y) => { const v = at(x, y); return [...v.c, v.h]; });
+  const em = document.createElement('canvas'); em.width = W; em.height = H;
+  const ctx = em.getContext('2d'), img = ctx.createImageData(W, H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const g = at(x + 0.5, y + 0.5).glow, i = (y * W + x) * 4;
+    img.data[i] = 255 * g; img.data[i + 1] = 214 * g; img.data[i + 2] = 160 * g; img.data[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  curtainTexCache = { ...base, emissive: em };
+  return curtainTexCache;
 }
 
 /** Lame del Bernabéu: tetto (lame concentriche) e facciata (lame orizzontali larghe con lo scuro tra una e l'altra). */
@@ -5936,6 +5997,70 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     }
   }
 
+
+  if (st.facade === 'curtain') {
+    // Wembley: in basso il colonnato (muro scuro arretrato, pilastri bianchi sottili, torri cilindriche delle scale in
+    // cemento), sopra le vetrate a piani con le solette chiare che sporgono e i montanti; di notte gli interni si accendono
+    const T = curtainTexture(), map = new THREE.CanvasTexture(T.canvas), nmap = new THREE.CanvasTexture(T.normal), emap = new THREE.CanvasTexture(T.emissive);
+    for (const t of [map, nmap, emap]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; }
+    map.colorSpace = emap.colorSpace = THREE.SRGBColorSpace;
+    const cw = new THREE.MeshStandardMaterial({ map, normalMap: nmap, normalScale: new THREE.Vector2(0.6, 0.6), roughness: 0.14, metalness: 0.45, side: THREE.DoubleSide, emissive: 0xffffff, emissiveMap: emap, emissiveIntensity: 0.05 });
+    nightGlow.push([cw, 0.04, 0.85]);
+    const slabMat = new THREE.MeshStandardMaterial({ color: 0xe9ebed, roughness: 0.55, side: THREE.DoubleSide });
+    const coreMat = new THREE.MeshStandardMaterial({ color: 0xa7abaf, roughness: 0.9 });
+    triplanar(coreMat, stoneTex, 0.25);
+    const backMat = new THREE.MeshStandardMaterial({ color: 0x2b3138, roughness: 0.35, metalness: 0.3, side: THREE.DoubleSide, emissive: 0xffd9a0, emissiveIntensity: 0 });
+    nightGlow.push([backMat, 0, 0.14]);
+    own.push(map, nmap, emap, cw, slabMat, coreMat, backMat);
+    const slabs = [], slabIdx = [[], [], []], back = [], backIdx = [[], [], []], cols = [], cores = [], fins = [];
+    const rect = (d0, d1, h0, h1) => [[d0, h0], [d1, h0], [d1, h1], [d0, h1]].map(([d, h]) => ({ d, h, m: 0 }));
+    for (const ring of shape.runs) {
+      const o = runOuter(ring), H = wallTopOf(ring), B = Math.min(CURTAIN_BASE, H * 0.32), cum = runLengths(ring), total = cum[cum.length - 1];
+      extrude(THREE, ring, rect(o - 3.2, o - 2.9, 0, B), back, backIdx);                        // muro scuro arretrato
+      extrude(THREE, ring, rect(o - 3.2, o + CURTAIN_SLAB, B - 0.55, B), slabs, slabIdx);        // soletta sopra il colonnato
+      extrude(THREE, ring, rect(o + CURTAIN_SLAB - 0.12, o + CURTAIN_SLAB, B, B + 1.1), slabs, slabIdx); // parapetto
+      // solette dei piani, sotto le fasce argento della texture (un piano ogni 4 m da terra)
+      for (let h = Math.ceil((B + 1) / 4) * 4; h < H - 1.5; h += 4) extrude(THREE, ring, rect(o + 0.2, o + 0.85, h - 0.22, h + 0.06), slabs, slabIdx);
+      extrude(THREE, ring, rect(o - 0.1, o + 1.0, H - 0.6, H + 0.2), slabs, slabIdx);           // cornicione in cima
+      // pilastri bianchi sottili del colonnato
+      for (const u of stations(ring, cum, CURTAIN_COL, o + 0.5)) {
+        const [x, z] = pointAt(ring, cum, u, o + 0.5);
+        boxAt(cols, x, (B - 0.55) / 2, z, [0.36, 0, 0], [0, B - 0.55, 0], [0, 0, 0.36]);
+      }
+      // torri cilindriche delle scale, lontane dagli ingressi
+      for (const u of stations(ring, cum, CURTAIN_CORE, o + CURTAIN_CORE_R)) {
+        if (!ring.closed && (u < 8 || u > total - 8)) continue;
+        if (nearEntrance(shape, st, ...pointAt(ring, cum, u, 0), CURTAIN_CORE_R + 6)) continue;
+        const [x, z] = pointAt(ring, cum, u, o - 0.6 + CURTAIN_CORE_R);
+        boxAt(cores, x, (B + 1.2) / 2, z, [CURTAIN_CORE_R, 0, 0], [0, B + 1.2, 0], [0, 0, CURTAIN_CORE_R]);
+        boxAt(towerCores, x, B + 1.6, z, [CURTAIN_CORE_R + 0.05, 0, 0], [0, 0.8, 0], [0, 0, CURTAIN_CORE_R + 0.05]); // fascia scura in cima
+      }
+      // montanti in rilievo ogni 6 m (le lastre più sottili sono nella texture)
+      for (const u of stations(ring, cum, 6, o + 0.32)) {
+        const [x, z] = pointAt(ring, cum, u, o + 0.32), [tx, tz] = tangentAt(ring, cum, u, o + 0.32);
+        boxAt(fins, x, (B + H) / 2, z, [tx * 0.12, 0, tz * 0.12], [0, H - B, 0], [-tz * 0.35, 0, tx * 0.35]);
+      }
+    }
+    for (const [P2, I2, mat] of [[slabs, slabIdx, slabMat], [back, backIdx, backMat]]) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(P2, 3));
+      g.setIndex(I2[0]);
+      g.computeVertexNormals();
+      const m = new THREE.Mesh(g, mat);
+      m.castShadow = m.receiveShadow = true;
+      group.add(m);
+      own.push(g);
+    }
+    // vetrate: dal colonnato in su (la texture parte da un piano intero sopra la soletta)
+    const B0 = Math.min(CURTAIN_BASE, Math.min(...shape.runs.map(wallTopOf)) * 0.32);
+    const gg = outerSkin(THREE, shape, 0.3, T.tileU, T.tileV, B0), skin = new THREE.Mesh(gg, cw);
+    skin.receiveShadow = true;
+    group.add(skin);
+    own.push(gg);
+    inst(slabMat, cols, cylinder);
+    inst(coreMat, cores, cylinder);
+    inst(slabMat, fins);
+  }
 
   if (st.facade === 'esplanade' && st.roof === 'shell') {
     // sotto l'involucro a cuscini la spianata segue la sua pianta, tonda verso fuori (dal muro degli spalti al bordo)
