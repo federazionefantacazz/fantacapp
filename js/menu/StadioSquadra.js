@@ -421,6 +421,7 @@ export const StadioSquadra = {
       <div class="std-group">
       <div class="kit-sub">Muro esterno</div>
       ${this._opts('facade', FACADES, s.facade)}
+      ${s.facade === 'curtain' ? `<div class="std-desc">Come a Wembley: in basso il colonnato con i pilastri bianchi e le torri cilindriche delle scale in cemento, sopra piani di vetrate verde-azzurre con le solette chiare e i montanti. Di notte si accendono gli interni.</div>` : ''}
       ${WALL_TEX_FACADES.includes(s.facade) ? `
       <div class="kit-sub">Texture del muro</div>
       ${this._opts('wallTexture', WALL_TEXTURES, s.wallTexture)}
