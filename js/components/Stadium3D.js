@@ -545,6 +545,7 @@ const ROWS = { 1: [30], 2: [24, 20], 3: [22, 17, 14] };            // file di se
 const RISERS = [0.4, 0.5, 0.56];                                    // alzata dei gradoni: più ripidi in alto
 const TREAD = 0.85;       // profondità di un gradone
 const WALL = 0.4;         // spessore dei muri
+const SLIDING_FACADE_OUT = 5.4; // copertura di Wembley: quanto la facciata sta fuori dagli spalti (m)
 const SEAT_W = 0.5;       // larghezza di un posto
 const AISLE_EVERY = 14;   // una scaletta ogni ~14 m di fronte del primo anello
 const AISLE_HALF = 0.55;
@@ -559,7 +560,7 @@ const M_PARAPET = 0, M_STEPS = 1, M_STRUCT = 2, M_BOX = 3;
 
 const seatKey = (st) => [ringsBySide(st).join(','), st.track ? 1 : 0, st.shape, st.corners, st.horseshoe ? 1 : 0, st.vomitories ? 1 : 0,
   st.standGap || 0, st.endGap || 0, rakesBySide(st).join(','), st.tierSpread || 0, st.corners === 'open' ? st.cornerGap || 18 : '',
-  st.roof === 'wave' ? ['wave', st.facade, st.roofReach].join(',') : ''].join('|');
+  st.roof === 'wave' ? ['wave', st.facade, st.roofReach].join(',') : st.roof === 'sliding' ? 'sliding' : ''].join('|');
 const geomKey = (st) => [seatKey(st), st.roof, st.roofCover, st.roofCover === 'pick' ? st.roofSectors.map(Number).join('') : '', st.roofReach, st.lights, st.facade, WALL_TEX_FACADES.includes(st.facade) ? st.wallTexture : '', st.adBoards,
   st.entrance, st.entrance !== 'none' || st.roof === 'wave' ? [st.entranceSides.map(Number).join(''), st.entranceWidth, st.entranceHeight, st.entranceLogo].join(',') : '', st.ramps ? 1 : 0, st.shellPattern, st.roof === 'dome' && !st.domeTeeth ? 'noteeth' : '', st.arch, st.screen,
   st.roofSides.join(','), st.roofTexture, st.roofWave ? [st.roofWave, st.roofWaves, st.roofWaveShift].join(',') : '', st.boxes ? 1 : 0, (st.logoPlaces || []).join(',')].join('|');
@@ -685,7 +686,11 @@ function shapeOf(st) {
     const keep = (p) => p.x > -(a - r) - 1e-6 && !(p.mx < 0 && Math.abs(p.mz) < 1e-6);
     runs = runs.flatMap(run => subRuns(run, keep).map(sub => ({ ...sub, tiers: run.tiers })));
   }
-  const shape = { a, b, r, tiers, path, runs, outer: Math.max(...tiers.map(t => t.back)) + WALL, height: last.top + 2.2 };
+  // sotto la copertura di Wembley la facciata sta fuori, fin quasi al bordo del tetto (tra gli spalti e la facciata
+  // l'atrio, coperto dal tetto): i muri esterni di ogni tratto (runOuter) e tutto quello che ci sta attaccato si spostano
+  const out = st.roof === 'sliding' ? SLIDING_FACADE_OUT : 0;
+  for (const T of new Set([tiers, ...runs.map(r => r.tiers)])) T.facadeOut = out;
+  const shape = { a, b, r, tiers, path, runs, outer: Math.max(...tiers.map(t => t.back)) + WALL + out, height: last.top + 2.2 };
   if (st.roof === 'wave') roofRows(shape, st);
   return shape;
 }
@@ -1342,8 +1347,9 @@ function roofOf(shape, roof, shift = 0) {
     return { dIn, dOut, h: (d) => hIn - (d - dIn) * 0.06, depth: () => 1.2 };
   }
   if (roof === 'sliding') {
-    // Wembley: alto e quasi piano, copre tutti i posti e sporge oltre la facciata (lì gira la corona reticolare bianca)
-    const dOut = shape.outer + 7, dIn = clampIn(Math.max(top.D - 6, 2), dOut), hIn = top.top + 14.5;
+    // Wembley: alto e quasi piano, copre tutti i posti e sporge appena oltre la facciata (che sta fuori, vedi
+    // SLIDING_FACADE_OUT): sotto il bordo gira la fascia reticolare bianca
+    const dOut = shape.outer + 7 - (shape.tiers.facadeOut || 0), dIn = clampIn(Math.max(top.D - 6, 2), dOut), hIn = top.top + 14.5;
     return { dIn, dOut, h: (d) => hIn - (d - dIn) * 0.05, depth: (d) => 2.2 + 3.8 * (d - dIn) / (dOut - dIn) };
   }
   // travi rosse (San Siro): il tetto sporge molto verso fuori e copre del tutto le torri delle rampe sui lati
@@ -1954,7 +1960,7 @@ const cladBands = (tiers) => tiers.slice(1).map(t => [t.H - 4.2, t.H - 1.6]);
 const esplanadeW = (st) => (st.roof === 'shell' ? ESPLANADE_W + 14 : ESPLANADE_W);
 
 /** Muro esterno e altezza di un tratto: i settori possono avere anelli diversi, la facciata segue ognuno. */
-const runOuter = (run) => Math.max(...run.tiers.map(t => t.back)) + WALL;
+const runOuter = (run) => Math.max(...run.tiers.map(t => t.back)) + WALL + (run.tiers.facadeOut || 0);
 const runTop = (run) => run.tiers[run.tiers.length - 1];
 /** Altezza del muro esterno di un tratto: sotto le file in più dell'ultimo anello (copertura ondulata), se ci sono. */
 const wallTopOf = (run) => { const T = runTop(run); return run.E ? Math.min(T.top + 2.2, T.soffit(runOuter(run)) - 0.3) : T.top + 2.2; };
