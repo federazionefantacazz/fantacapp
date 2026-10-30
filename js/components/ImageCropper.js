@@ -21,7 +21,7 @@ function injectStyle() {
   style.id = STYLE_ID;
   style.textContent = `
 #crop-overlay{position:fixed;inset:0;z-index:10070;display:flex;flex-direction:column;background:var(--overlay-bg, rgba(5,8,15,.94));color:var(--text);
-  padding:calc(env(safe-area-inset-top,0px) + .8rem) 1rem calc(env(safe-area-inset-bottom,0px) + .9rem);-webkit-user-select:none;user-select:none;animation:fadeIn .2s ease-out}
+  padding:calc(env(safe-area-inset-top,0px) + .8rem) 1rem calc(var(--safe-b, env(safe-area-inset-bottom, 0px)) + .9rem);-webkit-user-select:none;user-select:none;animation:fadeIn .2s ease-out}
 #crop-overlay .cr-title{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:.5px;line-height:1.1;text-align:center}
 #crop-overlay .cr-hint{font-size:.78rem;color:var(--text2);font-family:var(--font-sub,inherit);text-align:center;margin-top:.15rem}
 #crop-overlay .cr-stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;margin:.8rem 0;touch-action:none}

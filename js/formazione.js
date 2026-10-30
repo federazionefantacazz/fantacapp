@@ -190,7 +190,7 @@ export const FormazionePage = {
           width: 100%; max-width: 560px; max-height: 85vh; display: flex; flex-direction: column;
           background: var(--bg, #181c22); border: 1px solid var(--border);
           border-radius: 18px 18px 0 0; box-shadow: 0 -10px 40px rgba(0,0,0,.5);
-          padding-bottom: env(safe-area-inset-bottom, 0px); animation: fpUp .18s ease-out;
+          padding-bottom: var(--safe-b, env(safe-area-inset-bottom, 0px)); animation: fpUp .18s ease-out;
         }
         @media (min-width: 700px) {
           .fp-overlay { align-items: center; }
