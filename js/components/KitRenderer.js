@@ -1,4 +1,4 @@
-import { getPngPatterns, getPngBrands } from '../services/kitAssets.js';
+import { getPngPatterns, getPngBrands, getCompPatches } from '../services/kitAssets.js';
 import { getCutout } from '../services/imageCutout.js';
 import { COLLAR_SHAPES } from './kitShapes.js';
 
@@ -26,7 +26,10 @@ export { COLLAR_SHAPES };
  *   sponsor: { mode: 'none'|'image'|'text', url, text, font, color, mono, scale, y },
  *   backSponsor: { ...come sponsor },                       // sponsor sul retro (sotto il numero)
  *   backPrint: { show, name, number, font, color, outline, nameSize, numSize, y },  // nome e numero sul retro
- *   patches: [{ id, src, name, pos }],
+ *   patches: [{ id, src, name, pos, size, x, y }],          // patch campione: pos (mai la manica sinistra), size in %, x/y spostamento
+ *   compPatches: { [idPatch]: { size, x, y } },             // patch delle competizioni (manica sinistra, messe in automatico
+ *                                                           // nel Live: opts.compPatches di paintKitTexture): dimensione e spostamento di ognuna
+ *   compPatchTf: { size, x, y },                            // formato di prima (una sola patch): vale se la competizione ne ha una
  *   image                                                   // foto PNG della maglia (fronte) generata al salvataggio
  * }
  * I disegni integrati sono SVG pensati sulla vista frontale 0 0 400 420 e vengono adattati a ogni pezzo della maglia.
@@ -382,10 +385,10 @@ export const NUMBER_FONTS = [
   { id: 'serif',     label: 'Classico',  css: "Georgia, 'Times New Roman', serif", weight: 700, style: 'normal' }
 ];
 
+// posizioni delle patch campione: la manica sinistra è riservata alla patch della competizione
 export const PATCH_POSITIONS = [
   { id: 'chest',  label: 'Centro petto' },
   { id: 'belly',  label: 'Sotto lo sponsor' },
-  { id: 'sleeveL', label: 'Manica sinistra' },
   { id: 'sleeveR', label: 'Manica destra' },
   { id: 'hem',    label: 'Fondo maglia' }
 ];
@@ -451,7 +454,9 @@ export function defaultKit() {
     sponsor: { mode: 'none', url: '', text: '', font: 'bebas', color: '#ffffff', mono: false, scale: 100, y: 0 },
     backSponsor: { mode: 'none', url: '', text: '', font: 'bebas', color: '#ffffff', mono: false, scale: 100, y: 0 },
     backPrint: { show: false, name: '', number: '10', font: 'seriea', color: '#ffffff', outline: '', nameSize: 100, numSize: 100, y: 0 },
-    patches: []
+    patches: [],
+    compPatches: {},
+    compPatchTf: { size: 100, x: 0, y: 0 }
   };
 }
 
@@ -482,9 +487,25 @@ export function normalizeKit(raw) {
       type: 'stripes', color: '#ffffff', opacity: 100, scale: 100, flipX: false, flipY: false, x: 0, y: 0, rot: 0, wrap: 'repeat',
       ...l, zone: l.zone || (l.onSleeves ? 'all' : 'body')
     })),
-    patches: toArr(k.patches).map(p => ({ id: p.id, name: p.name || '', src: p.src || '', pos: p.pos || 'chest' })),
+    patches: toArr(k.patches).map(p => ({ id: p.id, name: p.name || '', src: p.src || '', pos: p.pos === 'sleeveL' ? 'sleeveR' : p.pos || 'chest', size: Math.round(clamp(p.size || 100, 50, 200)), x: Math.round(clamp(p.x || 0, -30, 30)), y: Math.round(clamp(p.y || 0, -30, 30)) })),
+    compPatches: Object.fromEntries(Object.entries(k.compPatches && typeof k.compPatches === 'object' ? k.compPatches : {})
+      .filter(([, t]) => t && typeof t === 'object')
+      .map(([id, t]) => [id, { size: Math.round(clamp(t.size || 100, 50, 200)), x: Math.round(clamp(t.x || 0, -30, 30)), y: Math.round(clamp(t.y || 0, -30, 30)) }])),
+    compPatchTf: { ...d.compPatchTf, ...(k.compPatchTf || {}) },
     ...(k.image ? { image: k.image } : {})
   };
+}
+
+/**
+ * Dimensione e posizione della patch `id`, la i-esima delle n patch della sua competizione (tutte sulla manica sinistra).
+ * Senza una scelta salvata: con una sola patch vale il formato di prima (compPatchTf), con più patch
+ * partono più piccole e messe una sotto l'altra.
+ */
+export function compPatchTf(k, id, i = 0, n = 1) {
+  const own = k.compPatches && k.compPatches[id];
+  if (own) return own;
+  if (n <= 1) return k.compPatchTf || { size: 100, x: 0, y: 0 };
+  return { size: Math.max(50, Math.round(140 / n)), x: 0, y: Math.round(22 - i * 44 / (n - 1)) };
 }
 
 /** Etichetta di un disegno (integrato o PNG del Patron). */
@@ -552,7 +573,8 @@ export const UV_RAGLAN = {
 
 // Modelli della maglia: mappa UV, maschera dei pezzi, cuciture e altezza del polsino (frazione della manica dove inizia)
 export const MODELS = {
-  setin:  { uv: UV, mask: KIT3D_FILES.mask, seams: KIT3D_FILES.seams, cuffTop: .84 },
+  // mirrored: pezzi che il modello mostra specchiati (loghi e scritte vanno disegnati al contrario per leggersi dritti)
+  setin:  { uv: UV, mask: KIT3D_FILES.mask, seams: KIT3D_FILES.seams, cuffTop: .84, mirrored: ['sleeveL'] },
   raglan: {
     uv: UV_RAGLAN, mask: KIT3D_FILES.raglanMask, seams: KIT3D_FILES.raglanSeams, cuffTop: .91,
     // il riquadro del davanti parte più in alto (angoli del colletto) e la manica comprende la spalla
@@ -563,6 +585,9 @@ export const MODELS = {
   }
 };
 export const kitModel = (k) => MODELS[k && k.sleeveCut] || MODELS.setin;
+/** Dove si porta la fascia da capitano 3D sulla manica sinistra (sotto la patch della competizione). */
+// raglan: t = altezza nel riquadro UV della manica (le righe girano intorno al braccio); manica sulla spalla: t = distanza dall'orlo del polsino, in altezze della fascia
+export const armbandRow = (k) => { const m = kitModel(normalizeKit(k)); return m === MODELS.raglan ? { rect: m.uv.sleeveL, t: .87, mode: 'rows' } : { rect: m.uv.sleeveL, t: .25, mode: 'cuff' }; };
 
 /* ------------------------------------------------------------ utilità */
 const svgUrl = (svg) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
@@ -596,55 +621,72 @@ export function loadCleanImage(url) {
   return job;
 }
 
-/** Disegno integrato rasterizzato in bianco su un pezzo (viewBox = porzione della vista frontale). */
-const rasterCache = new Map();
-/** Simbolo PNG di una forma come data URL (dentro un SVG si possono usare solo immagini incorporate). */
-const symbolCache = new Map();
-function symbolData(url) {
-  if (!symbolCache.has(url)) symbolCache.set(url, loadCleanImage(url).then(img => {
+/** Immagine (URL) come data URL ridotta a `max` px: dentro un SVG usato come immagine si possono usare solo immagini incorporate. */
+const dataUrlCache = new Map();
+export function imageDataUrl(url, max = 320) {
+  const key = max + '|' + url;
+  if (!dataUrlCache.has(key)) dataUrlCache.set(key, loadCleanImage(url).then(img => {
     if (!img) return '';
-    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height, k = Math.min(1, 320 / Math.max(iw, ih, 1));
+    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height, k = Math.min(1, max / Math.max(iw, ih, 1));
     const c = canvasOf(Math.max(1, Math.round(iw * k)), Math.max(1, Math.round(ih * k)));
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
     try { return c.toDataURL('image/png'); } catch (e) { return ''; }
   }));
-  return symbolCache.get(url);
+  return dataUrlCache.get(key);
 }
+const symbolData = (url) => imageDataUrl(url, 320);
 /** Il livello usa un simbolo PNG con i suoi colori (non va colorato col colore del livello). */
-const keepsColors = (l) => l.type === 'm-shape' && l.shape === 'png' && !!l.symUrl && l.symMono === false;
+export const keepsColors = (l) => l.type === 'm-shape' && l.shape === 'png' && !!l.symUrl && l.symMono === false;
 
+/**
+ * Disegno integrato di un livello in SVG (gruppo <g>) sulla porzione vb = [x, y, w, h] della vista frontale:
+ * dimensione, specchiature, spostamento (in % di pw × vb[3], attorno a cx, cy) e rotazione.
+ * opts: { color, id (prefisso unico degli id interni), cx, cy, pw, symData (simbolo PNG come data URL), wide (area da coprire più larga) }.
+ * Usato per la texture della maglia e per la fascia da capitano (components/CaptainBand.js).
+ */
+export function patternArtSVG(layer, vb, opts = {}) {
+  const p = PATTERNS.find(x => x.id === layer.type);
+  if (!p) return '';
+  const { color = '#ffffff', id = 'p', symData = '', wide = false } = opts;
+  const s = clamp(layer.scale, 30, 250) / 100;
+  const tx = clamp(layer.x || 0, -50, 50), ty = clamp(layer.y || 0, -50, 50), rot = clamp(layer.rot || 0, -180, 180);
+  const m = p.motif ? { ...motifParams(layer), symData } : null;
+  const cx = opts.cx ?? vb[0] + vb[2] / 2, cy = opts.cy ?? vb[1] + vb[3] / 2, pw = opts.pw ?? vb[2];
+  const sx = layer.flipX ? -1 : 1, sy = layer.flipY ? -1 : 1;
+  const tf = (sx < 0 || sy < 0) ? `transform="translate(${sx < 0 ? W : 0},${sy < 0 ? H : 0}) scale(${sx},${sy})"` : '';
+  // spostamento (in % del pezzo, positivo = a destra / in alto) e rotazione attorno al centro del pezzo
+  const move = (tx || ty || rot) ? `transform="translate(${cx + tx / 100 * pw},${cy - ty / 100 * vb[3]}) rotate(${rot}) translate(${-cx},${-cy})"` : '';
+  let art;
+  if (p.tile && (move || wide)) {
+    // motivo ripetuto: lo disegno su un'area tre volte più grande, così spostato o ruotato copre sempre tutto il pezzo
+    const w0 = W, h0 = H;
+    W = w0 * 3; H = h0 * 3;
+    try { art = `<g transform="translate(${-w0},${-h0})">${p.draw(color, s, id)}</g>`; } finally { W = w0; H = h0; }
+  } else {
+    art = p.draw(color, s, id, m);
+  }
+  return `<g ${move}><g ${tf}>${art}</g></g>`;
+}
+
+/** Disegno integrato rasterizzato in bianco su un pezzo (viewBox = porzione della vista frontale). */
+const rasterCache = new Map();
 function builtinPattern(layer, part, w, h) {
   const p = PATTERNS.find(x => x.id === layer.type);
   if (!p) return Promise.resolve(null);
-  const s = clamp(layer.scale, 30, 250) / 100;
-  const tx = clamp(layer.x || 0, -50, 50), ty = clamp(layer.y || 0, -50, 50), rot = clamp(layer.rot || 0, -180, 180);
   const m = p.motif ? motifParams(layer) : null;
-  const key = [layer.type, s, !!layer.flipX, !!layer.flipY, tx, ty, rot, part, w, h, m ? JSON.stringify(m) : ''].join('|');
+  const key = [layer.type, clamp(layer.scale, 30, 250), !!layer.flipX, !!layer.flipY, layer.x || 0, layer.y || 0, layer.rot || 0, part, w, h, m ? JSON.stringify(m) : ''].join('|');
   if (rasterCache.has(key)) return rasterCache.get(key);
   // il busto (davanti/dietro) corrisponde a x 100..300, y 20..400 della vista frontale;
   // le maniche a una porzione con la stessa densità
   // 'whole': davanti e dietro affiancati come un unico pezzo (x 100..500), il disegno continua dal davanti al dietro
   const vb = part === 'whole' ? [100, 20, 400, 380] : part === 'front' || part === 'back' ? [100, 20, 200, 380] : [100, 20, 159, 103];
-  const sx = layer.flipX ? -1 : 1, sy = layer.flipY ? -1 : 1;
-  const tf = (sx < 0 || sy < 0) ? `transform="translate(${sx < 0 ? W : 0},${sy < 0 ? H : 0}) scale(${sx},${sy})"` : '';
-  // spostamento (in % del pezzo, positivo = a destra / in alto) e rotazione attorno al centro del pezzo
-  const cx = part === 'whole' ? 200 : vb[0] + vb[2] / 2, cy = vb[1] + vb[3] / 2; // 'whole': si sposta/ruota attorno al centro del davanti
-  const pw = part === 'whole' ? vb[2] / 2 : vb[2];
-  const move = (tx || ty || rot) ? `transform="translate(${cx + tx / 100 * pw},${cy - ty / 100 * vb[3]}) rotate(${rot}) translate(${-cx},${-cy})"` : '';
+  // 'whole': si sposta/ruota attorno al centro del davanti
+  const place = part === 'whole' ? { cx: 200, pw: vb[2] / 2, wide: true } : {};
   const needSym = m && m.shape === 'png' && m.symUrl;
   const job = (needSym ? symbolData(m.symUrl) : Promise.resolve('')).then(symData => {
-  if (m) m.symData = symData;
-  let art;
-  if (p.tile && (move || part === 'whole')) {
-    // motivo ripetuto: lo disegno su un'area tre volte più grande, così spostato o ruotato copre sempre tutto il pezzo
-    const w0 = W, h0 = H;
-    W = w0 * 3; H = h0 * 3;
-    try { art = `<g transform="translate(${-w0},${-h0})">${p.draw('#ffffff', s, 'p' + rasterCache.size)}</g>`; } finally { W = w0; H = h0; }
-  } else {
-    art = p.draw('#ffffff', s, 'p' + rasterCache.size, m);
-  }
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}" viewBox="${vb.join(' ')}" preserveAspectRatio="none"><g ${move}><g ${tf}>${art}</g></g></svg>`;
-  return loadCleanImage(svgUrl(svg));
+    const art = patternArtSVG(layer, vb, { ...place, id: 'p' + rasterCache.size, symData });
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}" viewBox="${vb.join(' ')}" preserveAspectRatio="none">${art}</svg>`;
+    return loadCleanImage(svgUrl(svg));
   });
   if (rasterCache.size > 200) rasterCache.delete(rasterCache.keys().next().value);
   rasterCache.set(key, job);
@@ -667,7 +709,7 @@ function tint(img, color, w, h) {
   return c;
 }
 
-function drawContain(ctx, img, cx, cy, bw, bh, rot = 0) {
+function drawContain(ctx, img, cx, cy, bw, bh, rot = 0, flip = false) {
   if (!img) return;
   const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
   if (!iw || !ih) return;
@@ -678,6 +720,7 @@ function drawContain(ctx, img, cx, cy, bw, bh, rot = 0) {
   ctx.imageSmoothingQuality = 'high';
   ctx.translate(cx, cy);
   if (rot) ctx.rotate(rot * Math.PI / 180);
+  if (flip) ctx.scale(-1, 1);
   ctx.drawImage(img, -w / 2, -h / 2, w, h);
   ctx.restore();
 }
@@ -800,7 +843,8 @@ function loadMask(model) {
 /* --------------------------------------------------------- composizione */
 /**
  * Dipinge la texture UV della maglia. Restituisce un canvas size×size (default 2048).
- * opts: { crestUrl, size, plain (senza loghi) }
+ * opts: { crestUrl, size, plain (senza loghi), compPatches ([{ id, url }] patch della competizione, manica sinistra),
+ *         compPatchOnly (id: di quelle si disegna solo questa) }
  */
 export async function paintKitTexture(rawKit, opts = {}) {
   const k = normalizeKit(rawKit);
@@ -1118,13 +1162,28 @@ export async function paintKitTexture(rawKit, opts = {}) {
     await drawSponsor(ctx, k.sponsor, A0.sponsor, R('front'));
     await drawSponsor(ctx, k.backSponsor, A0.backSponsor, R('back'));
     await drawBackPrint(ctx, k.backPrint, R('back'));
+    // patch campione (quelle di competizione scelte in passato non si disegnano più: ora sono automatiche)
+    // e patch della competizione sulla manica sinistra
+    const compIds = new Set(getCompPatches().map(x => 'png:' + x.id));
+    const patches = [];
+    const tfOf = (o) => ({ x: clamp(o.x || 0, -30, 30), y: clamp(o.y || 0, -30, 30), size: clamp(o.size || 100, 50, 200) });
     for (const p of k.patches) {
       const A = A0[p.pos];
-      if (!A || !p.src) continue;
-      const img = await loadCut(p.src);
-      const a = at(A);
-      drawContain(ctx, img, a.x, a.y, a.s, a.s);
+      if (!A || !p.src || compIds.has(p.id) || !String(p.id).startsWith('png:')) continue;
+      patches.push({ A, tf: tfOf(p), img: await loadCut(p.src) });
     }
+    // patch della competizione: tutte sulla manica sinistra (opts.compPatchOnly: nell'editor se ne vede una sola)
+    const comp = (opts.compPatches || []).filter(c => c && c.url);
+    for (const [i, c] of comp.entries()) {
+      if (!A0.sleeveL || (opts.compPatchOnly && opts.compPatchOnly !== c.id)) continue;
+      patches.push({ A: A0.sleeveL, tf: tfOf(compPatchTf(k, c.id, i, comp.length)), img: await loadCut(c.url) });
+    }
+    // ritagliate sulla sagoma del loro pezzo: ingrandite o spostate non sconfinano sui pezzi vicini della texture
+    [...new Set(patches.map(p => p.A.part))].forEach(part => inPart(part, (x) => patches.forEach(p => {
+      if (p.A.part !== part || !p.img) return;
+      const a = at(moved(p.A, p.tf)), ps = a.s * p.tf.size / 100;
+      drawContain(x, p.img, a.x, a.y, ps, ps, 0, (model.mirrored || []).includes(part));
+    })));
   }
 
   // 6. cuciture e dettagli di stampa della base (moltiplica)
