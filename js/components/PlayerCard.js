@@ -373,7 +373,7 @@ export const PlayerCard = {
     return `
 #pc-overlay{position:fixed;inset:0;z-index:10050;background:var(--overlay-bg, rgba(5,8,15,.7));display:none;align-items:flex-end;justify-content:center}
 #pc-overlay.open{display:flex}
-#pc-overlay .pc-sheet{width:100%;max-width:560px;max-height:92vh;overflow-y:auto;background:var(--bg,#1a1e24);border:1px solid var(--border);border-radius:20px 20px 0 0;padding-bottom:calc(1rem + env(safe-area-inset-bottom,0px));animation:pcUp .2s ease-out;outline:none}
+#pc-overlay .pc-sheet{width:100%;max-width:560px;max-height:92vh;overflow-y:auto;background:var(--bg,#1a1e24);border:1px solid var(--border);border-radius:20px 20px 0 0;padding-bottom:calc(1rem + var(--safe-b, env(safe-area-inset-bottom, 0px)));animation:pcUp .2s ease-out;outline:none}
 @media (min-width:700px){#pc-overlay{align-items:center}#pc-overlay .pc-sheet{border-radius:20px}}
 @media (prefers-reduced-motion:reduce){#pc-overlay .pc-sheet{animation:none}}
 @keyframes pcUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}

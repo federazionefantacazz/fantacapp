@@ -210,7 +210,7 @@ const LIVE_STYLES = `
 
 #lv-editor{position:fixed;inset:0;z-index:6000;background:var(--overlay-bg, rgba(5,8,15,.65));backdrop-filter:blur(3px);display:flex;align-items:flex-end;justify-content:center}
 @media (min-width:700px){#lv-editor{align-items:center}}
-.lv-ed{width:100%;max-width:440px;background:var(--bg);border:1px solid var(--border);border-radius:18px 18px 0 0;padding:1rem;padding-bottom:calc(1rem + env(safe-area-inset-bottom,0px));box-shadow:0 -10px 40px rgba(0,0,0,.5)}
+.lv-ed{width:100%;max-width:440px;background:var(--bg);border:1px solid var(--border);border-radius:18px 18px 0 0;padding:1rem;padding-bottom:calc(1rem + var(--safe-b, env(safe-area-inset-bottom, 0px)));box-shadow:0 -10px 40px rgba(0,0,0,.5)}
 @media (min-width:700px){.lv-ed{border-radius:18px}}
 .lv-ed-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem}
 .lv-ed-h b{font-size:.95rem;color:var(--text)}

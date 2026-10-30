@@ -56,7 +56,7 @@ function injectStyle() {
   st.textContent = `
     .acp-back { position: fixed; inset: 0; z-index: 10050; background: rgba(0,0,0,.45); display: flex; align-items: flex-end; justify-content: center; }
     .acp { width: 100%; max-width: 480px; background: var(--bg2, #1a2027); color: var(--text, #eee); border-radius: 18px 18px 0 0;
-      border: 1px solid var(--border, #333); border-bottom: none; padding: .9rem 1rem calc(1rem + env(safe-area-inset-bottom)); box-sizing: border-box;
+      border: 1px solid var(--border, #333); border-bottom: none; padding: .9rem 1rem calc(1rem + var(--safe-b, env(safe-area-inset-bottom, 0px))); box-sizing: border-box;
       box-shadow: 0 -8px 30px rgba(0,0,0,.4); font-family: inherit; }
     .acp-head { display: flex; align-items: center; gap: .7rem; margin-bottom: .8rem; }
     .acp-prev { display: flex; width: 64px; height: 36px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border, #333); flex-shrink: 0; }

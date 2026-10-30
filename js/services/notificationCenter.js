@@ -23,7 +23,7 @@ const ASK_AGAIN_MS = 7 * 24 * 3600 * 1000;        // l'invito torna dopo una set
 
 const STYLES = `
 .hdr-bell{position:relative}
-#notif-invite{position:fixed;left:.8rem;right:.8rem;bottom:calc(76px + env(safe-area-inset-bottom, 0px));z-index:1400;
+#notif-invite{position:fixed;left:.8rem;right:.8rem;bottom:calc(76px + var(--safe-b, env(safe-area-inset-bottom, 0px)));z-index:1400;
   display:flex;align-items:center;gap:.7rem;padding:.8rem .9rem;border-radius:14px;background:var(--ni-bg, var(--card));border:1px solid var(--ni-border, var(--border));
   box-shadow:0 10px 30px rgba(0,0,0,.4);transform:translateY(20px);opacity:0;pointer-events:none;transition:all .3s ease;max-width:520px;margin:0 auto}
 #notif-invite.show{transform:none;opacity:1;pointer-events:auto}
