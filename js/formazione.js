@@ -13,7 +13,7 @@ export const FormazionePage = {
         <div id="f-lock-banner"></div>
         <div id="f-editor">
         
-        <div class="card card-sm" style="margin-bottom: 1rem;">
+        <div class="card card-sm" data-th="f-moduleCard" style="margin-bottom: 1rem;">
           <div class="label" style="margin-bottom: .4rem;">Seleziona Modulo</div>
           <select id="f-modulo" class="select-rose">
             <option value="3-4-3">3-4-3</option>
@@ -26,7 +26,7 @@ export const FormazionePage = {
           </select>
         </div>
 
-        <div class="label" style="margin-bottom: .5rem; color:var(--title,var(--accent)); font-family:var(--font-title,inherit); display: flex; align-items: center; gap: 0.4rem;"><i class="ri-t-shirt-line"></i> TITOLARI (RETTANGOLO DI GIOCO)</div>
+        <div class="label" data-th="f-titleXI" style="margin-bottom: .5rem; color:var(--title,var(--accent)); font-family:var(--font-title,inherit); display: flex; align-items: center; gap: 0.4rem;"><i class="ri-t-shirt-line"></i> TITOLARI (RETTANGOLO DI GIOCO)</div>
         
         <div class="soccer-field" id="soccer-field-container">
           <div class="field-lines">
@@ -42,12 +42,12 @@ export const FormazionePage = {
           <div style="font-size:.7rem; color:var(--text3); font-family:var(--font-text3, inherit); margin-top:.4rem;">Scegli tra i titolari: la fascia si vede sul campo e nel live. La fascia si personalizza in Configurazione squadra.</div>
         </div>
 
-        <div class="label" style="margin-bottom: .5rem; color: var(--gold); margin-top: 1.5rem; display: flex; align-items: center; gap: 0.4rem;"><i class="ri-user-shared-line"></i> PANCHINA (2 P | 3 D | 3 C | 3 A)</div>
+        <div class="label" data-th="f-titleBench" style="margin-bottom: .5rem; color: var(--gold); margin-top: 1.5rem; display: flex; align-items: center; gap: 0.4rem;"><i class="ri-user-shared-line"></i> PANCHINA (2 P | 3 D | 3 C | 3 A)</div>
         <div id="panchina-slots" style="display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1rem;"></div>
 
         <div id="f-kit-pick"></div>
 
-        <div class="card card-sm" style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.8rem; background: var(--bg2);">
+        <div class="card card-sm" data-th="f-saveAll" style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.8rem; background: var(--bg2);">
           <input type="checkbox" id="save-all-comps" checked style="width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer;">
           <label for="save-all-comps" class="label" style="margin: 0; cursor: pointer; color: var(--text);">Salva per tutte le competizioni</label>
         </div>

@@ -3,21 +3,21 @@
  * Unica fonte di verità per: struttura del tema, costruzione del CSS dinamico
  * e gestione dello sfondo della competizione.
  *
- * STRUTTURA DEL TEMA (Firebase: competitions/{id}/theme, versione 2)
+ * DOVE STANNO I TEMI (Firebase)
+ *   themes/{id} = { name, theme, backgroundImage, createdAt }   tutti i temi, anche quelli delle competizioni
+ *   competitions/{id}/themeId = id del tema della competizione
+ *   (le competizioni con ancora theme/backgroundImage dentro sono del formato vecchio: il Patron le sposta
+ *    in themes/ la prima volta che apre la sezione Temi, vedi js/admin/themes.js)
+ *
+ * STRUTTURA DEL TEMA (versione 2)
  *
  *   {
  *     v: 2,
- *     general:   { ...superfici, evidenze, ruoli, tipi base },   // base di tutte le pagine
- *     header:    { bg, text },                                    // barra in alto
- *     nav:       { bg, text, btn },                               // barra in basso
- *     drawer:    { bg, title, text, sub },                        // menu laterale
- *     menuPanel | menuSettings | menuTeam | menuKit | menuListone | menuSvincolati:
- *                { bg, title, text, sub, text3, label, btn, btnText }     // pannelli del menu
- *     liveEditor | matchViewer | formPicker | playerCard:
- *                { bg, title, text, sub, text3, label, btn, btnText }     // finestre sopra le pagine
- *     login | home | calendario | classifica | formazione |
- *     mercato | teams | live | patron:
- *                { title, text, sub, text3, label, btn, btnText }
+ *     general: { ...colori di base, font, ruoli },      // base di tutta l'app
+ *     el: { home: { teamName: { color, font, size }, panel: { bg, border }, ... }, ... }
+ *                                                      // elementi con nome, pagina per pagina (js/services/themeElements.js)
+ *     header | nav | drawer | menuPanel | home | ...   // impostazioni per "tipo" del vecchio editor (Titoli, Testi,
+ *                                                      // Sottotesti…): si applicano ancora, il Patron le può togliere
  *   }
  *
  * Ogni pagina ha un proprio "scope" CSS (selector): le variabili impostate per una
@@ -30,6 +30,8 @@
  * - font      = { key, css }: font dello stesso tipo di testo, salvato accanto al colore
  *               come chiave di THEME_FONTS (menu a tendina nel Patron)
  */
+
+import { buildElementsCss } from './themeElements.js';
 
 /* Font selezionabili dal Patron. Il tema salva la chiave, non il CSS.
    I file dei font sono in /fonts, dichiarati con @font-face in fonts/fonts.css. */
@@ -312,6 +314,20 @@ const LEGACY_MAP = {
 
 export const THEME_VERSION = 2;
 
+/** Chiavi del vecchio editor per tipi (tutto tranne la base e gli elementi). */
+export function legacyPageKeys(theme) {
+  const t = normalizeTheme(theme);
+  return t ? Object.keys(t).filter(k => k !== 'v' && k !== 'general' && k !== 'el' && THEME_PAGES.some(p => p.key === k)) : [];
+}
+
+/** Tema di una competizione: themeId se c'è, altrimenti il formato vecchio (theme/backgroundImage dentro la competizione). */
+export function compThemeSource(comp) {
+  if (!comp) return null;
+  if (comp.themeId) return { path: `themes/${comp.themeId}`, id: comp.themeId };
+  if (comp.theme || comp.backgroundImage) return { path: `competitions/${comp.id}`, legacy: true };
+  return null;
+}
+
 function migrateLegacyTheme(old) {
   const out = { v: THEME_VERSION };
   const put = (page, key, val) => { (out[page] = out[page] || {})[key] = val; };
@@ -357,6 +373,9 @@ export function buildThemeCss(rawTheme) {
     });
     if (decls.length) blocks.push(`${page.selector} { ${decls.join(' ')} }`);
   });
+  // elementi con nome, pagina per pagina (js/services/themeElements.js): vengono dopo e vincono
+  const els = buildElementsCss(theme.el, THEME_FONTS);
+  if (els) blocks.push(els);
   return blocks.join('\n');
 }
 
@@ -370,6 +389,8 @@ export function applyThemeCss(css) {
   }
   tag.textContent = css || '';
   syncStatusBarColor();
+  // chi misura i testi (es. nome squadra in Home) si ricalcola con il nuovo tema
+  window.dispatchEvent(new Event('fc-theme'));
 }
 
 /**

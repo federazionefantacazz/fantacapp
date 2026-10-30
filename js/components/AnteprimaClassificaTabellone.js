@@ -35,8 +35,8 @@ export function renderAnteprimaClassificaTabellone(comp, teamsList, myTeamId) {
          title="Clicca per visualizzare il tabellone completo">
       
       <div style="display: flex; align-items: center; justify-content: space-between;">
-        <div style="font-size: 0.68rem; font-weight: 600; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase;"><i class="ri-git-branch-line"></i> Mini Tabellone</div>
-        <div style="font-size: 0.65rem; color: var(--accent); display: flex; align-items: center; gap: 2px;">Vedi intero <i class="ri-arrow-right-s-line"></i></div>
+        <div data-th="home-boxTitle" style="font-size: 0.68rem; font-weight: 600; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase;"><i class="ri-git-branch-line"></i> Mini Tabellone</div>
+        <div data-th="home-boxLink" style="font-size: 0.65rem; color: var(--accent); display: flex; align-items: center; gap: 2px;">Vedi intero <i class="ri-arrow-right-s-line"></i></div>
       </div>
 
       <!-- DISEGNO MINI TABELLONE A LOGHI -->

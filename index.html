@@ -16,6 +16,7 @@
 <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <title>Fantacapp</title>
+<link rel="icon" type="image/png" href="icons/icon-192.png">
 <link href="fonts/fonts.css" rel="stylesheet">
 <style>
 :root {
@@ -645,7 +646,8 @@ html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75re
 import { db, auth, ref, onValue, set, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from './js/firebase-config.js';
 import { isPatron } from './js/services/roleService.js';
 import { patronExists, registerAccount, getAccessStatus, watchAccessStatus, watchAccountRequests, ensurePatronFlag, notifyNewRequest, STATUS_APPROVED, STATUS_REJECTED } from './js/services/accountService.js';
-import { applyThemeVars, applyThemeCss, applyBackground, cacheUserTheme, getCachedUserTheme, syncStatusBarColor, LAST_UID_KEY } from './js/services/themeService.js';
+import { applyThemeVars, applyThemeCss, applyBackground, cacheUserTheme, getCachedUserTheme, syncStatusBarColor, compThemeSource, LAST_UID_KEY } from './js/services/themeService.js';
+import { isThemePreview, startThemePreview } from './js/services/themePreview.js';
 import { SettingsService } from './js/services/settingsService.js';
 import { applicaRegole } from './js/services/calcoloMatch.js';
 import { MenuPanel } from './js/components/MenuPanel.js';
@@ -676,6 +678,8 @@ import { leadersLine } from './js/services/staffService.js';
 
 // tutte le tendine (<select>) diventano la lista dell'app al posto della scelta del sistema
 installSelectSheets();
+// dentro l'anteprima dei temi del Patron (index.html?themePreview=1) il tema arriva dal Patron
+startThemePreview();
 
 // Dati di Firebase con copia locale: all'avvio (anche offline) si vede subito l'ultimo stato noto
 // cachedPaths = nodi che mostrano ancora la copia locale (non ancora riallineati col server)
@@ -709,7 +713,7 @@ window.STATE = {
   booted: false 
 };
 
-// Temi aggiuntivi creati dal Patron (themes/{id} = { name, theme, backgroundImage }): si scelgono nelle Impostazioni
+// Temi creati dal Patron (themes/{id} = { name, theme, backgroundImage }): le competizioni li usano con themeId, gli utenti li scelgono nelle Impostazioni
 watch('themes', snap => {
   window.STATE.customThemes = snap.val() || {};
   caricaTema();
@@ -885,28 +889,37 @@ function caricaDatiCompetizione(compId) {
 }
 
 /* ─── Tema dell'app ──────────────────────────────────────────────────────
-   Impostazioni → Tema: "auto" (predefinito) = tema e sfondo della competizione aperta;
-   "comp:<id>" = sempre quello di una competizione; "custom:<id>" = un tema aggiuntivo del Patron.
+   I temi stanno in themes/{id}; ogni competizione usa il suo con competitions/{id}/themeId.
+   Impostazioni → Tema: "auto" (predefinito) = tema della competizione aperta;
+   "custom:<id>" = sempre quel tema; "comp:<id>" (scelte vecchie) = il tema di quella competizione.
    Se il tema scelto non esiste più si torna ad Automatico. */
 let themeUnsubs = [];
 let themeSrc = '';
 
+// competizione senza tema: il suo nodo non ha tema né sfondo, quindi resta quello predefinito
+const compThemePath = (c) => (compThemeSource(c) || {}).path || `competitions/${c.id}`;
+
 function themeSourcePath() {
   const pick = String((window.STATE.settings || {}).theme || '');
-  if (pick.startsWith('comp:')) {
-    const id = pick.slice(5);
-    const comps = window.STATE.competitions || [];
-    if (!comps.length || comps.some(c => String(c.id) === id)) return `competitions/${id}`;
-  } else if (pick.startsWith('custom:')) {
+  const comps = window.STATE.competitions || [];
+  if (pick.startsWith('custom:')) {
     const id = pick.slice(7);
     const custom = window.STATE.customThemes; // undefined finché non arrivano: si dà fiducia alla scelta
     if (!custom || custom[id]) return `themes/${id}`;
+  } else if (pick.startsWith('comp:')) {
+    const id = pick.slice(5);
+    const comp = comps.find(c => String(c.id) === id);
+    if (comp) return compThemePath(comp);
+    if (!comps.length) return `competitions/${id}`;
   }
   const cur = window.STATE.currentCompetition;
-  return cur ? `competitions/${cur}` : '';
+  if (!cur) return '';
+  const comp = comps.find(c => String(c.id) === String(cur));
+  return comp ? compThemePath(comp) : `competitions/${cur}`;
 }
 
 function caricaTema() {
+  if (isThemePreview) return;
   const src = themeSourcePath();
   if (!src || src === themeSrc) return;
   themeSrc = src;
@@ -1154,6 +1167,7 @@ window.closeMenuPanel = () => MenuPanel.close();
 /* ─── Impostazioni utente (settings/{uid} + cache locale) ───────────────── */
 // Lo sfondo della competizione si vede solo se l'utente non l'ha disattivato
 function refreshBackground() {
+  if (isThemePreview) return;
   const show = (window.STATE.settings || {}).showBackground !== false;
   applyBackground(show ? (window.STATE.compBackgroundUrl || '') : '');
 }
@@ -1171,7 +1185,7 @@ async function loadUserSettings(firebaseUser) {
   window.STATE.settings = SettingsService.getCachedSettings(firebaseUser.uid);
   const cachedTheme = getCachedUserTheme(firebaseUser.uid);
   if (cachedTheme) {
-    if (cachedTheme.css !== undefined) applyThemeCss(cachedTheme.css);
+    if (cachedTheme.css !== undefined && !isThemePreview) applyThemeCss(cachedTheme.css);
     if (!window.STATE.compBackgroundUrl && cachedTheme.bg) window.STATE.compBackgroundUrl = cachedTheme.bg;
   }
   refreshBackground();
@@ -1290,6 +1304,15 @@ function populateLoginDropdown() {
 
   if (!window.STATE.teams || window.STATE.teams.length === 0) return;
 
+  // anteprima dei temi nel Patron: la squadra la sceglie il Patron sopra il telefono (senza salvare nulla)
+  if (isThemePreview) {
+    const teams = window.STATE.teams;
+    window.STATE.user = teams.find(t => String(t.id) === String(window.__previewTeamId))
+      || teams.find(t => t.owners && t.owners[currentUser.uid]) || teams[0];
+    bootApp();
+    return;
+  }
+
   const myTeamFromDB = window.STATE.teams.find(t => t.owners && t.owners[currentUser.uid]);
   if (myTeamFromDB) {
     window.STATE.user = myTeamFromDB;
@@ -1318,6 +1341,15 @@ function populateLoginDropdown() {
   select.innerHTML = optionsHTML;
   endResume(); // nessuna squadra associata: serve la scelta
 }
+
+// anteprima dei temi: cambio della squadra mostrata (dal Patron)
+if (isThemePreview) window.__previewSetTeam = (id) => {
+  window.__previewTeamId = id;
+  const team = (window.STATE.teams || []).find(t => String(t.id) === String(id));
+  if (!team || !window.STATE.booted) return;
+  window.STATE.user = team;
+  refreshUI();
+};
 
 window.doTeamSelection = function() {
   if (!window.STATE.accessOk) return;

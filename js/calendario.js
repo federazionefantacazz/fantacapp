@@ -7,7 +7,7 @@ export const CalendarioPage = {
   renderHTML() {
     return `
       <div class="page" id="page-calendario">
-        <div class="card card-sm card-mini" style="margin-bottom:1rem; border:1px solid var(--border); background:var(--mini-bg,var(--bg2));">
+        <div class="card card-sm card-mini" data-th="cal-gwCard" style="margin-bottom:1rem; border:1px solid var(--border); background:var(--mini-bg,var(--bg2));">
           <div class="label" style="margin-bottom:.4rem;">Seleziona Turno di Gioco</div>
           <select id="calGwSelect" class="select-rose"></select>
         </div>
