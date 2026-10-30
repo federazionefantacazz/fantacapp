@@ -58,9 +58,13 @@ export const ThemesSection = {
         .th-phone { width: 375px; height: 740px; max-width: 100%; border: 10px solid #0b0d12; border-radius: 34px; overflow: hidden; background: #000; box-shadow: 0 12px 40px rgba(0,0,0,.45); margin: 0 auto; }
         .th-phone iframe { width: 100%; height: 100%; border: 0; display: block; background: var(--bg); }
         @media (max-width: 1100px) {
+          .th-layout { grid-template-columns: minmax(0, 1fr) 320px; }
+          .th-phone { width: 300px; height: 620px; }
+        }
+        /* l'anteprima c'è solo su PC */
+        @media (max-width: 991px) {
           .th-layout { grid-template-columns: 1fr; }
-          .th-preview { position: static; order: -1; }
-          .th-phone { height: 62vh; width: 100%; max-width: 420px; }
+          .th-preview { display: none; }
         }
         .th-chips { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: 1rem; align-items: center; }
         .th-chip-group { width: 100%; font-size: .68rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text3); margin-top: .4rem; }
@@ -149,7 +153,7 @@ export const ThemesSection = {
               <div class="th-note" style="margin-bottom: .8rem;">
                 Scegli la pagina, poi l'elemento: ognuno ha il suo nome (es. Home → Nome squadra, Pannello logo squadra)
                 e puoi cambiarne colore, font, dimensione, sfondo e bordo. Quello che lasci vuoto resta com'è.
-                Puoi anche toccare un elemento nell'anteprima per aprirlo qui.
+                Su PC puoi anche toccare un elemento nell'anteprima per aprirlo qui.
               </div>
               <div id="themeLegacy"></div>
               <div class="th-chips" id="themeChips">${chips}</div>
@@ -481,7 +485,7 @@ export const ThemesSection = {
 
   ensurePreview() {
     const f = this.frame();
-    if (f && !f.getAttribute('src')) f.src = 'index.html?themePreview=1';
+    if (f && !f.getAttribute('src') && window.matchMedia('(min-width: 992px)').matches) f.src = 'index.html?themePreview=1';
   },
 
   post(msg) {

@@ -6,6 +6,8 @@
 <meta name="theme-color" content="#22272f">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <title>Fantacazz — Patron</title>
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
 <link href="fonts/fonts.css" rel="stylesheet">
 <style>
@@ -146,6 +148,12 @@ td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--
   th, td { padding: .6rem .7rem; }
 }
 </style>
+<style>
+/* Su PC lo sfondo del tema riempie tutta la pagina (zoom), invece di stare a tutta altezza con le bande ai lati */
+@media (min-width: 992px) {
+  #bg-layer { background-size: cover !important; background-position: center !important; }
+}
+</style>
 <style id="dynamic-theme"></style>
 </head>
 <body class="page-patron">
@@ -279,7 +287,8 @@ import { ThemesSection }        from './js/admin/themes.js';
 import { DiviseSection }        from './js/admin/divise.js';
 import { NotificheSection }     from './js/admin/notifiche.js';
 import { tradeNotificationUpdates } from './js/services/notificationService.js';
-import { applyThemeVars, applyBackground } from './js/services/themeService.js';
+import { applyThemeVars, applyBackground, buildThemeCss } from './js/services/themeService.js';
+import { AppPreview } from './js/admin/appPreview.js';
 import { installSelectSheets } from './js/components/SelectSheet.js';
 
 // tutte le tendine (<select>) diventano la lista dell'app al posto della scelta del sistema
@@ -459,6 +468,7 @@ window.showSec = function(secId) {
   document.querySelectorAll('.admin-sec').forEach(sec => sec.style.display = 'none');
   const target = document.getElementById('sec-' + secId);
   if (target) target.style.display = 'block';
+  if (secId === 'themes') AppPreview.hide(); // la sezione Temi ha la sua anteprima accanto all'editor
   
   document.querySelectorAll('.snav').forEach(btn => {
     if(btn.getAttribute('data-sec') === secId) {
@@ -492,6 +502,16 @@ window.selectCompetition = function(compId) {
   toast(`Competizione attiva impostata su: ${compId.toUpperCase()}`, "info");
   refreshAll();
   window.closeSidebar();
+  // su PC: anteprima di come appare l'app con il tema scelto (nella sezione Temi c'è già accanto all'editor)
+  const sec = document.getElementById('sec-themes');
+  if (!sec || sec.style.display === 'none') {
+    const src = comp && comp.themeId ? customThemes.find(t => t.id === comp.themeId) : comp;
+    AppPreview.show({
+      css: buildThemeCss(src && src.theme),
+      bg: (src && typeof src.backgroundImage === 'string') ? src.backgroundImage.trim() : '',
+      title: (src && src.name) || (comp && comp.name) || compId
+    });
+  }
 };
 
 /* ─── Menu laterale (drawer su telefono/tablet) ────────────────────────── */
