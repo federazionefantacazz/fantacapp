@@ -4,6 +4,7 @@ import { DiviseSection } from "./divise.js";
 import { THEME_PAGES, THEME_VERSION, THEME_FONTS, normalizeTheme, buildThemeCss, legacyPageKeys } from "../services/themeService.js";
 import { THEME_SECTIONS, SECTION_GROUPS, PROPS, propsOf } from "../services/themeElements.js";
 import { esc } from "../utils.js";
+import { fillPreviewTeams } from "./previewTeams.js";
 
 let database = null;
 
@@ -55,6 +56,8 @@ export const ThemesSection = {
       <style>
         .th-layout { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 1.2rem; align-items: start; }
         .th-preview { position: sticky; top: 1rem; }
+        .th-team { max-width: 375px; margin: 0 auto .6rem; }
+        .th-team .input-login, .th-team .cs-btn { margin-bottom: 0 !important; }
         .th-phone { width: 375px; height: 740px; max-width: 100%; border: 10px solid #0b0d12; border-radius: 34px; overflow: hidden; background: #000; box-shadow: 0 12px 40px rgba(0,0,0,.45); margin: 0 auto; }
         .th-phone iframe { width: 100%; height: 100%; border: 0; display: block; background: var(--bg); }
         @media (max-width: 1100px) {
@@ -167,13 +170,17 @@ export const ThemesSection = {
             </div>
 
             <div class="th-preview">
+              <div class="th-team">
+                <label class="label" for="th-team">Squadra mostrata nell'anteprima</label>
+                <select id="th-team" class="input-login" data-title="Squadra dell'anteprima"></select>
+              </div>
               <div class="th-phone"><iframe id="themePreviewFrame" title="Anteprima dell'app" loading="lazy"></iframe></div>
               <div class="th-tools">
                 <button type="button" id="th-pick" class="btn" onclick="window.themePickToggle()" style="background: var(--bg3); color: var(--text2);"><i class="ri-cursor-line"></i> Tocca un elemento</button>
                 <button type="button" class="btn" onclick="window.themePreviewReload()" style="background: var(--bg3); color: var(--text2);"><i class="ri-refresh-line"></i> Ricarica</button>
               </div>
               <div class="th-note" id="th-preview-note" style="text-align: center;">
-                Anteprima con le modifiche non ancora salvate. Se è ferma al login o alla scelta della squadra, entra lì dentro con il tuo account.
+                Anteprima con le modifiche non ancora salvate.
               </div>
             </div>
           </div>
@@ -191,6 +198,9 @@ export const ThemesSection = {
   render(globalState) {
     this.competitionsCache = globalState.competitions || [];
     this.customCache = globalState.customThemes || [];
+    const before = document.getElementById('th-team')?.value;
+    const team = fillPreviewTeams(document.getElementById('th-team'), globalState.TEAMS);
+    if (team && team !== before) this.post({ type: 'fc-team', id: team });
     this.migrateLegacy();
 
     const select = document.getElementById('themeCompSelect');
@@ -522,6 +532,8 @@ export const ThemesSection = {
     if (e.origin !== location.origin || !this.frame() || e.source !== this.frame().contentWindow) return;
     const m = e.data || {};
     if (m.type === 'fc-ready' || m.type === 'fc-booted') {
+      const team = document.getElementById('th-team')?.value;
+      if (m.type === 'fc-ready' && team) this.post({ type: 'fc-team', id: team });
       this.pushPreview();
       if (m.type === 'fc-booted') this.goPreview();
     } else if (m.type === 'fc-picked') {
@@ -559,6 +571,10 @@ export const ThemesSection = {
       if (t && t.tagName === 'SELECT' && t.dataset.thPath && this.draft) {
         this.setValue(t.dataset.thPath, t.value);
         this.refreshElementHead(t.dataset.thPath);
+      }
+      if (t && t.id === 'th-team' && t.value) {
+        this.post({ type: 'fc-team', id: t.value });
+        setTimeout(() => this.highlightOpen(), 300);
       }
       const comp = t && t.dataset && t.dataset.thComp;
       if (comp) this.assignComp(comp, t.checked);

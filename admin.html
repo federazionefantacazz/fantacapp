@@ -445,6 +445,7 @@ function refreshAll() {
   // Selettore tema e tema attivo per primi: non dipendono dal render delle singole sezioni
   renderThemePicker();
   applyCompetitionTheme();
+  AppPreview.setTeams(TEAMS);
 
   // Renderizzazione sicura e condizionale elemento per elemento
   if (DashboardSection && typeof DashboardSection.render === 'function') DashboardSection.render(state);

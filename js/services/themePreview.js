@@ -5,6 +5,8 @@
  *   { type: 'fc-go', go }           cosa mostrare: 'page:home', 'menu:settings', 'drawer', 'login', 'toast',
  *                                    'update', 'invite', 'offline', 'player', 'choice' (vedi THEME_SECTIONS.go)
  *   { type: 'fc-hl', sel }          evidenzia gli elementi (selettore del catalogo)
+ *   { type: 'fc-team', id }         squadra da mostrare (non serve sceglierla nell'app né accedere:
+ *                                    la sessione è quella del Patron, il login resta nascosto)
  *   { type: 'fc-pick', on }         "tocca un elemento": il tocco non fa nulla nell'app e manda al Patron
  *                                    { type: 'fc-picked', section, key }
  * In anteprima l'app non applica il tema del DB e non salva il tema in cache.
@@ -26,7 +28,10 @@ function injectStyle() {
   const st = document.createElement('style');
   st.textContent = `
     .th-hl { outline: 2px dashed #ff3d7f !important; outline-offset: 2px !important; box-shadow: 0 0 0 4px rgba(255,61,127,.25) !important; }
-    html.th-picking, html.th-picking * { cursor: crosshair !important; }`;
+    html.th-picking, html.th-picking * { cursor: crosshair !important; }
+    /* niente login né scelta della squadra: si aspetta la sessione del Patron */
+    html:not(.booted) #page-login > * { display: none !important; }
+    html:not(.booted) #page-login::after { content: 'Caricamento anteprima…'; display: block; margin-top: 40vh; color: var(--text2); font-size: .9rem; }`;
   document.head.appendChild(st);
 }
 
@@ -115,6 +120,10 @@ export function startThemePreview() {
       applyBackground(m.bg || '');
     } else if (m.type === 'fc-go') go(m.go);
     else if (m.type === 'fc-hl') highlight(m.sel);
+    else if (m.type === 'fc-team') {
+      window.__previewTeamId = m.id;
+      if (window.__previewSetTeam) window.__previewSetTeam(m.id);
+    }
     else if (m.type === 'fc-pick') {
       picking = !!m.on;
       document.documentElement.classList.toggle('th-picking', picking);

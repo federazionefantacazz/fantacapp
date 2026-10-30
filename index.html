@@ -1304,6 +1304,15 @@ function populateLoginDropdown() {
 
   if (!window.STATE.teams || window.STATE.teams.length === 0) return;
 
+  // anteprima dei temi nel Patron: la squadra la sceglie il Patron sopra il telefono (senza salvare nulla)
+  if (isThemePreview) {
+    const teams = window.STATE.teams;
+    window.STATE.user = teams.find(t => String(t.id) === String(window.__previewTeamId))
+      || teams.find(t => t.owners && t.owners[currentUser.uid]) || teams[0];
+    bootApp();
+    return;
+  }
+
   const myTeamFromDB = window.STATE.teams.find(t => t.owners && t.owners[currentUser.uid]);
   if (myTeamFromDB) {
     window.STATE.user = myTeamFromDB;
@@ -1322,13 +1331,6 @@ function populateLoginDropdown() {
     }
   }
 
-  // anteprima dei temi nel Patron: senza squadra associata si mostra l'app con la prima squadra (senza salvare nulla)
-  if (isThemePreview) {
-    window.STATE.user = window.STATE.teams[0];
-    bootApp();
-    return;
-  }
-
   const select = document.getElementById('loginSelect');
   if (!select) return;
 
@@ -1339,6 +1341,15 @@ function populateLoginDropdown() {
   select.innerHTML = optionsHTML;
   endResume(); // nessuna squadra associata: serve la scelta
 }
+
+// anteprima dei temi: cambio della squadra mostrata (dal Patron)
+if (isThemePreview) window.__previewSetTeam = (id) => {
+  window.__previewTeamId = id;
+  const team = (window.STATE.teams || []).find(t => String(t.id) === String(id));
+  if (!team || !window.STATE.booted) return;
+  window.STATE.user = team;
+  refreshUI();
+};
 
 window.doTeamSelection = function() {
   if (!window.STATE.accessOk) return;
