@@ -114,7 +114,7 @@ async function applyCut(model, url) {
 }
 
 /** Classica col girocollo: la costina della raglan sta un po' più in alto (la stoffa in neck-crew-setin.bin arriva lì). */
-const CREW_LIFT = 0.006;
+const CREW_LIFT = 0.012, CREW_WIDEN = 1.025;
 
 function loadVariant(kit) {
   const raglan = kit.sleeveCut === 'raglan';
@@ -140,6 +140,10 @@ function loadVariant(kit) {
           const rib = src.clone(true);
           src.matrixWorld.decompose(rib.position, rib.quaternion, rib.scale);
           rib.position.y += CREW_LIFT;
+          // appena più larga intorno all'asse del collo: la costina sta sopra la stoffa, che ci entra sotto
+          const wrap = new THREE.Group();
+          wrap.scale.set(CREW_WIDEN, 1, CREW_WIDEN);
+          wrap.add(rib);
           const a = UV_RAGLAN.collar, b = UV.collar;
           rib.traverse(o => {
             if (!o.isMesh) return;
@@ -151,7 +155,7 @@ function loadVariant(kit) {
             g.setAttribute('uv', new THREE.BufferAttribute(f, 2));
             o.geometry = g;
           });
-          model.add(rib);
+          model.add(wrap);
         }
         return model;
       }
