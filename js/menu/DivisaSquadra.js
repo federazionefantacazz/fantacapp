@@ -604,6 +604,8 @@ export const DivisaSquadra = {
     const onShoulder = stripes && k.sleeveDecoShoulder && !raglan;
     const split = !!k.colors.sleevesR;
     const collarTrim = k.collarShape !== 'polo' && k.collar !== 'plain';
+    // bordino e bordo largo sono disegnati sullo scollo a V della classica
+    const notNative = !raglan && k.collarShape === 'crew';
     return `
       ${this._part('ri-t-shirt-line', 'Busto', this._group('', 'front', `
         ${this._colorRow('Colore della maglia', 'base')}
@@ -613,10 +615,10 @@ export const DivisaSquadra = {
         </div>`))}
       ${this._part('ri-shirt-line', 'Colletto', `
       ${this._group('Forma', 'collar', `
-        <div class="kit-grid wide">${COLLAR_SHAPES.map(c => this._opt('collarShape', c.id, this._thumb({ ...base, collarShape: c.id }), raglan && c.id === 'v' ? 'Girocollo' : c.label, k.collarShape === c.id)).join('')}</div>
+        <div class="kit-grid">${COLLAR_SHAPES.filter(c => !(raglan && c.setinOnly)).map(c => this._opt('collarShape', c.id, this._thumb({ ...base, collarShape: c.id }), c.label, k.collarShape === c.id)).join('')}</div>
         ${this._colorRow('Colore del colletto', 'collar')}`)}
       ${k.collarShape === 'polo' ? '' : this._group('Rifinitura', 'collar', `
-        <div class="kit-grid">${COLLARS.map(c => this._opt('collar', c.id, this._thumb({ ...base, collar: c.id }), c.label, k.collar === c.id)).join('')}</div>
+        <div class="kit-grid">${COLLARS.filter(c => !(notNative && (c.id === 'trim' || c.id === 'wide'))).map(c => this._opt('collar', c.id, this._thumb({ ...base, collar: c.id }), c.label, k.collar === c.id)).join('')}</div>
         ${collarTrim ? this._colorRow('Colore di righe e bordino', 'trim') : ''}`)}`)}
       ${this._part('ri-t-shirt-2-line', 'Maniche', `
       ${this._group('Cucitura', 'shoulder', `
@@ -1128,7 +1130,10 @@ export const DivisaSquadra = {
         this._update(kit => { kit.sleeveTf = { x: 0, y: 0, scale: 100, rot: 0 }; });
         return;
       case 'collarShape': case 'sleeveCut': case 'collar': case 'cuffs': case 'sleeveDeco':
-        this._update(kit => { kit[act] = v; });
+        this._update(kit => {
+          kit[act] = v;
+          if (kit.sleeveCut === 'raglan' && kit.collarShape === 'v') kit.collarShape = 'crew'; // la raglan ha il girocollo
+        });
         return;
       case 'preset': {
         const p = PRESETS[Number(v)];

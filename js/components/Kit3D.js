@@ -1,4 +1,4 @@
-import { paintKitTexture, normalizeKit, KIT3D_FILES } from './KitRenderer.js';
+import { paintKitTexture, normalizeKit, KIT3D_FILES, UV, UV_RAGLAN } from './KitRenderer.js';
 import { isDeformed } from './kitShapes.js';
 
 /**
@@ -66,73 +66,104 @@ const variants = new Map();
 const COLLAR_TOP = 1.675;
 /** Fascia da capitano 3D: circonferenza / altezza (il disegno della fascia va steso con queste proporzioni). */
 export const BAND_RING_ASPECT = 3.8; // punto più alto del colletto alto (collar-polo.glb), con un po' di margine
+/** Spostamenti precalcolati dei vertici ('NKP1': n. mesh, poi per mesh n, indici uint32, spostamenti int16 x3 in unità di 0,05 mm). */
+async function applyShift(THREE, model, url) {
+  const dv = new DataView(await fetch(url).then(r => r.arrayBuffer()));
+  let o = 6;
+  const meshes = [];
+  model.traverse(m => { if (m.isMesh) meshes.push(m); });
+  model.updateMatrixWorld(true);
+  const v = new THREE.Vector3(), inv = new THREE.Matrix4();
+  for (let k = 0; k < dv.getUint16(4, true); k++) {
+    const n = dv.getUint32(o, true), idx = o + 4, d = idx + 4 * n;
+    o = d + 6 * n;
+    if (!n) continue;
+    const m = meshes[k], g = floatGeometry(THREE, m.geometry), pos = g.getAttribute('position');
+    inv.copy(m.matrixWorld).invert();
+    for (let j = 0; j < n; j++) {
+      const i = dv.getUint32(idx + 4 * j, true);
+      v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+      v.x += dv.getInt16(d + 6 * j, true) / 20000;
+      v.y += dv.getInt16(d + 6 * j + 2, true) / 20000;
+      v.z += dv.getInt16(d + 6 * j + 4, true) / 20000;
+      v.applyMatrix4(inv);
+      pos.setXYZ(i, v.x, v.y, v.z);
+    }
+    g.computeBoundingBox(); g.computeBoundingSphere(); // normali originali: lo spostamento è piccolo
+    m.geometry = g;
+  }
+}
+
+/** Triangoli da togliere ('NKC1': n. mesh, poi per mesh n e gli indici uint32 dei triangoli). */
+async function applyCut(model, url) {
+  const dv = new DataView(await fetch(url).then(r => r.arrayBuffer()));
+  const meshes = [];
+  model.traverse(m => { if (m.isMesh) meshes.push(m); });
+  let o = 6;
+  for (let k = 0; k < dv.getUint16(4, true); k++) {
+    const n = dv.getUint32(o, true);
+    const cut = new Set();
+    for (let j = 0; j < n; j++) cut.add(dv.getUint32(o + 4 + 4 * j, true));
+    o += 4 + 4 * n;
+    if (!n) continue;
+    const m = meshes[k], g = m.geometry.clone(), idx = g.index.array, keep = [];
+    for (let t = 0; t < idx.length / 3; t++) if (!cut.has(t)) keep.push(idx[3 * t], idx[3 * t + 1], idx[3 * t + 2]);
+    g.setIndex(keep);
+    m.geometry = g;
+  }
+}
+
 function loadVariant(kit) {
-  const raglan = kit.sleeveCut === 'raglan', shape = isDeformed(kit.collarShape) ? kit.collarShape : 'v';
+  const raglan = kit.sleeveCut === 'raglan';
+  const shape = isDeformed(kit.collarShape, raglan) ? kit.collarShape : 'base';
   const key = (raglan ? 'raglan:' : 'setin:') + shape;
   if (!variants.has(key)) {
     variants.set(key, Promise.all([loadLib(), raglan ? loadRaglan() : loadModel()]).then(async ([L, base]) => {
-      if (shape === 'v') return base;
+      if (shape === 'base') return base;
       const { THREE } = L;
       const model = base.clone(true);
-      if (shape === 'polo') {
-        // bordo della stoffa sulla cucitura del colletto: spostamenti precalcolati per ogni vertice vicino al collo
-        // (neck-polo.bin: 'NKP1', n. mesh, poi per mesh n, indici uint32, spostamenti int16 x3 in unità di 0,05 mm).
-        // Raglan (neck-polo-raglan.bin): la stoffa che resterebbe davanti al colletto o alle strisce va appena dietro
-        const data = await fetch(raglan ? KIT3D_FILES.neckPoloRaglan : KIT3D_FILES.neckPolo).then(r => r.arrayBuffer());
-        const dv = new DataView(data);
-        let o = 6;
-        const meshes = [];
-        model.traverse(m => { if (m.isMesh) meshes.push(m); });
-        model.updateMatrixWorld(true);
-        const v = new THREE.Vector3(), inv = new THREE.Matrix4();
-        for (let k = 0; k < dv.getUint16(4, true); k++) {
-          const n = dv.getUint32(o, true), idx = o + 4, d = idx + 4 * n;
-          o = d + 6 * n;
-          if (!n) continue;
-          const m = meshes[k], g = floatGeometry(THREE, m.geometry), pos = g.getAttribute('position');
-          inv.copy(m.matrixWorld).invert();
-          for (let j = 0; j < n; j++) {
-            const i = dv.getUint32(idx + 4 * j, true);
-            v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
-            v.x += dv.getInt16(d + 6 * j, true) / 20000;
-            v.y += dv.getInt16(d + 6 * j + 2, true) / 20000;
-            v.z += dv.getInt16(d + 6 * j + 4, true) / 20000;
-            v.applyMatrix4(inv);
-            pos.setXYZ(i, v.x, v.y, v.z);
-          }
-          g.computeBoundingBox(); g.computeBoundingSphere(); // normali originali: lo spostamento è piccolo
-          m.geometry = g;
+      const rib = /Pattern2D_3805002|raglan_collar/; // costina del collo (classica: a V, raglan: girocollo)
+      const isRib = (o) => rib.test(`${o.name}|${o.parent ? o.parent.name : ''}`);
+      if (shape === 'crew') {
+        // classica col girocollo della raglan: la sua costina così com'è al posto di quella a V, e la stoffa di davanti e di
+        // dietro arriva fino al suo bordo (neck-crew-setin.bin). Nella texture la costina usa il riquadro del colletto della classica
+        await applyShift(THREE, model, KIT3D_FILES.neckCrewSetin);
+        model.traverse(o => { if (o.isMesh && isRib(o)) o.visible = false; });
+        const rag = await loadRaglan();
+        rag.updateMatrixWorld(true);
+        let src = null;
+        rag.traverse(o => { if (!src && o.name === 'raglan_collar') src = o; });
+        if (src) {
+          const rib = src.clone(true);
+          src.matrixWorld.decompose(rib.position, rib.quaternion, rib.scale);
+          const a = UV_RAGLAN.collar, b = UV.collar;
+          rib.traverse(o => {
+            if (!o.isMesh) return;
+            const g = o.geometry.clone(), uv = g.getAttribute('uv'), f = new Float32Array(uv.count * 2);
+            for (let i = 0; i < uv.count; i++) {
+              f[2 * i] = b.x + (uv.getX(i) - a.x) / a.w * b.w;
+              f[2 * i + 1] = b.y + (uv.getY(i) - a.y) / a.h * b.h;
+            }
+            g.setAttribute('uv', new THREE.BufferAttribute(f, 2));
+            o.geometry = g;
+          });
+          model.add(rib);
         }
-        // la costina dello scollo a V non serve: il colletto è cucito direttamente alla stoffa (raglan: in neck-cut-raglan.bin)
-        if (!raglan) model.traverse(o => { if (o.isMesh && /Pattern2D_3805002/.test(`${o.name}|${o.parent ? o.parent.name : ''}`)) o.visible = false; });
+        return model;
       }
-      if (shape === 'polo' && raglan) {
-        // la costina del girocollo fa da base al colletto (l'attaccatura coincide); davanti la maglia si apre a V come la
-        // classica: stoffa e costina dentro l'apertura si tolgono, il bordo del taglio resta sotto le strisce
-        // (neck-cut-raglan.bin: 'NKC1', n. mesh, poi per mesh n e gli indici uint32 dei triangoli da togliere)
-        const dv = new DataView(await fetch(KIT3D_FILES.neckCutRaglan).then(r => r.arrayBuffer()));
-        const meshes = [];
-        model.traverse(m => { if (m.isMesh) meshes.push(m); });
-        let o = 6;
-        for (let k = 0; k < dv.getUint16(4, true); k++) {
-          const n = dv.getUint32(o, true);
-          const cut = new Set();
-          for (let j = 0; j < n; j++) cut.add(dv.getUint32(o + 4 + 4 * j, true));
-          o += 4 + 4 * n;
-          if (!n) continue;
-          const m = meshes[k], g = m.geometry.clone(), idx = g.index.array, keep = [];
-          for (let t = 0; t < idx.length / 3; t++) if (!cut.has(t)) keep.push(idx[3 * t], idx[3 * t + 1], idx[3 * t + 2]);
-          g.setIndex(keep);
-          m.geometry = g;
-        }
-      }
-      if (shape === 'polo') {
-        // raglan: colletto adattato (strisce della V stese sul petto della raglan)
-        const loader = new L.GLTFLoader();
-        const collar = (await loader.loadAsync(raglan ? KIT3D_FILES.collarPoloRaglan : KIT3D_FILES.collarPolo)).scene;
-        collar.traverse(o => { if (o.isMesh) o.geometry.computeVertexNormals(); });
-        model.add(collar);
-      }
+      // colletto alto: bordo della stoffa sulla cucitura del colletto (neck-polo.bin); raglan (neck-polo-raglan.bin):
+      // la stoffa che resterebbe davanti al colletto o alle strisce va appena dietro
+      await applyShift(THREE, model, raglan ? KIT3D_FILES.neckPoloRaglan : KIT3D_FILES.neckPolo);
+      // la costina dello scollo a V non serve: il colletto è cucito direttamente alla stoffa (raglan: in neck-cut-raglan.bin)
+      if (!raglan) model.traverse(o => { if (o.isMesh && isRib(o)) o.visible = false; });
+      // raglan: la costina del girocollo fa da base al colletto (l'attaccatura coincide); davanti la maglia si apre a V come la
+      // classica: stoffa e costina dentro l'apertura si tolgono, il bordo del taglio resta sotto le strisce
+      if (raglan) await applyCut(model, KIT3D_FILES.neckCutRaglan);
+      // colletto (raglan: adattato, strisce della V stese sul petto della raglan)
+      const loader = new L.GLTFLoader();
+      const collar = (await loader.loadAsync(raglan ? KIT3D_FILES.collarPoloRaglan : KIT3D_FILES.collarPolo)).scene;
+      collar.traverse(o => { if (o.isMesh) o.geometry.computeVertexNormals(); });
+      model.add(collar);
       return model;
     }));
   }

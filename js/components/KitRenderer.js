@@ -8,7 +8,7 @@ export { COLLAR_SHAPES };
  * Divisa della squadra: dati e pittura della texture UV della maglia 3D (vedi components/Kit3D.js).
  * La divisa è salvata in teams/{id}/kit:
  * {
- *   collarShape,                                            // forma del colletto: 'v' (scollo a V) o 'polo' (vedi kitShapes.js)
+ *   collarShape,                                            // forma del colletto: 'crew' (girocollo), 'v' (scollo a V, solo classica) o 'polo' (vedi kitShapes.js)
  *   sleeveCut,                                              // cucitura delle maniche: 'setin' (sulle spalle) o 'raglan' (dal colletto all'ascella)
  *   collar, cuffs, sleeveDeco,                              // stile di colletto, polsini, decorazioni maniche
  *   colors: { base, sleeves, sleevesR, shoulders, collar, cuffs, trim },  // sleevesR: manica destra se diversa ('' = come sleeves)
@@ -466,7 +466,9 @@ export function normalizeKit(raw) {
   const k = raw && typeof raw === 'object' ? raw : {};
   const toArr = (v) => Array.isArray(v) ? v.filter(Boolean) : (v && typeof v === 'object' ? Object.values(v).filter(Boolean) : []);
   return {
-    collarShape: COLLAR_SHAPES.some(c => c.id === k.collarShape) ? k.collarShape : d.collarShape,
+    // la raglan ha il suo girocollo (prima salvato come 'v')
+    collarShape: k.collarShape === 'v' && k.sleeveCut === 'raglan' ? 'crew'
+      : COLLAR_SHAPES.some(c => c.id === k.collarShape) ? k.collarShape : d.collarShape,
     sleeveCut: SLEEVE_CUTS.some(c => c.id === k.sleeveCut) ? k.sleeveCut : d.sleeveCut,
     collar: COLLARS.some(c => c.id === k.collar) ? k.collar : d.collar,
     cuffs: CUFFS.some(c => c.id === k.cuffs) ? k.cuffs : d.cuffs,
@@ -555,6 +557,7 @@ const POLO_STRIPE_REACH = .82;
 const ASSET_BASE = 'icons/kit3d/';
 export const KIT3D_FILES = {
   model: ASSET_BASE + 'shirt.glb', collarPolo: ASSET_BASE + 'collar-polo.glb', neckPolo: ASSET_BASE + 'neck-polo.bin', mask: ASSET_BASE + 'mask.png', seams: ASSET_BASE + 'seams.jpg',
+  neckCrewSetin: ASSET_BASE + 'neck-crew-setin.bin',
   raglan: ASSET_BASE + 'shirt-raglan.glb', raglanMask: ASSET_BASE + 'mask-raglan.png', raglanSeams: ASSET_BASE + 'seams-raglan.jpg',
   collarPoloRaglan: ASSET_BASE + 'collar-polo-raglan.glb', neckCutRaglan: ASSET_BASE + 'neck-cut-raglan.bin',
   neckPoloRaglan: ASSET_BASE + 'neck-polo-raglan.bin'
@@ -849,6 +852,8 @@ function loadMask(model) {
 export async function paintKitTexture(rawKit, opts = {}) {
   const k = normalizeKit(rawKit);
   if (k.collarShape === 'polo') k.collar = 'plain'; // il colletto alto è in tinta unita: niente rifiniture sotto
+  // bordino e bordo largo sono disegnati sullo scollo a V della classica: col girocollo nuovo no
+  if (k.sleeveCut !== 'raglan' && k.collarShape === 'crew' && (k.collar === 'trim' || k.collar === 'wide')) k.collar = 'plain';
   const S = Math.round(opts.size || 2048);
   const model = kitModel(k), raglan = model === MODELS.raglan;
   const R = (part) => { const r = model.uv[part]; return { x: r.x * S, y: r.y * S, w: r.w * S, h: r.h * S }; };
@@ -1114,12 +1119,17 @@ export async function paintKitTexture(rawKit, opts = {}) {
   }));
 
   // 4. colletto (striscia intorno al collo) ed eventuale bordo sul petto e sulla schiena
-  inPart('collar', (x, r) => {
+  const paintCollar = (x, r) => {
     x.fillStyle = safeColor(c.collar); x.fillRect(r.x - 2, r.y - 2, r.w + 4, r.h + 4);
     x.fillStyle = trim;
     if (k.collar === 'twotone') x.fillRect(r.x - 2, r.y + r.h * .5, r.w + 4, r.h * .5 + 2);
     if (k.collar === 'striped') { x.fillRect(r.x - 2, r.y + r.h * .3, r.w + 4, r.h * .12); x.fillRect(r.x - 2, r.y + r.h * .58, r.w + 4, r.h * .12); }
-  });
+  };
+  if (!raglan && k.collarShape === 'crew') {
+    // classica col girocollo della raglan: la sua costina occupa tutto il riquadro del colletto (la sagoma è quella della V)
+    const r = R('collar');
+    ctx.save(); ctx.beginPath(); ctx.rect(r.x - 2, r.y - 2, r.w + 4, r.h + 4); ctx.clip(); paintCollar(ctx, r); ctx.restore();
+  } else inPart('collar', paintCollar);
   if ((k.collar === 'trim' || k.collar === 'wide') && mask) {
     ['front', 'back'].forEach(p => inPart(p, (x) => {
       const pts = mask.neck[p];
