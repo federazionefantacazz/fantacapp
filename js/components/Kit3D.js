@@ -63,9 +63,9 @@ function floatGeometry(THREE, geometry) {
  *         (icons/kit3d/neck-cut-raglan.bin).
  */
 const variants = new Map();
-const COLLAR_TOP = 1.675;
+const COLLAR_TOP = 1.675; // punto più alto del colletto alto (collar-polo.glb), con un po' di margine
 /** Fascia da capitano 3D: circonferenza / altezza (il disegno della fascia va steso con queste proporzioni). */
-export const BAND_RING_ASPECT = 3.8; // punto più alto del colletto alto (collar-polo.glb), con un po' di margine
+export const BAND_RING_ASPECT = 3.8;
 /** Spostamenti precalcolati dei vertici ('NKP1': n. mesh, poi per mesh n, indici uint32, spostamenti int16 x3 in unità di 0,05 mm). */
 async function applyShift(THREE, model, url) {
   const dv = new DataView(await fetch(url).then(r => r.arrayBuffer()));

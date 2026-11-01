@@ -7,7 +7,7 @@ import { getPngPatterns, getPngBrands, getChampPatches, getCompPatches, getCompP
 import { esc } from './menuUtils.js';
 import { captainBandSVG, bandRaster, normalizeBand, BAND_FONTS, BAND_MAX_TEXT, BAND_MAX_LAYERS } from '../components/CaptainBand.js';
 import {
-  normalizeKit, defaultKit, patternLabel, motifParams, motifMax, shapePath, compPatchTf,
+  normalizeKit, defaultKit, patternLabel, motifParams, motifMax, shapePath, compPatchTf, effectiveCollar,
   PRESETS, PATTERNS, PATTERN_CATS, MOTIF_SHAPES, MOTIF_LIMITS, BRANDS, SPONSOR_FONTS, NUMBER_FONTS, PATCH_POSITIONS, ZONES, COLLARS, COLLAR_SHAPES, CUFFS,
   SLEEVE_DECO, SLEEVE_STRIPES_MAX, SHOULDER_SHAPES, SLEEVE_CUTS, armbandRow
 } from '../components/KitRenderer.js';
@@ -603,7 +603,9 @@ export const DivisaSquadra = {
     const stripes = k.sleeveDeco === 'stripes';
     const onShoulder = stripes && k.sleeveDecoShoulder && !raglan;
     const split = !!k.colors.sleevesR;
-    const collarTrim = k.collarShape !== 'polo' && k.collar !== 'plain';
+    // rifinitura che si vede davvero (es. bordino salvato sulla classica e poi scelto il girocollo: diventa "Semplice")
+    const collar = effectiveCollar(k);
+    const collarTrim = collar !== 'plain';
     // bordino e bordo largo sono disegnati sullo scollo originale del modello (classica: V, raglan: girocollo)
     const notNative = raglan ? k.collarShape === 'v' : k.collarShape === 'crew';
     return `
@@ -618,7 +620,7 @@ export const DivisaSquadra = {
         <div class="kit-grid">${COLLAR_SHAPES.map(c => this._opt('collarShape', c.id, this._thumb({ ...base, collarShape: c.id }), c.label, k.collarShape === c.id)).join('')}</div>
         ${this._colorRow('Colore del colletto', 'collar')}`)}
       ${k.collarShape === 'polo' ? '' : this._group('Rifinitura', 'collar', `
-        <div class="kit-grid">${COLLARS.filter(c => !(notNative && (c.id === 'trim' || c.id === 'wide'))).map(c => this._opt('collar', c.id, this._thumb({ ...base, collar: c.id }), c.label, k.collar === c.id)).join('')}</div>
+        <div class="kit-grid">${COLLARS.filter(c => !(notNative && (c.id === 'trim' || c.id === 'wide'))).map(c => this._opt('collar', c.id, this._thumb({ ...base, collar: c.id }), c.label, collar === c.id)).join('')}</div>
         ${collarTrim ? this._colorRow('Colore di righe e bordino', 'trim') : ''}`)}`)}
       ${this._part('ri-t-shirt-2-line', 'Maniche', `
       ${this._group('Cucitura', 'shoulder', `

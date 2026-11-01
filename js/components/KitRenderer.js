@@ -582,6 +582,9 @@ export const MODELS = {
   setin:  { uv: UV, mask: KIT3D_FILES.mask, seams: KIT3D_FILES.seams, cuffTop: .84, mirrored: ['sleeveL'] },
   raglan: {
     uv: UV_RAGLAN, mask: KIT3D_FILES.raglanMask, seams: KIT3D_FILES.raglanSeams, cuffTop: .91,
+    // tratto di scollo in cima a ogni manica (frazioni della larghezza del riquadro, misurate su mask-raglan.png):
+    // dalla punta della manica alla fine del tratto piatto, dove comincia la cucitura raglan
+    sleeveNeck: { sleeveL: [.42, .655], sleeveR: [.345, .58] },
     // il riquadro del davanti parte più in alto (angoli del colletto) e la manica comprende la spalla
     anchors: {
       crest: { ...ANCHORS.crest, y: .27 }, brand: { ...ANCHORS.brand, y: .27 }, chest: { ...ANCHORS.chest, y: .27 },
@@ -839,10 +842,35 @@ function loadMask(model) {
       }
       shoulder[part] = { left: pts(first, l), right: pts(rr, last), neckL: l / n, neckR: rr / n, prof };
     });
+    // raglan: le maniche arrivano al collo, il loro tratto di scollo è il bordo superiore tra gli estremi in model.sleeveNeck
+    Object.entries(model.sleeveNeck || {}).forEach(([part, [a, b]]) => {
+      const r = UV[part];
+      const x0 = Math.round(r.x * c.width), y0 = Math.round(r.y * c.height), y1 = Math.round((r.y + r.h) * c.height);
+      const n = Math.round(r.w * c.width), pts = [];
+      for (let i = Math.round(a * n); i <= Math.round(b * n); i++) {
+        for (let py = y0; py < y1; py++) if (d[(py * c.width + x0 + i) * 4 + 3] > 128) { pts.push([(x0 + i) / c.width, py / c.height]); break; }
+      }
+      neck[part] = pts;
+    });
     return { img, neck, shoulder };
   });
   maskJobs.set(model, maskJob);
   return maskJob;
+}
+
+/** true se la costina del collo è presa dall'altra maglia (classica col girocollo, raglan con la V). */
+const collarSwapped = (k) => (k.sleeveCut === 'raglan' ? k.collarShape === 'v' : k.collarShape === 'crew');
+
+/**
+ * Rifinitura del colletto che si vede davvero: il colletto alto è in tinta unita (niente rifiniture sotto); bordino e
+ * bordo largo seguono lo scollo originale del modello (classica: V, raglan: girocollo), sull'altro diventano "Semplice".
+ * La scelta salvata resta: tornando alla forma di prima ricompare.
+ */
+export function effectiveCollar(kit) {
+  const k = normalizeKit(kit);
+  if (k.collarShape === 'polo') return 'plain';
+  if (collarSwapped(k) && (k.collar === 'trim' || k.collar === 'wide')) return 'plain';
+  return k.collar;
 }
 
 /* --------------------------------------------------------- composizione */
@@ -853,10 +881,8 @@ function loadMask(model) {
  */
 export async function paintKitTexture(rawKit, opts = {}) {
   const k = normalizeKit(rawKit);
-  if (k.collarShape === 'polo') k.collar = 'plain'; // il colletto alto è in tinta unita: niente rifiniture sotto
-  // bordino e bordo largo sono disegnati sullo scollo originale del modello (classica: V, raglan: girocollo): sull'altro no
-  const swapped = k.sleeveCut === 'raglan' ? k.collarShape === 'v' : k.collarShape === 'crew';
-  if (swapped && (k.collar === 'trim' || k.collar === 'wide')) k.collar = 'plain';
+  k.collar = effectiveCollar(k);
+  const swapped = collarSwapped(k);
   const S = Math.round(opts.size || 2048);
   const model = kitModel(k), raglan = model === MODELS.raglan;
   const R = (part) => { const r = model.uv[part]; return { x: r.x * S, y: r.y * S, w: r.w * S, h: r.h * S }; };
@@ -1135,13 +1161,16 @@ export async function paintKitTexture(rawKit, opts = {}) {
     ctx.save(); ctx.beginPath(); ctx.rect(r.x - 2, r.y - 2, r.w + 4, r.h + 4); ctx.clip(); paintCollar(ctx, r); ctx.restore();
   } else inPart('collar', paintCollar);
   if ((k.collar === 'trim' || k.collar === 'wide') && mask) {
-    ['front', 'back'].forEach(p => inPart(p, (x) => {
+    // bordino del colore di righe e bordino (trim) sotto la costina, lungo tutto lo scollo (raglan: anche sulle maniche)
+    Object.keys(mask.neck).forEach(p => inPart(p, (x) => {
       const pts = mask.neck[p];
       if (!pts || pts.length < 2) return;
       const lw = S * (k.collar === 'wide' ? .012 : .005);
-      x.strokeStyle = safeColor(c.collar); x.lineWidth = lw; x.lineJoin = 'round';
+      // tratto largo il doppio centrato sul bordo: la sagoma del pezzo toglie la metà fuori, così lo spessore è lo stesso
+      // anche dove lo scollo sale ripido (angoli del colletto) e i pezzi vicini si raccordano alle cuciture
+      x.strokeStyle = trim; x.lineWidth = lw * 2; x.lineJoin = 'round'; x.lineCap = 'butt';
       x.beginPath();
-      pts.forEach(([u, v], i) => (i ? x.lineTo(u * S, v * S + lw / 2) : x.moveTo(u * S, v * S + lw / 2)));
+      pts.forEach(([u, v], i) => (i ? x.lineTo(u * S, v * S) : x.moveTo(u * S, v * S)));
       x.stroke();
     }));
   }
@@ -1210,27 +1239,27 @@ export async function paintKitTexture(rawKit, opts = {}) {
 export const PRESETS = [
   { name: 'Tre strisce',      kit: { sleeveDeco: 'stripes', sleeveDecoN: 3, layers: [] } },
   { name: 'Bande laterali',   kit: { sleeveDeco: 'side', layers: [] } },
-  { name: 'Crepe',            kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'crackle', color: '#0d1b4c', opacity: 85, onSleeves: true }] } },
-  { name: 'Tinta unita',      kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [] } },
-  { name: 'Strisce',          kit: { collar: 'v', sleeves: 'short', cuffs: 'band', layers: [{ type: 'm-stripe', count: 11, size: 10, gap: 10, color: '#000000' }] } },
-  { name: 'Strisce larghe',   kit: { collar: 'polo', sleeves: 'short', cuffs: 'thin', layers: [{ type: 'm-stripe', count: 5, size: 20, gap: 20, color: '#ffffff' }] } },
-  { name: 'Gessato',          kit: { collar: 'polobtn', sleeves: 'short', cuffs: 'none', layers: [{ type: 'm-stripe', count: 41, size: 1, gap: 6, color: '#ffffff', opacity: 70 }] } },
-  { name: 'Bande',            kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'm-stripe', dir: 'h', count: 9, size: 13, gap: 12, color: '#ffffff' }] } },
-  { name: 'Metà e metà',      kit: { collar: 'v', sleeves: 'raglan', cuffs: 'band', layers: [{ type: 'half', color: '#ffffff' }] } },
-  { name: 'Quarti',           kit: { collar: 'crew', sleeves: 'short', cuffs: 'thin', layers: [{ type: 'quarters', color: '#ffffff' }] } },
-  { name: 'Fascia diagonale', kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'm-stripe', count: 1, size: 34, rot: -29, color: '#ffffff' }] } },
-  { name: 'Chevron',          kit: { collar: 'v', sleeves: 'short', cuffs: 'band', layers: [{ type: 'm-chevron', count: 1, size: 26, amp: 58, y: 18, color: '#ffffff' }] } },
-  { name: 'Fascia petto',     kit: { collar: 'mandarin', sleeves: 'short', cuffs: 'band', layers: [{ type: 'm-stripe', dir: 'h', count: 1, size: 22, y: 11, color: '#ffffff' }] } },
-  { name: 'Croce',            kit: { collar: 'crew', sleeves: 'long', cuffs: 'band', layers: [{ type: 'cross', color: '#ffffff' }] } },
-  { name: 'Scacchi',          kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'm-checker', count: 6, color: '#ffffff' }] } },
-  { name: 'Onde',             kit: { collar: 'v', sleeves: 'short', cuffs: 'band', layers: [{ type: 'waves', color: '#7a1f1f' }, { type: 'swoosh', color: '#ffffff', opacity: 90 }] } },
-  { name: 'Fulmine',          kit: { collar: 'deepv', sleeves: 'short', cuffs: 'thin', layers: [{ type: 'm-shape', shape: 'bolt', count: 1, size: 100, color: '#ffd400' }] } },
-  { name: 'Sfumato',          kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'gradient', color: '#000000', opacity: 80, onSleeves: true }] } },
-  { name: 'Retino',           kit: { collar: 'v', sleeves: 'short', cuffs: 'band', layers: [{ type: 'halftone', color: '#ffffff', opacity: 60 }] } },
-  { name: 'Geometrico',       kit: { collar: 'wrap', sleeves: 'short', cuffs: 'band', layers: [{ type: 'shards', color: '#ffffff', opacity: 35 }, { type: 'm-stripe', count: 1, size: 9, color: '#000000', opacity: 40 }] } },
-  { name: 'Mimetico',         kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'camo', color: '#000000', opacity: 25, onSleeves: true }] } },
-  { name: 'Esagoni',          kit: { collar: 'v', sleeves: 'short', cuffs: 'band', layers: [{ type: 'm-shape', shape: 'hexagon', fill: 'line', count: 100, size: 12, gap: 0, stagger: true, color: '#ffffff', opacity: 35, onSleeves: true }] } },
-  { name: 'Pannelli',         kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'sidePanels', color: '#000000', opacity: 70 }] } },
-  { name: 'Fiamme',           kit: { collar: 'crew', sleeves: 'short', cuffs: 'band', layers: [{ type: 'flames', color: '#ff7a00' }] } },
-  { name: 'Spalle',           kit: { collar: 'henley', sleeves: 'raglan', cuffs: 'band', layers: [{ type: 'yoke', color: '#ffffff' }] } }
+  { name: 'Crepe',            kit: { layers: [{ type: 'crackle', color: '#0d1b4c', opacity: 85, onSleeves: true }] } },
+  { name: 'Tinta unita',      kit: { layers: [] } },
+  { name: 'Strisce',          kit: { layers: [{ type: 'm-stripe', count: 11, size: 10, gap: 10, color: '#000000' }] } },
+  { name: 'Strisce larghe',   kit: { layers: [{ type: 'm-stripe', count: 5, size: 20, gap: 20, color: '#ffffff' }] } },
+  { name: 'Gessato',          kit: { layers: [{ type: 'm-stripe', count: 41, size: 1, gap: 6, color: '#ffffff', opacity: 70 }] } },
+  { name: 'Bande',            kit: { layers: [{ type: 'm-stripe', dir: 'h', count: 9, size: 13, gap: 12, color: '#ffffff' }] } },
+  { name: 'Metà e metà',      kit: { layers: [{ type: 'half', color: '#ffffff' }] } },
+  { name: 'Quarti',           kit: { layers: [{ type: 'quarters', color: '#ffffff' }] } },
+  { name: 'Fascia diagonale', kit: { layers: [{ type: 'm-stripe', count: 1, size: 34, rot: -29, color: '#ffffff' }] } },
+  { name: 'Chevron',          kit: { layers: [{ type: 'm-chevron', count: 1, size: 26, amp: 58, y: 18, color: '#ffffff' }] } },
+  { name: 'Fascia petto',     kit: { layers: [{ type: 'm-stripe', dir: 'h', count: 1, size: 22, y: 11, color: '#ffffff' }] } },
+  { name: 'Croce',            kit: { layers: [{ type: 'cross', color: '#ffffff' }] } },
+  { name: 'Scacchi',          kit: { layers: [{ type: 'm-checker', count: 6, color: '#ffffff' }] } },
+  { name: 'Onde',             kit: { layers: [{ type: 'waves', color: '#7a1f1f' }, { type: 'swoosh', color: '#ffffff', opacity: 90 }] } },
+  { name: 'Fulmine',          kit: { layers: [{ type: 'm-shape', shape: 'bolt', count: 1, size: 100, color: '#ffd400' }] } },
+  { name: 'Sfumato',          kit: { layers: [{ type: 'gradient', color: '#000000', opacity: 80, onSleeves: true }] } },
+  { name: 'Retino',           kit: { layers: [{ type: 'halftone', color: '#ffffff', opacity: 60 }] } },
+  { name: 'Geometrico',       kit: { layers: [{ type: 'shards', color: '#ffffff', opacity: 35 }, { type: 'm-stripe', count: 1, size: 9, color: '#000000', opacity: 40 }] } },
+  { name: 'Mimetico',         kit: { layers: [{ type: 'camo', color: '#000000', opacity: 25, onSleeves: true }] } },
+  { name: 'Esagoni',          kit: { layers: [{ type: 'm-shape', shape: 'hexagon', fill: 'line', count: 100, size: 12, gap: 0, stagger: true, color: '#ffffff', opacity: 35, onSleeves: true }] } },
+  { name: 'Pannelli',         kit: { layers: [{ type: 'sidePanels', color: '#000000', opacity: 70 }] } },
+  { name: 'Fiamme',           kit: { layers: [{ type: 'flames', color: '#ff7a00' }] } },
+  { name: 'Spalle',           kit: { layers: [{ type: 'yoke', color: '#ffffff' }] } }
 ];
