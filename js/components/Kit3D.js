@@ -113,6 +113,9 @@ async function applyCut(model, url) {
   }
 }
 
+/** Classica col girocollo: la costina della raglan sta un po' più in alto (la stoffa in neck-crew-setin.bin arriva lì). */
+const CREW_LIFT = 0.006;
+
 function loadVariant(kit) {
   const raglan = kit.sleeveCut === 'raglan';
   const shape = isDeformed(kit.collarShape, raglan) ? kit.collarShape : 'base';
@@ -136,6 +139,7 @@ function loadVariant(kit) {
         if (src) {
           const rib = src.clone(true);
           src.matrixWorld.decompose(rib.position, rib.quaternion, rib.scale);
+          rib.position.y += CREW_LIFT;
           const a = UV_RAGLAN.collar, b = UV.collar;
           rib.traverse(o => {
             if (!o.isMesh) return;
