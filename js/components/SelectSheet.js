@@ -54,7 +54,7 @@ function injectStyle() {
 
 .cs-overlay{position:fixed;inset:0;z-index:10060;background:var(--overlay-bg, rgba(5,8,15,.65));display:flex;align-items:flex-end;justify-content:center;animation:csFade .15s ease-out}
 .cs-sheet{outline:none;width:100%;max-width:560px;max-height:80vh;display:flex;flex-direction:column;background:var(--bg,#181c22);color:var(--text);border:1px solid var(--border);
-  border-radius:18px 18px 0 0;box-shadow:0 -10px 40px rgba(0,0,0,.5);padding-bottom:env(safe-area-inset-bottom,0px);animation:csUp .18s ease-out;font-family:var(--font-text, inherit)}
+  border-radius:18px 18px 0 0;box-shadow:0 -10px 40px rgba(0,0,0,.5);padding-bottom:var(--safe-b, env(safe-area-inset-bottom, 0px));animation:csUp .18s ease-out;font-family:var(--font-text, inherit)}
 @media (min-width:700px){.cs-overlay{align-items:center}.cs-sheet{border-radius:18px}}
 @media (prefers-reduced-motion:reduce){.cs-overlay,.cs-sheet{animation:none}}
 @keyframes csUp{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}

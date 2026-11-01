@@ -1,4 +1,5 @@
 import { esc, sid } from './menuUtils.js';
+import { sameId } from '../utils.js';
 import { NotificationCenter } from '../services/notificationCenter.js';
 import { notificationsSupported, permissionState } from '../services/notificationService.js';
 
@@ -74,23 +75,29 @@ export const ImpostazioniApp = {
   unmount() { this._root = null; },
 
   /**
-   * Temi tra cui scegliere: Automatico (tema della competizione aperta), i temi delle
-   * competizioni (quelle con tema o sfondo) e i temi aggiuntivi creati dal Patron.
+   * Temi tra cui scegliere: Automatico (tema della competizione aperta) e tutti i temi del Patron
+   * (themes/{id}); sotto ogni tema le competizioni che lo usano.
+   * Le competizioni ancora nel formato vecchio (tema dentro la competizione) restano come "comp:<id>".
    */
   _themeOptions(STATE) {
-    const comps = (STATE.competitions || []).filter(c => c && (c.theme || c.backgroundImage));
-    const custom = Object.entries(STATE.customThemes || {})
+    const comps = STATE.competitions || [];
+    const themes = Object.entries(STATE.customThemes || {})
       .filter(([, t]) => t && typeof t === 'object')
-      .map(([id, t]) => ({ id, name: t.name || id }))
+      .map(([id, t]) => ({ id, name: t.name || id, used: comps.filter(c => c && sameId(c.themeId, id)).map(c => c.name || c.id) }))
       .sort((a, b) => a.name.localeCompare(b.name, 'it'));
-    const values = ['auto', ...comps.map(c => `comp:${sid(c.id)}`), ...custom.map(t => `custom:${t.id}`)];
-    const chosen = String((STATE.settings || {}).theme || '');
+    const legacy = comps.filter(c => c && !c.themeId && (c.theme || c.backgroundImage));
+    const values = ['auto', ...themes.map(t => `custom:${t.id}`), ...legacy.map(c => `comp:${sid(c.id)}`)];
+    let chosen = String((STATE.settings || {}).theme || '');
+    // scelta vecchia di una competizione che ora ha il suo tema in themes/
+    if (chosen.startsWith('comp:')) {
+      const comp = comps.find(c => sameId(c.id, chosen.slice(5)));
+      if (comp && comp.themeId) chosen = `custom:${comp.themeId}`;
+    }
     const html = `
       <option value="auto" data-icon="ri-magic-line" data-sub="Tema e sfondo della competizione aperta">Automatico</option>
-      ${comps.length ? `<optgroup label="Competizioni">${comps.map(c => `
-        <option value="comp:${esc(c.id)}" ${c.logo ? `data-img="${esc(c.logo)}"` : 'data-icon="ri-trophy-line"'}>${esc(c.name || c.id)}</option>`).join('')}</optgroup>` : ''}
-      ${custom.length ? `<optgroup label="Altri temi">${custom.map(t => `
-        <option value="custom:${esc(t.id)}" data-icon="ri-palette-line">${esc(t.name)}</option>`).join('')}</optgroup>` : ''}`;
+      ${themes.length || legacy.length ? `<optgroup label="Temi">${themes.map(t => `
+        <option value="custom:${esc(t.id)}" data-icon="ri-palette-line" ${t.used.length ? `data-sub="${esc(t.used.join(', '))}"` : ''}>${esc(t.name)}</option>`).join('')}${legacy.map(c => `
+        <option value="comp:${esc(c.id)}" ${c.logo ? `data-img="${esc(c.logo)}"` : 'data-icon="ri-trophy-line"'}>${esc(c.name || c.id)}</option>`).join('')}</optgroup>` : ''}`;
     return { html, value: values.includes(chosen) ? chosen : 'auto' };
   },
 

@@ -54,7 +54,8 @@ const BOX = 'background: var(--home-box-bg, rgba(0,0,0,0.18)); border: 1px solid
 const TEAM_NAME_MAX = 32, TEAM_NAME_MIN = 16; // px
 function fitTeamName(el) {
   if (!el || !el.clientWidth) return;
-  let size = TEAM_NAME_MAX;
+  // il tema può cambiare la misura massima (Home → Nome squadra → Dimensione)
+  let size = parseFloat(getComputedStyle(el).getPropertyValue('--home-team-name-max')) || TEAM_NAME_MAX;
   el.style.whiteSpace = 'nowrap';
   el.style.fontSize = size + 'px';
   while (el.scrollWidth > el.clientWidth && size > TEAM_NAME_MIN) {
@@ -64,6 +65,7 @@ function fitTeamName(el) {
   if (el.scrollWidth > el.clientWidth) el.style.whiteSpace = 'normal';
 }
 let teamNameObserver = null;
+window.addEventListener('fc-theme', () => fitTeamName(document.getElementById('homeTeamName')));
 function watchTeamName(el) {
   if (!el) return;
   fitTeamName(el);
@@ -98,14 +100,14 @@ export const HomePage = {
       <div class="page" id="page-home">
 
         <!-- CARD SQUADRA -->
-        <div class="card" style="margin-bottom: 1.2rem; background: var(--subbox-bg); border: 1px solid var(--border); padding: 1.25rem;">
+        <div class="card" data-th="home-panel" style="margin-bottom: 1.2rem; background: var(--subbox-bg); border: 1px solid var(--border); padding: 1.25rem;">
           
           <!-- RIGA PRINCIPALE: LOGO + NOME SQUADRA -->
           <div style="display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1rem; min-width: 0;">
             <div id="userTeamLogo" style="flex-shrink: 0;"></div>
             <div style="flex: 1; min-width: 0; overflow: hidden;">
-              <div class="label" style="margin: 0; font-size: 0.68rem;">La mia squadra</div>
-              <h3 id="homeTeamName" style="font-family: var(--font-team-name, 'Bebas Neue', sans-serif); font-size: 2rem; letter-spacing: 0.5px; text-transform: uppercase; color: var(--team-name, var(--text)); margin: 0; line-height: 1.1; white-space: nowrap; overflow: hidden; overflow-wrap: anywhere;">Caricamento...</h3>
+              <div class="label" data-th="home-myTeamLabel" style="margin: 0; font-size: 0.68rem;">La mia squadra</div>
+              <h3 id="homeTeamName" style="font-family: var(--font-team-name, 'Bebas Neue', sans-serif); font-size: var(--home-team-name-max, 2rem); letter-spacing: 0.5px; text-transform: uppercase; color: var(--team-name, var(--text)); margin: 0; line-height: 1.1; white-space: nowrap; overflow: hidden; overflow-wrap: anywhere;">Caricamento...</h3>
               <p id="homeTeamOwner" style="font-size: 0.75rem; color: var(--team-owner, var(--text2)); font-family: var(--font-team-owner, var(--font-sub, inherit)); margin: 2px 0 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">...</p>
             </div>
           </div>
@@ -114,7 +116,7 @@ export const HomePage = {
           <div id="homeBoxes" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; width: 100%;">
             <div id="homeKitBox" style="${BOX} display: flex; flex-direction: column; min-width: 0;">
               <div onclick="window.openKitEditor && window.openKitEditor()" style="display: flex; align-items: center; justify-content: space-between; gap: 0.3rem; margin-bottom: 0.3rem; cursor: pointer;">
-                <div style="font-size: 0.7rem; font-weight: 700; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase;">Maglia</div>
+                <div data-th="home-boxTitle" style="font-size: 0.7rem; font-weight: 700; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase;">Maglia</div>
                 <div id="homeKitAction" style="font-size: 0.65rem; color: var(--accent); display: flex; align-items: center; flex-shrink: 0;">Modifica <i class="ri-arrow-right-s-line"></i></div>
               </div>
               <div id="homeTeamKit" onclick="window.openKitEditor && window.openKitEditor()" style="flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer;"></div>
@@ -124,18 +126,18 @@ export const HomePage = {
             </div>
             <div id="homeStadiumBox" onclick="window.openStadiumEditor && window.openStadiumEditor()" style="${BOX} grid-column: 1 / -1; cursor: pointer;">
               <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.3rem; margin-bottom: 0.3rem;">
-                <div style="font-size: 0.7rem; font-weight: 700; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase;">Stadio</div>
+                <div data-th="home-boxTitle" style="font-size: 0.7rem; font-weight: 700; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase;">Stadio</div>
                 <div id="homeStadiumAction" style="font-size: 0.65rem; color: var(--accent); display: flex; align-items: center; flex-shrink: 0;">Modifica <i class="ri-arrow-right-s-line"></i></div>
               </div>
               <div id="homeStadium"></div>
             </div>
             <div id="homePalmares" onclick="window.openMyClubInfo && window.openMyClubInfo()" style="${BOX} grid-column: 1 / -1; cursor: pointer;">
               <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.3rem; margin-bottom: 0.4rem;">
-                <div class="label" style="margin: 0; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase;"><i class="ri-trophy-line"></i> Palmarès</div>
+                <div class="label" data-th="home-palmaresTitle" style="margin: 0; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase;"><i class="ri-trophy-line"></i> Palmarès</div>
                 <div id="homePalmaresAction" style="font-size: 0.65rem; color: var(--accent); display: flex; align-items: center; flex-shrink: 0;">Info club <i class="ri-arrow-right-s-line"></i></div>
               </div>
               <div id="homeTeamTrophies" style="display: flex; align-items: flex-end; justify-content: flex-start; gap: 0.6rem; flex-wrap: wrap;">
-                <span style="font-size: 0.75rem; color: var(--text3); font-family: var(--font-text3, inherit); font-style: italic;">Nessun trofeo</span>
+                <span data-th="empty" style="font-size: 0.75rem; color: var(--text3); font-family: var(--font-text3, inherit); font-style: italic;">Nessun trofeo</span>
               </div>
             </div>
           </div>
@@ -158,13 +160,13 @@ export const HomePage = {
         <div id="homeNextMatchWrap">
           <div class="sec" style="margin-bottom:.6rem;">Prossimo Avversario</div>
           <div id="homeNextMatch" style="margin-bottom:1.5rem;">
-            <div style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1rem; font-size:.85rem;">Nessun match programmato.</div>
+            <div data-th="empty" style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1rem; font-size:.85rem;">Nessun match programmato.</div>
           </div>
         </div>
 
         <div class="sec" id="onFireTitle" style="margin-bottom:.6rem;">Giocatori On Fire <i class="ri-fire-fill" style="color: #ff4757;"></i></div>
         <div class="scroll-voti" id="homeOnFirePlayers">
-          <div style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1.5rem; font-size:.85rem; width:100%;">Nessun dato sulle prestazioni disponibile.</div>
+          <div data-th="empty" style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1.5rem; font-size:.85rem; width:100%;">Nessun dato sulle prestazioni disponibile.</div>
         </div>
 
         <!-- GIORNATA REALE: card piccola in fondo a destra -->
@@ -202,8 +204,8 @@ export const HomePage = {
           <div class="card card-sm card-mini" style="border-left: 3px solid ${color}; border-radius: 12px; background: var(--mini-bg, var(--bg2)); padding: .4rem .75rem .4rem .55rem; margin-bottom: 0; display: flex; align-items: center; gap: .5rem; max-width: 100%;">
             ${icon}
             <div style="min-width: 0; line-height: 1.25;">
-              <div style="font-size: .6rem; font-weight: 600; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase; letter-spacing: .3px;">${title}</div>
-              <div style="font-size: .78rem; font-weight: 600; color: var(--text);">${text}</div>
+              <div data-th="home-gwTitle" style="font-size: .6rem; font-weight: 600; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase; letter-spacing: .3px;">${title}</div>
+              <div data-th="home-gwText" style="font-size: .78rem; font-weight: 600; color: var(--text);">${text}</div>
             </div>
           </div>`;
       banner.innerHTML = realGw === 0
@@ -263,8 +265,8 @@ export const HomePage = {
                   ${st.image ? `<img src="${esc(st.image)}" alt="Stadio" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: contain;">` : '<i class="ri-building-2-line" style="font-size: 2.4rem; color: var(--text3);"></i>'}
                 </div>
                 <div style="min-width: 0;">
-                  <div style="font-size: 0.85rem; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(st.name || 'Stadio senza nome')}</div>
-                  ${st.capacity ? `<div style="font-size: 0.7rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-top: 2px;">${Number(st.capacity).toLocaleString('it-IT')} posti</div>` : ''}
+                  <div data-th="home-stadiumName" style="font-size: 0.85rem; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(st.name || 'Stadio senza nome')}</div>
+                  ${st.capacity ? `<div data-th="home-stadiumSeats" style="font-size: 0.7rem; color: var(--text2); font-family: var(--font-sub, inherit); margin-top: 2px;">${Number(st.capacity).toLocaleString('it-IT')} posti</div>` : ''}
                 </div>
               </div>`
             : `<div style="display: flex; align-items: center; gap: 0.6rem;">
@@ -322,7 +324,7 @@ export const HomePage = {
           trophiesContainer.style.flexWrap = 'wrap';
           trophiesContainer.innerHTML = wonTrophies.map(renderTrophy).join('');
         } else {
-          trophiesContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text3); font-family: var(--font-text3, inherit); font-style: italic;">Nessun trofeo in bacheca</span>`;
+          trophiesContainer.innerHTML = `<span data-th="empty" style="font-size: 0.72rem; color: var(--text3); font-family: var(--font-text3, inherit); font-style: italic;">Nessun trofeo in bacheca</span>`;
         }
       }
 
@@ -504,13 +506,13 @@ export const HomePage = {
                 <div class="pm" style="color:var(--text2);font-family:var(--font-sub,inherit); font-size:0.7rem;">${esc(p.club || '')} • ${count} pres. nelle ${periodo}</div>
               </div>
               <div style="text-align:right;">
-                <div style="${customStyle}">${avg.toFixed(2)}</div>
+                <div data-th="home-onFireAvg" style="${customStyle}">${avg.toFixed(2)}</div>
               </div>
             </div>
           `;
         }).join('');
       } else {
-        onFireContainer.innerHTML = `<div style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1.5rem; font-size:.85rem; width:100%;">Nessun fantavoto registrato nelle ${periodo}.</div>`;
+        onFireContainer.innerHTML = `<div data-th="empty" style="text-align:center; color:var(--text3);font-family:var(--font-text3,inherit); padding:1.5rem; font-size:.85rem; width:100%;">Nessun fantavoto registrato nelle ${periodo}.</div>`;
       }
     }
   }

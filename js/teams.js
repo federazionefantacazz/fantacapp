@@ -85,14 +85,14 @@ export const TeamsPage = {
 
       return `
         <div class="card card-mini" data-team-id="${esc(t.id)}" onclick="window.openTeamDetail(this.dataset.teamId)" style="display:flex; align-items:center; gap:1.25rem; padding:.5rem; margin-bottom:0; background:var(--mini-bg,var(--card)); border-color:var(--border); cursor:pointer; transition:transform 0.15s, background-color 0.15s;">
-          <img src="${logoUrl}" alt="Logo ${esc(t.name)}" loading="lazy" decoding="async" style="width:52px; height:52px; flex-shrink:0; object-fit:contain;" onerror="this.src='icons/icon-192.png'">
+          <img data-th="t-logo" src="${logoUrl}" alt="Logo ${esc(t.name)}" loading="lazy" decoding="async" style="width:52px; height:52px; flex-shrink:0; object-fit:contain;" onerror="this.src='icons/icon-192.png'">
           <div style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
-              <h3 style="font-size:1.1rem; font-weight:600; color:var(--text); overflow-wrap:anywhere; margin:0; line-height:1.2;">${esc(t.name)}</h3>
+              <h3 data-th="t-name" style="font-size:1.1rem; font-weight:600; color:var(--text); overflow-wrap:anywhere; margin:0; line-height:1.2;">${esc(t.name)}</h3>
             </div>
-            <p style="font-size:.72rem; color:var(--text2);font-family:var(--font-sub,inherit); margin-top:2px;">${esc((leadersOf(t) || { label: 'Presidente' }).label)}: <span style="color:var(--accent); font-weight:500;">${esc((leadersOf(t) || { names: 'Nessuno' }).names)}</span></p>
+            <p data-th="t-owner" style="font-size:.72rem; color:var(--text2);font-family:var(--font-sub,inherit); margin-top:2px;">${esc((leadersOf(t) || { label: 'Presidente' }).label)}: <span data-th="t-ownerNames" style="color:var(--accent); font-weight:500;">${esc((leadersOf(t) || { names: 'Nessuno' }).names)}</span></p>
           </div>
-          <svg viewBox="0 0 24 24" style="width:18px; height:18px; stroke:var(--text3); stroke-width:2; fill:none;"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          <svg data-th="t-arrow" viewBox="0 0 24 24" style="width:18px; height:18px; stroke:var(--text3); stroke-width:2; fill:none;"><polyline points="9 18 15 12 9 6"></polyline></svg>
         </div>
       `;
     }).join('');
@@ -220,12 +220,12 @@ export const TeamsPage = {
               : `<i class="ri-trophy-fill" style="font-size:1.5rem;color:var(--gold)"></i>`;
 
             return `
-              <div style="background:var(--bg3); border:1px solid var(--border); padding:.6rem .8rem; border-radius:10px; display:flex; align-items:center; gap:.8rem;">
+              <div data-th="t-trophy" style="background:var(--bg3); border:1px solid var(--border); padding:.6rem .8rem; border-radius:10px; display:flex; align-items:center; gap:.8rem;">
                 <div style="width:50px; height:50px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                   ${imgHtml}
                 </div>
                 <div style="text-align:left; flex:1; min-width:0;">
-                  <div style="font-size:.9rem; font-weight:600; color:var(--gold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(tr.name)}</div>
+                  <div data-th="t-trophyName" style="font-size:.9rem; font-weight:600; color:var(--gold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(tr.name)}</div>
                   <div style="font-size:.75rem; color:var(--text2);font-family:var(--font-sub,inherit);">Stagione: <strong style="color:var(--text);">${esc(tr.season)}</strong></div>
                 </div>
                 <div style="background:rgba(245,166,35,0.15); color:var(--gold); font-size:.7rem; font-weight:600; padding:.2rem .5rem; border-radius:6px; flex-shrink:0;">
@@ -241,13 +241,13 @@ export const TeamsPage = {
     content.innerHTML = `
       <div style="text-align:center; margin-bottom:1.5rem;">
         <img src="${logoUrl}" alt="Logo XL" loading="lazy" decoding="async" style="width:90px; height:90px; object-fit:contain; display:block; margin:0 auto 1rem auto;" onerror="this.src='icons/icon-192.png'">
-        <h2 style="font-family:'Bebas Neue',sans-serif; font-size:2rem; color:var(--text); margin-bottom:0.2rem;">
+        <h2 data-th="t-clubName" style="font-family:'Bebas Neue',sans-serif; font-size:2rem; color:var(--text); margin-bottom:0.2rem;">
           ${esc(team.name)}
         </h2>
-        <div style="font-size:.75rem; text-transform:uppercase; color:var(--text2);font-family:var(--font-sub,inherit); line-height:1.6;">
+        <div data-th="t-clubStaff" style="font-size:.75rem; text-transform:uppercase; color:var(--text2);font-family:var(--font-sub,inherit); line-height:1.6;">
           ${staffHTML || 'Presidente: <span style="color:var(--text); font-weight:500;">Nessuno</span>'}
         </div>
-        <p style="font-size:.85rem; color:var(--accent); font-style:italic; margin-top:0.5rem;">
+        <p data-th="t-clubMotto" style="font-size:.85rem; color:var(--accent); font-style:italic; margin-top:0.5rem;">
           ${mottoText}
         </p>
       </div>
@@ -269,7 +269,7 @@ export const TeamsPage = {
 
       <div class="card" style="margin-bottom:1rem; background:var(--card); text-align:left;">
         <div class="label">Storia del club</div>
-        <p style="font-size:.85rem; color:var(--text); line-height:1.4; margin-top:.4rem; white-space:pre-line;">
+        <p data-th="t-clubDesc" style="font-size:.85rem; color:var(--text); line-height:1.4; margin-top:.4rem; white-space:pre-line;">
           ${descriptionText}
         </p>
       </div>

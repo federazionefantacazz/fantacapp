@@ -23,7 +23,7 @@ function injectStyle() {
       padding: env(safe-area-inset-top, 0px) .8rem 0 .5rem; border-bottom: 1px solid var(--border); background: var(--header-bg); color: var(--bar-text); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
     .mp-title { margin: 0; font-weight: 400; font-family: var(--font-title, 'Bebas Neue', sans-serif); font-size: 1.5rem; letter-spacing: .5px; color: var(--title, var(--bar-text)); }
     .mp-body { flex: 1 1 0; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
-      padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px)); }
+      padding: 1rem 1rem calc(1rem + var(--safe-b, env(safe-area-inset-bottom, 0px))); }
     .mp-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1rem; margin-bottom: 1rem; }
     .mp-card-title { font-size: .75rem; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--title, var(--accent)); font-family: var(--font-title, inherit); margin-bottom: .8rem; }
     .mp-muted { font-size: .75rem; color: var(--text2); font-family: var(--font-sub, inherit); line-height: 1.4; }

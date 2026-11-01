@@ -40,10 +40,10 @@ export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
   // Intestazione: "Match N" (+ etichetta girone/playoff) a sinistra, stato a destra
   const labelText = opts.label || match.label || match.girone;
   const matchNumHTML = opts.matchNumber
-    ? `<span style="font-size:.7rem; font-weight:700; color:var(--text2);font-family:var(--font-sub,inherit); letter-spacing:.4px; text-transform:uppercase; white-space:nowrap; flex-shrink:0;">Match ${opts.matchNumber}</span>`
+    ? `<span data-th="match-num" style="font-size:.7rem; font-weight:700; color:var(--text2);font-family:var(--font-sub,inherit); letter-spacing:.4px; text-transform:uppercase; white-space:nowrap; flex-shrink:0;">Match ${opts.matchNumber}</span>`
     : '';
   const labelHTML = labelText
-    ? `<span style="min-width:0; font-size:.65rem; color:var(--gold); font-weight:700; text-transform:uppercase; display:inline-flex; align-items:center; gap:0.2rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><i class="ri-map-pin-line"></i><span style="overflow:hidden; text-overflow:ellipsis;">${esc(labelText)}</span></span>`
+    ? `<span data-th="match-label" style="min-width:0; font-size:.65rem; color:var(--gold); font-weight:700; text-transform:uppercase; display:inline-flex; align-items:center; gap:0.2rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><i class="ri-map-pin-line"></i><span style="overflow:hidden; text-overflow:ellipsis;">${esc(labelText)}</span></span>`
     : '';
   const leftHTML = `<div style="min-width:0; flex:1; display:flex; align-items:center; gap:.6rem; overflow:hidden;">${matchNumHTML}${labelHTML}</div>`;
 
@@ -57,10 +57,10 @@ export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
   // Con l'intestazione i punti vanno a destra, nella stessa riga dello stato: così tutte le card
   // hanno la stessa altezza (concluse, live, formazioni). Senza intestazione restano sotto il risultato.
   const pointsHeaderHTML = pointsText
-    ? `<span style="font-size:.65rem; color:var(--text2);font-family:var(--font-sub,inherit); font-weight:600; white-space:nowrap; flex-shrink:0;">${pointsText}</span>`
+    ? `<span data-th="match-points" style="font-size:.65rem; color:var(--text2);font-family:var(--font-sub,inherit); font-weight:600; white-space:nowrap; flex-shrink:0;">${pointsText}</span>`
     : '';
   const pointsHTML = (pointsText && !hasHeader)
-    ? `<div style="font-size:.65rem; color:var(--text2);font-family:var(--font-sub,inherit); text-align:center; margin-top:.3rem; white-space:nowrap;">${pointsText}</div>`
+    ? `<div data-th="match-points" style="font-size:.65rem; color:var(--text2);font-family:var(--font-sub,inherit); text-align:center; margin-top:.3rem; white-space:nowrap;">${pointsText}</div>`
     : '';
 
   const headerHTML = hasHeader
@@ -80,7 +80,7 @@ export const createMatchCardResult = (match, teamsList = [], opts = {}) => {
 
         <!-- Centro: Risultato e Punti -->
         <div style="flex-shrink:0; text-align:center;">
-          <div style="font-family:'DM Mono',monospace; font-size:1.2rem; font-weight:700; background:var(--bg3); padding:.2rem .45rem; border-radius:6px; color:var(--accent); display:inline-block; letter-spacing:1px;">
+          <div data-th="match-score" style="font-family:'DM Mono',monospace; font-size:1.2rem; font-weight:700; background:var(--bg3); padding:.2rem .45rem; border-radius:6px; color:var(--accent); display:inline-block; letter-spacing:1px;">
             ${scoreHome}:${scoreAway}
           </div>
           ${pointsHTML}

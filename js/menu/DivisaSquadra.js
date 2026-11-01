@@ -96,7 +96,7 @@ export function injectStyle() {
     .kit-zoom-head { display: flex; align-items: center; justify-content: space-between; padding: calc(.6rem + env(safe-area-inset-top, 0px)) .8rem .4rem; color: var(--title, var(--text)); font-family: var(--font-title, inherit); font-weight: 700; }
     .kit-zoom-stage { flex: 1; min-height: 0; position: relative; }
     .kit-zoom-stage > div { position: absolute; inset: 0; }
-    .kit-zoom-bar { display: flex; gap: .4rem; justify-content: center; flex-wrap: wrap; padding: .5rem .8rem calc(.8rem + env(safe-area-inset-bottom, 0px)); }
+    .kit-zoom-bar { display: flex; gap: .4rem; justify-content: center; flex-wrap: wrap; padding: .5rem .8rem calc(.8rem + var(--safe-b, env(safe-area-inset-bottom, 0px))); }
     .kit-zoom-bar button, .kit-zoom-head button { background: var(--kz-btn-bg, var(--bg2)); color: var(--kz-btn-text, var(--text)); font-family: var(--font-btn, inherit); border: 1px solid var(--kz-btn-border, var(--border)); border-radius: 10px; padding: .45rem .8rem; font-weight: 700; cursor: pointer; font-size: .85rem; }
     .kit-view-btns { position: absolute; right: 0; bottom: 0; display: flex; gap: .3rem; z-index: 2; }
     .kit-view-btns button { background: color-mix(in srgb, var(--bg2) 85%, transparent); color: var(--text2); border: 1px solid var(--border);
@@ -127,7 +127,7 @@ export function injectStyle() {
     .kit-pick-btn .go { margin-left: auto; color: var(--accent); font-size: .8rem; display: flex; align-items: center; gap: .2rem; flex-shrink: 0; }
     .kit-modal { position: fixed; inset: 0; z-index: 3000; background: var(--km-overlay, rgba(0,0,0,.6)); display: flex; align-items: flex-end; justify-content: center; }
     .kit-modal-box { width: 100%; max-width: 560px; max-height: 78vh; display: flex; flex-direction: column; background: var(--km-bg, var(--card)); border: 1px solid var(--km-border, var(--border));
-      border-radius: 18px 18px 0 0; padding: .8rem .9rem calc(.9rem + env(safe-area-inset-bottom, 0px)); }
+      border-radius: 18px 18px 0 0; padding: .8rem .9rem calc(.9rem + var(--safe-b, env(safe-area-inset-bottom, 0px))); }
     .kit-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .6rem; font-weight: 700; color: var(--title, var(--text)); font-family: var(--font-title, inherit); }
     .kit-modal-body { overflow-y: auto; -webkit-overflow-scrolling: touch; }
     .kit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: .45rem; }
@@ -604,6 +604,8 @@ export const DivisaSquadra = {
     const onShoulder = stripes && k.sleeveDecoShoulder && !raglan;
     const split = !!k.colors.sleevesR;
     const collarTrim = k.collarShape !== 'polo' && k.collar !== 'plain';
+    // bordino e bordo largo sono disegnati sullo scollo originale del modello (classica: V, raglan: girocollo)
+    const notNative = raglan ? k.collarShape === 'v' : k.collarShape === 'crew';
     return `
       ${this._part('ri-t-shirt-line', 'Busto', this._group('', 'front', `
         ${this._colorRow('Colore della maglia', 'base')}
@@ -613,10 +615,10 @@ export const DivisaSquadra = {
         </div>`))}
       ${this._part('ri-shirt-line', 'Colletto', `
       ${this._group('Forma', 'collar', `
-        <div class="kit-grid wide">${COLLAR_SHAPES.map(c => this._opt('collarShape', c.id, this._thumb({ ...base, collarShape: c.id }), raglan && c.id === 'v' ? 'Girocollo' : c.label, k.collarShape === c.id)).join('')}</div>
+        <div class="kit-grid">${COLLAR_SHAPES.map(c => this._opt('collarShape', c.id, this._thumb({ ...base, collarShape: c.id }), c.label, k.collarShape === c.id)).join('')}</div>
         ${this._colorRow('Colore del colletto', 'collar')}`)}
       ${k.collarShape === 'polo' ? '' : this._group('Rifinitura', 'collar', `
-        <div class="kit-grid">${COLLARS.map(c => this._opt('collar', c.id, this._thumb({ ...base, collar: c.id }), c.label, k.collar === c.id)).join('')}</div>
+        <div class="kit-grid">${COLLARS.filter(c => !(notNative && (c.id === 'trim' || c.id === 'wide'))).map(c => this._opt('collar', c.id, this._thumb({ ...base, collar: c.id }), c.label, k.collar === c.id)).join('')}</div>
         ${collarTrim ? this._colorRow('Colore di righe e bordino', 'trim') : ''}`)}`)}
       ${this._part('ri-t-shirt-2-line', 'Maniche', `
       ${this._group('Cucitura', 'shoulder', `

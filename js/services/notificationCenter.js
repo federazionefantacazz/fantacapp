@@ -23,7 +23,7 @@ const ASK_AGAIN_MS = 7 * 24 * 3600 * 1000;        // l'invito torna dopo una set
 
 const STYLES = `
 .hdr-bell{position:relative}
-#notif-invite{position:fixed;left:.8rem;right:.8rem;bottom:calc(76px + env(safe-area-inset-bottom, 0px));z-index:1400;
+#notif-invite{position:fixed;left:.8rem;right:.8rem;bottom:calc(76px + var(--safe-b, env(safe-area-inset-bottom, 0px)));z-index:1400;
   display:flex;align-items:center;gap:.7rem;padding:.8rem .9rem;border-radius:14px;background:var(--ni-bg, var(--card));border:1px solid var(--ni-border, var(--border));
   box-shadow:0 10px 30px rgba(0,0,0,.4);transform:translateY(20px);opacity:0;pointer-events:none;transition:all .3s ease;max-width:520px;margin:0 auto}
 #notif-invite.show{transform:none;opacity:1;pointer-events:auto}
@@ -150,31 +150,43 @@ export const NotificationCenter = {
 
     setTimeout(() => {
       if (permissionState() !== 'default') return;
-      let box = document.getElementById('notif-invite');
-      if (!box) {
-        box = document.createElement('div');
-        box.id = 'notif-invite';
-        box.setAttribute('role', 'dialog');
-        box.setAttribute('aria-label', 'Attiva le notifiche');
-        box.innerHTML = `
-          <div class="ni-ico"><i class="ri-notification-3-line"></i></div>
-          <div class="ni-txt"><b>Attiva le notifiche</b>Saprai subito quando ricevi un'offerta di mercato o una comunicazione dalla lega.</div>
-          <div class="ni-btns">
-            <button type="button" class="ni-yes">Attiva</button>
-            <button type="button" class="ni-no">Non ora</button>
-          </div>`;
-        document.body.appendChild(box);
-        box.querySelector('.ni-yes').addEventListener('click', async () => {
-          box.classList.remove('show');
-          await this.enable();
-        });
-        box.querySelector('.ni-no').addEventListener('click', () => {
-          lsSet(ASK_KEY, String(Date.now()));
-          box.classList.remove('show');
-        });
-      }
+      const box = this._inviteBox();
       requestAnimationFrame(() => box.classList.add('show'));
     }, 2500);
+  },
+
+  /** Riquadro dell'invito (creato una volta). */
+  _inviteBox() {
+    let box = document.getElementById('notif-invite');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'notif-invite';
+      box.setAttribute('role', 'dialog');
+      box.setAttribute('aria-label', 'Attiva le notifiche');
+      box.innerHTML = `
+        <div class="ni-ico"><i class="ri-notification-3-line"></i></div>
+        <div class="ni-txt"><b>Attiva le notifiche</b>Saprai subito quando ricevi un'offerta di mercato o una comunicazione dalla lega.</div>
+        <div class="ni-btns">
+          <button type="button" class="ni-yes">Attiva</button>
+          <button type="button" class="ni-no">Non ora</button>
+        </div>`;
+      document.body.appendChild(box);
+      box.querySelector('.ni-yes').addEventListener('click', async () => {
+        box.classList.remove('show');
+        await this.enable();
+      });
+      box.querySelector('.ni-no').addEventListener('click', () => {
+        lsSet(ASK_KEY, String(Date.now()));
+        box.classList.remove('show');
+      });
+    }
+    return box;
+  },
+
+  /** Anteprima dei temi nel Patron: mostra l'invito senza chiedere nulla. */
+  previewInvite(on = true) {
+    const box = on ? this._inviteBox() : document.getElementById('notif-invite');
+    if (box) box.classList.toggle('show', on);
   },
 
   /** Push ad app chiusa: token registrato solo con permesso concesso e notifiche attive. */

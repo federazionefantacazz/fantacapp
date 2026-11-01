@@ -54,7 +54,7 @@ export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId, opt
     return `
     <div onclick="${GO_CLASSIFICA}" style="display: flex; flex-direction: column; gap: 0.3rem; width: 100%; cursor: pointer;" title="Clicca per visualizzare la classifica completa">
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.3rem; margin-bottom: 0.1rem;">
-        <div style="min-width: 0; font-size: 0.7rem; font-weight: 700; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase; line-height: 1.2;">Classifica${gironeLabel ? `<div style="font-weight: 600; color: var(--text3); font-family: var(--font-text3, inherit);">${esc(gironeLabel)}</div>` : ''}</div>
+        <div data-th="home-boxTitle" style="min-width: 0; font-size: 0.7rem; font-weight: 700; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase; line-height: 1.2;">Classifica${gironeLabel ? `<div style="font-weight: 600; color: var(--text3); font-family: var(--font-text3, inherit);">${esc(gironeLabel)}</div>` : ''}</div>
         <i class="ri-arrow-right-s-line" aria-label="Vedi intera" style="font-size: 1.1rem; color: var(--accent); flex-shrink: 0;"></i>
       </div>
       <div style="display: flex; align-items: center; gap: 0.35rem; padding: 0 0.4rem;">
@@ -86,10 +86,10 @@ export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId, opt
          title="Clicca per visualizzare la classifica completa">
 
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.15rem;">
-        <div style="font-size: 0.7rem; font-weight: 600; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+        <div data-th="home-boxTitle" style="font-size: 0.7rem; font-weight: 600; color: var(--text2); font-family: var(--font-sub, inherit); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
           <i class="ri-bar-chart-2-line"></i> Mini Classifica${gironeLabel ? ` · ${esc(gironeLabel)}` : ''}
         </div>
-        <div style="font-size: 0.65rem; color: var(--accent); display: flex; align-items: center; gap: 2px; flex-shrink: 0;">Vedi intera <i class="ri-arrow-right-s-line"></i></div>
+        <div data-th="home-boxLink" style="font-size: 0.65rem; color: var(--accent); display: flex; align-items: center; gap: 2px; flex-shrink: 0;">Vedi intera <i class="ri-arrow-right-s-line"></i></div>
       </div>
 
       <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0 0.5rem;">
@@ -111,7 +111,7 @@ export function renderAnteprimaClassificaStandard(comp, teamsList, myTeamId, opt
         return `
           <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 6px; ${rowBg} font-size: 0.75rem;">
             <span style="font-weight: bold; color: ${isMe ? numColor : 'var(--text3)'}; width: 18px; text-align: center;">${pos}°</span>
-            <span style="flex: 1; min-width: 0; color: var(--text); overflow-wrap: anywhere; font-weight: ${isMe ? 'bold' : 'normal'};">${esc(team.name)}</span>
+            <span data-th="mini-team" style="flex: 1; min-width: 0; color: var(--text); overflow-wrap: anywhere; font-weight: ${isMe ? 'bold' : 'normal'};">${esc(team.name)}</span>
             <span style="font-family: 'DM Mono', monospace; width: 24px; text-align: center; color: var(--text2);">${s.giocate}</span>
             <span style="font-family: 'DM Mono', monospace; width: 28px; text-align: center; font-weight: bold; color: ${numColor};">${s.pts}</span>
             <span style="font-family: 'DM Mono', monospace; width: 52px; text-align: right; color: var(--text2);">${Number(s.totFanta).toFixed(1)}</span>
