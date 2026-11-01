@@ -229,6 +229,7 @@ export const FACADES = [
   { id: 'wall',    label: 'Muro liscio' },
   { id: 'columns', label: 'Pilastri' },
   { id: 'struts',  label: 'Struttura a vista e basamento' },
+  { id: 'stairs',  label: 'Scalinate e recinzione (Maradona)' },
   { id: 'bands',   label: 'Fasce orizzontali' },
   { id: 'esplanade', label: 'Spianata rialzata' },
   { id: 'glass',   label: 'Vetrate scure' },
@@ -300,10 +301,10 @@ export function seatGridFrom(st) {
 export const PRESETS = [
   {
     id: 'maradona', label: 'Stile Maradona',
-    desc: 'Ovale con la pista blu (anche dietro le porte), due anelli a mosaico azzurro, blu, bianco e giallo, cartelloni LED a bordo campo e tra gli anelli, tetto in lamiera con i tralicci e le batterie di fari, schermi sulle curve, cemento a vista e basamento bianco.',
+    desc: 'Ovale con la pista blu (anche dietro le porte), due anelli a mosaico azzurro, blu, bianco e giallo, cartelloni LED a bordo campo e tra gli anelli, tetto in lamiera con i tralicci e le batterie di fari, schermi sulle curve; fuori il cemento a vista con i puntoni e le scalinate, la recinzione gialla e i cancelli con le insegne dei settori.',
     st: {
       rings: 2, track: true, apronStyle: 'tartan', groundStyle: 'concrete', adBoards: 'both', screen: 'ends', shape: 'oval', corners: 'closed', mowing: 'stripes',
-      seatMode: 'single', seatMosaic: 'mix', roof: 'truss', lights: 'roof', facade: 'struts',
+      seatMode: 'single', seatMosaic: 'mix', roof: 'truss', lights: 'roof', facade: 'stairs',
       colors: {
         grass: '#3f8a35', track: '#2a63c8', trackLines: '#eef3fb', seatA: '#2b9ae8', mosaicB: '#1b4fc0', mosaicC: '#f4f6f8', mosaicD: '#f2cc2c',
         parapet: '#e7eaee', structure: '#b3b1ab', roof: '#9da3a9', steel: '#6c7178', accent: '#1f6fd1', ads: '#d0122d', screen: '#0d2a7a'
@@ -1225,6 +1226,13 @@ const TOWER_OVER = 5;   // le torri d'angolo salgono sopra le travi rosse (in ci
 const ESPLANADE_H = 5, ESPLANADE_W = 24;     // spianata rialzata: altezza e larghezza dal muro
 const SHELL_CELL_U = 7, SHELL_CELL_V = 4.4;  // involucro: un cuscino a rombo ogni 7 m in orizzontale e 4,4 m lungo il profilo
 const PLATFORM_H = 5.9, PLATFORM_OUT = 10; // piattaforma intorno allo stadio (struttura a vista): altezza e sporgenza dal muro
+// scalinate (Maradona): campata tra un puntone e l'altro, alzata e pedata dei gradini, recinzione (distanza, metà del cancello)
+const STAIR_BAY = 18, STAIR_RISE = 0.3, STAIR_TREAD = 0.5, FENCE_OUT = 7, GATE_HALF = 8;
+/** Distanza della recinzione gialla (Maradona) dal bordo degli spalti per un tratto: oltre le scalinate. */
+const stairFence = (shape, run) => {
+  const o = runOuter(run), rt = run.tiers, inner = rt.length > 1 ? rt[rt.length - 2].back + WALL + 0.4 : o;
+  return (o - inner > 5.5 ? o : o + 6.4) + FENCE_OUT;
+};
 
 /** Fari effettivi: senza tetto quelli "sul tetto" diventano torri. */
 const lightsOf = (st) => (st.lights === 'roof' && st.roof === 'none' && !st._anyRoof ? 'towers' : st.lights);
@@ -2062,7 +2070,7 @@ const pylonHeight = (R) => R.h(R.dOut) + 7;
 
 /** Distanza dal bordo occupata dal muro esterno (con basamento o fasce). */
 const CLAD_PODIUM_W = 6, CLAD_MODULE = 12, CLAD_ENTRANCE = 30, CLAD_DRUM_R = 6.5; // facciata inglese: basamento, moduli, ingresso, torri
-const footOf = (shape, st) => shape.outer + ({ struts: PLATFORM_OUT + 0.2, bands: 1.8, columns: 0.8, curtain: CURTAIN_SLAB + 0.3, cladding: CLAD_PODIUM_W + 0.2, esplanade: esplanadeW(st) + 0.2 + (st.roof === 'shell' ? SHELL_PLAZA_OUT : 0) }[st.facade] || 0);
+const footOf = (shape, st) => shape.outer + ({ struts: PLATFORM_OUT + 0.2, stairs: FENCE_OUT + 0.4, bands: 1.8, columns: 0.8, curtain: CURTAIN_SLAB + 0.3, cladding: CLAD_PODIUM_W + 0.2, esplanade: esplanadeW(st) + 0.2 + (st.roof === 'shell' ? SHELL_PLAZA_OUT : 0) }[st.facade] || 0);
 /** Facciata inglese: altezza del basamento e del cornicione colorato per una parete alta H. */
 const cladPodium = (H) => Math.min(10.5, H * 0.42), cladCornice = (H) => Math.min(3, H * 0.12);
 /** Facciata inglese: nastri di vetrate [da, a] all'altezza del corridoio sotto ogni anello superiore. */
@@ -3024,6 +3032,7 @@ function signOf(shape, st) {
   const free = Math.min(6, Math.max(3, Ht * 0.2));
   const [d, hc, maxH, standOn] = {
     struts: [o + PLATFORM_OUT + 0.12, 0, 4.2, PLATFORM_H + 1.15],              // in piedi sulla ringhiera della piattaforma, davanti ai piloni
+    stairs: [o + 0.5, Ht - 3.2, 4.4],                                          // sull'anello in alto
     bands: [o + 1.95, Ht - 5, 6.5],                                            // in alto sulla facciata, tra una torre e l'altra
     columns: [o + 0.8, Ht * 0.62, free]                                         // davanti ai pilastri
   }[st.facade] || [o + 0.08, Math.max(Ht * 0.62, (st.facade === 'esplanade' ? ESPLANADE_H : 0) + 4.5), free];
@@ -4513,6 +4522,8 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
   for (const m of [stoneLight, stoneDark]) triplanar(m, stoneTex, 0.25);
   own.push(stoneTex, stoneLight, stoneDark);
   const girderMat = new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.2 });
+  const fenceMat = new THREE.MeshStandardMaterial({ color: 0xf0c21b, roughness: 0.6, side: THREE.DoubleSide }); // recinzione gialla (Maradona)
+  own.push(fenceMat);
   const cylinder = new THREE.CylinderGeometry(1, 1, 1, 28);
   own.push(dark, girderMat, cylinder);
   const beams = [], pilasters = [], lamps = [], spots = [], windows = [];
@@ -5878,6 +5889,264 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     own.push(g);
   }
 
+  if (st.facade === 'stairs') {
+    // Maradona: sotto lo sbalzo dell'anello di sopra, in ogni campata, le scale a forbice in cemento grigio: due rampe
+    // parallele alla facciata che si incrociano a X (una sale verso destra, l'altra verso sinistra un po' più dentro), col
+    // sotto a dente di sega e i pianerottoli alle estremità; da terra al ballatoio e dal ballatoio a quello alto. Tra una
+    // campata e l'altra le grandi travi inclinate che reggono lo sbalzo; dietro il muro scuro chiude fin sotto l'anello di
+    // sopra (da fuori non si vede il campo); davanti la fascia del ballatoio in cemento a pannelli; a terra il muretto con
+    // la ringhiera e, più fuori, la recinzione gialla con i cancelli al centro di ogni lato e le insegne blu dei settori
+    const rect = (d0, d1, h0, h1, m) => [[d0, h0], [d1, h0], [d1, h1], [d0, h1]].map(([d, h]) => ({ d, h, m }));
+    const pos = [], idx = [[], [], [], []], steps = [], slabs = [], struts = [], joints = [], rails = [], rails2 = [], idx2 = [[], [], [], []], fence = [], fIdx = [[], [], []];
+    // cemento: fasce più chiare, scale e travi grigie, di notte appena illuminati dai lampioni sotto lo sbalzo
+    const concrete = (f, glow) => {
+      const m = new THREE.MeshStandardMaterial({ roughness: 0.9, side: THREE.DoubleSide, emissive: 0xffc98a, emissiveIntensity: 0 });
+      triplanar(m, stoneTex, 0.25);
+      repaint.push((s2) => m.color.set(shade(s2.colors.structure, f)));
+      nightGlow.push([m, 0, glow]);
+      own.push(m);
+      return m;
+    };
+    const lightMat = concrete(1.08, 0.14), stairMat = concrete(0.86, 0.1), beamMat = concrete(0.86, 0.1);
+    const prismPos = [];
+    // prisma da una faccia (punti 3D, poligono convesso) a un'altra uguale spostata: tappi a ventaglio e lati piani
+    const prism = (front, back) => {
+      const tri = (a, b, c) => prismPos.push(...a, ...b, ...c), n = front.length;
+      for (let i = 1; i < n - 1; i++) { tri(front[0], front[i], front[i + 1]); tri(back[0], back[i + 1], back[i]); }
+      for (let i = 0; i < n; i++) { const j = (i + 1) % n; tri(front[i], back[i], back[j]); tri(front[i], back[j], front[j]); }
+    };
+    // pezzo della clessidra: poligono convesso nel piano della facciata (punti [u, h], u lungo il giro dal centro um)
+    // spinto in profondità da d0 a d1
+    const piece = (run, cum, um, pts, d0, d1) => {
+      const face = (d) => pts.map(([u, h]) => { const [x, z] = pointAt(run, cum, um + u, d); return [x, h, z]; });
+      prism(face(d1), face(d0));
+    };
+    // gradinata dritta che sale verso dentro (all'ingresso dei cancelli): da (dA, 0) a (dB, hB), larga w, coi muri ai lati
+    const grand = (run, cum, u, w, dA, dB, hB) => {
+      const n = Math.max(2, Math.round(hB / STAIR_RISE)), rise = hB / n, dd = (dB - dA) / n, [tx, tz] = tangentAt(run, cum, u, (dA + dB) / 2);
+      for (let k = 0; k < n; k++) {
+        const [x, z] = pointAt(run, cum, u, dA + dd * (k + 0.5)), h = rise * (k + 1);
+        boxAt(steps, x, h / 2, z, [tx * w, 0, tz * w], [0, h, 0], [-tz * Math.abs(dd), 0, tx * Math.abs(dd)]);
+      }
+      for (const k of [-1, 1]) {
+        const [x0, z0] = pointAt(run, cum, u + k * w / 2, dA), [x1, z1] = pointAt(run, cum, u + k * w / 2, dB);
+        beam(struts, x0, 0.6, z0, x1, hB + 0.6, z1, 0.5);
+      }
+    };
+    for (const run of shape.runs) {
+      const T = runTop(run), o = runOuter(run), cum = runLengths(run), total = cum[cum.length - 1], rt = run.tiers;
+      // muri che chiudono da un anello all'altro (dietro l'anello di sotto fin sotto quello di sopra), scuri con le righe
+      // orizzontali dei gradoni (come il sotto dell'anello di sopra visto da fuori)
+      for (let i = 1; i < rt.length; i++) {
+        const d = rt[i - 1].back + WALL + 0.05, h0 = i === 1 ? 0 : rt[i - 1].under(d) - 0.3, h1 = rt[i].under(d) + 0.4;
+        extrude(THREE, run, rect(d, d + 0.35, h0, h1, 2), pos, idx);
+        for (let h = h0 + 1.2; h < h1 - 0.4; h += 1.1) extrude(THREE, run, rect(d + 0.35, d + 0.5, h, h + 0.14, 3), pos, idx);
+      }
+      // zona delle scale: sotto lo sbalzo (dal muro al bordo) se c'è posto, se no davanti al muro
+      const inner = rt.length > 1 ? rt[rt.length - 2].back + WALL + 0.4 : o, room = o - inner > 5.5;
+      const dIn = room ? inner + 0.2 : o + 0.4, dOut = room ? o : o + 6.4, top = rt.length > 1 ? rt[rt.length - 1].under(o) : T.top;
+      const under = (d) => (rt.length > 1 ? rt[rt.length - 1].under(d) : T.top + 2.2);
+      // la trave ad anello (il ballatoio) a metà altezza sotto lo sbalzo, il ballatoio alto più su
+      const Hw = Math.max(8.5, Math.min(top * 0.5, top - 9));
+      const w = Math.min(3.2, dOut - dIn - 2.4); // larghezza delle rampe (dietro la trave ad anello e i puntoni)
+      // ballatoio e, sul bordo, la grossa trave ad anello liscia; anello in alto
+      extrude(THREE, run, rect(dIn - 0.3, dOut - 1.4, Hw - 0.6, Hw, 0), pos, idx);
+      extrude(THREE, run, rect(dOut - 1.4, dOut + 0.5, Hw - 1.9, Hw + 1.5, 1), pos, idx);
+      extrude(THREE, run, rect(o, o + 0.9, T.top + 2.2 - 4.5, T.top + 2.2, 0), pos, idx);
+      // giunti tra i pannelli della fascia, ogni 3 m
+      for (const u of stations(run, cum, 3, dOut + 0.5)) {
+        const [x, z] = pointAt(run, cum, u, dOut + 0.52), [tx, tz] = tangentAt(run, cum, u, dOut + 0.5);
+        boxAt(joints, x, Hw - 0.2, z, [tx * 0.06, 0, tz * 0.06], [0, 3.4, 0], [-tz * 0.06, 0, tx * 0.06]);
+      }
+      // cancelli su questo tratto (al centro dei lati): lì la grande gradinata dritta al posto delle scale a forbice
+      const gates = [];
+      run.pts.forEach((p, i) => {
+        const side = sideOfPoint(p), c = onLongSide(p) ? Math.abs(p.x) : Math.abs(p.z), prev = run.pts[i - 1], next = run.pts[i + 1];
+        const cOf = (q) => (q && sideOfPoint(q) === side ? (onLongSide(q) ? Math.abs(q.x) : Math.abs(q.z)) : Infinity);
+        if (c < 3 && c <= cOf(prev) && c <= cOf(next)) gates.push(cum[i]);
+      });
+      for (const ug of gates) {
+        const [xg, zg] = pointAt(run, cum, ug, 0);
+        if (nearEntrance(shape, st, xg, zg, 3)) continue;
+        grand(run, cum, ug, 2 * GATE_HALF - 4, dOut + FENCE_OUT - 1.5, dIn + 2, Hw - 0.6);
+      }
+      const n = Math.max(1, Math.round(total / STAIR_BAY)), bay = total / n;
+      // scale a clessidra: due per settore, a destra e a sinistra del cancello (a circa 3/10 della lunghezza del settore),
+      // nella campata più vicina
+      const stairBays = new Set();
+      for (const ug of gates) {
+        const side = sideOfPoint(run.pts[cum.findIndex(c => Math.abs(c - ug) < 1e-6)] || run.pts[0]);
+        let len = 0;
+        for (let i = 0; i < run.pts.length - (run.closed ? 0 : 1); i++) {
+          const p = run.pts[i], q = run.pts[(i + 1) % run.pts.length];
+          if (sideOfPoint(p) === side && sideOfPoint(q) === side) len += Math.hypot(q.x - p.x, q.z - p.z);
+        }
+        for (const sg of [-1, 1]) {
+          const ut = ug + sg * Math.max(GATE_HALF + bay * 0.6, len * 0.3);
+          if (!run.closed && (ut < 0 || ut > total)) continue;
+          stairBays.add(((Math.floor(wrapU(run, total, ut) / bay) % n) + n) % n);
+        }
+      }
+      for (let k = 0; k < n; k++) {
+        const ua = k * bay, um = ua + bay / 2;
+        if (!run.closed && (ua < 0.5 || ua + bay > total - 0.5)) continue;
+        // puntone tra le campate: da terra fin sotto la trave ad anello, inclinato lungo la facciata (uno sì e uno no
+        // dall'altra parte: a coppie si chiudono verso l'alto), grosso e profondo
+        {
+          const sgn = k % 2 ? -1 : 1, lean = Math.min(3.5, Hw * 0.28), dp = dOut - 0.6;
+          const [bx0, bz0] = pointAt(run, cum, wrapU(run, total, ua - sgn * lean), dp), [bx1, bz1] = pointAt(run, cum, ua, dp);
+          const [tx, tz] = tangentAt(run, cum, ua, dp), a = [bx1 - bx0, Hw - 1.9, bz1 - bz0];
+          boxAt(struts, (bx0 + bx1) / 2, a[1] / 2, (bz0 + bz1) / 2, a, [tx * 1.5, 0, tz * 1.5], [-tz * 2.2, 0, tx * 2.2]);
+        }
+        const [xa, za] = pointAt(run, cum, um, 0);
+        if (!stairBays.has(k) || nearEntrance(shape, st, xa, za, 3)) continue;
+        // scala a clessidra (come al Maradona): un blocco di cemento nel piano della facciata fatto di pezzi che si toccano
+        // solo sui bordi (B = larghezza della campata, G = altezza sotto la trave ad anello). Il percorso: da terra la
+        // scalinata centrale (in ombra sotto la strozzatura) sale al pianerottolo; da lì le due bande basse vanno verso i
+        // lati, poi i bracci salgono a gradini verso il centro fino alla strozzatura (la rampa centrale, che sale verso
+        // dentro); da lì due bracci salgono a gradini verso i lati fino alle bande alte, che portano dentro; in cima al
+        // centro il telaio a esagono
+        const G = Hw - 1.9, B = bay, dd = 2.6, d1 = dOut - 1.8, d0 = d1 - dd, out = 0.4;
+        if (d0 < dIn + 0.4) continue;
+        const h = (f) => f * G, u = (f) => f * B, [tx, tz] = tangentAt(run, cum, um, (d0 + d1) / 2);
+        const P = (list, o = 0, da = d0, db = d1 + o) => piece(run, cum, um, list.map(([a, b]) => [u(a), h(b)]), da, db);
+        // gradini sul bordo di sopra di un braccio, da (ua, ha) a (ub, hb) (frazioni di B e G): ogni gradino sporge sopra
+        const stepsOn = (ua, ha, ub, hb) => {
+          const nS = Math.max(2, Math.round(h(hb - ha) / STAIR_RISE)), r = h(hb - ha) / nS;
+          for (let j = 0; j < nS; j++) {
+            const u0 = u(ua + (ub - ua) * j / nS), u1 = u(ua + (ub - ua) * (j + 1) / nS), hj = h(ha) + r * j;
+            const [x, z] = pointAt(run, cum, um + (u0 + u1) / 2, (d0 + d1 + out) / 2), wj = Math.abs(u1 - u0), dj = dd + out - 0.1;
+            boxAt(steps, x, hj + r / 2 - 0.01, z, [tx * wj, 0, tz * wj], [0, r + 0.02, 0], [-tz * dj, 0, tx * dj]);
+          }
+        };
+        for (const k of [-1, 1]) {
+          const m = (list) => (k > 0 ? list : list.map(([a, b]) => [-a, b]).reverse());
+          P(m([[0.07, 0.10], [0.46, 0.10], [0.46, 0.19], [0.07, 0.19]]));                 // banda bassa
+          P(m([[0.30, 0.19], [0.44, 0.19], [0.14, 0.40], [0.14, 0.29]]), out);            // braccio basso
+          P(m([[0.14, 0.45], [0.36, 0.55], [0.36, 0.67], [0.14, 0.57]]), out);            // braccio alto
+          P(m([[0.36, 0.55], [0.50, 0.55], [0.50, 0.67], [0.36, 0.67]]));                 // banda alta
+          // la banda alta continua dietro fino al muro (si entra dentro)
+          P(m([[0.38, 0.60], [0.50, 0.60], [0.50, 0.67], [0.38, 0.67]]), 0, dIn + 0.2, d0);
+          stepsOn(k * 0.44, 0.19, k * 0.14, 0.40);
+          stepsOn(k * 0.14, 0.57, k * 0.36, 0.67);
+        }
+        P([[-0.14, 0.29], [0.14, 0.29], [0.14, 0.57], [-0.14, 0.57]], out);               // strozzatura
+        // telaio a esagono in cima al centro, un poco più avanti, con la feritoia scura
+        P([[-0.16, 0.615], [0.16, 0.615], [0.22, 0.675], [0.16, 0.735], [-0.16, 0.735], [-0.22, 0.675]], 0, d0 + 0.3, d1 + 0.7);
+        const [xs, zs] = pointAt(run, cum, um, d1 + 0.72);
+        boxAt(joints, xs, h(0.675), zs, [tx * u(0.24), 0, tz * u(0.24)], [0, h(0.05), 0], [-tz * 0.05, 0, tx * 0.05]);
+        // pianerottolo e scalinata centrale da terra (in ombra sotto la strozzatura), che sale verso dentro
+        P([[-0.07, 0.10], [0.07, 0.10], [0.07, 0.19], [-0.07, 0.19]], 0, d0, d0 + 1.2);
+        const hL = h(0.19), nS = Math.max(2, Math.round(hL / STAIR_RISE)), wS = u(0.13);
+        for (let j = 0; j < nS; j++) {
+          const dj = d0 + 1.2 + (nS - j - 0.5) * STAIR_TREAD, [x, z] = pointAt(run, cum, um, dj), hj = STAIR_RISE * (j + 1);
+          boxAt(steps, x, hj / 2, z, [tx * wS, 0, tz * wS], [0, hj, 0], [-tz * STAIR_TREAD, 0, tx * STAIR_TREAD]);
+        }
+      }
+      // muretto con la ringhiera ai piedi della facciata
+      const dr = dOut + 1.6;
+      extrude(THREE, run, rect(dr, dr + 0.3, 0, 0.9, 0), pos, idx);
+      for (const u of stations(run, cum, 2.2, dr + 0.15)) { const [x, z] = pointAt(run, cum, u, dr + 0.15); boxAt(rails, x, 1.45, z, [0.07, 0, 0], [0, 1.1, 0], [0, 0, 0.07]); }
+      for (const h of [1.95, 1.45]) extrude(THREE, run, rect(dr + 0.12, dr + 0.18, h - 0.03, h + 0.03, 3), rails2, idx2);
+      // sotto l'anello di sopra: travi inclinate (le nervature) ogni 8 m
+      for (const t of rt) {
+        if (t.i === 0) continue;
+        for (const u of stations(run, cum, PILASTER_EVERY, o)) {
+          const [x0, z0] = pointAt(run, cum, u, t.D), [x1, z1] = pointAt(run, cum, u, t.back + WALL);
+          beam(pilasters, x0, t.under(t.D) - 0.6, z0, x1, t.under(t.back + WALL) - 0.6, z1, 0.8);
+        }
+      }
+      // recinzione gialla con i montanti, aperta ai cancelli (al centro di ogni lato)
+      const df = stairFence(shape, run), gate = (p) => (onLongSide(p) ? Math.abs(p.x) < GATE_HALF : Math.abs(p.z) < GATE_HALF);
+      for (const sub of subRuns(run, p => !gate(p))) {
+        extrude(THREE, sub, rect(df, df + 0.06, 0.12, 2.4, 0), fence, fIdx);
+        const sc = runLengths(sub);
+        for (const u of stations(sub, sc, 2.5, df)) { const [x, z] = pointAt(sub, sc, u, df); boxAt(frames, x, 1.3, z, [0.12, 0, 0], [0, 2.6, 0], [0, 0, 0.12]); }
+      }
+    }
+    // cancelli: due pali, la trave in alto con le insegne del settore (sopra e sotto), i tornelli ai lati
+    const signs = [];
+    for (const side of [0, 1, 2, 3]) {
+      const sz = side === 0 ? 1 : side === 2 ? -1 : 0;
+      const run = shape.runs.find(r => r.pts.some(p => sideOfPoint(p) === side && (sz ? Math.abs(p.x) < 2 : Math.abs(p.z) < 2)));
+      if (!run) continue;
+      const p = run.pts.reduce((m, q) => (sideOfPoint(q) === side && (sz ? Math.abs(q.x) < Math.abs(m.x) : Math.abs(q.z) < Math.abs(m.z)) ? q : m), run.pts.find(q => sideOfPoint(q) === side));
+      const df = stairFence(shape, run), cx = p.x + p.mx * df, cz = p.z + p.mz * df, rx = -p.mz, rz = p.mx;
+      if (nearEntrance(shape, st, p.x, p.z, 2)) continue;
+      for (const k of [-1, 1]) {
+        boxAt(frames, cx + rx * k * GATE_HALF, 2.1, cz + rz * k * GATE_HALF, [0.3, 0, 0], [0, 4.2, 0], [0, 0, 0.3]);
+        // tornelli: casotti scuri ai lati del cancello, dentro la recinzione
+        const bx = cx + rx * k * (GATE_HALF - 2.2) - p.mx * 2, bz = cz + rz * k * (GATE_HALF - 2.2) - p.mz * 2;
+        boxAt(windows, bx, 1.3, bz, [rx * 2.6, 0, rz * 2.6], [0, 2.6, 0], [p.mx * 2, 0, p.mz * 2]);
+      }
+      boxAt(frames, cx, 4.35, cz, [rx * (2 * GATE_HALF + 0.3), 0, rz * (2 * GATE_HALF + 0.3)], [0, 0.35, 0], [p.mx * 0.3, 0, p.mz * 0.3]);
+      const name = ['TRIBUNA', 'CURVA B', 'DISTINTI', 'CURVA A'][side];
+      [['SUPERIORE', -1], ['INFERIORE', 1]].forEach(([lv, k]) => signs.push({ text: `${name} ${lv}`, x: cx + rx * k * GATE_HALF * 0.5 + p.mx * 0.2, z: cz + rz * k * GATE_HALF * 0.5 + p.mz * 0.2, rx, rz, nx: p.mx, nz: p.mz }));
+    }
+    if (signs.length) {
+      const W = 512, Hc = 72, canvas = document.createElement('canvas');
+      canvas.width = W; canvas.height = Hc * signs.length;
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+      const paint = (s) => {
+        const ctx = canvas.getContext('2d');
+        signs.forEach((sg, i) => {
+          ctx.fillStyle = s.colors.accent; ctx.fillRect(0, i * Hc, W, Hc);
+          ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4; ctx.strokeRect(6, i * Hc + 6, W - 12, Hc - 12);
+          ctx.fillStyle = '#ffffff'; ctx.font = '900 34px "Arial Black", Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(sg.text, W / 2, i * Hc + Hc / 2 + 1, W - 40);
+        });
+        tex.needsUpdate = true;
+      };
+      repaint.push(paint);
+      const sp = [], su = [], si = [], sw = 7.4, sh = sw * Hc / W * 1.25;
+      signs.forEach((sg, i) => {
+        const b = sp.length / 3, y0 = 4.6, v0 = 1 - (i + 1) / signs.length, v1 = 1 - i / signs.length;
+        // da fuori la destra del cartello è verso −r
+        for (const [a, h, u, v] of [[-1, 0, 0, v0], [1, 0, 1, v0], [1, sh, 1, v1], [-1, sh, 0, v1]]) {
+          sp.push(sg.x - sg.rx * a * sw / 2, y0 + h, sg.z - sg.rz * a * sw / 2); su.push(u, v);
+        }
+        si.push(b, b + 1, b + 2, b, b + 2, b + 3);
+      });
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3));
+      g.setAttribute('uv', new THREE.Float32BufferAttribute(su, 2));
+      g.setIndex(si);
+      g.computeVertexNormals();
+      const signMat = new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.15, roughness: 0.5, side: THREE.DoubleSide });
+      nightGlow.push([signMat, 0.15, 0.8]);
+      group.add(new THREE.Mesh(g, signMat));
+      own.push(tex, g, signMat);
+    }
+    for (const [P2, I2, mats2] of [[pos, idx, [lightMat, lightMat, dark, beamMat]], [rails2, idx2, [steel, steel, steel, steel]], [fence, fIdx, [fenceMat, fenceMat, fenceMat]]]) {
+      if (!P2.length) continue;
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(P2, 3));
+      let start = 0;
+      I2.forEach((list, m) => { g.addGroup(start, list.length, m); start += list.length; });
+      g.setIndex(I2.flat());
+      g.computeVertexNormals();
+      const m = new THREE.Mesh(g, mats2);
+      m.castShadow = m.receiveShadow = true;
+      group.add(m);
+      own.push(g);
+    }
+    inst(stairMat, steps);
+    inst(stairMat, slabs);
+    if (prismPos.length) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(prismPos, 3));
+      g.computeVertexNormals();
+      const m = new THREE.Mesh(g, stairMat);
+      m.castShadow = m.receiveShadow = true;
+      group.add(m);
+      own.push(g);
+    }
+    inst(beamMat, struts);
+    inst(dark, joints);
+    inst(steel, rails);
+  }
+
   if (st.roof === 'stands') {
     // stile inglese (Stamford Bridge): ogni tribuna ha il suo tetto alla sua altezza, anche sugli angoli. Sopra lamiera
     // scura con la struttura a vista (travi reticolari a sbalzo, più alte dietro, e correnti lungo la tribuna), davanti
@@ -7122,7 +7391,7 @@ function buildStadium(L, st) {
   standTex.wrapS = standTex.wrapT = THREE.RepeatWrapping; standTex.anisotropy = 4;
   for (const m of [mats[M_PARAPET], mats[M_STEPS], mats[M_STRUCT]]) triplanar(m, standTex, 0.22);
   own.push(standTex);
-  const stands = new THREE.Mesh(standsGeometry(THREE, shape, st.facade === 'struts', st.boxes), mats);
+  const stands = new THREE.Mesh(standsGeometry(THREE, shape, st.facade === 'struts' || st.facade === 'stairs', st.boxes), mats);
   stands.castShadow = stands.receiveShadow = true;
   // con la copertura ondulata l'anello più alto segue l'onda (anche scalette e vomitori, più sotto)
   const standRamp = rampOf(parts[0].roof);
