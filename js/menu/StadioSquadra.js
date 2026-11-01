@@ -423,6 +423,7 @@ export const StadioSquadra = {
       <div class="std-group">
       <div class="kit-sub">Muro esterno</div>
       ${this._opts('facade', FACADES, s.facade)}
+      ${s.facade === 'stairs' ? `<div class="std-desc">Come al Maradona: sotto lo sbalzo dell'anello alto le grandi scalinate in cemento che salgono verso dentro, le travi inclinate chiare tra una campata e l'altra e il muro scuro dietro (da fuori non si vede il campo); a terra la recinzione gialla con i cancelli e le insegne dei settori, del colore delle fasce.</div>${this._colorRow('Insegne dei cancelli', 'colors.accent', s.colors.accent)}` : ''}
       ${s.facade === 'curtain' ? `<div class="std-desc">Come a Wembley: in basso il colonnato con i pilastri bianchi e le torri cilindriche delle scale in cemento, sopra piani di vetrate verde-azzurre con le solette chiare e i montanti. Di notte si accendono gli interni.</div>` : ''}
       ${WALL_TEX_FACADES.includes(s.facade) ? `
       <div class="kit-sub">Texture del muro</div>
