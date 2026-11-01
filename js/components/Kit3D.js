@@ -113,8 +113,8 @@ async function applyCut(model, url) {
   }
 }
 
-/** Classica col girocollo: la costina della raglan sta un po' più in alto (la stoffa in neck-crew-setin.bin arriva lì). */
-const CREW_LIFT = 0.006, CREW_WIDEN = 1.012;
+/** Classica col girocollo: posizione della costina della raglan (la stoffa in neck-crew-setin.bin arriva al suo bordo). */
+const CREW_FIT = { pivot: [0, 1.58, 0], dy: 0.003238, dz: -0.010652, tilt: -0.092575, sx: 1.015959, sz: 1.031167 };
 /** Raglan con la V: la costina a V della classica rimpicciolita (scala), inclinata (gradi) e spostata (m) attorno a
  * pivot, poi allargata un po' intorno all'asse del collo; la stoffa in neck-v-raglan.bin arriva al suo bordo. */
 const V_FIT = { pivot: [0, 1.52, 0], dy: 0.005347, dz: -0.000231, tilt: 0.059243, scale: 0.932262, widen: 1 };
@@ -184,10 +184,14 @@ function loadVariant(kit) {
         if (src) {
           const rib = src.clone(true);
           src.matrixWorld.decompose(rib.position, rib.quaternion, rib.scale);
-          rib.position.y += CREW_LIFT;
-          // appena più larga intorno all'asse del collo: la costina sta sopra la stoffa, che ci entra sotto
+          // spostata, inclinata e appena allargata (CREW_FIT): combacia con lo scollo originale ai lati e dietro
+          const f = CREW_FIT, p = new THREE.Vector3(...f.pivot);
           const wrap = new THREE.Group();
-          wrap.scale.set(CREW_WIDEN, 1, CREW_WIDEN);
+          wrap.matrixAutoUpdate = false;
+          wrap.matrix.makeTranslation(p.x, p.y + f.dy, p.z + f.dz)
+            .multiply(new THREE.Matrix4().makeScale(f.sx, 1, f.sz))
+            .multiply(new THREE.Matrix4().makeRotationX(f.tilt))
+            .multiply(new THREE.Matrix4().makeTranslation(-p.x, -p.y, -p.z));
           wrap.add(rib);
           remapUV(THREE, rib, UV_RAGLAN.collar, UV.collar);
           model.add(wrap);
