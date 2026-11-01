@@ -5970,8 +5970,23 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         if (nearEntrance(shape, st, xg, zg, 3)) continue;
         grand(run, cum, ug, 2 * GATE_HALF - 4, dOut + FENCE_OUT - 1.5, dIn + 2, Hw - 0.6);
       }
-      const atGate = (u) => gates.some(ug => Math.abs(u - ug) < GATE_HALF + 4 || (run.closed && total - Math.abs(u - ug) < GATE_HALF + 4));
       const n = Math.max(1, Math.round(total / STAIR_BAY)), bay = total / n;
+      // scale a clessidra: due per settore, a destra e a sinistra del cancello (a circa 3/10 della lunghezza del settore),
+      // nella campata più vicina
+      const stairBays = new Set();
+      for (const ug of gates) {
+        const side = sideOfPoint(run.pts[cum.findIndex(c => Math.abs(c - ug) < 1e-6)] || run.pts[0]);
+        let len = 0;
+        for (let i = 0; i < run.pts.length - (run.closed ? 0 : 1); i++) {
+          const p = run.pts[i], q = run.pts[(i + 1) % run.pts.length];
+          if (sideOfPoint(p) === side && sideOfPoint(q) === side) len += Math.hypot(q.x - p.x, q.z - p.z);
+        }
+        for (const sg of [-1, 1]) {
+          const ut = ug + sg * Math.max(GATE_HALF + bay * 0.6, len * 0.3);
+          if (!run.closed && (ut < 0 || ut > total)) continue;
+          stairBays.add(((Math.floor(wrapU(run, total, ut) / bay) % n) + n) % n);
+        }
+      }
       for (let k = 0; k < n; k++) {
         const ua = k * bay, um = ua + bay / 2;
         if (!run.closed && (ua < 0.5 || ua + bay > total - 0.5)) continue;
@@ -5984,33 +5999,47 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
           boxAt(struts, (bx0 + bx1) / 2, a[1] / 2, (bz0 + bz1) / 2, a, [tx * 1.5, 0, tz * 1.5], [-tz * 2.2, 0, tx * 2.2]);
         }
         const [xa, za] = pointAt(run, cum, um, 0);
-        if (nearEntrance(shape, st, xa, za, 3) || atGate(um) || k % 2) continue; // una campata sì e una no
-        // scale a clessidra (come al Maradona), un blocco unico di cemento nel piano della facciata fatto di pezzi che si
-        // toccano solo sui bordi (proporzioni prese dalla foto: B = larghezza della campata, G = altezza sotto la trave):
-        // in basso le due bande (le rampe laterali), da lì i bracci salgono verso il centro alla strozzatura (la rampa
-        // centrale), sopra l'imbuto si allarga fino alla banda alta larga quanto la campata (l'ingresso), in cima il blocco
-        // a esagono; sotto la strozzatura, in ombra, la scalinata centrale che parte da terra e sale verso dentro
-        const G = Hw - 1.9, B = bay, dd = 2.6, d1 = dOut - 1.8, d0 = d1 - dd;
+        if (!stairBays.has(k) || nearEntrance(shape, st, xa, za, 3)) continue;
+        // scala a clessidra (come al Maradona): un blocco di cemento nel piano della facciata fatto di pezzi che si toccano
+        // solo sui bordi (B = larghezza della campata, G = altezza sotto la trave ad anello). Il percorso: da terra la
+        // scalinata centrale (in ombra sotto la strozzatura) sale al pianerottolo; da lì le due bande basse vanno verso i
+        // lati, poi i bracci salgono a gradini verso il centro fino alla strozzatura (la rampa centrale, che sale verso
+        // dentro); da lì due bracci salgono a gradini verso i lati fino alle bande alte, che portano dentro; in cima al
+        // centro il telaio a esagono
+        const G = Hw - 1.9, B = bay, dd = 2.6, d1 = dOut - 1.8, d0 = d1 - dd, out = 0.4;
         if (d0 < dIn + 0.4) continue;
-        // le bande stanno a filo, bracci, strozzatura e imbuto sporgono un poco (si vede il rilievo)
-        const h = (f) => f * G, u = (f) => f * B, P = (list, out = 0) => piece(run, cum, um, list.map(([a, b]) => [u(a), h(b)]), d0, d1 + out);
+        const h = (f) => f * G, u = (f) => f * B, [tx, tz] = tangentAt(run, cum, um, (d0 + d1) / 2);
+        const P = (list, o = 0, da = d0, db = d1 + o) => piece(run, cum, um, list.map(([a, b]) => [u(a), h(b)]), da, db);
+        // gradini sul bordo di sopra di un braccio, da (ua, ha) a (ub, hb) (frazioni di B e G): ogni gradino sporge sopra
+        const stepsOn = (ua, ha, ub, hb) => {
+          const nS = Math.max(2, Math.round(h(hb - ha) / STAIR_RISE)), r = h(hb - ha) / nS;
+          for (let j = 0; j < nS; j++) {
+            const u0 = u(ua + (ub - ua) * j / nS), u1 = u(ua + (ub - ua) * (j + 1) / nS), hj = h(ha) + r * j;
+            const [x, z] = pointAt(run, cum, um + (u0 + u1) / 2, (d0 + d1 + out) / 2), wj = Math.abs(u1 - u0), dj = dd + out - 0.1;
+            boxAt(steps, x, hj + r / 2 - 0.01, z, [tx * wj, 0, tz * wj], [0, r + 0.02, 0], [-tz * dj, 0, tx * dj]);
+          }
+        };
         for (const k of [-1, 1]) {
           const m = (list) => (k > 0 ? list : list.map(([a, b]) => [-a, b]).reverse());
           P(m([[0.07, 0.10], [0.46, 0.10], [0.46, 0.19], [0.07, 0.19]]));                 // banda bassa
-          P(m([[0.14, 0.30], [0.25, 0.19], [0.41, 0.19], [0.14, 0.43]]), 0.4);            // braccio
+          P(m([[0.30, 0.19], [0.44, 0.19], [0.14, 0.40], [0.14, 0.29]]), out);            // braccio basso
+          P(m([[0.14, 0.45], [0.36, 0.55], [0.36, 0.67], [0.14, 0.57]]), out);            // braccio alto
+          P(m([[0.36, 0.55], [0.50, 0.55], [0.50, 0.67], [0.36, 0.67]]));                 // banda alta
+          // la banda alta continua dietro fino al muro (si entra dentro)
+          P(m([[0.38, 0.60], [0.50, 0.60], [0.50, 0.67], [0.38, 0.67]]), 0, dIn + 0.2, d0);
+          stepsOn(k * 0.44, 0.19, k * 0.14, 0.40);
+          stepsOn(k * 0.14, 0.57, k * 0.36, 0.67);
         }
-        P([[-0.14, 0.30], [0.14, 0.30], [0.14, 0.45], [-0.14, 0.45]], 0.4);                // strozzatura
-        P([[-0.14, 0.45], [0.14, 0.45], [0.36, 0.55], [-0.36, 0.55]], 0.4);                // imbuto
-        P([[-0.5, 0.55], [0.5, 0.55], [0.5, 0.67], [-0.5, 0.67]]);                         // banda alta
-        // la banda alta continua dietro fino al muro (si entra dentro)
-        piece(run, cum, um, [[u(-0.3), h(0.6)], [u(0.3), h(0.6)], [u(0.3), h(0.67)], [u(-0.3), h(0.67)]], dIn + 0.2, d0);
-        // blocco a esagono in cima, un poco più avanti
-        const hy0 = 0.63, hy1 = Math.min(0.78, (G - 0.3) / G), hc = (hy0 + hy1) / 2;
-        piece(run, cum, um, [[u(-0.24), h(hy0)], [u(0.24), h(hy0)], [u(0.31), h(hc)], [u(0.24), h(hy1)], [u(-0.24), h(hy1)], [u(-0.31), h(hc)]], d0 + 0.3, d1 + 0.7);
-        // scalinata centrale da terra (in ombra sotto la strozzatura): sale verso dentro fino alle bande basse
-        const hL = h(0.19), n = Math.max(2, Math.round(hL / STAIR_RISE)), wS = u(0.12), [tx, tz] = tangentAt(run, cum, um, d1);
-        for (let j = 0; j < n; j++) {
-          const dj = d1 + 2 - (j + 0.5) * STAIR_TREAD, [x, z] = pointAt(run, cum, um, dj), hj = STAIR_RISE * (j + 1);
+        P([[-0.14, 0.29], [0.14, 0.29], [0.14, 0.57], [-0.14, 0.57]], out);               // strozzatura
+        // telaio a esagono in cima al centro, un poco più avanti, con la feritoia scura
+        P([[-0.16, 0.615], [0.16, 0.615], [0.22, 0.675], [0.16, 0.735], [-0.16, 0.735], [-0.22, 0.675]], 0, d0 + 0.3, d1 + 0.7);
+        const [xs, zs] = pointAt(run, cum, um, d1 + 0.72);
+        boxAt(joints, xs, h(0.675), zs, [tx * u(0.24), 0, tz * u(0.24)], [0, h(0.05), 0], [-tz * 0.05, 0, tx * 0.05]);
+        // pianerottolo e scalinata centrale da terra (in ombra sotto la strozzatura), che sale verso dentro
+        P([[-0.07, 0.10], [0.07, 0.10], [0.07, 0.19], [-0.07, 0.19]], 0, d0, d0 + 1.2);
+        const hL = h(0.19), nS = Math.max(2, Math.round(hL / STAIR_RISE)), wS = u(0.13);
+        for (let j = 0; j < nS; j++) {
+          const dj = d0 + 1.2 + (nS - j - 0.5) * STAIR_TREAD, [x, z] = pointAt(run, cum, um, dj), hj = STAIR_RISE * (j + 1);
           boxAt(steps, x, hj / 2, z, [tx * wS, 0, tz * wS], [0, hj, 0], [-tz * STAIR_TREAD, 0, tx * STAIR_TREAD]);
         }
       }
