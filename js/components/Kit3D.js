@@ -114,7 +114,7 @@ async function applyCut(model, url) {
 }
 
 /** Classica col girocollo: la costina della raglan sta un po' più in alto (la stoffa in neck-crew-setin.bin arriva lì). */
-const CREW_LIFT = 0.012, CREW_WIDEN = 1.025;
+const CREW_LIFT = 0.006, CREW_WIDEN = 1.012;
 /** Raglan con la V: la costina a V della classica rimpicciolita (scala), inclinata (gradi) e spostata (m) attorno a
  * pivot, poi allargata un po' intorno all'asse del collo; la stoffa in neck-v-raglan.bin arriva al suo bordo. */
 const V_FIT = { pivot: [0, 1.52, 0], dy: 0.005347, dz: -0.000231, tilt: 0.059243, scale: 0.932262, widen: 1 };
