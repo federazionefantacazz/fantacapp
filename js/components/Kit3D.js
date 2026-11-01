@@ -113,6 +113,120 @@ async function applyCut(model, url) {
   }
 }
 
+/** Colletto alto: distanza massima dal bordo esterno coperta dalla sua texture (m); oltre, tinta unita. */
+const POLO_EDGE_MAX = 0.05;
+
+/**
+ * Colletto alto: coordinate della texture uv = (0,5, distanza dal bordo esterno / POLO_EDGE_MAX), per disegnare profili
+ * e bordi paralleli al bordo come nelle maglie vere. Il colletto è una superficie sola (colletto e strisce della V) con un
+ * unico contorno: il bordo esterno è il tratto che va da una punta del colletto all'altra senza passare dalle strisce.
+ * Distanza lungo la superficie (cammini minimi sui lati dei triangoli), poi ammorbidita.
+ */
+function addPoloEdgeUV(THREE, g) {
+  const pos = g.getAttribute('position'), idx = g.index ? g.index.array : null;
+  if (!pos || !idx) return;
+  // vertici saldati (stessa posizione = stesso punto)
+  const id = new Int32Array(pos.count), keys = new Map(), P = [];
+  for (let i = 0; i < pos.count; i++) {
+    const k = `${Math.round(pos.getX(i) * 1e5)},${Math.round(pos.getY(i) * 1e5)},${Math.round(pos.getZ(i) * 1e5)}`;
+    if (!keys.has(k)) { keys.set(k, P.length); P.push([pos.getX(i), pos.getY(i), pos.getZ(i)]); }
+    id[i] = keys.get(k);
+  }
+  const n = P.length, adj = Array.from({ length: n }, () => new Set()), edges = new Map();
+  for (let t = 0; t < idx.length; t += 3) {
+    for (let e = 0; e < 3; e++) {
+      const a = id[idx[t + e]], b = id[idx[t + (e + 1) % 3]];
+      if (a === b) continue;
+      adj[a].add(b); adj[b].add(a);
+      const k = a < b ? a * n + b : b * n + a;
+      edges.set(k, (edges.get(k) || 0) + 1);
+    }
+  }
+  // contorno: lati di un solo triangolo
+  const bnd = new Map();
+  edges.forEach((c, k) => {
+    if (c !== 1) return;
+    const a = Math.floor(k / n), b = k % n;
+    (bnd.get(a) || bnd.set(a, []).get(a)).push(b);
+    (bnd.get(b) || bnd.set(b, []).get(b)).push(a);
+  });
+  // punte del colletto: i punti del contorno più a sinistra e più a destra
+  let tl = -1, tr = -1;
+  bnd.forEach((_, v) => { if (tl < 0 || P[v][0] < P[tl][0]) tl = v; if (tr < 0 || P[v][0] > P[tr][0]) tr = v; });
+  if (tl < 0 || (bnd.get(tl) || []).length !== 2) return;
+  // dalla punta sinistra lungo il contorno fino alla destra: il verso giusto non incontra incroci (fondo della V)
+  let edge = null;
+  for (const first of bnd.get(tl)) {
+    const path = [tl];
+    let prev = tl, cur = first, ok = true;
+    while (cur !== tr) {
+      const nb = bnd.get(cur);
+      if (!nb || nb.length !== 2 || path.length > n) { ok = false; break; }
+      path.push(cur);
+      const next = nb[0] === prev ? nb[1] : nb[0];
+      prev = cur; cur = next;
+    }
+    if (ok) { path.push(tr); edge = path; break; }
+  }
+  if (!edge) return;
+  // distanze dal bordo esterno (Dijkstra con una coda a priorità semplice)
+  const d = new Float64Array(n).fill(Infinity), len = (a, b) => Math.hypot(P[a][0] - P[b][0], P[a][1] - P[b][1], P[a][2] - P[b][2]);
+  const heap = [];
+  const push = (v, dv) => { heap.push([dv, v]); let i = heap.length - 1; while (i) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+  const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+  edge.forEach(v => { d[v] = 0; push(v, 0); });
+  while (heap.length) {
+    const [dv, v] = pop();
+    if (dv > d[v]) continue;
+    adj[v].forEach(w => { const nd = dv + len(v, w); if (nd < d[w]) { d[w] = nd; push(w, nd); } });
+  }
+  // i cammini sui lati sono a zig-zag: vicino al bordo (dove la stoffa è quasi piana) vale la distanza vera dalla linea
+  // del bordo; più lontano (piega, attaccatura) resta quella lungo la superficie, che non salta da una falda all'altra
+  const NEAR = 0.02;
+  for (let v = 0; v < n; v++) {
+    if (!(d[v] < NEAR)) continue;
+    let best = d[v];
+    for (let s = 1; s < edge.length; s++) {
+      const A = P[edge[s - 1]], B = P[edge[s]], ab = [B[0] - A[0], B[1] - A[1], B[2] - A[2]];
+      const L2 = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2] || 1;
+      const t = Math.max(0, Math.min(1, ((P[v][0] - A[0]) * ab[0] + (P[v][1] - A[1]) * ab[1] + (P[v][2] - A[2]) * ab[2]) / L2));
+      best = Math.min(best, Math.hypot(P[v][0] - A[0] - ab[0] * t, P[v][1] - A[1] - ab[1] * t, P[v][2] - A[2] - ab[2] * t));
+    }
+    d[v] = best;
+  }
+  // raccordo morbido col resto (la fascia vicina al bordo non si tocca)
+  const onEdge = new Uint8Array(n); edge.forEach(v => { onEdge[v] = 1; });
+  for (let it = 0; it < 6; it++) {
+    const c = Float64Array.from(d);
+    for (let v = 0; v < n; v++) {
+      if (onEdge[v] || !isFinite(c[v]) || c[v] < NEAR * .75) continue;
+      let s = 0, k = 0;
+      adj[v].forEach(w => { if (isFinite(c[w])) { s += c[w]; k++; } });
+      if (k) d[v] = (c[v] + s / k) / 2;
+    }
+  }
+  const uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) { uv[2 * i] = .5; uv[2 * i + 1] = Math.min(1, (isFinite(d[id[i]]) ? d[id[i]] : POLO_EDGE_MAX) / POLO_EDGE_MAX); }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+}
+
+/**
+ * Texture del colletto alto (in verticale: distanza dal bordo esterno, 0..POLO_EDGE_MAX), secondo la rifinitura:
+ * 'trim' profilo sottile vicino al bordo, 'striped' due profili, 'twotone' bordo, 'wide' bordo largo (colore di righe e bordino).
+ */
+function paintPoloCollar(canvas, kit) {
+  const H = 1024, mm = H / (POLO_EDGE_MAX * 1000);
+  canvas.width = 4; canvas.height = H;
+  const x = canvas.getContext('2d');
+  x.fillStyle = validColor(kit.colors.collar); x.fillRect(0, 0, 4, H);
+  x.fillStyle = validColor(kit.colors.trim);
+  const band = (a, b) => x.fillRect(0, a * mm, 4, (b - a) * mm); // da a a b millimetri dal bordo
+  if (kit.collar === 'trim') band(4.5, 7);
+  if (kit.collar === 'striped') { band(3.5, 5.5); band(8, 10); }
+  if (kit.collar === 'twotone') band(0, 6);
+  if (kit.collar === 'wide') band(0, 12);
+}
+
 /** Classica col girocollo: la costina della raglan sta un po' più in alto (la stoffa in neck-crew-setin.bin arriva lì). */
 const CREW_LIFT = 0.006, CREW_WIDEN = 1.012;
 /** Raglan con la V: la costina a V della classica rimpicciolita (scala), inclinata (gradi) e spostata (m) attorno a
@@ -205,7 +319,7 @@ function loadVariant(kit) {
       // colletto (raglan: adattato, strisce della V stese sul petto della raglan)
       const loader = new L.GLTFLoader();
       const collar = (await loader.loadAsync(raglan ? KIT3D_FILES.collarPoloRaglan : KIT3D_FILES.collarPolo)).scene;
-      collar.traverse(o => { if (o.isMesh) o.geometry.computeVertexNormals(); });
+      collar.traverse(o => { if (o.isMesh) { o.geometry.computeVertexNormals(); addPoloEdgeUV(THREE, o.geometry); } });
       model.add(collar);
       return model;
     }));
@@ -319,10 +433,23 @@ class Stage {
     });
     const M = this.collarMats || {};
     const each = (name, fn) => (M[name] || []).forEach(fn);
-    // colletto alto: tinta unita del colore del colletto
+    // colletto alto: colore del colletto con l'eventuale profilo o bordo vicino al bordo esterno (texture in paintPoloCollar)
     // il colletto vince sulla maglia dove le due superfici quasi coincidono (attaccatura): niente sfarfallii né punte che bucano
+    if (M.polo_collar) {
+      if (!this.collarTex) {
+        const T = this.L.THREE;
+        this.collarTex = new T.CanvasTexture(document.createElement('canvas'));
+        this.collarTex.colorSpace = T.SRGBColorSpace;
+        this.collarTex.flipY = false; // riga 0 del disegno = bordo esterno (uv.y = 0)
+        this.collarTex.wrapS = this.collarTex.wrapT = T.ClampToEdgeWrapping;
+        this.collarTex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+      }
+      paintPoloCollar(this.collarTex.image, kit);
+      this.collarTex.needsUpdate = true;
+    }
     each('polo_collar', m => {
-      m.color.set(validColor(kit.colors.collar)); m.roughness = 0.85;
+      if (m.map !== this.collarTex) { m.map = this.collarTex; m.needsUpdate = true; }
+      m.color.set('#ffffff'); m.roughness = 0.85;
       m.polygonOffset = true; m.polygonOffsetFactor = -2; m.polygonOffsetUnits = -6;
     });
   }
@@ -683,6 +810,7 @@ class Stage {
     [this.bandTex, this.bandInnerTex, this.bandFlapTex, this.bandWornTex].forEach(t => t && t.dispose());
     if (this.controls) this.controls.dispose();
     this.controls = null;
+    if (this.collarTex) this.collarTex.dispose();
     this.texture.dispose();
     this.renderer.dispose();
   }

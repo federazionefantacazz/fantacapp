@@ -862,13 +862,13 @@ function loadMask(model) {
 const collarSwapped = (k) => (k.sleeveCut === 'raglan' ? k.collarShape === 'v' : k.collarShape === 'crew');
 
 /**
- * Rifinitura del colletto che si vede davvero: il colletto alto è in tinta unita (niente rifiniture sotto); bordino e
- * bordo largo seguono lo scollo originale del modello (classica: V, raglan: girocollo), sull'altro diventano "Semplice".
- * La scelta salvata resta: tornando alla forma di prima ricompare.
+ * Rifinitura del colletto che si vede davvero: bordino e bordo largo seguono lo scollo originale del modello (classica: V,
+ * raglan: girocollo), sull'altro diventano "Semplice". Col colletto alto valgono tutte (profili e bordi sul colletto, vedi
+ * paintPoloCollar in Kit3D.js). La scelta salvata resta: tornando alla forma di prima ricompare.
  */
 export function effectiveCollar(kit) {
   const k = normalizeKit(kit);
-  if (k.collarShape === 'polo') return 'plain';
+  if (k.collarShape === 'polo') return k.collar;
   if (collarSwapped(k) && (k.collar === 'trim' || k.collar === 'wide')) return 'plain';
   return k.collar;
 }
@@ -881,7 +881,8 @@ export function effectiveCollar(kit) {
  */
 export async function paintKitTexture(rawKit, opts = {}) {
   const k = normalizeKit(rawKit);
-  k.collar = effectiveCollar(k);
+  // colletto alto: le rifiniture sono sul colletto stesso (paintPoloCollar in Kit3D.js); sulla maglia la costina resta in tinta unita
+  k.collar = k.collarShape === 'polo' ? 'plain' : effectiveCollar(k);
   const swapped = collarSwapped(k);
   const S = Math.round(opts.size || 2048);
   const model = kitModel(k), raglan = model === MODELS.raglan;

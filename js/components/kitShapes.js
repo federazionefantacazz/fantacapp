@@ -7,8 +7,9 @@
  *           spostata, inclinata e rimpicciolita in modo uniforme, V_FIT in Kit3D.js) al posto del girocollo; la stoffa
  *           dentro la V si toglie (icons/kit3d/neck-cutv-raglan.bin) e il bordo del taglio va sotto la costina
  *           (icons/kit3d/neck-v-raglan.bin).
- * - 'polo': colletto alto in tinta unita (icons/kit3d/collar-polo.glb, preso dal modello "Adidas Retro Jersey Mold"
- *           di akifdesign): colletto e strisce lungo la V, già posizionati sulla maglia e non deformati.
+ * - 'polo': colletto alto (icons/kit3d/collar-polo.glb, preso dal modello "Adidas Retro Jersey Mold" di akifdesign):
+ *           colletto e strisce lungo la V, già posizionati sulla maglia e non deformati. Colore del colletto, con le
+ *           rifiniture (profilo, righe, bordo) parallele al bordo esterno del colletto (addPoloEdgeUV in Kit3D.js).
  *           La costina dello scollo a V si nasconde e il bordo della stoffa viene portato sulla cucitura del colletto
  *           della maglia retrò (spostamenti dei vertici in icons/kit3d/neck-polo.bin, vedi Kit3D.js).
  */

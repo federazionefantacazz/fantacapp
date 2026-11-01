@@ -619,9 +619,10 @@ export const DivisaSquadra = {
       ${this._group('Forma', 'collar', `
         <div class="kit-grid">${COLLAR_SHAPES.map(c => this._opt('collarShape', c.id, this._thumb({ ...base, collarShape: c.id }), c.label, k.collarShape === c.id)).join('')}</div>
         ${this._colorRow('Colore del colletto', 'collar')}`)}
-      ${k.collarShape === 'polo' ? '' : this._group('Rifinitura', 'collar', `
+      ${this._group('Rifinitura', 'collar', `
         <div class="kit-grid">${COLLARS.filter(c => !(notNative && (c.id === 'trim' || c.id === 'wide'))).map(c => this._opt('collar', c.id, this._thumb({ ...base, collar: c.id }), c.label, collar === c.id)).join('')}</div>
-        ${collarTrim ? this._colorRow('Colore di righe e bordino', 'trim') : ''}`)}`)}
+        ${collarTrim ? this._colorRow('Colore di righe e bordino', 'trim') : ''}
+        ${k.collarShape === 'polo' && collarTrim ? '<div class="kd-desc">Sul colletto alto righe, bordino e bordi corrono lungo il bordo esterno del colletto.</div>' : ''}`)}`)}
       ${this._part('ri-t-shirt-2-line', 'Maniche', `
       ${this._group('Cucitura', 'shoulder', `
         <div class="kit-grid wide">${SLEEVE_CUTS.map(c => this._opt('sleeveCut', c.id, this._thumb({ ...base, sleeveCut: c.id }), c.label, k.sleeveCut === c.id)).join('')}</div>
