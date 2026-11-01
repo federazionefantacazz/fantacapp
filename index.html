@@ -9,6 +9,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Fantacapp">
 <link rel="manifest" href="manifest.json">
+<!-- service worker: primo download completo prima dell'uso e aggiornamenti (vedi il file) -->
+<script src="js/pwaBoot.js"></script>
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="description" content="FantaCapp, l'app del Fantacazz: formazioni, live, classifiche e mercato.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -441,6 +443,21 @@ body {
 .toast.ok{border-color:var(--toast-ok, var(--accent));color:var(--toast-ok, var(--accent))}
 .toast.err{border-color:var(--toast-err, var(--accent3));color:var(--toast-err, var(--accent3))}
 
+/* ==================== PRIMO DOWNLOAD DELL'APP ====================
+   Primo avvio (html.pwa-installing, da js/pwaBoot.js): l'app si usa solo quando sw.js
+   ha messo in cache tutti i file, così da lì in poi si apre anche senza rete. */
+#pwa-gate{display:none;position:fixed;inset:0;z-index:2000;align-items:center;justify-content:center;padding:1.5rem;
+  background:var(--bg, #121519);color:var(--text, #e2e8f0);font-family:'DM Sans',system-ui,sans-serif;text-align:center}
+html.pwa-installing #pwa-gate{display:flex}
+#pwa-gate .pg-box{width:min(320px,100%);display:flex;flex-direction:column;align-items:center;gap:.6rem}
+#pwa-gate img{width:84px;height:84px;border-radius:20px;margin-bottom:.4rem}
+#pwa-gate .pg-title{font-size:1.05rem;font-weight:600}
+#pwa-gate .pg-sub{font-size:.8rem;color:var(--text2, #94a3b8);line-height:1.4}
+#pwa-gate .pg-bar{width:100%;height:5px;border-radius:10px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:.4rem}
+#pwa-gate-fill{height:100%;width:0;background:var(--accent, #50e3c2);transition:width .2s ease-out}
+#pwa-gate-pct{font-size:.72rem;color:var(--text2, #94a3b8);font-family:'DM Mono',monospace}
+#pwa-gate-skip{visibility:hidden;margin-top:.6rem;border:none;background:transparent;color:var(--text2, #94a3b8);font:inherit;font-size:.78rem;text-decoration:underline;cursor:pointer;padding:.5rem}
+
 /* ==================== AVVIO CON SESSIONE ATTIVA ====================
    Se sul dispositivo c'è già un utente (html.resuming, impostata nell'<head>) non si mostra il login:
    solo il logo della competizione sul tema dell'utente, finché l'app non è pronta. */
@@ -553,6 +570,17 @@ html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75re
 <body>
 
 <div id="status-bar" aria-hidden="true"></div>
+
+<div id="pwa-gate" role="status" aria-live="polite">
+  <div class="pg-box">
+    <img src="icons/icon-192.png" alt="">
+    <div class="pg-title">Preparazione dell'app</div>
+    <div class="pg-sub">Scarico tutti i file, così FantaCApp si apre anche senza rete.</div>
+    <div class="pg-bar"><div id="pwa-gate-fill"></div></div>
+    <div id="pwa-gate-pct">0%</div>
+    <button type="button" id="pwa-gate-skip" onclick="window.skipPwaGate()">Apri senza aspettare</button>
+  </div>
+</div>
 
 <div id="splash" aria-hidden="true"><div id="splash-logo"></div></div>
 <script>
@@ -696,7 +724,7 @@ html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75re
   <i class="ri-refresh-line" style="color:var(--upd-icon, var(--accent)); font-size:1.1rem;"></i>
   <span>È disponibile una nuova versione dell'app.</span>
   <button type="button" class="upd-no" onclick="document.getElementById('update-banner').classList.remove('show')">Dopo</button>
-  <button type="button" class="upd-go" onclick="location.reload()">Aggiorna</button>
+  <button type="button" class="upd-go" onclick="window.applyAppUpdate ? window.applyAppUpdate() : location.reload()">Aggiorna</button>
 </div>
 
 <script type="module">
@@ -1616,23 +1644,7 @@ window.showToast = function(msg, type='ok') {
 
 window._saveNode = (path, payload) => set(ref(db, path), payload);
 
-if ('serviceWorker' in navigator) {
-  // c'era già un service worker: un nuovo controller vuol dire nuova versione dell'app
-  const hadController = !!navigator.serviceWorker.controller;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (hadController) document.getElementById('update-banner').classList.add('show');
-  });
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then(reg => {
-        // controlla gli aggiornamenti quando l'app torna in primo piano
-        document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'visible' && navigator.onLine) reg.update().catch(() => {});
-        });
-      })
-      .catch(err => console.error('Errore SW', err));
-  });
-}
+// Service worker (registrazione e aggiornamenti): js/pwaBoot.js, caricato nell'<head>
 
 /* ─── Installazione PWA (Android/desktop: prompt nativo dal menu laterale) ─ */
 let installPrompt = null;
