@@ -6,7 +6,7 @@ import {
   RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY,
   SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom, STAND_GAP_MAX, RAKE_MIN, RAKE_MAX, CORNER_GAP_MIN, CORNER_GAP_MAX, WALL_TEXTURES, WALL_TEX_FACADES, APRON_STYLES, GROUND_STYLES, AD_BOARDS, ROOF_GLOWS,
   ringsBySide, maxRingsOf, TIER_SPREAD_MAX, LOGO_PLACES, logoPlacesFor, ENTRANCES, ENTRANCE_W, ENTRANCE_H, ENTRANCE_LOGO, ENTRANCE_FITS, entranceSkips,
-  MIX_ROOFS, ROOF_TEXTURES, TEXTURE_ROOFS, ROOF_WAVES, roofMixed, ARCHES
+  MIX_ROOFS, ROOF_TEXTURES, TEXTURE_ROOFS, ROOF_WAVES, roofMixed, ARCHES, CUBE_PANELS
 } from '../components/Stadium3D.js';
 
 /** Nomi corti delle coperture nella scelta settore per settore. */
@@ -424,6 +424,19 @@ export const StadioSquadra = {
       <div class="kit-sub">Muro esterno</div>
       ${this._opts('facade', FACADES, s.facade)}
       ${s.facade === 'stairs' ? `<div class="std-desc">Come al Maradona: sotto lo sbalzo dell'anello alto le grandi scalinate in cemento che salgono verso dentro, le travi inclinate chiare tra una campata e l'altra e il muro scuro dietro (da fuori non si vede il campo); a terra la recinzione gialla con i cancelli e le insegne dei settori, del colore delle fasce.</div>${this._colorRow('Insegne dei cancelli', 'colors.accent', s.colors.accent)}` : ''}
+      ${s.facade === 'arena' ? `<div class="std-desc">Come all'Amsterdam ArenA: l'anello di sopra a sbalzo sulle grandi travi inclinate a forcella, la fascia bianca con le righe rosse (anche sul bordo del tetto apribile), le vetrate sotto e, su una tribuna, il basamento con lo zig-zag giallo; sulle due tribune l'ingresso principale (l'edificio a pannelli con le strisce gialle e, tra due torri, il grande disco col logo sopra la pensilina curva) e su una curva il cubo bianco coi cerchi e il pannello (il logo "Fuori, sulle curve" va sul cubo, sopra il pannello).</div>${this._colorRow('Fascia bianca e cubo', 'colors.cladding', s.colors.cladding)}${this._colorRow('Righe e fondo del pannello', 'colors.accent', s.colors.accent)}
+      <div class="kit-sub">Pannello sul cubo</div>
+      ${this._opts('cubePanel', CUBE_PANELS, s.cubePanel)}
+      ${s.cubePanel === 'logo' && !this._logo() ? `<div class="std-desc">La squadra non ha ancora un logo: finché non c'è, sul pannello resta il nome dello stadio.</div>` : ''}
+      ${s.cubePanel === 'image' ? `
+      ${s.cubeImage ? `<img src="${esc(s.cubeImage)}" alt="" style="display:block; max-width:100%; max-height:120px; border-radius:10px; margin:.4rem 0 .5rem;">` : ''}
+      <div class="kit-chips">
+        <label class="lv-chip" style="cursor:pointer;"><i class="ri-image-add-line"></i> ${s.cubeImage ? 'Cambia immagine' : 'Carica un\'immagine'}
+          <input type="file" accept="image/png,image/jpeg,image/webp" data-upload="cube" style="display:none;"></label>
+        ${s.cubeImage ? `<button class="lv-chip" data-act="cubeImgClear"><i class="ri-delete-bin-line"></i> Togli</button>` : ''}
+      </div>
+      ${s.cubeImage ? `<div style="margin-top:.5rem;">${this._seg(ENTRANCE_FITS.map(o => [o.id, o.label, s.cubeImageFit === o.id]), 'data-act="set" data-k="cubeImageFit"')}</div>` : ''}
+      <div class="std-desc">Va sul pannello del cubo senza deformarsi: "Riempie il pannello" taglia quello che avanza, "Intera" la mostra tutta sul fondo del colore delle righe. Senza immagine c'è il nome dello stadio.</div>` : ''}` : ''}
       ${s.facade === 'curtain' ? `<div class="std-desc">Come a Wembley: in basso il colonnato con i pilastri bianchi e le torri cilindriche delle scale in cemento, sopra piani di vetrate verde-azzurre con le solette chiare e i montanti. Di notte si accendono gli interni.</div>` : ''}
       ${WALL_TEX_FACADES.includes(s.facade) ? `
       <div class="kit-sub">Texture del muro</div>
@@ -761,6 +774,9 @@ export const StadioSquadra = {
       case 'entImgClear':
         this._update(st => { st.entranceImage = ''; });
         return;
+      case 'cubeImgClear':
+        this._update(st => { st.cubeImage = ''; });
+        return;
       case 'logoPlace':
         this._update(st => {
           const on = new Set(st.logoPlaces);
@@ -801,6 +817,7 @@ export const StadioSquadra = {
   _onChange(e) {
     const t = e.target;
     if (t.dataset.upload === 'entrance' && t.files && t.files[0]) { this._uploadEntrance(t.files[0]); t.value = ''; return; }
+    if (t.dataset.upload === 'cube' && t.files && t.files[0]) { this._uploadEntrance(t.files[0], 'cubeImage', 'cubo.png'); t.value = ''; return; }
     if (t.dataset.range) {
       const k = t.dataset.range, v = Number(t.value);
       // l'ondulazione da zero (o a zero) mostra o nasconde gli altri cursori
@@ -852,10 +869,10 @@ export const StadioSquadra = {
   },
 
   /**
-   * Immagine personale degli ingressi: si vede subito (anteprima locale), intanto si carica su ImgBB e poi si salva il
-   * suo indirizzo. Il salvataggio dello stadio aspetta il caricamento.
+   * Immagine personale degli ingressi (o, con key = 'cubeImage', del pannello sul cubo): si vede subito (anteprima
+   * locale), intanto si carica su ImgBB e poi si salva il suo indirizzo. Il salvataggio dello stadio aspetta il caricamento.
    */
-  _uploadEntrance(file) {
+  _uploadEntrance(file, key = 'entranceImage', fileName = 'ingresso.png') {
     if (!/^image\/(png|jpeg|webp)$/.test(file.type)) { window.showToast('Serve un\'immagine PNG, JPG o WEBP', 'err'); return; }
     const job = (async () => {
       const url = URL.createObjectURL(file);
@@ -865,24 +882,25 @@ export const StadioSquadra = {
         c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
         c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
         const local = c.toDataURL('image/png');
-        this._update(st => { st.entranceImage = local; });
+        this._update(st => { st[key] = local; });
         window.showToast('Caricamento dell\'immagine...', 'ok');
         const blob = await new Promise(r => c.toBlob(r, 'image/png'));
-        const remote = await uploadPngToImgBB(new File([blob], 'ingresso.png', { type: 'image/png' }), 1024);
-        if (this._st && this._st.entranceImage === local) this._update(st => { st.entranceImage = remote; }, { section: false });
+        const remote = await uploadPngToImgBB(new File([blob], fileName, { type: 'image/png' }), 1024);
+        if (this._st && this._st[key] === local) this._update(st => { st[key] = remote; }, { section: false });
       } catch (err) {
         console.error(err);
         window.showToast('Immagine non caricata, riprova', 'err');
-        if (this._st && /^data:/.test(this._st.entranceImage)) this._update(st => { st.entranceImage = ''; });
+        if (this._st && /^data:/.test(this._st[key])) this._update(st => { st[key] = ''; });
       } finally { URL.revokeObjectURL(url); }
     })();
-    this._entUpload = job;
+    const prev = this._entUpload;
+    this._entUpload = prev ? Promise.all([prev, job]) : job;
   },
 
   async _save() {
     if (this._busy || !this._st) return;
     if (this._entUpload) { await this._entUpload; this._entUpload = null; }
-    if (!this._st || /^data:/.test(this._st.entranceImage)) { if (this._st) window.showToast('Immagine dell\'ingresso non ancora caricata, riprova', 'err'); return; }
+    if (!this._st || /^data:/.test(this._st.entranceImage) || /^data:/.test(this._st.cubeImage)) { if (this._st) window.showToast('Immagine non ancora caricata, riprova', 'err'); return; }
     const team = window.STATE.user;
     if (!team || String(team.id) !== String(this._teamId)) return;
     this._busy = true;
