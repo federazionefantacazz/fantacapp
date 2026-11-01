@@ -4,7 +4,8 @@
  * Due visualizzazioni:
  *  - "colonne": le due formazioni affiancate riga per riga (titolari e panchina),
  *    con voto / fantavoto, eventi (gol, assist, cartellini...) e stato di chi deve ancora giocare
- *  - "stadio":  i due campi con i giocatori schierati (WIP)
+ *  - "stadio":  lo stadio 3D della squadra di casa con le due squadre schierate nelle due metà campo (foto, nome,
+ *    fantavoto); si parte dall'alto e si può girare e ingrandire come nello zoom dell'editor dello stadio
  *
  * Stato di ogni giocatore (kind):
  *  voto     ha un voto (live = la sua partita è ancora in corso)
@@ -28,6 +29,7 @@ import { kitImageHTML, openKitOverlay } from './components/Kit3D.js';
 import { getCompPatchesOf } from './services/kitAssets.js';
 import { BackNav } from './services/backNav.js';
 import { captainBandSVG } from './components/CaptainBand.js';
+import { createStadiumViewer, defaultStadium, PITCH_SIZE } from './components/Stadium3D.js';
 
 const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
 const fmt = (n) => {
@@ -81,7 +83,6 @@ const LIVE_STYLES = `
 .lv-seg{display:inline-flex;background:var(--bg3);border-radius:10px;padding:3px;gap:2px;flex-shrink:0}
 .lv-seg button{border:none;background:transparent;color:var(--text2);font:600 .75rem var(--font-text);padding:.45rem .7rem;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:.3rem}
 .lv-seg button.on{background:var(--accent);color:#0a0f1e}
-.lv-wip{font-size:.55rem;font-weight:700;background:var(--lv-warn);color:#0a0f1e;padding:1px 4px;border-radius:4px}
 
 /* pannello trasparente come la card squadra della home (--subbox-bg) */
 .lv-head{position:relative;overflow:hidden;border-radius:16px;padding:1rem .6rem .9rem;background:var(--subbox-bg);border:1px solid var(--border);color:var(--text);display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:.4rem;box-shadow:0 6px 20px rgba(0,0,0,.3)}
@@ -187,18 +188,24 @@ const LIVE_STYLES = `
 
 .lv-nolineup{grid-column:1/-1;text-align:center;font-size:.75rem;color:var(--text3);font-family:var(--font-text3,inherit);padding:.4rem}
 
-.lv-stadium{display:flex;flex-wrap:wrap;gap:1rem}
-.lv-stadium>div{flex:1;min-width:280px}
-.lv-stadium-t{text-align:center;font-weight:700;font-size:.85rem;margin-bottom:.4rem;color:var(--text)}
-.lv-wip-banner{display:flex;gap:.5rem;align-items:center;background:color-mix(in srgb,var(--lv-warn) 12%,transparent);border:1px solid color-mix(in srgb,var(--lv-warn) 45%,transparent);color:var(--text);border-radius:10px;padding:.5rem .7rem;font-size:.75rem;margin-bottom:.8rem}
-.lv-wip-banner i{color:var(--lv-warn);font-size:1.1rem}
-.lf-field{position:relative;width:100%;height:420px;background:repeating-linear-gradient(to bottom,rgba(34,139,34,.85),rgba(34,139,34,.85) 40px,rgba(28,115,28,.85) 40px,rgba(28,115,28,.85) 80px);background-color:#228b22;border:3px solid rgba(255,255,255,.3);border-radius:20px;overflow:hidden;box-shadow:inset 0 0 40px rgba(0,0,0,.5)}
-.lf-lines{position:absolute;inset:0;pointer-events:none}
-.lf-lines::before{content:'';position:absolute;top:50%;left:0;width:100%;height:3px;background:rgba(255,255,255,.6)}
-.lf-lines::after{content:'';position:absolute;top:0;left:50%;width:160px;height:60px;border:3px solid rgba(255,255,255,.6);border-top:none;transform:translateX(-50%)}
-.lf-circle{position:absolute;top:50%;left:50%;width:90px;height:90px;border:3px solid rgba(255,255,255,.6);border-radius:50%;transform:translate(-50%,-50%)}
-.lf-box{position:absolute;bottom:0;left:50%;width:160px;height:60px;border:3px solid rgba(255,255,255,.6);border-bottom:none;transform:translateX(-50%)}
-.lf-player{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;width:78px;z-index:10}
+.lv3d-wrap{margin-top:.8rem}
+.lv3d-teams{display:flex;justify-content:space-between;gap:.5rem;font-size:.75rem;font-weight:700;color:var(--text);margin-bottom:.4rem}
+.lv3d-teams span{display:flex;align-items:center;gap:.35rem;min-width:0}
+.lv3d-teams i{width:10px;height:10px;border-radius:50%;flex-shrink:0;border:1px solid rgba(255,255,255,.6)}
+.lv3d-teams small{font-weight:400;color:var(--text2)}
+.lv3d-note{font-size:.72rem;color:var(--text3);font-family:var(--font-text3,inherit);text-align:center;margin-bottom:.4rem}
+.lv3d{position:relative;height:clamp(340px,68vh,720px);border-radius:16px;overflow:hidden;background:#0b111c;border:1px solid var(--border)}
+.lv3d.full{position:fixed;inset:0;z-index:5500;height:auto;border-radius:0;border:none}
+.lv3d-stage{position:absolute;inset:0}
+.lv3d-ov{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lv3d-p{position:absolute;left:0;top:0;display:flex;flex-direction:column;align-items:center;width:78px;will-change:transform}
+.lv3d-p .lf-shirt.is-circle{width:34px;height:34px}
+.lv3d-p .lf-shirt.has-png{width:40px;height:44px;border-radius:50%;box-shadow:0 0 0 2px var(--lv3d-c);background-color:rgba(255,255,255,.12)}
+.lv3d-p .lf-name{border-bottom:2px solid var(--lv3d-c)}
+.lv3d-bar{position:absolute;left:0;right:0;bottom:0;display:flex;flex-wrap:wrap;gap:.3rem;justify-content:center;padding:.45rem .5rem calc(.45rem + env(safe-area-inset-bottom,0px));background:linear-gradient(transparent,rgba(5,8,15,.7))}
+.lv3d-bar button{background:rgba(15,20,32,.85);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:9px;padding:.28rem .5rem;font-size:.68rem;font-weight:700;cursor:pointer;font-family:var(--font-btn,inherit)}
+.lv3d-bar button.on{border-color:var(--accent);color:var(--accent)}
+.lv3d-load{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#cbd5e1;font-size:.8rem}
 .lf-shirt{position:relative;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:.9rem;color:#fff}
 .lf-shirt.has-png{width:48px;height:54px;background-size:contain;background-repeat:no-repeat;background-position:center bottom}
 .lf-shirt.is-circle{width:40px;height:40px;border-radius:50%;border:2px solid #fff}
@@ -370,6 +377,7 @@ export const LiveMatchModule = {
   },
 
   stopLiveTracking() {
+    this._dispose3D();
     this.unsubscribers.forEach(u => { try { u(); } catch (e) {} });
     this.unsubscribers = [];
     this._ctxKey = null;
@@ -464,6 +472,7 @@ export const LiveMatchModule = {
         ${body}
       </div>
     `;
+    this._mount3D(container);
     if (scroller && Math.abs(scroller.scrollTop - scrollTop) > 2) scroller.scrollTop = scrollTop;
 
     const selectEl = document.getElementById('live-match-select');
@@ -503,6 +512,7 @@ export const LiveMatchModule = {
   // Overlay replay / formazioni (calendario, home)
   // ------------------------------------------------------------------
   closeViewer() {
+    this._dispose3D();
     document.getElementById('match-viewer')?.remove();
     this._viewer = null;
     this._closeEditor();
@@ -567,6 +577,7 @@ export const LiveMatchModule = {
         gwReale,
         couple: v.couple
       })}`;
+    this._mount3D(body);
   },
 
   // ------------------------------------------------------------------
@@ -617,7 +628,7 @@ export const LiveMatchModule = {
     return `
       <div class="lv-seg" role="tablist" aria-label="Visualizzazione">
         <button data-lv="view" data-v="colonne" class="${v === 'colonne' ? 'on' : ''}" role="tab" aria-selected="${v === 'colonne'}"><i class="ri-layout-column-line"></i> Colonne</button>
-        <button data-lv="view" data-v="stadio" class="${v === 'stadio' ? 'on' : ''}" role="tab" aria-selected="${v === 'stadio'}"><i class="ri-football-line"></i> Stadio <span class="lv-wip">WIP</span></button>
+        <button data-lv="view" data-v="stadio" class="${v === 'stadio' ? 'on' : ''}" role="tab" aria-selected="${v === 'stadio'}"><i class="ri-football-line"></i> Stadio</button>
       </div>`;
   },
 
@@ -1091,42 +1102,170 @@ export const LiveMatchModule = {
     }
   },
 
+  /**
+   * Visuale stadio: lo stadio 3D della squadra di casa (o quello di base) con le due squadre schierate; qui solo il posto
+   * dove va la vista 3D (_mount3D la sposta lì dopo ogni ridisegno, senza ricrearla) e i nomi delle squadre.
+   */
   _stadiumMarkup(home, away, sim) {
-    const field = (t) => {
-      if (!t.lineup) return `<div><div class="lv-stadium-t">${esc(t.info.name)}</div><div style="text-align:center;padding:2rem;background:var(--bg2);border-radius:12px;color:var(--text3);font-family:var(--font-text3,inherit);font-size:.85rem;">Formazione non inserita</div></div>`;
-      const byRole = { P: [], D: [], C: [], A: [] };
-      t.tit.forEach(p => { if (byRole[p.role]) byRole[p.role].push(p); });
-      const rowY = { A: 18, C: 44, D: 70, P: 89 };
-      let html = '';
-      ['P', 'D', 'C', 'A'].forEach(role => {
-        const list = byRole[role];
-        list.forEach((p, i) => {
-          const x = list.length === 1 ? 50 : (100 / (list.length + 1)) * (i + 1);
-          const s = this._score(p, sim);
-          const scoreTag = s
-            ? `<span class="lf-score ${p.live ? 'live' : ''}">${fmt(s.fv)}</span>`
-            : (p.kind === 'sv' ? `<span class="lf-score sv">s.v.</span>` : '');
-          const shirt = p.photo
-            ? `<div class="lf-shirt has-png" style="background-image:url('${esc(p.photo)}')">`
-            : `<div class="lf-shirt is-circle" style="background-color:var(--role-${role.toLowerCase()});color:var(--role-${role.toLowerCase()}-text)">${role}`;
-          html += `
-            <div class="lf-player" style="left:${x}%; top:${rowY[role]}%;" data-player-id="${esc(p.id)}">
-              ${shirt}${scoreTag}${this._captainMark(t, p, 'lf-cap', 15)}</div>
-              <div class="lf-name">${esc(p.name)}</div>
-            </div>`;
-        });
-      });
-      return `
-        <div>
-          <div class="lv-stadium-t">${esc(t.info.name)}${t.lineup.modulo ? ` <span style="font-weight:400;color:var(--text2);font-family:var(--font-sub,inherit);font-size:.75rem;">(${esc(t.lineup.modulo)})</span>` : ''}</div>
-          <div class="lf-field"><div class="lf-lines"><div class="lf-box"></div><div class="lf-circle"></div></div>${html}</div>
-        </div>`;
-    };
+    this._lv3dData = { home, away, sim };
+    const side = (t, c) => `<span><i style="background:${c}"></i>${esc(t.info.name)}${t.lineup && t.lineup.modulo ? ` <small>(${esc(t.lineup.modulo)})</small>` : ''}</span>`;
+    const miss = [home, away].filter(t => !t.lineup).map(t => esc(t.info.name));
     return `
-      <div style="margin-top:.8rem;">
-        <div class="lv-wip-banner"><i class="ri-hammer-line"></i> Visuale stadio in lavorazione: per ora mostra solo i titolari con il fantavoto.</div>
-        <div class="lv-stadium">${field(home)}${field(away)}</div>
+      <div class="lv3d-wrap">
+        <div class="lv3d-teams">${side(home, this._teamColor(home, 0))}${side(away, this._teamColor(away, 1))}</div>
+        ${miss.length ? `<div class="lv3d-note">Formazione non inserita: ${miss.join(', ')}</div>` : ''}
+        <div data-lv3d></div>
       </div>`;
+  },
+
+  /** Colore della squadra in campo: quello della maglia scelta con la formazione (o un blu / rosso di ripiego). */
+  _teamColor(t, i) {
+    const kit = t.lineup?.kit === 2 ? t.info.kit2 || t.info.kit : t.info.kit || t.info.kit2;
+    const c = kit && kit.colors && kit.colors.base;
+    return /^#[0-9a-f]{6}$/i.test(String(c || '')) ? c : (i ? '#d0122d' : '#1e5bb8');
+  },
+
+  /**
+   * Posizioni in campo (metri, centro del campo nell'origine) dei titolari: la squadra di casa nella metà x < 0, quella
+   * in trasferta nella metà x > 0; per reparto dalla porta verso il centrocampo, distribuiti sulla larghezza.
+   */
+  _pitchSpots(t, sideSign) {
+    const L = PITCH_SIZE.l / 2, W = PITCH_SIZE.w, depth = { P: L - 4, D: L - 17, C: L - 32, A: L - 45 };
+    const byRole = { P: [], D: [], C: [], A: [] };
+    t.tit.forEach(p => { (byRole[p.role] || byRole.C).push(p); });
+    const out = [];
+    ['P', 'D', 'C', 'A'].forEach(role => {
+      const list = byRole[role], n = list.length;
+      list.forEach((p, i) => {
+        const z = n === 1 ? 0 : (-0.5 + (i + 0.5) / n) * W * (n > 3 ? 0.84 : 0.62);
+        out.push({ p, x: sideSign * depth[role], z: sideSign * z });
+      });
+    });
+    return out;
+  },
+
+  /** Stadio 3D della visuale stadio: lo crea la prima volta e poi lo sposta nel posto nuovo a ogni ridisegno. */
+  _mount3D(root) {
+    const slot = root && root.querySelector('[data-lv3d]');
+    if (!slot || !this._lv3dData) { this._dispose3D(); return; }
+    let V = this._lv3d;
+    if (!V) {
+      const el = document.createElement('div');
+      el.className = 'lv3d';
+      el.innerHTML = `
+        <div class="lv3d-stage"></div>
+        <div class="lv3d-ov"></div>
+        <div class="lv3d-load">Costruzione dello stadio…</div>
+        <div class="lv3d-bar">
+          <button data-v3="pitch" class="on">Campo</button>
+          <button data-v3="aerial">Aerea</button>
+          <button data-v3="stand">Tribuna</button>
+          <button data-v3="night">Notte</button>
+          <button data-v3="ext">Nascondi esterno</button>
+          <button data-v3="in" aria-label="Avvicina">＋</button>
+          <button data-v3="out" aria-label="Allontana">−</button>
+          <button data-v3="full" aria-label="Schermo intero"><i class="ri-fullscreen-line"></i></button>
+        </div>`;
+      const viewer = createStadiumViewer(el.querySelector('.lv3d-stage'), { zoom: true });
+      V = this._lv3d = { el, viewer, ov: el.querySelector('.lv3d-ov'), labels: new Map(), night: false, ext: true, full: false, stKey: null, spots: [] };
+      viewer.onFrame((project) => this._place3D(project));
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-v3]');
+        if (!b) return;
+        const a = b.dataset.v3;
+        if (a === 'in') viewer.zoomBy(0.75);
+        else if (a === 'out') viewer.zoomBy(1 / 0.75);
+        else if (a === 'night') { V.night = !V.night; b.textContent = V.night ? 'Giorno' : 'Notte'; viewer.setNight(V.night); }
+        else if (a === 'ext') { V.ext = !V.ext; b.textContent = V.ext ? 'Nascondi esterno' : 'Mostra esterno'; b.classList.toggle('on', !V.ext); viewer.setExterior(V.ext); }
+        else if (a === 'full') this._full3D(!V.full);
+        else {
+          el.querySelectorAll('[data-v3="pitch"],[data-v3="aerial"],[data-v3="stand"]').forEach(x => x.classList.toggle('on', x === b));
+          if (a === 'pitch') viewer.framePitch(); else viewer.setView(a);
+        }
+      });
+      // tocco breve su un giocatore: la sua scheda (le etichette non prendono il dito, così si può girare ovunque)
+      let down = null;
+      el.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: Date.now() }; });
+      el.addEventListener('pointerup', (e) => {
+        if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8 || Date.now() - down.t > 450 || e.target.closest('.lv3d-bar')) { down = null; return; }
+        down = null;
+        const hit = [...V.labels.values()].find(l => { const r = l.getBoundingClientRect(); return e.clientX > r.left - 4 && e.clientX < r.right + 4 && e.clientY > r.top - 4 && e.clientY < r.bottom + 4; });
+        if (hit) hit.click();
+      });
+    }
+    slot.appendChild(V.el);
+
+    // stadio della squadra di casa (o quello di base): si ricostruisce solo se cambia
+    const { home, away, sim } = this._lv3dData;
+    const team = (window.STATE?.teams || []).find(x => String(x.id) === String(home.id));
+    const stadium = team && team.stadium ? team.stadium : defaultStadium();
+    const stKey = `${home.id}|${JSON.stringify(stadium)}`;
+    if (V.stKey !== stKey) {
+      const first = V.stKey === null;
+      V.stKey = stKey;
+      V.viewer.update(stadium, { logo: team && team.logo || '' }).then(() => {
+        const l = V.el.querySelector('.lv3d-load');
+        if (l) l.remove();
+        if (first || V.el.querySelector('[data-v3="pitch"].on')) V.viewer.framePitch();
+      }).catch(err => console.error('Stadio live:', err));
+    }
+
+    // giocatori: segnaposti nel 3D ed etichette (foto, nome, fantavoto) sopra
+    const spots = [...this._pitchSpots(home, -1).map(s => ({ ...s, t: home, c: this._teamColor(home, 0) })), ...this._pitchSpots(away, 1).map(s => ({ ...s, t: away, c: this._teamColor(away, 1) }))];
+    V.spots = spots;
+    V.viewer.setMarkers(spots.map(s => ({ x: s.x, z: s.z, color: s.c })));
+    const keep = new Set();
+    spots.forEach(({ p, t, c }) => {
+      const key = `${t.id}|${p.id}`;
+      keep.add(key);
+      let lab = V.labels.get(key);
+      if (!lab) { lab = document.createElement('div'); lab.className = 'lv3d-p'; V.ov.appendChild(lab); V.labels.set(key, lab); }
+      const role = (p.role || 'C').toLowerCase(), s = this._score(p, sim);
+      const scoreTag = s ? `<span class="lf-score ${p.live ? 'live' : ''}">${fmt(s.fv)}</span>` : (p.kind === 'sv' ? `<span class="lf-score sv">s.v.</span>` : '');
+      const shirt = p.photo
+        ? `<div class="lf-shirt has-png" style="background-image:url('${esc(p.photo)}')">`
+        : `<div class="lf-shirt is-circle" style="background-color:var(--role-${role});color:var(--role-${role}-text)">${esc(p.role || '')}`;
+      lab.dataset.playerId = p.id;
+      lab.style.setProperty('--lv3d-c', c);
+      lab.innerHTML = `${shirt}${scoreTag}${this._captainMark(t, p, 'lf-cap', 15)}</div><div class="lf-name">${esc(p.name)}</div>`;
+    });
+    V.labels.forEach((lab, key) => { if (!keep.has(key)) { lab.remove(); V.labels.delete(key); } });
+  },
+
+  /** Posiziona le etichette dei giocatori sopra i segnaposti (dopo ogni disegno dello stadio). */
+  _place3D(project) {
+    const V = this._lv3d;
+    if (!V) return;
+    const c0 = project(0, 0, 0), c1 = project(0, 0, 10);
+    // grandezza delle etichette: con lo zoom crescono un poco (non troppo, per non coprire il campo)
+    const ppm = Math.hypot(c1.x - c0.x, c1.y - c0.y) / 10, k = Math.max(0.5, Math.min(1.25, ppm / 6));
+    V.spots.forEach(({ p, t, x, z }) => {
+      const lab = V.labels.get(`${t.id}|${p.id}`);
+      if (!lab) return;
+      const q = project(x, 2.4, z);
+      lab.style.display = q.ok ? '' : 'none';
+      lab.style.transform = `translate(${q.x}px, ${q.y}px) translate(-50%, -78%) scale(${k})`;
+    });
+  },
+
+  _full3D(on) {
+    const V = this._lv3d;
+    if (!V) return;
+    V.full = on;
+    V.el.classList.toggle('full', on);
+    const b = V.el.querySelector('[data-v3="full"]');
+    if (b) b.innerHTML = `<i class="${on ? 'ri-fullscreen-exit-line' : 'ri-fullscreen-line'}"></i>`;
+    if (on) BackNav.push('live-3d-full', () => this._full3D(false));
+    else BackNav.pop('live-3d-full');
+  },
+
+  _dispose3D() {
+    const V = this._lv3d;
+    if (!V) return;
+    if (V.full) this._full3D(false);
+    V.viewer.dispose();
+    V.el.remove();
+    this._lv3d = null;
   },
 
   _footerMarkup({ mode, home, away, tH, tA }) {
