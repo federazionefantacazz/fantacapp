@@ -24,6 +24,9 @@ export const AssetPreloader = {
       });
     }
 
+    // 3. Sfondo della competizione (tema)
+    if (STATE.compBackgroundUrl) urls.add(STATE.compBackgroundUrl);
+
     return Array.from(urls);
   },
 
