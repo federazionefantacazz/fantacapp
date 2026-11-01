@@ -21,8 +21,9 @@
 <style>
 :root {
   --font-text: 'DM Sans', sans-serif; /* Font dei testi: il tema può sceglierne un altro per pagina */
-  /* Spazio in basso per la barretta di iPhone. Su alcuni iPhone l'app installata ha la finestra più bassa
-     dello schermo (--vp-gap, misurato dallo script nell'<head>): quella fascia fa già da spazio, quindi si toglie. */
+  /* Spazio in basso per la barretta di iPhone. Su iPhone (app installata, o Chrome con la barra nascosta)
+     a volte la barra in basso non arriva al fondo dello schermo: la fascia che resta (--vp-gap, misurata dallo
+     script nell'<head>) fa già da spazio, quindi si toglie. */
   --safe-b: max(0px, calc(env(safe-area-inset-bottom, 0px) - var(--vp-gap, 0px)));
   /* I temi (js/services/themeService.js) ridefiniscono queste variabili per pagina:
      --title e --label non hanno un valore qui, i fogli di stile usano var(--title, var(--text2)) e var(--label, var(--text2)) */
@@ -356,14 +357,15 @@ body {
   z-index: 999;
 }
 
-/* la fascia sotto la finestra (--vp-gap) prende il colore della barra */
+/* sotto la barra, sempre dello stesso colore: copre qualunque fascia lasci il browser fino al fondo dello
+   schermo (di solito resta fuori dallo schermo e non si vede) */
 #nav::after {
   content: '';
   position: absolute;
   left: 0;
   right: 0;
   top: 100%;
-  height: var(--vp-gap, 0px);
+  height: 160px;
   background: var(--nav-bg);
   pointer-events: none;
 }
@@ -491,21 +493,43 @@ html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75re
 </style>
 <style id="dynamic-theme"></style>
 <script>
-/* iPhone, app installata: a volte iOS dà alla finestra un'altezza minore dello schermo e sotto la barra
-   in basso resta una fascia vuota. Si misura (--vp-gap) per colorarla e togliere lo spazio doppio. */
+/* iPhone: a volte la barra in basso non arriva al fondo dello schermo e sotto resta una fascia
+   (app installata: iOS dà alla finestra un'altezza minore dello schermo; Chrome: con la sua barra nascosta).
+   Si misura (--vp-gap): la fascia prende il colore della barra (#nav::after) e lo spazio per la barretta
+   si riduce di altrettanto (--safe-b). */
 (function () {
-  var standalone = window.navigator.standalone === true ||
-    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
-  if (!standalone) return;
+  var root = document.documentElement;
+  var last = -1;
   function measure() {
-    var portrait = window.innerHeight >= window.innerWidth;
-    var full = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
-    var gap = Math.round(full - window.innerHeight);
-    document.documentElement.style.setProperty('--vp-gap', (gap > 0 && gap < 120 ? gap : 0) + 'px');
+    var gap = 0;
+    // app installata: la finestra è più bassa dello schermo
+    var standalone = window.navigator.standalone === true ||
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    if (standalone) {
+      var portrait = window.innerHeight >= window.innerWidth;
+      var full = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+      gap = full - window.innerHeight;
+    }
+    // ovunque: spazio vero tra il fondo della barra e il fondo dell'area visibile
+    var nav = document.getElementById('nav');
+    if (nav && nav.style.display !== 'none' && nav.getClientRects().length) {
+      var vh = window.visualViewport ? window.visualViewport.height + window.visualViewport.offsetTop : window.innerHeight;
+      var below = Math.max(window.innerHeight, vh) - nav.getBoundingClientRect().bottom;
+      if (below > gap) gap = below;
+    }
+    gap = Math.round(gap);
+    gap = gap > 0 && gap < 120 ? gap : 0;
+    if (gap !== last) { last = gap; root.style.setProperty('--vp-gap', gap + 'px'); }
   }
   measure();
   window.addEventListener('resize', measure);
+  window.addEventListener('scroll', measure, true);
   window.addEventListener('orientationchange', function () { setTimeout(measure, 300); });
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', measure);
+  document.addEventListener('DOMContentLoaded', measure);
+  window.addEventListener('load', measure);
+  // la barra in basso compare solo dopo l'accesso, e Chrome mostra/nasconde la sua barra mentre scorri
+  setInterval(measure, 1000);
 })();
 </script>
 <script>
