@@ -248,6 +248,12 @@ export const ENTRANCES = [
 ];
 export const ENTRANCE_W = [14, 44], ENTRANCE_H = [8, 24]; // larghezza e altezza (m) dei cursori
 export const ENTRANCE_LOGO = [60, 150];                      // grandezza del logo sopra l'ingresso (% della misura normale)
+/** Cosa c'è sul pannello del cubo (muro dell'Amsterdam ArenA). */
+export const CUBE_PANELS = [
+  { id: 'name',  label: 'Nome dello stadio' },
+  { id: 'logo',  label: 'Logo della squadra' },
+  { id: 'image', label: 'La tua immagine' }
+];
 export const ENTRANCE_FITS = [
   { id: 'fill', label: 'Riempie il pannello' },
   { id: 'fit',  label: 'Intera' }
@@ -271,7 +277,7 @@ const DEFAULT = {
   roofSides: ['', '', '', ''], roofTexture: 'auto', roofWave: 0, roofWaves: 4, roofWaveShift: 0,
   seatMosaic: 'none', standText: '', standTextSide: 'far', standTextRing: 1, standTextFont: 'black',
   outerText: '', outerTextFont: 'black', outerTextStyle: 'outline', outerTextSize: 'M', outerTextPlace: 'facade', logoPlaces: [], wallTexture: 'concrete',
-  entrance: 'none', entranceSides: [true, false, false, false], entranceWidth: 26, entranceHeight: 14, entranceLogo: 100, entranceImage: '', entranceImageFit: 'fill',
+  entrance: 'none', entranceSides: [true, false, false, false], entranceWidth: 26, entranceHeight: 14, entranceLogo: 100, entranceImage: '', entranceImageFit: 'fill', cubePanel: 'name', cubeImage: '', cubeImageFit: 'fill',
   colors: {
     grass: '#3d8b37', track: '#b4452f', seatA: '#1e5bb8', seatB: '#ffffff', seatC: '#c62828', seatD: '#ffd400', parapet: '#e6e6e6', structure: '#a5a5a5',
     roof: '#cfd4da', steel: '#767d86', accent: '#1e5bb8', girder: '#c0392b', glow: '#e30613',
@@ -349,7 +355,7 @@ export const PRESETS = [
   },
   {
     id: 'amsterdam', label: 'Stile Amsterdam ArenA',
-    desc: 'Due anelli di seggiolini rossi con i palchi sotto il tetto a cupola bassa con la fascia di pannelli solari e l\'apertura rettangolare sopra il campo; le due grandi travi reticolari bianche ad arco, da una tribuna all\'altra su quattro piloni, reggono i pannelli apribili raccolti sopra le tribune. Fuori l\'anello di sopra a sbalzo sulle travi inclinate, la fascia bianca con le righe rosse, i camminamenti vetrati e, su una curva, il cubo bianco coi cerchi tra le torri cilindriche.',
+    desc: 'Due anelli di seggiolini rossi con i palchi sotto il tetto a cupola bassa con la fascia di pannelli solari e l\'apertura rettangolare sopra il campo; le due grandi travi reticolari bianche ad arco, da una tribuna all\'altra su quattro piloni, reggono i pannelli apribili raccolti sopra le tribune. Fuori l\'anello di sopra a sbalzo sulle travi inclinate, la fascia bianca con le righe rosse, l\'ingresso principale con l\'edificio a strisce gialle e il disco del logo tra le torri e, su una curva, il cubo bianco coi cerchi tra le torri cilindriche.',
     st: {
       rings: 2, tierSpread: 30, track: false, shape: 'oval', corners: 'closed', mowing: 'stripes', seatMode: 'single', roof: 'retract', roofReach: 'normal',
       lights: 'roof', facade: 'arena', ramps: false, boxes: true, screen: 'ends', adBoards: 'both',
@@ -500,6 +506,9 @@ export function normalizeStadium(s) {
     // immagine personale sui pannelli dell'ingresso (indirizzo dell'immagine caricata, o anteprima locale)
     entranceImage: /^(https?:|data:image\/)/.test(String(src.entranceImage || '')) ? String(src.entranceImage) : '',
     entranceImageFit: oneOf(ENTRANCE_FITS, src.entranceImageFit, DEFAULT.entranceImageFit),
+    cubePanel: oneOf(CUBE_PANELS, src.cubePanel, DEFAULT.cubePanel),
+    cubeImage: /^(https?:|data:image\/)/.test(String(src.cubeImage || '')) ? String(src.cubeImage) : '',
+    cubeImageFit: oneOf(ENTRANCE_FITS, src.cubeImageFit, DEFAULT.cubeImageFit),
     ramps: !!src.ramps,
     boxes: !!src.boxes,
     shellPattern: oneOf(SHELL_PATTERNS, src.shellPattern, DEFAULT.shellPattern),
@@ -1231,13 +1240,14 @@ const PLATFORM_H = 5.9, PLATFORM_OUT = 10; // piattaforma intorno allo stadio (s
 const STAIR_BAY = 18, STAIR_RISE = 0.3, STAIR_TREAD = 0.5, FENCE_OUT = 7, GATE_HALF = 8;
 /**
  * Cubo bianco con i cerchi (Amsterdam ArenA) al centro della curva −x (+x con il ferro di cavallo): da d0 (sotto lo
- * sbalzo) a d1 (fuori), largo W e alto H (sotto l'anello di sopra); base = vetrata d'ingresso; banner = dove va il logo.
+ * sbalzo) a d1 (fuori), largo W e alto H (sotto l'anello di sopra); base = vetrata d'ingresso; red = altezze del
+ * pannello (largo panelW: nome, logo o immagine); banner = dove va il logo "Fuori, sulle curve".
  */
 function arenaCubeOf(shape, st) {
   const T = shape.tiers, lo = T.length > 1 ? T[T.length - 2] : T[0], up = T.length > 1 ? T[T.length - 1] : null;
   const d0 = lo.back + WALL - 1.2, d1 = shape.outer + 7, W = 28;
   const H = Math.max(10, Math.min(20, (up ? up.under(d0) : lo.top + 2.2) - 0.6)), base = 4.8;
-  return { sgn: st.horseshoe ? 1 : -1, d0, d1, W, H, base, red: [base + 0.4, base + (H - base) * 0.38], banner: [base + (H - base) * 0.44, H - 1] };
+  return { sgn: st.horseshoe ? 1 : -1, d0, d1, W, H, base, red: [base + 0.4, base + (H - base) * 0.42], banner: [base + (H - base) * 0.48, H - 1], panelW: W * 0.34 };
 }
 
 /** Distanza della recinzione gialla (Maradona) dal bordo degli spalti per un tratto: oltre le scalinate. */
@@ -1729,6 +1739,11 @@ function entranceImageCanvas(url) {
   }
   return entranceImageCache.get(url);
 }
+
+/** Serve il logo della squadra? (posti scelti o muro dell'Amsterdam ArenA) */
+const needsLogo = (n) => n.logoPlaces.length > 0 || n.facade === 'arena'; // Amsterdam: pannello del cubo e dischi del logo
+/** Tela dell'immagine personale del cubo (solo se il pannello la usa). */
+const cubeImageOf = (n) => (n.facade === 'arena' && n.cubePanel === 'image' ? entranceImageCanvas(n.cubeImage) : Promise.resolve(null));
 
 /** Pannello di partenza dell'ingresso (senza immagine personale): colore dell'ingresso, nome dello stadio e la scritta. */
 function paintEntranceDefault(canvas, name, color, aspect) {
@@ -4021,6 +4036,42 @@ function arenaPodiumCanvas() {
   return c;
 }
 
+/**
+ * Edificio d'ingresso dell'Amsterdam ArenA: piano terra vetrato scuro coi montanti, sopra piani di pannelli grigi e bianchi
+ * con le strisce gialle in diagonale e le finestre a nastro. Ripetizione 16 m x 14 m (il piano terra in basso).
+ */
+let arenaOfficeCache = null;
+function arenaOfficeCanvas() {
+  if (arenaOfficeCache) return arenaOfficeCache;
+  const W = 512, H = 448, mx = W / 16, my = H / 14, c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d'), Y = (m) => H - m * my; // metri da terra → pixel
+  ctx.fillStyle = '#d9dbdc'; ctx.fillRect(0, 0, W, H);
+  // piani: ogni 3,4 m sopra il piano terra (4,2 m), pannelli grigi alternati e strisce gialle a parallelogramma
+  for (let f = 0; f < 3; f++) {
+    const y0 = 4.2 + f * 3.4, y1 = y0 + 3.4;
+    for (let k = 0; k < 8; k++) {
+      ctx.fillStyle = (k + f) % 2 ? '#b9bcbf' : '#e7e8e9';
+      ctx.fillRect(k * 2 * mx, Y(y1), 2 * mx, 3.4 * my);
+    }
+    ctx.fillStyle = '#e9b92e';
+    for (let k = -1; k < 9; k++) {
+      const x0 = (k * 2 + (f % 2) * 1) * mx;
+      ctx.beginPath(); ctx.moveTo(x0, Y(y0)); ctx.lineTo(x0 + 0.7 * mx, Y(y0)); ctx.lineTo(x0 + 2 * mx, Y(y1)); ctx.lineTo(x0 + 1.3 * mx, Y(y1)); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = '#3a4550';
+    for (let k = 0; k < 8; k++) if ((k + f) % 3) ctx.fillRect((k * 2 + 0.35) * mx, Y(y0 + 2.6), 1.1 * mx, 1.3 * my);
+    ctx.fillStyle = '#8a8f94'; ctx.fillRect(0, Y(y0) - 3, W, 6);
+  }
+  // piano terra vetrato
+  ctx.fillStyle = '#2f3a45'; ctx.fillRect(0, Y(4.2), W, 4.2 * my);
+  ctx.fillStyle = '#56636f'; ctx.fillRect(0, Y(4.2), W, 0.5 * my);
+  ctx.fillStyle = '#9aa1a8';
+  for (let x = 0; x <= 16; x += 1.6) ctx.fillRect(x * mx - 2, Y(4.2), 4, 4.2 * my);
+  arenaOfficeCache = c;
+  return c;
+}
+
 /** Lame del Bernabéu: tetto (lame concentriche) e facciata (lame orizzontali larghe con lo scuro tra una e l'altra). */
 const bladesTexCache = new Map();
 function bladesTexture(kind) {
@@ -5945,22 +5996,16 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     own.push(g);
   }
 
+  let cubePanel = null, cubeDiscs = null; // pannello sul cubo e dischi del logo (Amsterdam ArenA): tele e texture
   if (st.facade === 'arena') {
     // Amsterdam ArenA: l'anello di sopra a sbalzo (da fuori il sotto a gradoni) retto da grandi travi inclinate chiare,
     // da terra fino al bordo, a forcella in cima; a metà la fascia bianca con le righe rosse davanti al ballatoio; sotto le
-    // vetrate (su una tribuna il basamento con lo zig-zag giallo); sul bordo del tetto apribile le righe rosse; i
-    // camminamenti vetrati che salgono in diagonale al ballatoio; su una curva il cubo bianco coi cerchi e il pannello
-    // rosso col nome, tra le due torri cilindriche delle scale
+    // vetrate (su una tribuna il basamento con lo zig-zag giallo); sul bordo del tetto apribile le righe rosse; su una
+    // curva il cubo bianco coi cerchi e il pannello (nome, logo o immagine), tra le due torri cilindriche delle scale;
+    // sulle tribune l'ingresso principale (edificio a strisce gialle, torri e disco del logo)
     const rect = (d0, d1, h0, h1, m) => [[d0, h0], [d1, h0], [d1, h1], [d0, h1]].map(([d, h]) => ({ d, h, m }));
-    const pos = [], idx = [[], [], [], [], []], ribs = [], reds = [], tubes = [], frameW = [], cubeBox = [], discs = [], rims = [], drumsA = [], slits = [];
+    const pos = [], idx = [[], [], [], [], []], ribs = [], reds = [], poles = [], slitsCyl = [], frameW = [], cubeBox = [], discs = [], rims = [], drumsA = [], slits = [];
     const podium = { pos: [], uv: [], idx: [] }, C = arenaCubeOf(shape, st), cubeAt = (x, z) => x * C.sgn > 0 && Math.abs(z) < C.W / 2 + 2;
-    const glassT = new THREE.MeshStandardMaterial({ color: 0xc7dbe6, roughness: 0.08, metalness: 0.2, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide });
-    own.push(glassT);
-    // trave inclinata della scala/del camminamento: blocco con l'asse lungo la pendenza
-    const slope = (list, run, cum, ua, ub, d, h0, h1, wd, hh, lift = 0) => {
-      const [x0, z0] = pointAt(run, cum, ua, d), [x1, z1] = pointAt(run, cum, ub, d), [tx, tz] = tangentAt(run, cum, (ua + ub) / 2, d);
-      boxAt(list, (x0 + x1) / 2, (h0 + h1) / 2 + lift, (z0 + z1) / 2, [x1 - x0, h1 - h0, z1 - z0], [0, hh, 0], [-tz * wd, 0, tx * wd]);
-    };
     for (const run of shape.runs) {
       const rt = run.tiers, up = rt.length > 1 ? rt[rt.length - 1] : null, lo = up ? rt[rt.length - 2] : rt[0];
       const o = runOuter(run), cum = runLengths(run), total = cum[cum.length - 1], lb = lo.back + WALL;
@@ -5969,7 +6014,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       // trave inclinata: da terra vicino al muro fino sotto il bordo dell'anello di sopra
       const dB0 = lb + 0.6, dT = up ? o - 0.6 : o + 0.3, hT = up ? sof(dT) - 0.3 : hDeck, strutD = (h) => dB0 + (dT - dB0) * h / hT;
       const dBand = up ? strutD(hDeck + 1.6) + 0.95 : o + 0.45;
-      // vetrate in basso (sotto l'anello di sotto) e, sulla tribuna +z, il basamento colorato
+      // vetrate in basso (sotto l'anello di sotto) e, sulla tribuna +z, il basamento colorato (dietro l'edificio d'ingresso)
       const pod = (p) => p.z > 0 && p.mz > 0.55;
       for (const sub of subRuns(run, (p) => !pod(p))) extrude(THREE, sub, rect(lb, lb + 0.08, 0, hUnder, 2), pos, idx);
       for (const sub of subRuns(run, pod)) stripUV(sub, [{ d: lb + 0.1, h: 0 }, { d: lb + 0.1, h: hUnder }], podium, 16, hUnder);
@@ -6000,37 +6045,6 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         beam(ribs, x0, 0, z0, xm, hm, zm, 1.15);
         for (const k of [-1, 1]) { const [x2, z2] = pointAt(run, cum, wrapU(run, total, u + k * 1.7), dT); beam(ribs, xm, hm, zm, x2, hT, z2, 0.75); }
       }
-      // camminamenti vetrati: sulle tribune, ai lati del centro, salgono in diagonale lungo la facciata fino al ballatoio
-      if (!up) continue;
-      for (const side of [0, 2]) {
-        const I = run.pts.map((p, i) => i).filter(i => sideOfPoint(run.pts[i]) === side && onLongSide(run.pts[i]));
-        if (!I.length) continue;
-        const uc = cum[I.reduce((m, i) => (Math.abs(run.pts[i].x) < Math.abs(run.pts[m].x) ? i : m))];
-        const dw = dBand + 1.6, len = hDeck / 0.58;
-        for (const sg of [-1, 1]) {
-          const ug = uc + sg * (4 + len), ut = uc + sg * 4;
-          if (!run.closed && (ug < 0 || ug > total)) continue;
-          const [xg, zg] = pointAt(run, cum, wrapU(run, total, ug), 0);
-          if (nearEntrance(shape, st, xg, zg, 4)) continue;
-          const a = wrapU(run, total, ug), b = wrapU(run, total, ut);
-          if (Math.abs(a - b) > len + 1) continue; // passa per l'inizio del giro: niente
-          slope(cubeBox, run, cum, a, b, dw, 0.2, hDeck, 2.8, 0.5);                           // soletta
-          const n = Math.max(2, Math.round(hDeck / 0.3));
-          for (let j = 0; j < n; j++) {
-            const f0 = j / n, f1 = (j + 1) / n, ua = a + (b - a) * f0, ub = a + (b - a) * f1, [x, z] = pointAt(run, cum, (ua + ub) / 2, dw), [tx, tz] = tangentAt(run, cum, ua, dw);
-            boxAt(slits, x, hDeck * f1 + 0.2, z, [tx * Math.abs(ub - ua), 0, tz * Math.abs(ub - ua)], [0, 0.22, 0], [-tz * 2.5, 0, tx * 2.5]);
-          }
-          for (const k of [-1, 1]) slope(tubes, run, cum, a, b, dw + k * 1.4, 0.2, hDeck, 0.06, 2.3, 1.35); // vetri ai lati
-          slope(tubes, run, cum, a, b, dw, 0.2, hDeck, 2.9, 0.06, 2.55);                                    // vetro sopra
-          for (let j = 0; j <= 6; j++) {
-            const u = a + (b - a) * j / 6, h = hDeck * j / 6, [x1, z1] = pointAt(run, cum, u, dw - 1.45), [x2, z2] = pointAt(run, cum, u, dw + 1.45);
-            beam(frameW, x1, h, z1, x1, h + 2.55, z1, 0.14); beam(frameW, x2, h, z2, x2, h + 2.55, z2, 0.14); beam(frameW, x1, h + 2.55, z1, x2, h + 2.55, z2, 0.14);
-          }
-          // arrivo sul ballatoio
-          const [xa2, za2] = pointAt(run, cum, b, (dBand + dw + 1.4) / 2), [tx, tz] = tangentAt(run, cum, b, dw);
-          boxAt(cubeBox, xa2, hDeck - 0.25, za2, [tx * 2.8, 0, tz * 2.8], [0, 0.5, 0], [-tz * (dw + 1.4 - dBand + 0.4), 0, tx * (dw + 1.4 - dBand + 0.4)]);
-        }
-      }
     }
     // cubo bianco coi cerchi al centro della curva, con la vetrata d'ingresso e il pannello rosso col nome
     if (shape.runs.some(r => r.pts.some(p => p.x * C.sgn > shape.a - 1)) && !nearEntrance(shape, st, C.sgn * shape.a, 0, C.W / 2)) {
@@ -6045,28 +6059,19 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         boxAt(rims, X(C.d1 + 0.1), y, zc, [0, 0, rr + 0.45], [0.3 * sg, 0, 0], [0, rr + 0.45, 0]);
         boxAt(discs, X(C.d1 + 0.2), y, zc, [0, 0, rr], [0.3 * sg, 0, 0], [0, rr, 0]);
       }
-      // pannello rosso col nome dello stadio
-      const cv = document.createElement('canvas');
-      cv.width = 512; cv.height = 320;
+      // pannello (nome dello stadio, logo o immagine: lo dipinge buildStadium, vedi paintCube) con la cornice scura
+      const pw = C.panelW, [h0, h1] = C.red, aspect = pw / (h1 - h0), cv = document.createElement('canvas');
+      cv.width = 1024; cv.height = Math.max(64, Math.round(1024 / aspect));
       const tex = new THREE.CanvasTexture(cv);
       tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
-      repaint.push((s2) => {
-        const ctx = cv.getContext('2d'), nm = (s2.name.trim() || 'FANTACAZZ').toUpperCase();
-        ctx.fillStyle = s2.colors.accent; ctx.fillRect(0, 0, 512, 320);
-        ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        let px = 120; ctx.font = `900 ${px}px "Arial Black", Arial, sans-serif`;
-        const w = ctx.measureText(nm).width;
-        if (w > 470) { px *= 470 / w; ctx.font = `900 ${px}px "Arial Black", Arial, sans-serif`; }
-        ctx.fillText(nm, 256, 140);
-        ctx.font = '700 40px Arial, sans-serif'; ctx.fillText('ARENA', 256, 250);
-        tex.needsUpdate = true;
-      });
-      const pw = C.W * 0.3, [h0, h1] = C.red, g = new THREE.PlaneGeometry(pw, h1 - h0), m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.05 }));
-      m.position.set(X(C.d1 + 0.06), (h0 + h1) / 2, 0);
+      const g = new THREE.PlaneGeometry(pw, h1 - h0), pm = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.05 }), m = new THREE.Mesh(g, pm);
+      m.position.set(X(C.d1 + 0.07), (h0 + h1) / 2, 0);
       m.rotation.y = sg * Math.PI / 2;
-      nightGlow.push([m.material, 0.05, 0.5]);
+      boxAt(slits, X(C.d1 + 0.03), (h0 + h1) / 2, 0, [0.06, 0, 0], [0, h1 - h0 + 0.5, 0], [0, 0, pw + 0.5]);
+      nightGlow.push([pm, 0.05, 0.5]);
       group.add(m);
-      own.push(tex, g, m.material);
+      own.push(tex, g, pm);
+      cubePanel = { canvas: cv, tex, aspect };
       // le due torri cilindriche delle scale ai lati del cubo
       const run = shape.runs.find(r => r.pts.some(p => p.x * sg > shape.a - 1));
       for (const zt of [-1, 1]) {
@@ -6077,6 +6082,58 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         for (let y = 2.6; y < Ht - 1; y += 2.8) boxAt(slits, x, y, z, [4.65, 0, 0], [0, 0.35, 0], [0, 0, 4.65]);
       }
     }
+    // ingresso principale sulle due tribune (come all'ArenA): l'edificio basso davanti, a pannelli grigi con le strisce
+    // gialle e il piano terra vetrato con l'ingresso; accanto le due torri di cemento (con i pali bianchi) e, tra le due, il
+    // muro col grande disco del logo e la pensilina curva sotto. Con il tetto apribile una delle torri è il suo pilone
+    const AR = st.roof === 'retract' ? retractOf(shape, st) : null, lowT = shape.tiers.length > 1 ? shape.tiers[shape.tiers.length - 2] : shape.tiers[0];
+    const Hb = Math.min(15, lowT.top + 3.7), Db = 12, L = 2 * Math.max(10, Math.min(shape.a - 4, (AR ? AR.xc : shape.a) - 7));
+    const officeT = new THREE.CanvasTexture(arenaOfficeCanvas());
+    officeT.wrapS = officeT.wrapT = THREE.RepeatWrapping; officeT.colorSpace = THREE.SRGBColorSpace; officeT.anisotropy = 8;
+    officeT.repeat.set(L / 16, Hb / 14);
+    const officeMat = new THREE.MeshStandardMaterial({ map: officeT, roughness: 0.6 });
+    own.push(officeT, officeMat);
+    for (const sz of [1, -1]) {
+      if (!shape.runs.some(r => r.pts.some(p => sideOfPoint(p) === (sz > 0 ? 0 : 2) && Math.abs(p.x) < 2))) continue;
+      if (nearEntrance(shape, st, 0, sz * shape.b, L / 2)) continue;
+      const zf = shape.b + shape.outer + 0.6, zc = sz * (zf + Db / 2), Z = (dz) => sz * (zf + dz);
+      boxAt(cubeBox, 0, Hb / 2, zc, [L, 0, 0], [0, Hb, 0], [0, 0, Db]);
+      boxAt(slits, 0, Hb + 0.25, zc, [L + 0.6, 0, 0], [0, 0.5, 0], [0, 0, Db + 0.6]);                   // cornice
+      const fg = new THREE.PlaneGeometry(L, Hb), fm = new THREE.Mesh(fg, officeMat);
+      fm.position.set(0, Hb / 2, Z(Db + 0.03)); fm.rotation.y = sz > 0 ? 0 : Math.PI;
+      group.add(fm); own.push(fg);
+      // ingresso: vano scuro sul lato verso le torri, con i gradini davanti
+      const xe = -sz * (L / 2 - 7);
+      boxAt(slits, xe, 2.1, Z(Db + 0.05), [9, 0, 0], [0, 4.2, 0], [0, 0, 0.3]);
+      for (let k = 0; k < 4; k++) { const hk = 0.18 * (4 - k); boxAt(cubeBox, xe, hk / 2, Z(Db + 0.25 + k * 0.45), [11, 0, 0], [0, hk, 0], [0, 0, 0.45]); }
+      // le due torri (una è il pilone del tetto apribile, se c'è) e il muro col disco tra le due
+      const tA = AR ? [-sz * AR.xc, sz * AR.Zt] : [-sz * (L / 2 + 5.5), Z(4)], tB = [tA[0] - sz * 17, tA[1]];
+      const hT = AR ? AR.yb(AR.Zt) - 1.2 : Hb + 14, top = hT + 9;
+      for (const [x, z, own2] of [[...tA, !!AR], [...tB, false]]) {
+        if (own2) continue;
+        boxAt(pilasters, x, hT / 2, z, [7.5, 0, 0], [0, hT, 0], [0, 0, 7.5]);
+        boxAt(poles, x, (hT - 1 + top) / 2, z, [1.6, 0, 0], [0, top - hT + 1, 0], [0, 0, 1.6]);
+        for (const [y, r] of [[top + 0.3, 3.6], [top - 2.6, 3]]) boxAt(poles, x, y, z, [r, 0, 0], [0, 0.55, 0], [0, 0, r]);
+      }
+      const xm = (tA[0] + tB[0]) / 2, zw = tA[1] + sz * 2.6, hW = Math.min(hT - 2, 24), hD = Math.min(hW - 5, 16);
+      boxAt(pilasters, xm, hW / 2, tA[1], [17, 0, 0], [0, hW, 0], [0, 0, 5]);
+      // disco del logo: corona bianca e il disco dipinto (logo o nome, vedi paintCube)
+      boxAt(poles, xm, hD, zw + sz * 0.25, [4.3, 0, 0], [0, 0, 0.5 * sz], [0, 4.3, 0]);
+      const dcv = document.createElement('canvas');
+      dcv.width = dcv.height = 512;
+      const dtex = new THREE.CanvasTexture(dcv);
+      dtex.colorSpace = THREE.SRGBColorSpace; dtex.anisotropy = 8;
+      const dg = new THREE.CircleGeometry(3.9, 48), dm = new THREE.MeshStandardMaterial({ map: dtex, roughness: 0.5, emissive: 0xffffff, emissiveMap: dtex, emissiveIntensity: 0.05 });
+      const disc = new THREE.Mesh(dg, dm);
+      disc.position.set(xm, hD, zw + sz * 0.52); disc.rotation.y = sz > 0 ? 0 : Math.PI;
+      nightGlow.push([dm, 0.05, 0.55]);
+      group.add(disc); own.push(dtex, dg, dm);
+      (cubeDiscs || (cubeDiscs = [])).push({ canvas: dcv, tex: dtex });
+      // pensilina curva sotto il disco (metà dentro il muro) con la fascia scura
+      boxAt(poles, xm, 6.4, zw, [8, 0, 0], [0, 0.9, 0], [0, 0, 8]);
+      boxAt(slitsCyl, xm, 6.95, zw, [8.15, 0, 0], [0, 0.35, 0], [0, 0, 8.15]);
+      for (const k of [-1, 1]) beam(frameW, xm + k * 5.5, 0, zw + sz * 4.2, xm + k * 5.5, 6, zw + sz * 4.2, 0.35);
+    }
+    inst(dark, slitsCyl, cylinder);
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     let start = 0;
@@ -6100,7 +6157,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     }
     inst(stoneLight, ribs);
     inst(accent, reds);
-    inst(glassT, tubes);
+    inst(sculptMat, poles, cylinder);
     inst(sculptMat, frameW);
     inst(cladMat, cubeBox);
     inst(dark, slits);
@@ -7583,7 +7640,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
   inst(girderMat, girderBeams);
   inst([steel, steel, steel, steel, lamp, steel], lamps); // la faccia +z del proiettore è quella accesa
 
-  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, nightGlow, repaint, tints, badge, wallMat, panelSkinMat, stoneLight, stoneDark, tentGlass, entrance, lawn, roofType: st.roof, towersAt, shellClear };
+  return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, nightGlow, repaint, tints, badge, wallMat, panelSkinMat, stoneLight, stoneDark, tentGlass, entrance, lawn, roofType: st.roof, towersAt, shellClear, cubePanel, cubeDiscs };
 }
 
 /* --------------------------------------------------------------- scena */
@@ -8000,6 +8057,61 @@ function buildStadium(L, st) {
     }
   };
   let adsKey = '', paintKey = '', seatColorKey = '', signKey = '', screenKey = '', sign = null, night = false;
+  // pannello sul cubo (Amsterdam ArenA): nome dello stadio, logo della squadra o immagine personale, sul colore delle righe
+  let cubeSt = st, cubeImg = null, cubeKey = '';
+  // dischi del logo all'ingresso principale: il logo della squadra (se c'è) o il nome dello stadio, su fondo bianco
+  let discKey = '';
+  const paintDiscs = () => {
+    const D = outside.cubeDiscs;
+    if (!D) return;
+    const s = cubeSt, nm = (s.name.trim() || 'FANTACAZZ').toUpperCase(), key = [nm, s.colors.accent, logoSrc ? 1 : 0].join('|');
+    if (key === discKey && D[0].shown === logoSrc) return;
+    discKey = key;
+    for (const d of D) {
+      d.shown = logoSrc;
+      const ctx = d.canvas.getContext('2d'), S = d.canvas.width;
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, S, S);
+      ctx.strokeStyle = s.colors.accent; ctx.lineWidth = S * 0.035;
+      ctx.beginPath(); ctx.arc(S / 2, S / 2, S * 0.46, 0, Math.PI * 2); ctx.stroke();
+      if (logoSrc) {
+        const k = Math.min(S * 0.6 / logoSrc.width, S * 0.6 / logoSrc.height), w = logoSrc.width * k, h = logoSrc.height * k;
+        ctx.drawImage(logoSrc, (S - w) / 2, (S - h) / 2, w, h);
+      } else {
+        ctx.fillStyle = s.colors.accent; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        let px = S * 0.16; ctx.font = `900 ${px}px "Arial Black", Arial, sans-serif`;
+        const w = ctx.measureText(nm).width;
+        if (w > S * 0.72) { px *= S * 0.72 / w; ctx.font = `900 ${px}px "Arial Black", Arial, sans-serif`; }
+        ctx.fillText(nm, S / 2, S / 2);
+      }
+      d.tex.needsUpdate = true;
+    }
+  };
+  const paintCube = () => {
+    paintDiscs();
+    const P = outside.cubePanel;
+    if (!P) return;
+    const s = cubeSt, mode = s.cubePanel === 'image' && cubeImg ? 'image' : s.cubePanel === 'logo' && logoSrc ? 'logo' : 'name';
+    const nm = (s.name.trim() || 'FANTACAZZ').toUpperCase(), key = [mode, nm, s.colors.accent, s.cubeImageFit].join('|');
+    if (key === cubeKey && (mode !== 'image' || P.shown === cubeImg) && (mode !== 'logo' || P.shown === logoSrc)) return;
+    cubeKey = key; P.shown = mode === 'image' ? cubeImg : mode === 'logo' ? logoSrc : null;
+    const cv = P.canvas, W = cv.width, H = cv.height, ctx = cv.getContext('2d');
+    ctx.fillStyle = s.colors.accent; ctx.fillRect(0, 0, W, H);
+    const draw = (img, cover, pad) => {
+      const k = cover ? Math.max(W / img.width, H / img.height) : Math.min(W * pad / img.width, H * pad / img.height), w = img.width * k, h = img.height * k;
+      ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
+    };
+    if (mode === 'image') draw(cubeImg, s.cubeImageFit !== 'fit', 0.92);
+    else if (mode === 'logo') draw(logoSrc, false, 0.82);
+    else {
+      ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      let px = H * 0.36; ctx.font = `900 ${px}px "Arial Black", Arial, sans-serif`;
+      const w = ctx.measureText(nm).width;
+      if (w > W * 0.9) { px *= W * 0.9 / w; ctx.font = `900 ${px}px "Arial Black", Arial, sans-serif`; }
+      ctx.fillText(nm, W / 2, H * 0.42);
+      ctx.font = `700 ${Math.round(H * 0.13)}px Arial, sans-serif`; ctx.fillText('ARENA', W / 2, H * 0.78);
+    }
+    P.tex.needsUpdate = true;
+  };
   return {
     key: geomKey(st), group, shape, ext, height: reach.h, capacity: seats.count,
     setNight(on) {
@@ -8018,6 +8130,7 @@ function buildStadium(L, st) {
     },
     recolor(s) {
       const c = s.colors;
+      cubeSt = s;
       if (archMat) { archMat.color.set(c.arch); archMat.emissive.set(c.arch); }
       // colori di ogni copertura (con le coperture mescolate ce n'è più di una)
       for (const outside of exts) {
@@ -8146,6 +8259,7 @@ function buildStadium(L, st) {
     setLogo(c) {
       if (c === logoSrc) return;
       logoSrc = c;
+      paintCube();
       if (logoTex) { logoTex.dispose(); logoTex = null; }
       if (c) { logoTex = new THREE.CanvasTexture(c); logoTex.colorSpace = THREE.SRGBColorSpace; logoTex.anisotropy = 8; }
       logoMat.map = logoMat.emissiveMap = logoTex;
@@ -8166,6 +8280,11 @@ function buildStadium(L, st) {
     setEntranceImage(c) {
       entImg = c || null;
       applyEntranceImage();
+    },
+    /** Immagine personale del pannello sul cubo (Amsterdam ArenA; tela di entranceImageCanvas o null). */
+    setCubeImage(c) {
+      cubeImg = c || null;
+      paintCube();
     },
     dispose() { own.forEach(o => o.dispose()); seatMesh.dispose(); if (sign) sign.dispose(); if (logoTex) logoTex.dispose(); if (outside.entrance) outside.entrance.panels.forEach(E => E.tex.dispose()); }
   };
@@ -8230,7 +8349,7 @@ class Stage {
   }
 
   /** Mostra lo stadio: ricostruisce la geometria solo se cambia la struttura, altrimenti cambia i colori (logo: tela o null). */
-  setStadium(st, logo = null, entranceImg = null) {
+  setStadium(st, logo = null, entranceImg = null, cubeImg = null) {
     if (!this.built || this.built.key !== geomKey(st)) {
       if (this.built) { this.scene.remove(this.built.group); this.built.dispose(); }
       this.built = buildStadium(this.L, st);
@@ -8242,6 +8361,7 @@ class Stage {
     this.built.recolor(st);
     this.built.setLogo(logo);
     this.built.setEntranceImage(entranceImg);
+    this.built.setCubeImage(cubeImg);
     return this.built.capacity;
   }
 
@@ -8376,10 +8496,10 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
     ready,
     async update(st, { logo = '' } = {}) {
       const my = ++token, n = normalizeStadium(st);
-      const [s, , lc, ec] = await Promise.all([ready, loadTextFonts(n), n.logoPlaces.length ? stadiumLogo(logo) : null,
-        n.entrance !== 'none' || n.roof === 'wave' ? entranceImageCanvas(n.entranceImage) : null]);
+      const [s, , lc, ec, cc] = await Promise.all([ready, loadTextFonts(n), needsLogo(n) ? stadiumLogo(logo) : null,
+        n.entrance !== 'none' || n.roof === 'wave' ? entranceImageCanvas(n.entranceImage) : null, cubeImageOf(n)]);
       if (!s || disposed || my !== token) return 0;
-      const capacity = s.setStadium(n, lc, ec);
+      const capacity = s.setStadium(n, lc, ec, cc);
       s.render();
       return capacity;
     },
@@ -8504,7 +8624,7 @@ export function renderStadiumImage(st, opts = {}) {
     shot.setNight(false);
     const n = normalizeStadium(st);
     await loadTextFonts(n);
-    shot.setStadium(n, n.logoPlaces.length ? await stadiumLogo(opts.logo) : null, n.entrance !== 'none' || n.roof === 'wave' ? await entranceImageCanvas(n.entranceImage) : null);
+    shot.setStadium(n, needsLogo(n) ? await stadiumLogo(opts.logo) : null, n.entrance !== 'none' || n.roof === 'wave' ? await entranceImageCanvas(n.entranceImage) : null, await cubeImageOf(n));
     shot.setView(opts.view || 'aerial');
     shot.render();
     return cropToContent(shot.renderer.domElement);
