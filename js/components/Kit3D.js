@@ -115,6 +115,23 @@ async function applyCut(model, url) {
 
 /** Classica col girocollo: la costina della raglan sta un po' più in alto (la stoffa in neck-crew-setin.bin arriva lì). */
 const CREW_LIFT = 0.012, CREW_WIDEN = 1.025;
+/** Raglan con la V: la costina a V della classica rimpicciolita (scala), inclinata (gradi) e spostata (m) attorno a
+ * pivot, poi allargata un po' intorno all'asse del collo; la stoffa in neck-v-raglan.bin arriva al suo bordo. */
+const V_FIT = { pivot: [0, 1.52, 0], dy: 0.005347, dz: -0.000231, tilt: 0.059243, scale: 0.932262, widen: 1 };
+
+/** Coordinate della texture della costina presa dall'altra maglia: dal riquadro del colletto a a quello b. */
+function remapUV(THREE, node, a, b) {
+  node.traverse(o => {
+    if (!o.isMesh) return;
+    const g = o.geometry.clone(), uv = g.getAttribute('uv'), f = new Float32Array(uv.count * 2);
+    for (let i = 0; i < uv.count; i++) {
+      f[2 * i] = b.x + (uv.getX(i) - a.x) / a.w * b.w;
+      f[2 * i + 1] = b.y + (uv.getY(i) - a.y) / a.h * b.h;
+    }
+    g.setAttribute('uv', new THREE.BufferAttribute(f, 2));
+    o.geometry = g;
+  });
+}
 
 function loadVariant(kit) {
   const raglan = kit.sleeveCut === 'raglan';
@@ -127,6 +144,34 @@ function loadVariant(kit) {
       const model = base.clone(true);
       const rib = /Pattern2D_3805002|raglan_collar/; // costina del collo (classica: a V, raglan: girocollo)
       const isRib = (o) => rib.test(`${o.name}|${o.parent ? o.parent.name : ''}`);
+      if (shape === 'v') {
+        // raglan con la V della classica: la sua costina così com'è al posto del girocollo, la stoffa dentro la V tolta e il
+        // bordo del taglio sotto la costina. Nella texture la costina usa il riquadro del colletto della raglan
+        await applyShift(THREE, model, KIT3D_FILES.neckVRaglan);
+        await applyCut(model, KIT3D_FILES.neckCutVRaglan);
+        model.traverse(o => { if (o.isMesh && isRib(o)) o.visible = false; });
+        const setin = await loadModel();
+        setin.updateMatrixWorld(true);
+        let src = null;
+        setin.traverse(o => { if (!src && o.name === 'Pattern2D_3805002') src = o; });
+        if (src) {
+          const rib = src.clone(true);
+          src.matrixWorld.decompose(rib.position, rib.quaternion, rib.scale);
+          remapUV(THREE, rib, UV.collar, UV_RAGLAN.collar);
+          const f = V_FIT, p = new THREE.Vector3(...f.pivot), M = new THREE.Matrix4();
+          M.makeScale(f.widen, 1, f.widen)
+            .multiply(new THREE.Matrix4().makeTranslation(p.x, p.y + f.dy, p.z + f.dz))
+            .multiply(new THREE.Matrix4().makeRotationX(f.tilt))
+            .multiply(new THREE.Matrix4().makeScale(f.scale, f.scale, f.scale))
+            .multiply(new THREE.Matrix4().makeTranslation(-p.x, -p.y, -p.z));
+          const wrap = new THREE.Group();
+          wrap.matrixAutoUpdate = false;
+          wrap.matrix.copy(M);
+          wrap.add(rib);
+          model.add(wrap);
+        }
+        return model;
+      }
       if (shape === 'crew') {
         // classica col girocollo della raglan: la sua costina così com'è al posto di quella a V, e la stoffa di davanti e di
         // dietro arriva fino al suo bordo (neck-crew-setin.bin). Nella texture la costina usa il riquadro del colletto della classica
@@ -144,17 +189,7 @@ function loadVariant(kit) {
           const wrap = new THREE.Group();
           wrap.scale.set(CREW_WIDEN, 1, CREW_WIDEN);
           wrap.add(rib);
-          const a = UV_RAGLAN.collar, b = UV.collar;
-          rib.traverse(o => {
-            if (!o.isMesh) return;
-            const g = o.geometry.clone(), uv = g.getAttribute('uv'), f = new Float32Array(uv.count * 2);
-            for (let i = 0; i < uv.count; i++) {
-              f[2 * i] = b.x + (uv.getX(i) - a.x) / a.w * b.w;
-              f[2 * i + 1] = b.y + (uv.getY(i) - a.y) / a.h * b.h;
-            }
-            g.setAttribute('uv', new THREE.BufferAttribute(f, 2));
-            o.geometry = g;
-          });
+          remapUV(THREE, rib, UV_RAGLAN.collar, UV.collar);
           model.add(wrap);
         }
         return model;

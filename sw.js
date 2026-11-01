@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.4.19'; // Incrementa ad ogni modifica dei file statici
+const CACHE_NAME = 'fantacapp-pwa-alpha-v1.0.4.20'; // Incrementa ad ogni modifica dei file statici
 const IMAGE_CACHE = 'fantacapp-images-v1'; // riempita da js/services/assetPreloader.js: non va cancellata agli aggiornamenti
 // Librerie e font esterni (Firebase SDK, icone, Google Fonts): URL con versione fissa, restano tra un aggiornamento e l'altro
 const RUNTIME_CACHE = 'fantacapp-runtime-v1';
@@ -36,6 +36,8 @@ const ASSETS_TO_CACHE = [
   './icons/kit3d/collar-polo.glb',
   './icons/kit3d/neck-polo.bin',
   './icons/kit3d/neck-crew-setin.bin',
+  './icons/kit3d/neck-v-raglan.bin',
+  './icons/kit3d/neck-cutv-raglan.bin',
   './icons/kit3d/mask.png',
   './icons/kit3d/seams.jpg',
   './icons/kit3d/shirt-raglan.glb',
