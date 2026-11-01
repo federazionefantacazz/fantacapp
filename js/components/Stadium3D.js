@@ -565,6 +565,8 @@ const sideOfPoint = (p) => (onLongSide(p) ? (p.z > 0 ? 0 : 2) : (p.x > 0 ? 1 : 3
 
 /* ------------------------------------------------------------- geometria */
 const PITCH = { l: 105, w: 68 };
+/** Misure del campo (m): lunghezza lungo x, larghezza lungo z, centro nell'origine. */
+export const PITCH_SIZE = PITCH;
 const TRACK = { straight: 84.39, r: 36.5, lanes: 8, lane: 1.22 }; // pista regolamentare da 400 m
 const ROWS = { 1: [30], 2: [24, 20], 3: [22, 17, 14] };            // file di seggiolini per anello
 const RISERS = [0.4, 0.5, 0.56];                                    // alzata dei gradoni: più ripidi in alto
@@ -8400,11 +8402,63 @@ class Stage {
       this.controls.minDistance = this.dist * 0.12;
       this.controls.maxDistance = this.dist * 1.5;
     }
-    this.setView(this.view);
+    if (this.pitchFrame) this.framePitch(); else this.setView(this.view);
+  }
+
+  /**
+   * Vista dall'alto sul campo (live): il campo riempie lo schermo, in verticale sugli schermi alti (la squadra di casa in
+   * basso) e in orizzontale su quelli larghi (la squadra di casa a sinistra). Resta così anche ridimensionando.
+   */
+  framePitch() {
+    const { THREE } = this.L, el = this.renderer.domElement, aspect = el.clientWidth / Math.max(1, el.clientHeight);
+    const portrait = aspect < 1, along = PITCH.l + (portrait ? 30 : 16), across = PITCH.w + (portrait ? 10 : 22); // margine per la barra dei comandi
+    const [sw, sh] = portrait ? [across, along] : [along, across]; // metri da far stare in larghezza e in altezza
+    const vf = THREE.MathUtils.degToRad(FOV) / 2, hf = Math.atan(Math.tan(vf) * aspect);
+    const dist = Math.max(sh / 2 / Math.tan(vf), sw / 2 / Math.tan(hf));
+    this.pitchFrame = true;
+    this.view = 'top';
+    if (this.camera.fov !== FOV) { this.camera.fov = FOV; this.camera.updateProjectionMatrix(); }
+    this.camera.position.setFromSpherical(new THREE.Spherical(dist, THREE.MathUtils.degToRad(1.2), portrait ? -Math.PI / 2 : 0));
+    this.camera.lookAt(0, 0, 0);
+    if (this.controls) {
+      this.controls.target.set(0, 0, 0);
+      this.controls.minDistance = 6;
+      this.controls.maxDistance = Math.max(this.dist * 1.5, dist * 1.2);
+      this.controls.update();
+    }
+  }
+
+  /** Segnaposti dei giocatori sul campo, [{ x, z, color }] (restano anche quando lo stadio si ricostruisce). */
+  setMarkers(list) {
+    const { THREE } = this.L;
+    if (!this.markerGeo) {
+      this.markerGeo = { disc: new THREE.CylinderGeometry(1.15, 1.15, 0.08, 32), body: new THREE.CylinderGeometry(0.36, 0.48, 1.55, 16), head: new THREE.SphereGeometry(0.3, 16, 12) };
+      this.markerMats = new Map();
+      this.markers = new THREE.Group();
+      this.scene.add(this.markers);
+    }
+    this.markers.clear();
+    const mat = (c) => {
+      if (!this.markerMats.has(c)) this.markerMats.set(c, new THREE.MeshStandardMaterial({ color: c, roughness: 0.55 }));
+      return this.markerMats.get(c);
+    };
+    for (const m of list || []) {
+      const disc = new THREE.Mesh(this.markerGeo.disc, mat(m.color)), body = new THREE.Mesh(this.markerGeo.body, mat(m.color)), head = new THREE.Mesh(this.markerGeo.head, mat('#f1d3b5'));
+      disc.position.set(m.x, 0.1, m.z); body.position.set(m.x, 0.92, m.z); head.position.set(m.x, 1.95, m.z);
+      body.castShadow = head.castShadow = true;
+      this.markers.add(disc, body, head);
+    }
+  }
+
+  /** Punto 3D sullo schermo (pixel CSS dal bordo in alto a sinistra della tela); ok = davanti alla camera. */
+  project(x, y, z) {
+    const v = new this.L.THREE.Vector3(x, y, z).project(this.camera), el = this.renderer.domElement;
+    return { x: (v.x + 1) / 2 * el.clientWidth, y: (1 - v.y) / 2 * el.clientHeight, ok: v.z > -1 && v.z < 1 };
   }
 
   setView(name) {
     const { THREE } = this.L;
+    this.pitchFrame = false;
     this.view = VIEWS[name] ? name : 'aerial';
     const [yaw, polar, f] = VIEWS[this.view];
     const sph = new THREE.Spherical(this.dist * f, THREE.MathUtils.degToRad(polar), THREE.MathUtils.degToRad(yaw));
@@ -8452,10 +8506,14 @@ class Stage {
     if (this.built) this.fit();
   }
 
-  render() { this.renderer.render(this.scene, this.camera); }
+  render() {
+    this.renderer.render(this.scene, this.camera);
+    if (this.afterRender) this.afterRender();
+  }
 
   dispose() {
     if (this._raf) cancelAnimationFrame(this._raf);
+    if (this.markerGeo) { Object.values(this.markerGeo).forEach(g => g.dispose()); this.markerMats.forEach(m => m.dispose()); }
     if (this.controls) this.controls.dispose();
     this.controls = null;
     if (this.built) this.built.dispose();
@@ -8468,7 +8526,7 @@ class Stage {
 /**
  * Stadio 3D ruotabile dentro `container` (zoom: true = vista ingrandita con zoom e spostamento).
  * Restituisce { ready, update(stadium, { logo }) → capienza, setView('aerial'|'top'|'stand'|'outside'), setNight(on),
- * setExterior(show), zoomBy(f), dispose() }
+ * setExterior(show), zoomBy(f), framePitch(), setMarkers(list), onFrame(cb), dispose() }
  * (logo: indirizzo del logo della squadra, da mettere nei posti scelti in stadium.logoPlaces).
  */
 export function createStadiumViewer(container, { zoom = false } = {}) {
@@ -8476,13 +8534,15 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
   canvas.style.cssText = `width:100%; height:100%; display:block; touch-action:${zoom ? 'none' : 'pan-y'}; cursor:grab;`;
   container.innerHTML = '';
   container.appendChild(canvas);
-  let stage = null, disposed = false, night = false, outside = true, token = 0;
+  let stage = null, disposed = false, night = false, outside = true, token = 0, markers = null, onFrame = null;
   const ready = loadLib().then(L => {
     if (disposed) return null;
     const r = container.getBoundingClientRect();
     stage = new Stage(L, canvas, { interactive: true, zoom, width: Math.max(1, r.width), height: Math.max(1, r.height) });
     stage.setNight(night);
     stage.setExterior(outside);
+    if (markers) stage.setMarkers(markers);
+    if (onFrame) stage.afterRender = () => onFrame((x, y, z) => stage.project(x, y, z));
     return stage;
   });
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => {
@@ -8523,6 +8583,24 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
       if (stage.built) stage.render();
     },
     zoomBy(f) { if (stage) stage.zoomBy(f); },
+    /** Vista dall'alto con il campo che riempie lo schermo (live). */
+    framePitch() {
+      if (!stage || !stage.built) return;
+      stage.framePitch();
+      stage.render();
+    },
+    /** Segnaposti dei giocatori sul campo: [{ x, z, color }] in metri (x lungo il campo, 0 al centro). */
+    setMarkers(list) {
+      markers = list;
+      if (!stage) return;
+      stage.setMarkers(list);
+      if (stage.built) stage.render();
+    },
+    /** cb(project) dopo ogni disegno: project(x, y, z) → { x, y, ok } in pixel sulla tela (per le etichette sopra). */
+    onFrame(cb) {
+      onFrame = cb;
+      if (stage) stage.afterRender = cb ? () => cb((x, y, z) => stage.project(x, y, z)) : null;
+    },
     dispose() {
       disposed = true;
       if (ro) ro.disconnect();

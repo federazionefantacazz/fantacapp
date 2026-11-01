@@ -363,7 +363,8 @@ class Stage {
     const step = (now) => {
       const p = ms > 0 ? Math.min(1, (now - start) / ms) : 1, e = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
       const t = t0.clone().lerp(t1, e), a = a0 + da * e, d = d0 + (d1 - d0) * e;
-      this.camera.position.set(t.x + Math.sin(a) * d, t.y, t.z + Math.cos(a) * d);
+      // f.pitch: camera più in alto (gradi), solo dove i controlli lo permettono (vista ingrandita)
+      this.camera.position.set(t.x + Math.sin(a) * d, t.y + Math.tan((f.pitch || 0) * Math.PI / 180) * d * e, t.z + Math.cos(a) * d);
       this.camera.lookAt(t);
       if (this.controls) { this.controls.target.copy(t); this.controls.update(); }
       this.render();
