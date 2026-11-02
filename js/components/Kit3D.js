@@ -331,7 +331,7 @@ class Stage {
     const inner = new this.L.THREE.Color(validColor(kit.colors.base, '#888888')).multiplyScalar(0.22);
     this.innerMats.forEach(m => {
       m.color.copy(inner); m.roughness = 1; m.envMapIntensity = 0.4;
-      m.polygonOffset = true; m.polygonOffsetFactor = 1; m.polygonOffsetUnits = 2; // l'interno non buca mai la stoffa esterna
+      m.polygonOffset = true; m.polygonOffsetFactor = 2; m.polygonOffsetUnits = 8; // l'interno non buca mai la stoffa esterna (anche sulle pieghe delle cuciture)
     });
     const ribInner = new this.L.THREE.Color(validColor(kit.colors.collar)).multiplyScalar(0.8);
     (this.ribInnerMats || []).forEach(m => { m.color.copy(ribInner); m.map = null; m.roughness = 0.9; m.needsUpdate = true; });
