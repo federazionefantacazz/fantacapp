@@ -1053,6 +1053,39 @@ function seatGeometry(THREE) {
   return g;
 }
 
+/**
+ * Tifosi (solo nel live): figurine 2D su una tela, 8 tipi (braccia giù / su, sciarpa, bandiera) per due squadre:
+ * riga 0 i colori di casa, riga 1 quelli degli ospiti. Ogni figurina è 64 x 128 px (testa, busto, braccia).
+ */
+function crowdAtlas(home, away) {
+  const W = 64, H = 128, c = document.createElement('canvas');
+  c.width = W * 8; c.height = H * 2;
+  const ctx = c.getContext('2d'), skins = ['#f1d3b5', '#d9a77f', '#a8714e', '#7a4b2e'], hairs = ['#2b1d14', '#5a3b22', '#b38b56', '#151515'];
+  [home, away].forEach((col, row) => {
+    for (let k = 0; k < 8; k++) {
+      const x0 = k * W, y0 = row * H, up = k % 2 === 1, shirt = k === 6 ? '#ffffff' : col, cx = x0 + W / 2;
+      ctx.fillStyle = shirt;
+      // busto (spalle arrotondate) e braccia
+      ctx.beginPath(); ctx.moveTo(cx - 17, y0 + H); ctx.lineTo(cx - 17, y0 + 66); ctx.quadraticCurveTo(cx - 17, y0 + 54, cx - 6, y0 + 52);
+      ctx.lineTo(cx + 6, y0 + 52); ctx.quadraticCurveTo(cx + 17, y0 + 54, cx + 17, y0 + 66); ctx.lineTo(cx + 17, y0 + H); ctx.closePath(); ctx.fill();
+      ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.strokeStyle = shirt;
+      ctx.beginPath();
+      if (up) { ctx.moveTo(cx - 14, y0 + 60); ctx.lineTo(cx - 22, y0 + 18); ctx.moveTo(cx + 14, y0 + 60); ctx.lineTo(cx + 22, y0 + 18); }
+      else { ctx.moveTo(cx - 15, y0 + 60); ctx.lineTo(cx - 21, y0 + 100); ctx.moveTo(cx + 15, y0 + 60); ctx.lineTo(cx + 21, y0 + 100); }
+      ctx.stroke();
+      ctx.fillStyle = skins[k % 4];
+      for (const sx of [-1, 1]) { ctx.beginPath(); ctx.arc(cx + sx * (up ? 22 : 21), y0 + (up ? 15 : 103), 4.5, 0, Math.PI * 2); ctx.fill(); }
+      // testa e capelli
+      ctx.beginPath(); ctx.arc(cx, y0 + 38, 11, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = hairs[(k * 3) % 4]; ctx.beginPath(); ctx.arc(cx, y0 + 34, 11, Math.PI, Math.PI * 2); ctx.fill();
+      // sciarpa (bianca con le righe del colore) o bandiera sopra la testa
+      if (k === 2 || k === 3) { ctx.fillStyle = '#ffffff'; ctx.fillRect(cx - 12, y0 + 50, 24, 7); ctx.fillStyle = col; ctx.fillRect(cx - 4, y0 + 50, 8, 7); }
+      if (k === 5) { ctx.strokeStyle = '#3a3a3a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx + 22, y0 + 18); ctx.lineTo(cx + 22, y0 + 1); ctx.stroke(); ctx.fillStyle = col; ctx.fillRect(cx + 22, y0 + 1, 18, 12); ctx.fillStyle = '#ffffff'; ctx.fillRect(cx + 22, y0 + 6, 18, 3); }
+    }
+  });
+  return c;
+}
+
 /* ------------------------------------------------------------- texture */
 /** Colore schiarito (f > 1) o scurito (f < 1). */
 function shade(hex, f) {
@@ -8059,6 +8092,7 @@ function buildStadium(L, st) {
     }
   };
   let adsKey = '', paintKey = '', seatColorKey = '', signKey = '', screenKey = '', sign = null, night = false;
+  let crowdMesh = null; const crowdTime = { value: 0 }, crowdNight = { value: 0 }; // tifosi (solo nel live)
   // pannello sul cubo (Amsterdam ArenA): nome dello stadio, logo della squadra o immagine personale, sul colore delle righe
   let cubeSt = st, cubeImg = null, cubeKey = '';
   // dischi del logo all'ingresso principale: il logo della squadra (se c'è) o il nome dello stadio, su fondo bianco
@@ -8283,12 +8317,64 @@ function buildStadium(L, st) {
       entImg = c || null;
       applyEntranceImage();
     },
+    /**
+     * Tifosi sugli spalti (solo nel live): una figurina 2D davanti a quasi ogni seggiolino, coi colori delle due squadre
+     * (gli ospiti in una parte della curva destra). Si muovono nello shader: ondeggiano, alzano e abbassano le braccia e
+     * un'"ola" di luce gira per lo stadio; tick(t) aggiorna il tempo. crowd = null li toglie.
+     */
+    setCrowd(crowd) {
+      if (crowdMesh) { group.remove(crowdMesh); crowdMesh.geometry.dispose(); crowdMesh.material.map.dispose(); crowdMesh.material.dispose(); crowdMesh.dispose(); crowdMesh = null; }
+      if (!crowd || !seats.count) return;
+      const tex = new THREE.CanvasTexture(crowdAtlas(crowd.home, crowd.away));
+      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+      const g = new THREE.PlaneGeometry(0.62, 1.15);
+      g.translate(0, 1.0, 0.12);
+      const n = seats.count, a = seatMesh.instanceMatrix.array, info = seats.info, rnd = new Float32Array(n * 2), mats = new Float32Array(n * 16);
+      let m = 0;
+      for (let i = 0; i < n; i++) {
+        const h = Math.abs(Math.sin(i * 12.9898 + 78.233) * 43758.5453) % 1;
+        if (h < 0.1) continue; // qualche posto vuoto
+        const lato = info[i] >> 3, ring = (info[i] >> 1) & 3, away = lato === 1 && ring > 0 && (Math.abs(a[i * 16 + 14]) < 30);
+        for (let k = 0; k < 16; k++) mats[m * 16 + k] = a[i * 16 + k];
+        rnd[m * 2] = (h * 7.31) % 1; rnd[m * 2 + 1] = away ? 1 : 0;
+        m++;
+      }
+      g.setAttribute('aCrowd', new THREE.InstancedBufferAttribute(rnd.subarray(0, m * 2), 2));
+      const mat = new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide });
+      mat.onBeforeCompile = (sh) => {
+        sh.uniforms.uTime = crowdTime;
+        sh.uniforms.uNight = crowdNight;
+        sh.vertexShader = 'uniform float uTime;\nattribute vec2 aCrowd;\nvarying float vLight;\n' + sh.vertexShader
+          .replace('#include <uv_vertex>', `#include <uv_vertex>
+  // tipo di figurina (8 per riga): ognuno ne ha due, braccia giù e su, e li alterna ogni tanto
+  float r = aCrowd.x, kind = floor(r * 4.0) * 2.0;
+  float cheer = step(0.72, fract(sin(floor(uTime * 0.8 + r * 9.0) * 12.9898 + r * 78.2) * 437.58));
+  vMapUv = vec2((uv.x + kind + cheer) / 8.0, (uv.y + 1.0 - aCrowd.y) / 2.0);`)
+          .replace('#include <begin_vertex>', `#include <begin_vertex>
+  // ondeggiano un poco (saltano quando esultano)
+  transformed.y += sin(uTime * (2.0 + r * 2.0) + r * 40.0) * 0.05 + cheer * abs(sin(uTime * 7.0 + r * 20.0)) * 0.18;`)
+          .replace('#include <project_vertex>', `#include <project_vertex>
+  // "ola" di luce che gira per lo stadio e piccoli lampi qua e là
+  vec4 wpos = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+  float ang = atan(wpos.z, wpos.x), band = 0.5 + 0.5 * cos(ang - uTime * 0.9);
+  vLight = 0.72 + 0.4 * pow(band, 18.0) + 0.1 * sin(uTime * 3.0 + r * 50.0);`);
+        sh.fragmentShader = 'uniform float uNight;\nvarying float vLight;\n' + sh.fragmentShader
+          .replace('#include <map_fragment>', '#include <map_fragment>\n  diffuseColor.rgb *= vLight * mix(1.0, 0.55, uNight);');
+      };
+      crowdMesh = new THREE.InstancedMesh(g, mat, m);
+      crowdMesh.instanceMatrix.array.set(mats.subarray(0, m * 16));
+      crowdMesh.instanceMatrix.needsUpdate = true;
+      crowdMesh.frustumCulled = false;
+      group.add(crowdMesh);
+    },
+    /** Tempo dell'animazione dei tifosi (secondi). */
+    tick(t) { crowdTime.value = t; crowdNight.value = night ? 1 : 0; return !!crowdMesh; },
     /** Immagine personale del pannello sul cubo (Amsterdam ArenA; tela di entranceImageCanvas o null). */
     setCubeImage(c) {
       cubeImg = c || null;
       paintCube();
     },
-    dispose() { own.forEach(o => o.dispose()); seatMesh.dispose(); if (sign) sign.dispose(); if (logoTex) logoTex.dispose(); if (outside.entrance) outside.entrance.panels.forEach(E => E.tex.dispose()); }
+    dispose() { if (crowdMesh) this.setCrowd(null); own.forEach(o => o.dispose()); seatMesh.dispose(); if (sign) sign.dispose(); if (logoTex) logoTex.dispose(); if (outside.entrance) outside.entrance.panels.forEach(E => E.tex.dispose()); }
   };
 }
 
@@ -8357,6 +8443,7 @@ class Stage {
       this.built = buildStadium(this.L, st);
       this.built.setNight(this.night);
       this.built.setExterior(this.outside !== false);
+      if (this.crowd) this.built.setCrowd(this.crowd);
       this.scene.add(this.built.group);
       this.fit();
     }
@@ -8534,7 +8621,7 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
   canvas.style.cssText = `width:100%; height:100%; display:block; touch-action:${zoom ? 'none' : 'pan-y'}; cursor:grab;`;
   container.innerHTML = '';
   container.appendChild(canvas);
-  let stage = null, disposed = false, night = false, outside = true, token = 0, markers = null, onFrame = null;
+  let stage = null, disposed = false, night = false, outside = true, token = 0, markers = null, onFrame = null, crowd = null, anim = null;
   const ready = loadLib().then(L => {
     if (disposed) return null;
     const r = container.getBoundingClientRect();
@@ -8542,6 +8629,7 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
     stage.setNight(night);
     stage.setExterior(outside);
     if (markers) stage.setMarkers(markers);
+    if (crowd) { const c = crowd; crowd = null; queueMicrotask(() => api.setCrowd(c)); }
     if (onFrame) stage.afterRender = () => onFrame((x, y, z) => stage.project(x, y, z));
     return stage;
   });
@@ -8552,7 +8640,7 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
   }) : null;
   if (ro) ro.observe(container);
 
-  return {
+  const api = {
     ready,
     async update(st, { logo = '' } = {}) {
       const my = ++token, n = normalizeStadium(st);
@@ -8596,6 +8684,28 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
       stage.setMarkers(list);
       if (stage.built) stage.render();
     },
+    /**
+     * Tifosi sugli spalti (live): { home, away } colori delle due squadre, null per toglierli. Finché ci sono lo stadio si
+     * ridisegna di continuo (circa 30 volte al secondo) per animarli.
+     */
+    setCrowd(c) {
+      crowd = c;
+      if (!stage) return;
+      stage.crowd = c;
+      if (stage.built) stage.built.setCrowd(c);
+      if (c && !anim) {
+        const t0 = performance.now();
+        let last = 0;
+        const loop = (now) => {
+          if (disposed || !crowd) { anim = null; return; }
+          anim = requestAnimationFrame(loop);
+          if (now - last < 33 || document.hidden || !stage.built) return;
+          last = now;
+          if (stage.built.tick((now - t0) / 1000)) stage.render();
+        };
+        anim = requestAnimationFrame(loop);
+      }
+    },
     /** cb(project) dopo ogni disegno: project(x, y, z) → { x, y, ok } in pixel sulla tela (per le etichette sopra). */
     onFrame(cb) {
       onFrame = cb;
@@ -8607,6 +8717,7 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
       if (stage) stage.dispose();
     }
   };
+  return api;
 }
 
 /** Inquadrature dello stadio (pulsanti dell'editor e della finestra ingrandita). */
