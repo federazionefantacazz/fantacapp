@@ -1210,6 +1210,10 @@ export const LiveMatchModule = {
       }).catch(err => console.error('Stadio live:', err));
     }
 
+    // tifosi sugli spalti coi colori delle due squadre (gli ospiti in una parte della curva)
+    const crowdKey = `${this._teamColor(home, 0)}|${this._teamColor(away, 1)}`;
+    if (V.crowdKey !== crowdKey) { V.crowdKey = crowdKey; V.viewer.setCrowd({ home: this._teamColor(home, 0), away: this._teamColor(away, 1) }); }
+
     // giocatori: segnaposti nel 3D ed etichette (foto, nome, fantavoto) sopra
     const spots = [...this._pitchSpots(home, -1).map(s => ({ ...s, t: home, c: this._teamColor(home, 0) })), ...this._pitchSpots(away, 1).map(s => ({ ...s, t: away, c: this._teamColor(away, 1) }))];
     V.spots = spots;
