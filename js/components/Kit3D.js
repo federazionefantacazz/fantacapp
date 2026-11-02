@@ -309,7 +309,7 @@ class Stage {
       // costina presa dall'altra maglia: il rovescio ha il colore del colletto (sotto il bordo non resta una riga scura)
       // costina presa dall'altra maglia: vince sempre sulla stoffa vicina (sui telefoni la profondità è meno precisa e la
       // stoffa di dentro, a pochi millimetri, bucava la costina con dei segnetti scuri)
-      if (o.userData.swappedRib) { o.material.polygonOffset = true; o.material.polygonOffsetFactor = -2; o.material.polygonOffsetUnits = -6; }
+      if (o.userData.swappedRib) { o.material.polygonOffset = true; o.material.polygonOffsetFactor = -1; o.material.polygonOffsetUnits = -2; }
       if (o.userData.swappedRib && /^shirt_inner/.test(name)) {
         if (name === 'shirt_inner_flip') o.material.side = this.L.THREE.BackSide;
         this.ribInnerMats.push(o.material);
