@@ -6,7 +6,8 @@ import {
   RINGS, SHAPES, CORNERS, MOWING, SEAT_MODES, ROOFS, LIGHTS, FACADES, PRESETS, MAX_NAME, MAX_CAPACITY,
   SEAT_SIDES, TEXT_SIDES, TEXT_FONTS, MOSAICS, OUTER_STYLES, TEXT_SIZES, TEXT_PLACES, ROOF_COVERS, ROOF_REACHES, WRAP_ROOFS, SHELL_PATTERNS, SCREENS, MAX_STAND_TEXT, MAX_OUTER_TEXT, gridKey, seatGridFrom, STAND_GAP_MAX, RAKE_MIN, RAKE_MAX, CORNER_GAP_MIN, CORNER_GAP_MAX, WALL_TEXTURES, WALL_TEX_FACADES, APRON_STYLES, GROUND_STYLES, AD_BOARDS, ROOF_GLOWS,
   ringsBySide, maxRingsOf, TIER_SPREAD_MAX, LOGO_PLACES, logoPlacesFor, ENTRANCES, ENTRANCE_W, ENTRANCE_H, ENTRANCE_LOGO, ENTRANCE_FITS, entranceSkips,
-  MIX_ROOFS, ROOF_TEXTURES, TEXTURE_ROOFS, ROOF_WAVES, roofMixed, ARCHES, CUBE_PANELS
+  MIX_ROOFS, ROOF_TEXTURES, TEXTURE_ROOFS, ROOF_WAVES, roofMixed, ARCHES, CUBE_PANELS,
+  FLAG_SIZES, FLAG_PATTERNS, CHOREO_TYPES, MAX_FLAGS, MAX_CHOREOS, CHOREO_SIZE, normalizeFans
 } from '../components/Stadium3D.js';
 
 /** Nomi corti delle coperture nella scelta settore per settore. */
@@ -143,7 +144,8 @@ export const StadioSquadra = {
       ['pitch',     'FASE 7: Campo, pista e pavimenti'],
       ['seats',     'FASE 8: Colore dei seggiolini'],
       ['texts',     'FASE 9: Scritte e logo'],
-      ['walls',     'FASE 10: Parapetti e cemento']
+      ['walls',     'FASE 10: Parapetti e cemento'],
+      ['fans',      'FASE 11: Tifo e coreografie']
     ];
     this._root.innerHTML = `
       <div class="kit-stage">
@@ -187,10 +189,31 @@ export const StadioSquadra = {
         .catch(e => { console.error(e); const l = this._root && this._root.querySelector('#std-loading'); if (l) l.textContent = 'Il 3D non è supportato su questo dispositivo'; });
     }
     if (this._viewer) this._viewer.update(this._st, { logo: this._logo() }).catch(e => console.error('Stadio:', e));
+    this._previewCrowd();
     const cap = this._root.querySelector('#std-cap');
     if (cap) cap.innerHTML = `${this._st.name.trim() ? `<b>${esc(this._st.name.trim())}</b> · ` : ''}Capienza: <b>${fmt(shownCapacity(this._st))}</b> posti`;
     const dirty = this._root.querySelector('#std-dirty');
     if (dirty) dirty.textContent = this._dirty() ? 'Modifiche non salvate' : '';
+  },
+
+  /**
+   * I tifosi si vedono solo nel live: nell'anteprima compaiono (con bandiere e coreografie) solo mentre è aperta la fase
+   * "Tifo e coreografie", per vedere come vengono; nelle altre fasi gli spalti restano vuoti coi seggiolini.
+   */
+  _previewCrowd() {
+    if (!this._viewer) return;
+    const team = window.STATE && window.STATE.user, kit = team && (team.kit || team.kit2), base = kit && kit.colors && kit.colors.base;
+    const home = /^#[0-9a-f]{6}$/i.test(String(base || '')) ? base : '#1e5bb8';
+    const want = this._open === 'fans' ? { home, away: home.toLowerCase() === '#d0122d' ? '#1e5bb8' : '#d0122d', fans: clone(this._st.fans) } : null;
+    const key = want ? JSON.stringify(want) : '';
+    if (key === (this._crowdKey || '')) return;
+    this._crowdKey = key;
+    this._viewer.setCrowd(want);
+  },
+
+  /** Valore in un percorso con i punti (fans.flags.0.c1). */
+  _get(path) {
+    return path.split('.').reduce((o, p) => (o == null ? o : o[p]), this._st);
   },
 
   /** Durante trascinamenti (selettore colore) ridisegno al massimo una volta per frame. */
@@ -209,7 +232,7 @@ export const StadioSquadra = {
     if (!box) return;
     const fn = {
       styles: this._secStyles, structure: this._secStructure, exterior: this._secExterior, outside: this._secOutside, entrances: this._secEntrances, pitch: this._secPitch,
-      seats: this._secSeats, texts: this._secTexts, walls: this._secWalls, name: this._secName
+      seats: this._secSeats, texts: this._secTexts, walls: this._secWalls, name: this._secName, fans: this._secFans
     }[key];
     box.innerHTML = fn.call(this);
   },
@@ -632,6 +655,68 @@ export const StadioSquadra = {
       <div class="mp-muted" style="margin-top:.3rem;">Sui due lati lunghi, dove l'esterno la mostra meglio (involucro, cornicione, ringhiera, muro) e sempre nel tratto libero tra torri e piloni. Il contorno si adatta al colore per farla leggere su qualsiasi fondo. Di notte si accende. Prova la vista Esterno.</div>`;
   },
 
+  /** FASE 11: bandiere e coreografie dei tifosi (si vedono nel live; qui nell'anteprima finché la fase è aperta). */
+  _secFans() {
+    const s = this._st, F = s.fans, rings = ringsBySide(s);
+    const sideName = (id) => TEXT_SIDES.find(t => t.side === id).label;
+    const order = [0, 1, 2, 3].filter(id => !(s.horseshoe && id === 3)).sort((x, y) => TEXT_SIDES.findIndex(t => t.side === x) - TEXT_SIDES.findIndex(t => t.side === y));
+    const fi = Math.min(this._flagSel || 0, F.flags.length - 1), ci = Math.min(this._choreoSel || 0, F.choreos.length - 1);
+    const pick = (kind, list, cur, name) => `<div class="kit-chips">${list.map((_, i) => `<button class="lv-chip ${i === cur ? 'on' : ''}" data-act="fanSel" data-kind="${kind}" data-v="${i}">${name} ${i + 1}</button>`).join('')}</div>`;
+    const upload = (path, url) => `
+      ${url ? `<img src="${esc(url)}" alt="" style="display:block; max-width:100%; max-height:110px; border-radius:10px; margin:.4rem 0 .5rem;">` : ''}
+      <div class="kit-chips"><label class="lv-chip" style="cursor:pointer;"><i class="ri-image-add-line"></i> ${url ? 'Cambia immagine' : 'Carica un\'immagine'}
+        <input type="file" accept="image/png,image/jpeg,image/webp" data-upload="fan" data-path="${path}" style="display:none;"></label>
+        ${url ? `<button class="lv-chip" data-act="fan" data-path="${path}" data-v=""><i class="ri-delete-bin-line"></i> Togli</button>` : ''}</div>`;
+    let flagHtml = '';
+    if (F.flags.length) {
+      const f = F.flags[fi], P = `fans.flags.${fi}`, nr = rings[f.side] || 1;
+      flagHtml = `
+      ${pick('flag', F.flags, fi, 'Bandiera')}
+      <div class="kit-sub">Settore</div>
+      ${this._seg(order.map(id => [id, sideName(id), f.side === id]), `data-act="fan" data-num="1" data-path="${P}.side"`)}
+      ${nr > 1 ? `<div class="kit-sub">Anello</div>${this._seg(Array.from({ length: nr }, (_, r) => [r, `${r + 1}° anello`, f.ring === r]), `data-act="fan" data-num="1" data-path="${P}.ring"`)}` : ''}
+      ${this._range('Posizione (da sinistra a destra)', `${P}.pos`, 0, 100, f.pos, v => `${v}%`)}
+      <div class="kit-sub">Grandezza</div>
+      ${this._seg(FLAG_SIZES.map(o => [o.id, o.label, f.size === o.id]), `data-act="fan" data-path="${P}.size"`)}
+      <div class="kit-sub">Disegno</div>
+      <div class="std-opts">${FLAG_PATTERNS.map(o => `<button class="lv-chip ${f.pattern === o.id ? 'on' : ''}" data-act="fan" data-path="${P}.pattern" data-v="${o.id}">${esc(o.label)}</button>`).join('')}</div>
+      ${f.pattern === 'image' ? upload(`${P}.image`, f.image) : `${this._colorRow('Colore 1', `${P}.c1`, f.c1)}${f.pattern !== 'plain' ? this._colorRow('Colore 2', `${P}.c2`, f.c2) : ''}`}
+      <div class="kit-chips" style="margin-top:.5rem;"><button class="lv-chip" data-act="fanDel" data-kind="flag" data-v="${fi}"><i class="ri-delete-bin-line"></i> Elimina questa bandiera</button></div>`;
+    }
+    let choreoHtml = '';
+    if (F.choreos.length) {
+      const c = F.choreos[ci], P = `fans.choreos.${ci}`, nr = Math.max(...order.filter(id => c.sides[id]).map(id => rings[id]), 1);
+      choreoHtml = `
+      ${pick('choreo', F.choreos, ci, 'Coreografia')}
+      <div class="kit-sub">Come si fa</div>
+      ${this._seg(CHOREO_TYPES.map(o => [o.id, o.label, c.type === o.id]), `data-act="fan" data-path="${P}.type"`)}
+      <div class="std-desc">${c.type === 'cards' ? 'Ogni tifoso alza un cartoncino del colore del suo pezzo d\'immagine: tutti insieme formano il disegno (come un mosaico).' : 'Un grande telo con l\'immagine stesa sopra le teste dei tifosi, che ondeggia.'}</div>
+      <div class="kit-sub">Immagine</div>
+      ${upload(`${P}.image`, c.image)}
+      ${c.image ? '' : '<div class="std-desc">Senza immagine ci sono le strisce col colore della squadra.</div>'}
+      <div class="kit-sub">Settori (anche più di uno)</div>
+      <div class="kit-chips">${order.map(id => `<button class="lv-chip ${c.sides[id] ? 'on' : ''}" data-act="fanToggle" data-path="${P}.sides.${id}">${esc(sideName(id))}</button>`).join('')}
+        <button class="lv-chip" data-act="fanAll" data-path="${P}.sides"><i class="ri-loop-left-line"></i> Tutto lo stadio</button></div>
+      ${nr > 1 ? `<div class="kit-sub">Anelli</div><div class="kit-chips">${Array.from({ length: nr }, (_, r) => `<button class="lv-chip ${c.rings[r] ? 'on' : ''}" data-act="fanToggle" data-path="${P}.rings.${r}">${r + 1}° anello</button>`).join('')}</div>` : ''}
+      <div class="kit-sub">Grandezza</div>
+      ${this._range('Grandezza', `${P}.size`, CHOREO_SIZE[0], CHOREO_SIZE[1], c.size, v => `${v}%`)}
+      <div class="std-desc">Al 100% copre tutti i settori e gli anelli scelti (con i quattro settori tutto l'anello); più piccola resta al centro.</div>
+      <div class="kit-chips" style="margin-top:.5rem;"><button class="lv-chip" data-act="fanDel" data-kind="choreo" data-v="${ci}"><i class="ri-delete-bin-line"></i> Elimina questa coreografia</button></div>`;
+    }
+    return `
+      <div class="std-desc" style="margin-top:0;">I tifosi si vedono nel live della partita. Qui li vedi nell'anteprima solo mentre questa fase è aperta; nelle altre gli spalti restano vuoti.</div>
+      <div class="std-group">
+      <div class="kit-sub">Coreografie (${F.choreos.length}/${MAX_CHOREOS})</div>
+      ${choreoHtml}
+      ${F.choreos.length < MAX_CHOREOS ? `<div class="kit-chips" style="margin-top:.5rem;"><button class="lv-chip" data-act="fanAdd" data-kind="choreo"><i class="ri-add-line"></i> Nuova coreografia</button></div>` : ''}
+      </div>
+      <div class="std-group">
+      <div class="kit-sub">Bandiere (${F.flags.length}/${MAX_FLAGS})</div>
+      ${flagHtml}
+      ${F.flags.length < MAX_FLAGS ? `<div class="kit-chips" style="margin-top:.5rem;"><button class="lv-chip" data-act="fanAdd" data-kind="flag"><i class="ri-add-line"></i> Nuova bandiera</button></div>` : ''}
+      </div>`;
+  },
+
   _secWalls() {
     const s = this._st;
     return `
@@ -697,6 +782,7 @@ export const StadioSquadra = {
         this._open = this._open === btn.dataset.sec ? null : btn.dataset.sec;
         this._root.querySelectorAll('.kit-acc').forEach(a => a.classList.toggle('open', a.dataset.sec === this._open));
         this._renderSection();
+        this._previewCrowd();
         this._scrollToOpen();
         return;
       case 'save': this._save(); return;
@@ -774,6 +860,34 @@ export const StadioSquadra = {
       case 'entImgClear':
         this._update(st => { st.entranceImage = ''; });
         return;
+      case 'fanSel':
+        this[btn.dataset.kind === 'flag' ? '_flagSel' : '_choreoSel'] = Number(v);
+        this._renderSection();
+        return;
+      case 'fanAdd':
+        this._update(st => {
+          if (btn.dataset.kind === 'flag') {
+            const last = st.fans.flags[st.fans.flags.length - 1];
+            st.fans.flags.push(normalizeFans({ flags: [last ? { ...last, pos: (last.pos + 23) % 100 } : { side: 1 }] }).flags[0]);
+            this._flagSel = st.fans.flags.length - 1;
+          } else {
+            st.fans.choreos.push(normalizeFans({ choreos: [{}] }).choreos[0]);
+            this._choreoSel = st.fans.choreos.length - 1;
+          }
+        });
+        return;
+      case 'fanDel':
+        this._update(st => { st.fans[btn.dataset.kind === 'flag' ? 'flags' : 'choreos'].splice(Number(v), 1); });
+        return;
+      case 'fan':
+        this._update(() => this._set(btn.dataset.path, btn.dataset.num ? Number(v) : v));
+        return;
+      case 'fanToggle':
+        this._update(() => this._set(btn.dataset.path, !this._get(btn.dataset.path)));
+        return;
+      case 'fanAll':
+        this._update(() => this._set(btn.dataset.path, [true, true, true, !this._st.horseshoe]));
+        return;
       case 'cubeImgClear':
         this._update(st => { st.cubeImage = ''; });
         return;
@@ -818,6 +932,7 @@ export const StadioSquadra = {
     const t = e.target;
     if (t.dataset.upload === 'entrance' && t.files && t.files[0]) { this._uploadEntrance(t.files[0]); t.value = ''; return; }
     if (t.dataset.upload === 'cube' && t.files && t.files[0]) { this._uploadEntrance(t.files[0], 'cubeImage', 'cubo.png'); t.value = ''; return; }
+    if (t.dataset.upload === 'fan' && t.files && t.files[0]) { this._uploadEntrance(t.files[0], t.dataset.path, 'tifo.png'); t.value = ''; return; }
     if (t.dataset.range) {
       const k = t.dataset.range, v = Number(t.value);
       // l'ondulazione da zero (o a zero) mostra o nasconde gli altri cursori
@@ -882,15 +997,15 @@ export const StadioSquadra = {
         c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
         c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
         const local = c.toDataURL('image/png');
-        this._update(st => { st[key] = local; });
+        this._update(() => this._set(key, local));
         window.showToast('Caricamento dell\'immagine...', 'ok');
         const blob = await new Promise(r => c.toBlob(r, 'image/png'));
         const remote = await uploadPngToImgBB(new File([blob], fileName, { type: 'image/png' }), 1024);
-        if (this._st && this._st[key] === local) this._update(st => { st[key] = remote; }, { section: false });
+        if (this._st && this._get(key) === local) this._update(() => this._set(key, remote), { section: false });
       } catch (err) {
         console.error(err);
         window.showToast('Immagine non caricata, riprova', 'err');
-        if (this._st && /^data:/.test(this._st[key])) this._update(st => { st[key] = ''; });
+        if (this._st && /^data:/.test(this._get(key) || '')) this._update(() => this._set(key, ''));
       } finally { URL.revokeObjectURL(url); }
     })();
     const prev = this._entUpload;
@@ -900,7 +1015,7 @@ export const StadioSquadra = {
   async _save() {
     if (this._busy || !this._st) return;
     if (this._entUpload) { await this._entUpload; this._entUpload = null; }
-    if (!this._st || /^data:/.test(this._st.entranceImage) || /^data:/.test(this._st.cubeImage)) { if (this._st) window.showToast('Immagine non ancora caricata, riprova', 'err'); return; }
+    if (!this._st || /^data:/.test(this._st.entranceImage) || /^data:/.test(this._st.cubeImage) || /"data:/.test(JSON.stringify(this._st.fans))) { if (this._st) window.showToast('Immagine non ancora caricata, riprova', 'err'); return; }
     const team = window.STATE.user;
     if (!team || String(team.id) !== String(this._teamId)) return;
     this._busy = true;
