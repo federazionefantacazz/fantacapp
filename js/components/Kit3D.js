@@ -115,9 +115,10 @@ async function applyCut(model, url) {
 
 /** Classica col girocollo: posizione della costina della raglan (la stoffa in neck-crew-setin.bin arriva al suo bordo). */
 const CREW_FIT = { pivot: [0, 1.58, 0], dy: 0.003238, dz: -0.010652, tilt: -0.092575, sx: 1.015959, sz: 1.031167 };
-/** Raglan con la V: la costina a V della classica rimpicciolita (scala), inclinata (gradi) e spostata (m) attorno a
- * pivot, poi allargata un po' intorno all'asse del collo; la stoffa in neck-v-raglan.bin arriva al suo bordo. */
-const V_FIT = { pivot: [0, 1.52, 0], dy: 0.005347, dz: -0.000231, tilt: 0.059243, scale: 0.932262, widen: 1 };
+/** Raglan con la V: la costina a V della classica rimpicciolita (scale), inclinata (tilt, radianti), allargata ai lati
+ * (sx) e davanti-dietro (sz) e spostata (m) attorno a pivot, così combacia con lo scollo della raglan ai lati e dietro e
+ * con il petto davanti; la stoffa in neck-v-raglan.bin arriva al suo bordo. */
+const V_FIT = { pivot: [0, 1.52, 0], dy: 0.007651, dz: -0.000199, tilt: 0.055347, scale: 0.890214, sx: 1.118983, sz: 1.016285 };
 
 /** Coordinate della texture della costina presa dall'altra maglia: dal riquadro del colletto a a quello b. */
 function remapUV(THREE, node, a, b) {
@@ -159,8 +160,8 @@ function loadVariant(kit) {
           src.matrixWorld.decompose(rib.position, rib.quaternion, rib.scale);
           remapUV(THREE, rib, UV.collar, UV_RAGLAN.collar);
           const f = V_FIT, p = new THREE.Vector3(...f.pivot), M = new THREE.Matrix4();
-          M.makeScale(f.widen, 1, f.widen)
-            .multiply(new THREE.Matrix4().makeTranslation(p.x, p.y + f.dy, p.z + f.dz))
+          M.makeTranslation(p.x, p.y + f.dy, p.z + f.dz)
+            .multiply(new THREE.Matrix4().makeScale(f.sx, 1, f.sz))
             .multiply(new THREE.Matrix4().makeRotationX(f.tilt))
             .multiply(new THREE.Matrix4().makeScale(f.scale, f.scale, f.scale))
             .multiply(new THREE.Matrix4().makeTranslation(-p.x, -p.y, -p.z));
