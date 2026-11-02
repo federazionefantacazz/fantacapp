@@ -254,7 +254,7 @@ export const FLAG_PATTERNS = [
   { id: 'plain', label: 'Tinta unita' }, { id: 'vstripes', label: 'Strisce verticali' }, { id: 'hstripes', label: 'Strisce orizzontali' },
   { id: 'diagonal', label: 'Diagonale' }, { id: 'image', label: 'La tua immagine' }
 ];
-export const CHOREO_TYPES = [{ id: 'cards', label: 'Tifosi colorati' }, { id: 'banner', label: 'Telone' }];
+export const CHOREO_TYPES = [{ id: 'banner', label: 'Telone' }];
 export const MAX_FLAGS = 40, MAX_CHOREOS = 8, CHOREO_SIZE = [10, 100];
 const imgUrl = (v) => (/^(https?:|data:image\/)/.test(String(v || '')) ? String(v) : '');
 export function normalizeFans(src) {
@@ -267,7 +267,7 @@ export function normalizeFans(src) {
     c1: validColor(x && x.c1, '#1e5bb8'), c2: validColor(x && x.c2, '#ffffff'), image: imgUrl(x && x.image)
   }));
   const choreos = (Array.isArray(f.choreos) ? f.choreos : Object.values(f.choreos || {})).slice(0, MAX_CHOREOS).map(x => ({
-    type: oneOf(CHOREO_TYPES, x && x.type, 'cards'), sides: bools(x && x.sides, 4, [false, true, false, false]),
+    type: 'banner', sides: bools(x && x.sides, 4, [false, true, false, false]),
     rings: bools(x && x.rings, 3, [true, true, true]),
     size: Math.round(Math.min(CHOREO_SIZE[1], Math.max(CHOREO_SIZE[0], Number(x && x.size) || 100))), image: imgUrl(x && x.image)
   }));
@@ -8151,12 +8151,14 @@ function buildStadium(L, st) {
   let adsKey = '', paintKey = '', seatColorKey = '', signKey = '', screenKey = '', sign = null, night = false;
   let crowdMesh = null; const crowdTime = { value: 0 }, crowdNight = { value: 0 }; // tifosi (solo nel live)
   // tifo: teloni delle coreografie e bandiere
+  let seatPlain = null, lastCrowd = null; // colori dei seggiolini senza tifosi (per rimetterli quando si tolgono)
   const tifoParts = [], tifoFlags = [], tifoPoleMat = new THREE.MeshBasicMaterial({ color: 0x3a3a3a });
   own.push(tifoPoleMat);
   const clearCrowd = () => {
     if (crowdMesh) { group.remove(crowdMesh); crowdMesh.geometry.dispose(); crowdMesh.material.map.dispose(); crowdMesh.material.dispose(); crowdMesh.dispose(); crowdMesh = null; }
     tifoParts.splice(0).forEach(m => { group.remove(m); m.geometry.dispose(); m.material.map.dispose(); m.material.dispose(); m.dispose(); });
     tifoFlags.splice(0).forEach(F => { group.remove(F.holder); F.cg.dispose(); F.cm.dispose(); F.ftex.dispose(); F.pole.geometry.dispose(); });
+    if (seatPlain) { seatMesh.instanceColor.array.set(seatPlain); seatMesh.instanceColor.needsUpdate = true; seatPlain = null; }
   };
   /**
    * Posti di una coreografia (lati e anelli scelti) con la loro posizione: u da sinistra a destra per chi guarda dal campo
@@ -8380,6 +8382,8 @@ function buildStadium(L, st) {
           arr[i * 3] = col.r; arr[i * 3 + 1] = col.g; arr[i * 3 + 2] = col.b;
         }
         seatMesh.instanceColor.needsUpdate = true;
+        // con i tifosi i loro colori restano sopra: si aggiornano solo quelli da rimettere quando se ne vanno
+        if (seatPlain && lastCrowd) { seatPlain = null; this.setCrowd(lastCrowd); }
       }
     },
     /** Logo della squadra (tela di stadiumLogo, null = nessuno): al posto dello stemma con le iniziali sull'ingresso. */
@@ -8413,14 +8417,16 @@ function buildStadium(L, st) {
      * (gli ospiti in una parte della curva destra). Si muovono nello shader: ondeggiano, alzano e abbassano le braccia e
      * un'"ola" di luce gira per lo stadio; tick(t) aggiorna il tempo. crowd = null li toglie.
      * crowd.fans = { flags, choreos } (normalizeFans) e crowd.images = Map indirizzo → tela delle immagini già caricate:
-     * coreografie coi cartoncini colorati (i tifosi diventano i pixel dell'immagine) o coi teloni, e bandiere sventolate.
+     * coreografie coi teloni e bandiere sventolate. Coi tifosi i seggiolini prendono i loro colori (niente colori degli
+     * spalti né scritte visti dall'alto).
      */
     setCrowd(crowd) {
       clearCrowd();
+      lastCrowd = crowd || null;
       if (!crowd || !seats.count) return;
       const fans = crowd.fans || { flags: [], choreos: [] }, imgs = crowd.images || new Map();
       const n = seats.count, a = seatMesh.instanceMatrix.array, info = seats.info;
-      const tint = new Float32Array(n * 4), hide = new Uint8Array(n), lin = (v) => Math.pow(v / 255, 2.2);
+      const hide = new Uint8Array(n);
       const fallback = () => choreoFallback(crowd.home);
       // coreografie (una dopo l'altra: l'ultima vince dove si sovrappongono)
       fans.choreos.forEach(c => {
@@ -8428,24 +8434,13 @@ function buildStadium(L, st) {
         if (!A) return;
         const w = c.size / 100, h = Math.min(1, w * 1.6), src = imgs.get(c.image) || fallback();
         const uu = (u) => (u - 0.5) / w + 0.5, vv = (v) => (v - 0.5) / h + 0.5;
-        if (c.type === 'cards') {
-          const W = src.width, H = src.height, d = src.getContext('2d').getImageData(0, 0, W, H).data;
-          A.sel.forEach((i, k) => {
-            const x = uu(A.u[k]), y = vv(A.v[k]);
-            if (x < 0 || x > 1 || y < 0 || y > 1) return;
-            const p = (Math.min(H - 1, Math.floor((1 - y) * H)) * W + Math.min(W - 1, Math.floor(x * W))) * 4;
-            tint[i * 4] = lin(d[p]); tint[i * 4 + 1] = lin(d[p + 1]); tint[i * 4 + 2] = lin(d[p + 2]); tint[i * 4 + 3] = 1;
-            hide[i] = 0;
-          });
-          return;
-        }
         // telone: un pezzo di telo sopra le teste per ogni posto, largo da coprire anche le scalette; la parte
         // d'immagine di ogni pezzo segue la posizione, così i pezzi vicini combaciano
         const Wq = 1.8, list = [], m4 = new THREE.Matrix4(), loc = new THREE.Matrix4(), rot = new THREE.Matrix4(), sc = new THREE.Matrix4();
         A.sel.forEach((i, k) => {
           const x = uu(A.u[k]), y = vv(A.v[k]);
           if (x < -0.04 || x > 1.04 || y < -0.04 || y > 1.04) return;
-          if (x >= 0 && x <= 1 && y >= 0 && y <= 1) { hide[i] = 1; tint[i * 4 + 3] = 0; }
+          if (x >= 0 && x <= 1 && y >= 0 && y <= 1) hide[i] = 1;
           list.push(i, k);
         });
         if (!list.length) return;
@@ -8485,6 +8480,7 @@ function buildStadium(L, st) {
         mesh.instanceMatrix.array.set(mats);
         mesh.instanceMatrix.needsUpdate = true;
         mesh.frustumCulled = false;
+        mesh.userData.noOcclude = true;
         group.add(mesh);
         tifoParts.push(mesh);
       });
@@ -8494,50 +8490,53 @@ function buildStadium(L, st) {
       tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
       const g = new THREE.PlaneGeometry(0.62, 1.15);
       g.translate(0, 1.0, 0.12);
-      const rnd = new Float32Array(n * 2), mats = new Float32Array(n * 16), tints = new Float32Array(n * 4);
+      const rnd = new Float32Array(n * 2), mats = new Float32Array(n * 16);
+      // visti dall'alto i tifosi coprono i seggiolini: al posto dei colori degli spalti (e delle scritte) teste, spalle e
+      // magliette; i pochi posti vuoti restano scuri
+      const C = (h) => new THREE.Color(h), cHome = C(crowd.home), cAway = C(crowd.away);
+      const tops = [C('#2b1d14'), C('#5a3b22'), C('#151515'), C('#d9a77f'), C('#a8714e'), C('#e8e8e8'), C('#30343a')], empty = C('#26282c');
+      const sc = seatMesh.instanceColor.array;
+      if (!seatPlain) seatPlain = Float32Array.from(sc);
       let m = 0;
       for (let i = 0; i < n; i++) {
-        if (hide[i]) continue;
         const h = Math.abs(Math.sin(i * 12.9898 + 78.233) * 43758.5453) % 1;
-        if (h < 0.1 && !tint[i * 4 + 3]) continue; // qualche posto vuoto (non nelle coreografie)
         const lato = info[i] >> 3, ring = (info[i] >> 1) & 3, away = lato === 1 && ring > 0 && (Math.abs(a[i * 16 + 14]) < 30);
+        const r2 = (h * 13.7) % 1, col = h < 0.06 && !hide[i] ? empty : r2 < 0.5 ? (away ? cAway : cHome) : tops[Math.floor((r2 - 0.5) * 2 * tops.length) % tops.length];
+        sc[i * 3] = col.r; sc[i * 3 + 1] = col.g; sc[i * 3 + 2] = col.b;
+        if (hide[i] || h < 0.06) continue; // sotto un telone o posto vuoto
         for (let k = 0; k < 16; k++) mats[m * 16 + k] = a[i * 16 + k];
-        for (let k = 0; k < 4; k++) tints[m * 4 + k] = tint[i * 4 + k];
         rnd[m * 2] = (h * 7.31) % 1; rnd[m * 2 + 1] = away ? 1 : 0;
         m++;
       }
+      seatMesh.instanceColor.needsUpdate = true;
       if (m) {
         g.setAttribute('aCrowd', new THREE.InstancedBufferAttribute(rnd.subarray(0, m * 2), 2));
-        g.setAttribute('aTint', new THREE.InstancedBufferAttribute(tints.subarray(0, m * 4), 4));
         const mat = new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide });
         mat.onBeforeCompile = (sh) => {
           sh.uniforms.uTime = crowdTime;
           sh.uniforms.uNight = crowdNight;
-          sh.vertexShader = 'uniform float uTime;\nattribute vec2 aCrowd;\nattribute vec4 aTint;\nvarying float vLight;\nvarying vec4 vTint;\n' + sh.vertexShader
+          sh.vertexShader = 'uniform float uTime;\nattribute vec2 aCrowd;\nvarying float vLight;\n' + sh.vertexShader
             .replace('#include <uv_vertex>', `#include <uv_vertex>
   // tipo di figurina (8 per riga): ognuno ne ha due, braccia giù e su, e li alterna ogni tanto
-  float r = aCrowd.x, kind = floor(r * 4.0) * 2.0, card = aTint.w;
-  float cheer = step(0.72, fract(sin(floor(uTime * 0.8 + r * 9.0) * 12.9898 + r * 78.2) * 437.58)) * (1.0 - card);
-  vMapUv = vec2((uv.x + kind + cheer) / 8.0, (uv.y + 1.0 - aCrowd.y) / 2.0);
-  vTint = aTint;`)
+  float r = aCrowd.x, kind = floor(r * 4.0) * 2.0;
+  float cheer = step(0.72, fract(sin(floor(uTime * 0.8 + r * 9.0) * 12.9898 + r * 78.2) * 437.58));
+  vMapUv = vec2((uv.x + kind + cheer) / 8.0, (uv.y + 1.0 - aCrowd.y) / 2.0);`)
             .replace('#include <begin_vertex>', `#include <begin_vertex>
-  // ondeggiano un poco (saltano quando esultano); coi cartoncini alzati sopra la testa stanno quasi fermi
-  transformed.y += sin(uTime * (2.0 + r * 2.0) + r * 40.0) * mix(0.05, 0.02, card) + cheer * abs(sin(uTime * 7.0 + r * 20.0)) * 0.18;
-  transformed.x *= mix(1.0, 0.95, card);`)
+  // ondeggiano un poco (saltano quando esultano)
+  transformed.y += sin(uTime * (2.0 + r * 2.0) + r * 40.0) * 0.05 + cheer * abs(sin(uTime * 7.0 + r * 20.0)) * 0.18;`)
             .replace('#include <project_vertex>', `#include <project_vertex>
   // "ola" di luce che gira per lo stadio e piccoli lampi qua e là
   vec4 wpos = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
   float ang = atan(wpos.z, wpos.x), band = 0.5 + 0.5 * cos(ang - uTime * 0.9);
-  vLight = mix(0.72 + 0.4 * pow(band, 18.0) + 0.1 * sin(uTime * 3.0 + r * 50.0), 0.95 + 0.04 * sin(uTime * 2.0 + r * 30.0), card);`);
-          sh.fragmentShader = 'uniform float uNight;\nvarying float vLight;\nvarying vec4 vTint;\n' + sh.fragmentShader
-            .replace('#include <map_fragment>', `#include <map_fragment>
-  if (vTint.w > 0.5) diffuseColor = vec4(vTint.rgb, 1.0);
-  diffuseColor.rgb *= vLight * mix(1.0, 0.55, uNight);`);
+  vLight = 0.72 + 0.4 * pow(band, 18.0) + 0.1 * sin(uTime * 3.0 + r * 50.0);`);
+          sh.fragmentShader = 'uniform float uNight;\nvarying float vLight;\n' + sh.fragmentShader
+            .replace('#include <map_fragment>', '#include <map_fragment>\n  diffuseColor.rgb *= vLight * mix(1.0, 0.55, uNight);');
         };
         crowdMesh = new THREE.InstancedMesh(g, mat, m);
         crowdMesh.instanceMatrix.array.set(mats.subarray(0, m * 16));
         crowdMesh.instanceMatrix.needsUpdate = true;
         crowdMesh.frustumCulled = false;
+        crowdMesh.userData.noOcclude = true;
         group.add(crowdMesh);
       } else { g.dispose(); tex.dispose(); }
 
@@ -8552,6 +8551,7 @@ function buildStadium(L, st) {
         const sz = FLAG_DIMS[f.size], ph = fi * 1.73;
         const holder = new THREE.Group();
         holder.matrixAutoUpdate = false;
+        holder.userData.noOcclude = true;
         holder.matrix.fromArray(a, best * 16);
         const pivot = new THREE.Group();
         pivot.position.set(0, 1.5, 0.15);
@@ -8818,12 +8818,58 @@ class Stage {
     if (this.afterRender) this.afterRender();
   }
 
+  /**
+   * Il punto si vede dalla camera, o c'è davanti il tetto, uno spalto o un muro? Si guarda una piccola mappa di profondità
+   * della scena (tifosi, bandiere e segnaposti esclusi), rifatta quando la camera si muove (al massimo ogni 150 ms).
+   */
+  visibleAt(x, y, z) {
+    const D = this._depthSnap(), v = new this.L.THREE.Vector3(x, y, z).project(this.camera);
+    if (v.z <= -1 || v.z >= 1) return false;
+    if (!D || Math.abs(v.x) > 1 || Math.abs(v.y) > 1) return true;
+    const px = Math.min(D.w - 1, Math.floor((v.x + 1) / 2 * D.w)), py = Math.min(D.h - 1, Math.floor((v.y + 1) / 2 * D.h));
+    const b = D.buf, i = (py * D.w + px) * 4, k = 255 / 256 / 255;
+    const d = b[i] * k + b[i + 1] * k / 256 + b[i + 2] * k / 65536 + b[i + 3] / 255 / 16777216;
+    // distanze dalla camera (metri) del punto e della cosa più vicina in quel pixel
+    const n = D.near, f = D.far, dist = (zn) => 2 * n * f / (f + n - zn * (f - n));
+    return dist(v.z) <= dist(d * 2 - 1) + 1.5;
+  }
+
+  _depthSnap() {
+    const { THREE } = this.L, cam = this.camera, r = this.renderer, el = r.domElement, now = performance.now();
+    if (!this.built) return null;
+    cam.updateMatrixWorld();
+    const key = cam.matrixWorld.elements.join(',') + cam.projectionMatrix.elements.join(',') + this.built.group.uuid + this.outside + el.clientWidth + 'x' + el.clientHeight;
+    const D = this._dz;
+    if (D && (D.key === key || now - D.t < 150)) return D;
+    const w = 200, h = Math.max(1, Math.round(w * el.clientHeight / Math.max(1, el.clientWidth)));
+    if (!this._dzRT || this._dzRT.width !== w || this._dzRT.height !== h) {
+      if (this._dzRT) this._dzRT.dispose();
+      this._dzRT = new THREE.WebGLRenderTarget(w, h);
+      this._dzMat = this._dzMat || new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide });
+    }
+    const buf = D && D.buf.length === w * h * 4 ? D.buf : new Uint8Array(w * h * 4);
+    const hidden = [];
+    this.scene.traverse(o => { if (o.visible && (o.userData.noOcclude || o === this.markers || o.isSprite || o.isPoints)) { o.visible = false; hidden.push(o); } });
+    const bg = this.scene.background, cc = r.getClearColor(new THREE.Color()), ca = r.getClearAlpha(), sh = r.shadowMap.autoUpdate;
+    this.scene.background = null; this.scene.overrideMaterial = this._dzMat; r.shadowMap.autoUpdate = false;
+    r.setRenderTarget(this._dzRT); r.setClearColor(0xffffff, 1); r.clear();
+    r.render(this.scene, cam);
+    r.readRenderTargetPixels(this._dzRT, 0, 0, w, h, buf);
+    r.setRenderTarget(null); r.setClearColor(cc, ca);
+    this.scene.background = bg; this.scene.overrideMaterial = null; r.shadowMap.autoUpdate = sh;
+    hidden.forEach(o => { o.visible = true; });
+    this._dz = { key, t: now, w, h, buf, near: cam.near, far: cam.far };
+    return this._dz;
+  }
+
   dispose() {
     if (this._raf) cancelAnimationFrame(this._raf);
     if (this.markerGeo) { Object.values(this.markerGeo).forEach(g => g.dispose()); this.markerMats.forEach(m => m.dispose()); }
     if (this.controls) this.controls.dispose();
     this.controls = null;
     if (this.built) this.built.dispose();
+    if (this._dzRT) this._dzRT.dispose();
+    if (this._dzMat) this._dzMat.dispose();
     if (this.scene.environment) this.scene.environment.dispose();
     this.renderer.dispose();
     this.renderer.forceContextLoss(); // il contesto WebGL si libera subito (i telefoni ne tengono pochi)
@@ -8850,7 +8896,7 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
     stage.setExterior(outside);
     if (markers) stage.setMarkers(markers);
     if (crowd) { const c = crowd; crowd = null; queueMicrotask(() => api.setCrowd(c)); }
-    if (onFrame) stage.afterRender = () => onFrame((x, y, z) => stage.project(x, y, z));
+    if (onFrame) stage.afterRender = () => onFrame((x, y, z) => stage.project(x, y, z), (x, y, z) => stage.visibleAt(x, y, z));
     return stage;
   });
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => {
@@ -8933,10 +8979,13 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
         anim = requestAnimationFrame(loop);
       }
     },
-    /** cb(project) dopo ogni disegno: project(x, y, z) → { x, y, ok } in pixel sulla tela (per le etichette sopra). */
+    /**
+     * cb(project, visible) dopo ogni disegno: project(x, y, z) → { x, y, ok } in pixel sulla tela (per le etichette sopra),
+     * visible(x, y, z) → false se davanti c'è il tetto, uno spalto o un muro.
+     */
     onFrame(cb) {
       onFrame = cb;
-      if (stage) stage.afterRender = cb ? () => cb((x, y, z) => stage.project(x, y, z)) : null;
+      if (stage) stage.afterRender = cb ? () => cb((x, y, z) => stage.project(x, y, z), (x, y, z) => stage.visibleAt(x, y, z)) : null;
     },
     dispose() {
       disposed = true;

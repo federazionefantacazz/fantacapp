@@ -202,6 +202,9 @@ const LIVE_STYLES = `
 .lv3d-p .lf-shirt.is-circle{width:34px;height:34px}
 .lv3d-p .lf-shirt.has-png{width:40px;height:44px;border-radius:50%;box-shadow:0 0 0 2px var(--lv3d-c);background-color:rgba(255,255,255,.12)}
 .lv3d-p .lf-name{border-bottom:2px solid var(--lv3d-c)}
+.lv3d-evs{display:flex;gap:2px;align-items:center;justify-content:center;flex-wrap:wrap;max-width:84px;margin-top:2px;padding:2px 4px;border-radius:6px;background:rgba(10,15,30,.85);color:#fff}
+.lv3d-evs .lv-ev{color:#fff;font-size:.72rem}.lv3d-evs .lv-ico{width:13px;height:13px}.lv3d-evs .lv-ico .cut{stroke:#0a0f1e}
+.lv3d-evs .lv-chip{background:rgba(255,255,255,.14)}
 .lv3d-bar{position:absolute;left:0;right:0;bottom:0;display:flex;flex-wrap:wrap;gap:.3rem;justify-content:center;padding:.45rem .5rem calc(.45rem + env(safe-area-inset-bottom,0px));background:linear-gradient(transparent,rgba(5,8,15,.7))}
 .lv3d-bar button{background:rgba(15,20,32,.85);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:9px;padding:.28rem .5rem;font-size:.68rem;font-weight:700;cursor:pointer;font-family:var(--font-btn,inherit)}
 .lv3d-bar button.on{border-color:var(--accent);color:var(--accent)}
@@ -1232,13 +1235,16 @@ export const LiveMatchModule = {
         : `<div class="lf-shirt is-circle" style="background-color:var(--role-${role});color:var(--role-${role}-text)">${esc(p.role || '')}`;
       lab.dataset.playerId = p.id;
       lab.style.setProperty('--lv3d-c', c);
-      lab.innerHTML = `${shirt}${scoreTag}${this._captainMark(t, p, 'lf-cap', 15)}</div><div class="lf-name">${esc(p.name)}</div>`;
+      // sticker di bonus e malus (gol, assist, cartellini...) sotto il nome, come nella lista
+      const simOv = sim ? this._sim.overrides[p.id] : undefined;
+      const evs = this._eventsMarkup(simOv ? { ...p, ev: simOv.ev || {} } : p, { out: false, inn: false });
+      lab.innerHTML = `${shirt}${scoreTag}${this._captainMark(t, p, 'lf-cap', 15)}</div><div class="lf-name">${esc(p.name)}</div>${evs ? `<div class="lv3d-evs">${evs}</div>` : ''}`;
     });
     V.labels.forEach((lab, key) => { if (!keep.has(key)) { lab.remove(); V.labels.delete(key); } });
   },
 
   /** Posiziona le etichette dei giocatori sopra i segnaposti (dopo ogni disegno dello stadio). */
-  _place3D(project) {
+  _place3D(project, visible) {
     const V = this._lv3d;
     if (!V) return;
     const c0 = project(0, 0, 0), c1 = project(0, 0, 10);
@@ -1247,8 +1253,9 @@ export const LiveMatchModule = {
     V.spots.forEach(({ p, t, x, z }) => {
       const lab = V.labels.get(`${t.id}|${p.id}`);
       if (!lab) return;
-      const q = project(x, 2.4, z);
-      lab.style.display = q.ok ? '' : 'none';
+      // nascosta se davanti c'è il tetto (o uno spalto, un muro): i giocatori non si vedono attraverso la copertura
+      const q = project(x, 2.4, z), seen = q.ok && (!visible || visible(x, 2.4, z) || visible(x, 0.9, z));
+      lab.style.display = seen ? '' : 'none';
       lab.style.transform = `translate(${q.x}px, ${q.y}px) translate(-50%, -78%) scale(${k})`;
     });
   },
