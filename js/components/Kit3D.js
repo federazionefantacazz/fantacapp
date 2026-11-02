@@ -307,9 +307,6 @@ class Stage {
       o.material = o.material.clone();
       o.material.metalness = 0;
       // costina presa dall'altra maglia: il rovescio ha il colore del colletto (sotto il bordo non resta una riga scura)
-      // costina presa dall'altra maglia: vince sempre sulla stoffa vicina (sui telefoni la profondità è meno precisa e la
-      // stoffa di dentro, a pochi millimetri, bucava la costina con dei segnetti scuri)
-      if (o.userData.swappedRib) { o.material.polygonOffset = true; o.material.polygonOffsetFactor = -1; o.material.polygonOffsetUnits = -2; }
       if (o.userData.swappedRib && /^shirt_inner/.test(name)) {
         if (name === 'shirt_inner_flip') o.material.side = this.L.THREE.BackSide;
         this.ribInnerMats.push(o.material);
@@ -331,7 +328,7 @@ class Stage {
     const inner = new this.L.THREE.Color(validColor(kit.colors.base, '#888888')).multiplyScalar(0.22);
     this.innerMats.forEach(m => {
       m.color.copy(inner); m.roughness = 1; m.envMapIntensity = 0.4;
-      m.polygonOffset = true; m.polygonOffsetFactor = 2; m.polygonOffsetUnits = 8; // l'interno non buca mai la stoffa esterna (anche sulle pieghe delle cuciture)
+      m.polygonOffset = true; m.polygonOffsetFactor = 1; m.polygonOffsetUnits = 2; // l'interno non buca mai la stoffa esterna
     });
     const ribInner = new this.L.THREE.Color(validColor(kit.colors.collar)).multiplyScalar(0.8);
     (this.ribInnerMats || []).forEach(m => { m.color.copy(ribInner); m.map = null; m.roughness = 0.9; m.needsUpdate = true; });
