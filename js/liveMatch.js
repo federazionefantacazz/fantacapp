@@ -1171,7 +1171,7 @@ export const LiveMatchModule = {
         </div>`;
       const viewer = createStadiumViewer(el.querySelector('.lv3d-stage'), { zoom: true });
       V = this._lv3d = { el, viewer, ov: el.querySelector('.lv3d-ov'), labels: new Map(), night: false, ext: true, full: false, stKey: null, spots: [] };
-      viewer.onFrame((project) => this._place3D(project));
+      viewer.onFrame((project, visible) => this._place3D(project, visible));
       el.addEventListener('click', (e) => {
         const b = e.target.closest('[data-v3]');
         if (!b) return;
