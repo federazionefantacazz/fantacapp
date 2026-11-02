@@ -1131,8 +1131,12 @@ export async function paintKitTexture(rawKit, opts = {}) {
   if (swapped) {
     // costina presa dall'altra maglia (classica col girocollo della raglan, raglan con la V della classica): occupa tutto
     // il riquadro del colletto (la sagoma della maschera è quella della costina originale)
-    const r = R('collar');
-    ctx.save(); ctx.beginPath(); ctx.rect(r.x - 2, r.y - 2, r.w + 4, r.h + 4); ctx.clip(); paintCollar(ctx, r); ctx.restore();
+    // con un margine largo intorno: i bordi della costina (che si ripiegano verso l'interno) non prendono il colore della maglia
+    const r = R('collar'), m = S * .006;
+    ctx.save(); ctx.beginPath(); ctx.rect(r.x - m, r.y - m, r.w + 2 * m, r.h + 2 * m); ctx.clip();
+    ctx.fillStyle = safeColor(c.collar); ctx.fillRect(r.x - m, r.y - m, r.w + 2 * m, r.h + 2 * m);
+    if (k.collar === 'twotone') { ctx.fillStyle = trim; ctx.fillRect(r.x - m, r.y + r.h, r.w + 2 * m, m); } // sotto continua la seconda tinta
+    paintCollar(ctx, r); ctx.restore();
   } else inPart('collar', paintCollar);
   if ((k.collar === 'trim' || k.collar === 'wide') && mask) {
     ['front', 'back'].forEach(p => inPart(p, (x) => {

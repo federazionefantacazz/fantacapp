@@ -9,6 +9,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Fantacapp">
 <link rel="manifest" href="manifest.json">
+<!-- service worker: primo download completo prima dell'uso e aggiornamenti (vedi il file) -->
+<script src="js/pwaBoot.js"></script>
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="description" content="FantaCapp, l'app del Fantacazz: formazioni, live, classifiche e mercato.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -21,8 +23,9 @@
 <style>
 :root {
   --font-text: 'DM Sans', sans-serif; /* Font dei testi: il tema può sceglierne un altro per pagina */
-  /* Spazio in basso per la barretta di iPhone. Su alcuni iPhone l'app installata ha la finestra più bassa
-     dello schermo (--vp-gap, misurato dallo script nell'<head>): quella fascia fa già da spazio, quindi si toglie. */
+  /* Spazio in basso per la barretta di iPhone. Su iPhone (app installata, o Chrome con la barra nascosta)
+     a volte la barra in basso non arriva al fondo dello schermo: la fascia che resta (--vp-gap, misurata dallo
+     script nell'<head>) fa già da spazio, quindi si toglie. */
   --safe-b: max(0px, calc(env(safe-area-inset-bottom, 0px) - var(--vp-gap, 0px)));
   /* I temi (js/services/themeService.js) ridefiniscono queste variabili per pagina:
      --title e --label non hanno un valore qui, i fogli di stile usano var(--title, var(--text2)) e var(--label, var(--text2)) */
@@ -356,14 +359,15 @@ body {
   z-index: 999;
 }
 
-/* la fascia sotto la finestra (--vp-gap) prende il colore della barra */
+/* sotto la barra, sempre dello stesso colore: copre qualunque fascia lasci il browser fino al fondo dello
+   schermo (di solito resta fuori dallo schermo e non si vede) */
 #nav::after {
   content: '';
   position: absolute;
   left: 0;
   right: 0;
   top: 100%;
-  height: var(--vp-gap, 0px);
+  height: 160px;
   background: var(--nav-bg);
   pointer-events: none;
 }
@@ -439,6 +443,21 @@ body {
 .toast.ok{border-color:var(--toast-ok, var(--accent));color:var(--toast-ok, var(--accent))}
 .toast.err{border-color:var(--toast-err, var(--accent3));color:var(--toast-err, var(--accent3))}
 
+/* ==================== PRIMO DOWNLOAD DELL'APP ====================
+   Primo avvio (html.pwa-installing, da js/pwaBoot.js): l'app si usa solo quando sw.js
+   ha messo in cache tutti i file, così da lì in poi si apre anche senza rete. */
+#pwa-gate{display:none;position:fixed;inset:0;z-index:2000;align-items:center;justify-content:center;padding:1.5rem;
+  background:var(--bg, #121519);color:var(--text, #e2e8f0);font-family:'DM Sans',system-ui,sans-serif;text-align:center}
+html.pwa-installing #pwa-gate{display:flex}
+#pwa-gate .pg-box{width:min(320px,100%);display:flex;flex-direction:column;align-items:center;gap:.6rem}
+#pwa-gate img{width:84px;height:84px;border-radius:20px;margin-bottom:.4rem}
+#pwa-gate .pg-title{font-size:1.05rem;font-weight:600}
+#pwa-gate .pg-sub{font-size:.8rem;color:var(--text2, #94a3b8);line-height:1.4}
+#pwa-gate .pg-bar{width:100%;height:5px;border-radius:10px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:.4rem}
+#pwa-gate-fill{height:100%;width:0;background:var(--accent, #50e3c2);transition:width .2s ease-out}
+#pwa-gate-pct{font-size:.72rem;color:var(--text2, #94a3b8);font-family:'DM Mono',monospace}
+#pwa-gate-skip{visibility:hidden;margin-top:.6rem;border:none;background:transparent;color:var(--text2, #94a3b8);font:inherit;font-size:.78rem;text-decoration:underline;cursor:pointer;padding:.5rem}
+
 /* ==================== AVVIO CON SESSIONE ATTIVA ====================
    Se sul dispositivo c'è già un utente (html.resuming, impostata nell'<head>) non si mostra il login:
    solo il logo della competizione sul tema dell'utente, finché l'app non è pronta. */
@@ -491,21 +510,43 @@ html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75re
 </style>
 <style id="dynamic-theme"></style>
 <script>
-/* iPhone, app installata: a volte iOS dà alla finestra un'altezza minore dello schermo e sotto la barra
-   in basso resta una fascia vuota. Si misura (--vp-gap) per colorarla e togliere lo spazio doppio. */
+/* iPhone: a volte la barra in basso non arriva al fondo dello schermo e sotto resta una fascia
+   (app installata: iOS dà alla finestra un'altezza minore dello schermo; Chrome: con la sua barra nascosta).
+   Si misura (--vp-gap): la fascia prende il colore della barra (#nav::after) e lo spazio per la barretta
+   si riduce di altrettanto (--safe-b). */
 (function () {
-  var standalone = window.navigator.standalone === true ||
-    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
-  if (!standalone) return;
+  var root = document.documentElement;
+  var last = -1;
   function measure() {
-    var portrait = window.innerHeight >= window.innerWidth;
-    var full = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
-    var gap = Math.round(full - window.innerHeight);
-    document.documentElement.style.setProperty('--vp-gap', (gap > 0 && gap < 120 ? gap : 0) + 'px');
+    var gap = 0;
+    // app installata: la finestra è più bassa dello schermo
+    var standalone = window.navigator.standalone === true ||
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    if (standalone) {
+      var portrait = window.innerHeight >= window.innerWidth;
+      var full = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+      gap = full - window.innerHeight;
+    }
+    // ovunque: spazio vero tra il fondo della barra e il fondo dell'area visibile
+    var nav = document.getElementById('nav');
+    if (nav && nav.style.display !== 'none' && nav.getClientRects().length) {
+      var vh = window.visualViewport ? window.visualViewport.height + window.visualViewport.offsetTop : window.innerHeight;
+      var below = Math.max(window.innerHeight, vh) - nav.getBoundingClientRect().bottom;
+      if (below > gap) gap = below;
+    }
+    gap = Math.round(gap);
+    gap = gap > 0 && gap < 120 ? gap : 0;
+    if (gap !== last) { last = gap; root.style.setProperty('--vp-gap', gap + 'px'); }
   }
   measure();
   window.addEventListener('resize', measure);
+  window.addEventListener('scroll', measure, true);
   window.addEventListener('orientationchange', function () { setTimeout(measure, 300); });
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', measure);
+  document.addEventListener('DOMContentLoaded', measure);
+  window.addEventListener('load', measure);
+  // la barra in basso compare solo dopo l'accesso, e Chrome mostra/nasconde la sua barra mentre scorri
+  setInterval(measure, 1000);
 })();
 </script>
 <script>
@@ -529,6 +570,17 @@ html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75re
 <body>
 
 <div id="status-bar" aria-hidden="true"></div>
+
+<div id="pwa-gate" role="status" aria-live="polite">
+  <div class="pg-box">
+    <img src="icons/icon-192.png" alt="">
+    <div class="pg-title">Preparazione dell'app</div>
+    <div class="pg-sub">Scarico tutti i file, così FantaCApp si apre anche senza rete.</div>
+    <div class="pg-bar"><div id="pwa-gate-fill"></div></div>
+    <div id="pwa-gate-pct">0%</div>
+    <button type="button" id="pwa-gate-skip" onclick="window.skipPwaGate()">Apri senza aspettare</button>
+  </div>
+</div>
 
 <div id="splash" aria-hidden="true"><div id="splash-logo"></div></div>
 <script>
@@ -672,7 +724,7 @@ html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75re
   <i class="ri-refresh-line" style="color:var(--upd-icon, var(--accent)); font-size:1.1rem;"></i>
   <span>È disponibile una nuova versione dell'app.</span>
   <button type="button" class="upd-no" onclick="document.getElementById('update-banner').classList.remove('show')">Dopo</button>
-  <button type="button" class="upd-go" onclick="location.reload()">Aggiorna</button>
+  <button type="button" class="upd-go" onclick="window.applyAppUpdate ? window.applyAppUpdate() : location.reload()">Aggiorna</button>
 </div>
 
 <script type="module">
@@ -1592,23 +1644,7 @@ window.showToast = function(msg, type='ok') {
 
 window._saveNode = (path, payload) => set(ref(db, path), payload);
 
-if ('serviceWorker' in navigator) {
-  // c'era già un service worker: un nuovo controller vuol dire nuova versione dell'app
-  const hadController = !!navigator.serviceWorker.controller;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (hadController) document.getElementById('update-banner').classList.add('show');
-  });
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then(reg => {
-        // controlla gli aggiornamenti quando l'app torna in primo piano
-        document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'visible' && navigator.onLine) reg.update().catch(() => {});
-        });
-      })
-      .catch(err => console.error('Errore SW', err));
-  });
-}
+// Service worker (registrazione e aggiornamenti): js/pwaBoot.js, caricato nell'<head>
 
 /* ─── Installazione PWA (Android/desktop: prompt nativo dal menu laterale) ─ */
 let installPrompt = null;

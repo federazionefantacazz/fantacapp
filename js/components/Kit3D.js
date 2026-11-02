@@ -113,11 +113,12 @@ async function applyCut(model, url) {
   }
 }
 
-/** Classica col girocollo: la costina della raglan sta un po' più in alto (la stoffa in neck-crew-setin.bin arriva lì). */
-const CREW_LIFT = 0.006, CREW_WIDEN = 1.012;
-/** Raglan con la V: la costina a V della classica rimpicciolita (scala), inclinata (gradi) e spostata (m) attorno a
- * pivot, poi allargata un po' intorno all'asse del collo; la stoffa in neck-v-raglan.bin arriva al suo bordo. */
-const V_FIT = { pivot: [0, 1.52, 0], dy: 0.005347, dz: -0.000231, tilt: 0.059243, scale: 0.932262, widen: 1 };
+/** Classica col girocollo: posizione della costina della raglan (la stoffa in neck-crew-setin.bin arriva al suo bordo). */
+const CREW_FIT = { pivot: [0, 1.58, 0], dy: 0.003238, dz: -0.010652, tilt: -0.092575, sx: 1.015959, sz: 1.031167 };
+/** Raglan con la V: la costina a V della classica rimpicciolita (scale), inclinata (tilt, radianti), allargata ai lati
+ * (sx) e davanti-dietro (sz) e spostata (m) attorno a pivot, così combacia con lo scollo della raglan ai lati e dietro e
+ * con il petto davanti; la stoffa in neck-v-raglan.bin arriva al suo bordo. */
+const V_FIT = { pivot: [0, 1.52, 0], dy: 0.007651, dz: -0.000199, tilt: 0.055347, scale: 0.890214, sx: 1.118983, sz: 1.016285 };
 
 /** Coordinate della texture della costina presa dall'altra maglia: dal riquadro del colletto a a quello b. */
 function remapUV(THREE, node, a, b) {
@@ -159,8 +160,8 @@ function loadVariant(kit) {
           src.matrixWorld.decompose(rib.position, rib.quaternion, rib.scale);
           remapUV(THREE, rib, UV.collar, UV_RAGLAN.collar);
           const f = V_FIT, p = new THREE.Vector3(...f.pivot), M = new THREE.Matrix4();
-          M.makeScale(f.widen, 1, f.widen)
-            .multiply(new THREE.Matrix4().makeTranslation(p.x, p.y + f.dy, p.z + f.dz))
+          M.makeTranslation(p.x, p.y + f.dy, p.z + f.dz)
+            .multiply(new THREE.Matrix4().makeScale(f.sx, 1, f.sz))
             .multiply(new THREE.Matrix4().makeRotationX(f.tilt))
             .multiply(new THREE.Matrix4().makeScale(f.scale, f.scale, f.scale))
             .multiply(new THREE.Matrix4().makeTranslation(-p.x, -p.y, -p.z));
@@ -168,6 +169,7 @@ function loadVariant(kit) {
           wrap.matrixAutoUpdate = false;
           wrap.matrix.copy(M);
           wrap.add(rib);
+          rib.traverse(o => { o.userData.swappedRib = true; });
           model.add(wrap);
         }
         return model;
@@ -184,12 +186,17 @@ function loadVariant(kit) {
         if (src) {
           const rib = src.clone(true);
           src.matrixWorld.decompose(rib.position, rib.quaternion, rib.scale);
-          rib.position.y += CREW_LIFT;
-          // appena più larga intorno all'asse del collo: la costina sta sopra la stoffa, che ci entra sotto
+          // spostata, inclinata e appena allargata (CREW_FIT): combacia con lo scollo originale ai lati e dietro
+          const f = CREW_FIT, p = new THREE.Vector3(...f.pivot);
           const wrap = new THREE.Group();
-          wrap.scale.set(CREW_WIDEN, 1, CREW_WIDEN);
+          wrap.matrixAutoUpdate = false;
+          wrap.matrix.makeTranslation(p.x, p.y + f.dy, p.z + f.dz)
+            .multiply(new THREE.Matrix4().makeScale(f.sx, 1, f.sz))
+            .multiply(new THREE.Matrix4().makeRotationX(f.tilt))
+            .multiply(new THREE.Matrix4().makeTranslation(-p.x, -p.y, -p.z));
           wrap.add(rib);
           remapUV(THREE, rib, UV_RAGLAN.collar, UV.collar);
+          rib.traverse(o => { o.userData.swappedRib = true; });
           model.add(wrap);
         }
         return model;
@@ -294,11 +301,18 @@ class Stage {
     this.model = model.clone(true);
     this.collarMats = {};
     this.innerMats = [];
+    this.ribInnerMats = [];
     this.model.traverse(o => {
       if (!o.isMesh) return;
       const name = o.material.name;
       o.material = o.material.clone();
       o.material.metalness = 0;
+      // costina presa dall'altra maglia: il rovescio ha il colore del colletto (sotto il bordo non resta una riga scura)
+      if (o.userData.swappedRib && /^shirt_inner/.test(name)) {
+        if (name === 'shirt_inner_flip') o.material.side = this.L.THREE.BackSide;
+        this.ribInnerMats.push(o.material);
+        return;
+      }
       if (name === 'shirt_outer') { o.material.map = this.texture; o.material.needsUpdate = true; }
       if (name === 'shirt_inner') (this.innerMats ||= []).push(o.material);
       // maglia raglan: l'interno è il rovescio della stessa superficie
@@ -317,6 +331,8 @@ class Stage {
       m.color.copy(inner); m.roughness = 1; m.envMapIntensity = 0.4;
       m.polygonOffset = true; m.polygonOffsetFactor = 1; m.polygonOffsetUnits = 2; // l'interno non buca mai la stoffa esterna
     });
+    const ribInner = new this.L.THREE.Color(validColor(kit.colors.collar)).multiplyScalar(0.8);
+    (this.ribInnerMats || []).forEach(m => { m.color.copy(ribInner); m.map = null; m.roughness = 0.9; m.needsUpdate = true; });
     const M = this.collarMats || {};
     const each = (name, fn) => (M[name] || []).forEach(fn);
     // colletto alto: tinta unita del colore del colletto
