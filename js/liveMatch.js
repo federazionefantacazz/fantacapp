@@ -29,7 +29,7 @@ import { kitImageHTML, openKitOverlay } from './components/Kit3D.js';
 import { getCompPatchesOf } from './services/kitAssets.js';
 import { BackNav } from './services/backNav.js';
 import { captainBandSVG } from './components/CaptainBand.js';
-import { createStadiumViewer, defaultStadium, PITCH_SIZE } from './components/Stadium3D.js';
+import { createStadiumViewer, defaultStadium, normalizeFans, PITCH_SIZE } from './components/Stadium3D.js';
 
 const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
 const fmt = (n) => {
@@ -1211,8 +1211,9 @@ export const LiveMatchModule = {
     }
 
     // tifosi sugli spalti coi colori delle due squadre (gli ospiti in una parte della curva)
-    const crowdKey = `${this._teamColor(home, 0)}|${this._teamColor(away, 1)}`;
-    if (V.crowdKey !== crowdKey) { V.crowdKey = crowdKey; V.viewer.setCrowd({ home: this._teamColor(home, 0), away: this._teamColor(away, 1) }); }
+    // con le bandiere e le coreografie salvate nello stadio della squadra di casa
+    const fans = stadium.fans || null, crowdKey = `${this._teamColor(home, 0)}|${this._teamColor(away, 1)}|${JSON.stringify(fans)}`;
+    if (V.crowdKey !== crowdKey) { V.crowdKey = crowdKey; V.viewer.setCrowd({ home: this._teamColor(home, 0), away: this._teamColor(away, 1), fans: normalizeFans(fans) }); }
 
     // giocatori: segnaposti nel 3D ed etichette (foto, nome, fantavoto) sopra
     const spots = [...this._pitchSpots(home, -1).map(s => ({ ...s, t: home, c: this._teamColor(home, 0) })), ...this._pitchSpots(away, 1).map(s => ({ ...s, t: away, c: this._teamColor(away, 1) }))];

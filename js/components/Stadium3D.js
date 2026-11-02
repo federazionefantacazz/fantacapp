@@ -248,6 +248,32 @@ export const ENTRANCES = [
 ];
 export const ENTRANCE_W = [14, 44], ENTRANCE_H = [8, 24]; // larghezza e altezza (m) dei cursori
 export const ENTRANCE_LOGO = [60, 150];                      // grandezza del logo sopra l'ingresso (% della misura normale)
+/** Tifo (solo nel live): bandiere e coreografie, salvate con lo stadio. */
+export const FLAG_SIZES = [{ id: 'S', label: 'Piccola' }, { id: 'M', label: 'Media' }, { id: 'L', label: 'Bandierone' }];
+export const FLAG_PATTERNS = [
+  { id: 'plain', label: 'Tinta unita' }, { id: 'vstripes', label: 'Strisce verticali' }, { id: 'hstripes', label: 'Strisce orizzontali' },
+  { id: 'diagonal', label: 'Diagonale' }, { id: 'image', label: 'La tua immagine' }
+];
+export const CHOREO_TYPES = [{ id: 'cards', label: 'Tifosi colorati' }, { id: 'banner', label: 'Telone' }];
+export const MAX_FLAGS = 40, MAX_CHOREOS = 8, CHOREO_SIZE = [10, 100];
+const imgUrl = (v) => (/^(https?:|data:image\/)/.test(String(v || '')) ? String(v) : '');
+export function normalizeFans(src) {
+  const f = src && typeof src === 'object' ? src : {}, ringOk = (v) => [0, 1, 2].includes(Number(v)) ? Number(v) : 0;
+  const bools = (v, n, def) => Array.from({ length: n }, (_, i) => (Array.isArray(v) ? !!v[i] : def[i]));
+  const flags = (Array.isArray(f.flags) ? f.flags : Object.values(f.flags || {})).slice(0, MAX_FLAGS).map(x => ({
+    side: [0, 1, 2, 3].includes(Number(x && x.side)) ? Number(x.side) : 1, ring: ringOk(x && x.ring),
+    pos: Math.round(Math.min(100, Math.max(0, Number(x && x.pos) || 50))),
+    size: oneOf(FLAG_SIZES, x && x.size, 'M'), pattern: oneOf(FLAG_PATTERNS, x && x.pattern, 'vstripes'),
+    c1: validColor(x && x.c1, '#1e5bb8'), c2: validColor(x && x.c2, '#ffffff'), image: imgUrl(x && x.image)
+  }));
+  const choreos = (Array.isArray(f.choreos) ? f.choreos : Object.values(f.choreos || {})).slice(0, MAX_CHOREOS).map(x => ({
+    type: oneOf(CHOREO_TYPES, x && x.type, 'cards'), sides: bools(x && x.sides, 4, [false, true, false, false]),
+    rings: bools(x && x.rings, 3, [true, true, true]),
+    size: Math.round(Math.min(CHOREO_SIZE[1], Math.max(CHOREO_SIZE[0], Number(x && x.size) || 100))), image: imgUrl(x && x.image)
+  }));
+  return { flags, choreos };
+}
+
 /** Cosa c'è sul pannello del cubo (muro dell'Amsterdam ArenA). */
 export const CUBE_PANELS = [
   { id: 'name',  label: 'Nome dello stadio' },
@@ -277,7 +303,7 @@ const DEFAULT = {
   roofSides: ['', '', '', ''], roofTexture: 'auto', roofWave: 0, roofWaves: 4, roofWaveShift: 0,
   seatMosaic: 'none', standText: '', standTextSide: 'far', standTextRing: 1, standTextFont: 'black',
   outerText: '', outerTextFont: 'black', outerTextStyle: 'outline', outerTextSize: 'M', outerTextPlace: 'facade', logoPlaces: [], wallTexture: 'concrete',
-  entrance: 'none', entranceSides: [true, false, false, false], entranceWidth: 26, entranceHeight: 14, entranceLogo: 100, entranceImage: '', entranceImageFit: 'fill', cubePanel: 'name', cubeImage: '', cubeImageFit: 'fill',
+  entrance: 'none', entranceSides: [true, false, false, false], entranceWidth: 26, entranceHeight: 14, entranceLogo: 100, entranceImage: '', entranceImageFit: 'fill', cubePanel: 'name', cubeImage: '', cubeImageFit: 'fill', fans: { flags: [], choreos: [] },
   colors: {
     grass: '#3d8b37', track: '#b4452f', seatA: '#1e5bb8', seatB: '#ffffff', seatC: '#c62828', seatD: '#ffd400', parapet: '#e6e6e6', structure: '#a5a5a5',
     roof: '#cfd4da', steel: '#767d86', accent: '#1e5bb8', girder: '#c0392b', glow: '#e30613',
@@ -509,6 +535,7 @@ export function normalizeStadium(s) {
     cubePanel: oneOf(CUBE_PANELS, src.cubePanel, DEFAULT.cubePanel),
     cubeImage: /^(https?:|data:image\/)/.test(String(src.cubeImage || '')) ? String(src.cubeImage) : '',
     cubeImageFit: oneOf(ENTRANCE_FITS, src.cubeImageFit, DEFAULT.cubeImageFit),
+    fans: normalizeFans(src.fans),
     ramps: !!src.ramps,
     boxes: !!src.boxes,
     shellPattern: oneOf(SHELL_PATTERNS, src.shellPattern, DEFAULT.shellPattern),
@@ -1083,6 +1110,36 @@ function crowdAtlas(home, away) {
       if (k === 5) { ctx.strokeStyle = '#3a3a3a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx + 22, y0 + 18); ctx.lineTo(cx + 22, y0 + 1); ctx.stroke(); ctx.fillStyle = col; ctx.fillRect(cx + 22, y0 + 1, 18, 12); ctx.fillStyle = '#ffffff'; ctx.fillRect(cx + 22, y0 + 6, 18, 3); }
     }
   });
+  return c;
+}
+
+/** Misure delle bandiere (m): telo, asta e quanto la si sventola. */
+const FLAG_DIMS = {
+  S: { w: 1.2, h: 0.8, pole: 1.7, r: 0.02, swing: 0.5, speed: 2.4 },
+  M: { w: 2.4, h: 1.6, pole: 3.0, r: 0.03, swing: 0.55, speed: 1.7 },
+  L: { w: 6.0, h: 4.0, pole: 6.6, r: 0.05, swing: 0.5, speed: 1.0 }
+};
+
+/** Coreografia senza immagine: strisce diagonali col colore di casa e bianche. */
+function choreoFallback(col) {
+  const c = document.createElement('canvas'), W = c.width = 256, H = c.height = 128, ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = col || '#1e5bb8';
+  for (let x = -H; x < W; x += 64) { ctx.beginPath(); ctx.moveTo(x, H); ctx.lineTo(x + 32, H); ctx.lineTo(x + 32 + H, 0); ctx.lineTo(x + H, 0); ctx.closePath(); ctx.fill(); }
+  return c;
+}
+
+/** Tela di una bandiera: disegno con i due colori o l'immagine personale (tela già caricata). */
+function flagCanvas(f, img) {
+  const c = document.createElement('canvas'), W = c.width = 192, H = c.height = 128, ctx = c.getContext('2d');
+  ctx.fillStyle = f.c1; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = f.c2;
+  if (f.pattern === 'image' && img) {
+    const k = Math.max(W / img.width, H / img.height);
+    ctx.drawImage(img, (W - img.width * k) / 2, (H - img.height * k) / 2, img.width * k, img.height * k);
+  } else if (f.pattern === 'vstripes') for (let i = 1; i < 6; i += 2) ctx.fillRect(i * W / 6, 0, W / 6, H);
+  else if (f.pattern === 'hstripes') for (let i = 1; i < 4; i += 2) ctx.fillRect(0, i * H / 4, W, H / 4);
+  else if (f.pattern === 'diagonal') { ctx.beginPath(); ctx.moveTo(0, H); ctx.lineTo(W, 0); ctx.lineTo(W, H); ctx.closePath(); ctx.fill(); }
   return c;
 }
 
@@ -8093,6 +8150,40 @@ function buildStadium(L, st) {
   };
   let adsKey = '', paintKey = '', seatColorKey = '', signKey = '', screenKey = '', sign = null, night = false;
   let crowdMesh = null; const crowdTime = { value: 0 }, crowdNight = { value: 0 }; // tifosi (solo nel live)
+  // tifo: teloni delle coreografie e bandiere
+  const tifoParts = [], tifoFlags = [], tifoPoleMat = new THREE.MeshBasicMaterial({ color: 0x3a3a3a });
+  own.push(tifoPoleMat);
+  const clearCrowd = () => {
+    if (crowdMesh) { group.remove(crowdMesh); crowdMesh.geometry.dispose(); crowdMesh.material.map.dispose(); crowdMesh.material.dispose(); crowdMesh.dispose(); crowdMesh = null; }
+    tifoParts.splice(0).forEach(m => { group.remove(m); m.geometry.dispose(); m.material.map.dispose(); m.material.dispose(); m.dispose(); });
+    tifoFlags.splice(0).forEach(F => { group.remove(F.holder); F.cg.dispose(); F.cm.dispose(); F.ftex.dispose(); F.pole.geometry.dispose(); });
+  };
+  /**
+   * Posti di una coreografia (lati e anelli scelti) con la loro posizione: u da sinistra a destra per chi guarda dal campo
+   * (angolo intorno al centro, a partire dal buco più grande tra i posti scelti), v dalla prima fila (0) all'ultima (1),
+   * contando le file degli anelli scelti uno sopra l'altro. rise = quanto sale una fila in ogni anello.
+   */
+  const tifoArea = (sides, rings) => {
+    const a = seatMesh.instanceMatrix.array, info = seats.info, sel = [];
+    for (let i = 0; i < seats.count; i++) if (sides[info[i] >> 3] && rings[(info[i] >> 1) & 3]) sel.push(i);
+    if (!sel.length) return null;
+    const th = sel.map(i => Math.atan2(a[i * 16 + 14], a[i * 16 + 12])), sorted = Float64Array.from(th).sort(), TAU = Math.PI * 2;
+    let gap = sorted[0] + TAU - sorted[sorted.length - 1], start = sorted[0];
+    for (let k = 1; k < sorted.length; k++) if (sorted[k] - sorted[k - 1] > gap) { gap = sorted[k] - sorted[k - 1]; start = sorted[k]; }
+    const span = Math.max(1e-3, TAU - gap), before = [];
+    let acc = 0;
+    for (let r = 0; r < 3; r++) { before[r] = acc; if (rings[r]) acc += seats.tierRows[r] || 0; }
+    const gs = sel.map(i => before[(info[i] >> 1) & 3] + seats.rows[i]), total = Math.max(...gs) + 1;
+    // salita di una fila per anello (retta che passa meglio tra altezza e numero di fila)
+    const S = [0, 1, 2].map(() => [0, 0, 0, 0, 0]);
+    sel.forEach(i => { const q = S[(info[i] >> 1) & 3], x = seats.rows[i], y = a[i * 16 + 13]; q[0]++; q[1] += x; q[2] += y; q[3] += x * x; q[4] += x * y; });
+    const rise = S.map(q => { const d = q[0] * q[3] - q[1] * q[1]; return d > 1e-6 ? Math.max(0.1, (q[0] * q[4] - q[1] * q[2]) / d) : 0.45; });
+    return {
+      sel, span, total, rise,
+      u: Float32Array.from(th, t => ((t - start + TAU * 2) % TAU) / span),
+      v: Float32Array.from(gs, g => g / Math.max(1, total - 1))
+    };
+  };
   // pannello sul cubo (Amsterdam ArenA): nome dello stadio, logo della squadra o immagine personale, sul colore delle righe
   let cubeSt = st, cubeImg = null, cubeKey = '';
   // dischi del logo all'ingresso principale: il logo della squadra (se c'è) o il nome dello stadio, su fondo bianco
@@ -8321,60 +8412,189 @@ function buildStadium(L, st) {
      * Tifosi sugli spalti (solo nel live): una figurina 2D davanti a quasi ogni seggiolino, coi colori delle due squadre
      * (gli ospiti in una parte della curva destra). Si muovono nello shader: ondeggiano, alzano e abbassano le braccia e
      * un'"ola" di luce gira per lo stadio; tick(t) aggiorna il tempo. crowd = null li toglie.
+     * crowd.fans = { flags, choreos } (normalizeFans) e crowd.images = Map indirizzo → tela delle immagini già caricate:
+     * coreografie coi cartoncini colorati (i tifosi diventano i pixel dell'immagine) o coi teloni, e bandiere sventolate.
      */
     setCrowd(crowd) {
-      if (crowdMesh) { group.remove(crowdMesh); crowdMesh.geometry.dispose(); crowdMesh.material.map.dispose(); crowdMesh.material.dispose(); crowdMesh.dispose(); crowdMesh = null; }
+      clearCrowd();
       if (!crowd || !seats.count) return;
+      const fans = crowd.fans || { flags: [], choreos: [] }, imgs = crowd.images || new Map();
+      const n = seats.count, a = seatMesh.instanceMatrix.array, info = seats.info;
+      const tint = new Float32Array(n * 4), hide = new Uint8Array(n), lin = (v) => Math.pow(v / 255, 2.2);
+      const fallback = () => choreoFallback(crowd.home);
+      // coreografie (una dopo l'altra: l'ultima vince dove si sovrappongono)
+      fans.choreos.forEach(c => {
+        const A = tifoArea(c.sides, c.rings);
+        if (!A) return;
+        const w = c.size / 100, h = Math.min(1, w * 1.6), src = imgs.get(c.image) || fallback();
+        const uu = (u) => (u - 0.5) / w + 0.5, vv = (v) => (v - 0.5) / h + 0.5;
+        if (c.type === 'cards') {
+          const W = src.width, H = src.height, d = src.getContext('2d').getImageData(0, 0, W, H).data;
+          A.sel.forEach((i, k) => {
+            const x = uu(A.u[k]), y = vv(A.v[k]);
+            if (x < 0 || x > 1 || y < 0 || y > 1) return;
+            const p = (Math.min(H - 1, Math.floor((1 - y) * H)) * W + Math.min(W - 1, Math.floor(x * W))) * 4;
+            tint[i * 4] = lin(d[p]); tint[i * 4 + 1] = lin(d[p + 1]); tint[i * 4 + 2] = lin(d[p + 2]); tint[i * 4 + 3] = 1;
+            hide[i] = 0;
+          });
+          return;
+        }
+        // telone: un pezzo di telo sopra le teste per ogni posto, largo da coprire anche le scalette; la parte
+        // d'immagine di ogni pezzo segue la posizione, così i pezzi vicini combaciano
+        const Wq = 1.8, list = [], m4 = new THREE.Matrix4(), loc = new THREE.Matrix4(), rot = new THREE.Matrix4(), sc = new THREE.Matrix4();
+        A.sel.forEach((i, k) => {
+          const x = uu(A.u[k]), y = vv(A.v[k]);
+          if (x < -0.04 || x > 1.04 || y < -0.04 || y > 1.04) return;
+          if (x >= 0 && x <= 1 && y >= 0 && y <= 1) { hide[i] = 1; tint[i * 4 + 3] = 0; }
+          list.push(i, k);
+        });
+        if (!list.length) return;
+        const m = list.length / 2, mats = new Float32Array(m * 16), ban = new Float32Array(m * 4);
+        for (let j = 0; j < m; j++) {
+          const i = list[j * 2], k = list[j * 2 + 1], b = i * 16, R = A.rise[(info[i] >> 1) & 3], L = Math.hypot(R, TREAD);
+          loc.makeTranslation(0, 1.45, -0.1); rot.makeRotationX(Math.atan2(-TREAD, R)); sc.makeScale(Wq, L * 1.08, 1);
+          m4.fromArray(a, b).multiply(loc).multiply(rot).multiply(sc).toArray(mats, j * 16);
+          const px = a[b + 12], pz = a[b + 14], r2 = px * px + pz * pz || 1;
+          ban[j * 4] = uu(A.u[k]); ban[j * 4 + 1] = vv(A.v[k]);
+          ban[j * 4 + 2] = (px * a[b + 2] - pz * a[b]) / r2 / A.span / w * Wq;
+          ban[j * 4 + 3] = 1.08 / Math.max(1, A.total - 1) / h;
+        }
+        const tex = new THREE.CanvasTexture(src);
+        tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+        const g = new THREE.PlaneGeometry(1, 1, 2, 2);
+        g.setAttribute('aBan', new THREE.InstancedBufferAttribute(ban, 4));
+        const mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1 });
+        mat.onBeforeCompile = (sh) => {
+          sh.uniforms.uTime = crowdTime; sh.uniforms.uNight = crowdNight;
+          sh.vertexShader = 'uniform float uTime;\nattribute vec4 aBan;\nvarying vec2 vBan;\nvarying float vLight;\n' + sh.vertexShader
+            .replace('#include <uv_vertex>', `#include <uv_vertex>
+  vBan = vec2(aBan.x + position.x * aBan.z, aBan.y + position.y * aBan.w);
+  vMapUv = vBan;`)
+            .replace('#include <begin_vertex>', `#include <begin_vertex>
+  // il telo ondeggia (onde che dipendono dalla posizione: i pezzi vicini si muovono insieme)
+  vec4 wp = instanceMatrix * vec4(position, 1.0);
+  float wv = sin(uTime * 1.7 + wp.x * 0.35 + wp.z * 0.27), wv2 = sin(uTime * 2.9 + wp.x * 0.9 - wp.z * 0.7);
+  transformed.z += wv * 0.14 + wv2 * 0.05;
+  vLight = 0.88 + 0.1 * wv + 0.05 * wv2;`);
+          sh.fragmentShader = 'uniform float uNight;\nvarying vec2 vBan;\nvarying float vLight;\n' + sh.fragmentShader
+            .replace('#include <map_fragment>', `if (vBan.x < 0.0 || vBan.x > 1.0 || vBan.y < 0.0 || vBan.y > 1.0) discard;
+#include <map_fragment>
+  diffuseColor.rgb *= vLight * mix(1.0, 0.6, uNight);`);
+        };
+        const mesh = new THREE.InstancedMesh(g, mat, m);
+        mesh.instanceMatrix.array.set(mats);
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.frustumCulled = false;
+        group.add(mesh);
+        tifoParts.push(mesh);
+      });
+
+      // figurine
       const tex = new THREE.CanvasTexture(crowdAtlas(crowd.home, crowd.away));
       tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
       const g = new THREE.PlaneGeometry(0.62, 1.15);
       g.translate(0, 1.0, 0.12);
-      const n = seats.count, a = seatMesh.instanceMatrix.array, info = seats.info, rnd = new Float32Array(n * 2), mats = new Float32Array(n * 16);
+      const rnd = new Float32Array(n * 2), mats = new Float32Array(n * 16), tints = new Float32Array(n * 4);
       let m = 0;
       for (let i = 0; i < n; i++) {
+        if (hide[i]) continue;
         const h = Math.abs(Math.sin(i * 12.9898 + 78.233) * 43758.5453) % 1;
-        if (h < 0.1) continue; // qualche posto vuoto
+        if (h < 0.1 && !tint[i * 4 + 3]) continue; // qualche posto vuoto (non nelle coreografie)
         const lato = info[i] >> 3, ring = (info[i] >> 1) & 3, away = lato === 1 && ring > 0 && (Math.abs(a[i * 16 + 14]) < 30);
         for (let k = 0; k < 16; k++) mats[m * 16 + k] = a[i * 16 + k];
+        for (let k = 0; k < 4; k++) tints[m * 4 + k] = tint[i * 4 + k];
         rnd[m * 2] = (h * 7.31) % 1; rnd[m * 2 + 1] = away ? 1 : 0;
         m++;
       }
-      g.setAttribute('aCrowd', new THREE.InstancedBufferAttribute(rnd.subarray(0, m * 2), 2));
-      const mat = new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide });
-      mat.onBeforeCompile = (sh) => {
-        sh.uniforms.uTime = crowdTime;
-        sh.uniforms.uNight = crowdNight;
-        sh.vertexShader = 'uniform float uTime;\nattribute vec2 aCrowd;\nvarying float vLight;\n' + sh.vertexShader
-          .replace('#include <uv_vertex>', `#include <uv_vertex>
+      if (m) {
+        g.setAttribute('aCrowd', new THREE.InstancedBufferAttribute(rnd.subarray(0, m * 2), 2));
+        g.setAttribute('aTint', new THREE.InstancedBufferAttribute(tints.subarray(0, m * 4), 4));
+        const mat = new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide });
+        mat.onBeforeCompile = (sh) => {
+          sh.uniforms.uTime = crowdTime;
+          sh.uniforms.uNight = crowdNight;
+          sh.vertexShader = 'uniform float uTime;\nattribute vec2 aCrowd;\nattribute vec4 aTint;\nvarying float vLight;\nvarying vec4 vTint;\n' + sh.vertexShader
+            .replace('#include <uv_vertex>', `#include <uv_vertex>
   // tipo di figurina (8 per riga): ognuno ne ha due, braccia giù e su, e li alterna ogni tanto
-  float r = aCrowd.x, kind = floor(r * 4.0) * 2.0;
-  float cheer = step(0.72, fract(sin(floor(uTime * 0.8 + r * 9.0) * 12.9898 + r * 78.2) * 437.58));
-  vMapUv = vec2((uv.x + kind + cheer) / 8.0, (uv.y + 1.0 - aCrowd.y) / 2.0);`)
-          .replace('#include <begin_vertex>', `#include <begin_vertex>
-  // ondeggiano un poco (saltano quando esultano)
-  transformed.y += sin(uTime * (2.0 + r * 2.0) + r * 40.0) * 0.05 + cheer * abs(sin(uTime * 7.0 + r * 20.0)) * 0.18;`)
-          .replace('#include <project_vertex>', `#include <project_vertex>
+  float r = aCrowd.x, kind = floor(r * 4.0) * 2.0, card = aTint.w;
+  float cheer = step(0.72, fract(sin(floor(uTime * 0.8 + r * 9.0) * 12.9898 + r * 78.2) * 437.58)) * (1.0 - card);
+  vMapUv = vec2((uv.x + kind + cheer) / 8.0, (uv.y + 1.0 - aCrowd.y) / 2.0);
+  vTint = aTint;`)
+            .replace('#include <begin_vertex>', `#include <begin_vertex>
+  // ondeggiano un poco (saltano quando esultano); coi cartoncini alzati sopra la testa stanno quasi fermi
+  transformed.y += sin(uTime * (2.0 + r * 2.0) + r * 40.0) * mix(0.05, 0.02, card) + cheer * abs(sin(uTime * 7.0 + r * 20.0)) * 0.18;
+  transformed.x *= mix(1.0, 0.95, card);`)
+            .replace('#include <project_vertex>', `#include <project_vertex>
   // "ola" di luce che gira per lo stadio e piccoli lampi qua e là
   vec4 wpos = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
   float ang = atan(wpos.z, wpos.x), band = 0.5 + 0.5 * cos(ang - uTime * 0.9);
-  vLight = 0.72 + 0.4 * pow(band, 18.0) + 0.1 * sin(uTime * 3.0 + r * 50.0);`);
-        sh.fragmentShader = 'uniform float uNight;\nvarying float vLight;\n' + sh.fragmentShader
-          .replace('#include <map_fragment>', '#include <map_fragment>\n  diffuseColor.rgb *= vLight * mix(1.0, 0.55, uNight);');
-      };
-      crowdMesh = new THREE.InstancedMesh(g, mat, m);
-      crowdMesh.instanceMatrix.array.set(mats.subarray(0, m * 16));
-      crowdMesh.instanceMatrix.needsUpdate = true;
-      crowdMesh.frustumCulled = false;
-      group.add(crowdMesh);
+  vLight = mix(0.72 + 0.4 * pow(band, 18.0) + 0.1 * sin(uTime * 3.0 + r * 50.0), 0.95 + 0.04 * sin(uTime * 2.0 + r * 30.0), card);`);
+          sh.fragmentShader = 'uniform float uNight;\nvarying float vLight;\nvarying vec4 vTint;\n' + sh.fragmentShader
+            .replace('#include <map_fragment>', `#include <map_fragment>
+  if (vTint.w > 0.5) diffuseColor = vec4(vTint.rgb, 1.0);
+  diffuseColor.rgb *= vLight * mix(1.0, 0.55, uNight);`);
+        };
+        crowdMesh = new THREE.InstancedMesh(g, mat, m);
+        crowdMesh.instanceMatrix.array.set(mats.subarray(0, m * 16));
+        crowdMesh.instanceMatrix.needsUpdate = true;
+        crowdMesh.frustumCulled = false;
+        group.add(crowdMesh);
+      } else { g.dispose(); tex.dispose(); }
+
+      // bandiere: un tifoso a metà settore (più o meno a destra secondo pos) la sventola
+      fans.flags.forEach((f, fi) => {
+        const sides = [0, 1, 2, 3].map(s => s === f.side);
+        let A = tifoArea(sides, [0, 1, 2].map(r => r === f.ring));
+        if (!A) A = tifoArea(sides, [true, true, true]);
+        if (!A) return;
+        let best = -1, bc = Infinity;
+        A.sel.forEach((i, k) => { const c = Math.abs(A.u[k] - f.pos / 100) * 60 + Math.abs(A.v[k] - 0.55) * 4; if (c < bc) { bc = c; best = i; } });
+        const sz = FLAG_DIMS[f.size], ph = fi * 1.73;
+        const holder = new THREE.Group();
+        holder.matrixAutoUpdate = false;
+        holder.matrix.fromArray(a, best * 16);
+        const pivot = new THREE.Group();
+        pivot.position.set(0, 1.5, 0.15);
+        holder.add(pivot);
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(sz.r, sz.r, sz.pole, 6).translate(0, sz.pole / 2, 0), tifoPoleMat);
+        pivot.add(pole);
+        const ftex = new THREE.CanvasTexture(flagCanvas(f, imgs.get(f.image)));
+        ftex.colorSpace = THREE.SRGBColorSpace; ftex.anisotropy = 4;
+        const cg = new THREE.PlaneGeometry(sz.w, sz.h, 12, 8).translate(sz.w / 2, sz.pole - sz.h / 2, 0);
+        const cm = new THREE.MeshBasicMaterial({ map: ftex, side: THREE.DoubleSide });
+        const uni = { uW: { value: sz.w }, uPhase: { value: ph } };
+        cm.onBeforeCompile = (sh) => {
+          sh.uniforms.uTime = crowdTime; sh.uniforms.uNight = crowdNight; sh.uniforms.uW = uni.uW; sh.uniforms.uPhase = uni.uPhase;
+          sh.vertexShader = 'uniform float uTime, uW, uPhase;\nvarying float vLight;\n' + sh.vertexShader
+            .replace('#include <begin_vertex>', `#include <begin_vertex>
+  // il telo sventola: onde che corrono dall'asta verso la punta, sempre più ampie
+  float fx = position.x / uW, wv = sin(uTime * 6.0 - fx * 7.0 + uPhase);
+  transformed.z += wv * 0.13 * uW * fx;
+  transformed.y -= 0.06 * uW * fx * fx;
+  vLight = 0.9 + 0.12 * cos(uTime * 6.0 - fx * 7.0 + uPhase) * fx;`);
+          sh.fragmentShader = 'uniform float uNight;\nvarying float vLight;\n' + sh.fragmentShader
+            .replace('#include <map_fragment>', '#include <map_fragment>\n  diffuseColor.rgb *= vLight * mix(1.0, 0.55, uNight);');
+        };
+        cm.customProgramCacheKey = () => 'tifo-flag';
+        pivot.add(new THREE.Mesh(cg, cm));
+        group.add(holder);
+        holder.updateMatrixWorld(true);
+        tifoFlags.push({ holder, pivot, sz, ph, cg, cm, ftex, pole });
+      });
     },
     /** Tempo dell'animazione dei tifosi (secondi). */
-    tick(t) { crowdTime.value = t; crowdNight.value = night ? 1 : 0; return !!crowdMesh; },
+    tick(t) {
+      crowdTime.value = t; crowdNight.value = night ? 1 : 0;
+      // le bandiere vanno da una parte all'altra (le grandi più piano)
+      tifoFlags.forEach(F => { F.pivot.rotation.z = Math.sin(t * F.sz.speed + F.ph) * F.sz.swing; });
+      return !!crowdMesh || tifoFlags.length > 0 || tifoParts.length > 0;
+    },
     /** Immagine personale del pannello sul cubo (Amsterdam ArenA; tela di entranceImageCanvas o null). */
     setCubeImage(c) {
       cubeImg = c || null;
       paintCube();
     },
-    dispose() { if (crowdMesh) this.setCrowd(null); own.forEach(o => o.dispose()); seatMesh.dispose(); if (sign) sign.dispose(); if (logoTex) logoTex.dispose(); if (outside.entrance) outside.entrance.panels.forEach(E => E.tex.dispose()); }
+    dispose() { clearCrowd(); own.forEach(o => o.dispose()); seatMesh.dispose(); if (sign) sign.dispose(); if (logoTex) logoTex.dispose(); if (outside.entrance) outside.entrance.panels.forEach(E => E.tex.dispose()); }
   };
 }
 
@@ -8621,7 +8841,7 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
   canvas.style.cssText = `width:100%; height:100%; display:block; touch-action:${zoom ? 'none' : 'pan-y'}; cursor:grab;`;
   container.innerHTML = '';
   container.appendChild(canvas);
-  let stage = null, disposed = false, night = false, outside = true, token = 0, markers = null, onFrame = null, crowd = null, anim = null;
+  let stage = null, disposed = false, night = false, outside = true, token = 0, markers = null, onFrame = null, crowd = null, anim = null, tifoImgs = new Map();
   const ready = loadLib().then(L => {
     if (disposed) return null;
     const r = container.getBoundingClientRect();
@@ -8691,8 +8911,15 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
     setCrowd(c) {
       crowd = c;
       if (!stage) return;
-      stage.crowd = c;
-      if (stage.built) stage.built.setCrowd(c);
+      // immagini di bandiere e coreografie: si mostrano subito quelle già caricate, poi di nuovo quando arrivano le altre
+      const urls = c && c.fans ? [...new Set([...c.fans.flags.filter(f => f.pattern === 'image').map(f => f.image), ...c.fans.choreos.map(x => x.image)].filter(Boolean))] : [];
+      const missing = urls.filter(u => !tifoImgs.has(u));
+      const full = c && { ...c, images: tifoImgs };
+      stage.crowd = full;
+      if (stage.built) { stage.built.setCrowd(full); stage.render(); }
+      if (missing.length) Promise.all(missing.map(u => entranceImageCanvas(u).then(cv => { tifoImgs.set(u, cv); }))).then(() => {
+        if (crowd === c && !disposed && stage) { stage.crowd = full; if (stage.built) { stage.built.setCrowd(full); stage.render(); } }
+      });
       if (c && !anim) {
         const t0 = performance.now();
         let last = 0;
