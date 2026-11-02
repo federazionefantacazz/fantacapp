@@ -168,6 +168,7 @@ function loadVariant(kit) {
           wrap.matrixAutoUpdate = false;
           wrap.matrix.copy(M);
           wrap.add(rib);
+          rib.traverse(o => { o.userData.swappedRib = true; });
           model.add(wrap);
         }
         return model;
@@ -194,6 +195,7 @@ function loadVariant(kit) {
             .multiply(new THREE.Matrix4().makeTranslation(-p.x, -p.y, -p.z));
           wrap.add(rib);
           remapUV(THREE, rib, UV_RAGLAN.collar, UV.collar);
+          rib.traverse(o => { o.userData.swappedRib = true; });
           model.add(wrap);
         }
         return model;
@@ -298,11 +300,18 @@ class Stage {
     this.model = model.clone(true);
     this.collarMats = {};
     this.innerMats = [];
+    this.ribInnerMats = [];
     this.model.traverse(o => {
       if (!o.isMesh) return;
       const name = o.material.name;
       o.material = o.material.clone();
       o.material.metalness = 0;
+      // costina presa dall'altra maglia: il rovescio ha il colore del colletto (sotto il bordo non resta una riga scura)
+      if (o.userData.swappedRib && /^shirt_inner/.test(name)) {
+        if (name === 'shirt_inner_flip') o.material.side = this.L.THREE.BackSide;
+        this.ribInnerMats.push(o.material);
+        return;
+      }
       if (name === 'shirt_outer') { o.material.map = this.texture; o.material.needsUpdate = true; }
       if (name === 'shirt_inner') (this.innerMats ||= []).push(o.material);
       // maglia raglan: l'interno è il rovescio della stessa superficie
@@ -321,6 +330,8 @@ class Stage {
       m.color.copy(inner); m.roughness = 1; m.envMapIntensity = 0.4;
       m.polygonOffset = true; m.polygonOffsetFactor = 1; m.polygonOffsetUnits = 2; // l'interno non buca mai la stoffa esterna
     });
+    const ribInner = new this.L.THREE.Color(validColor(kit.colors.collar)).multiplyScalar(0.8);
+    (this.ribInnerMats || []).forEach(m => { m.color.copy(ribInner); m.map = null; m.roughness = 0.9; m.needsUpdate = true; });
     const M = this.collarMats || {};
     const each = (name, fn) => (M[name] || []).forEach(fn);
     // colletto alto: tinta unita del colore del colletto
