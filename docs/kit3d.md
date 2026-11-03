@@ -74,8 +74,9 @@ L'utente vuole il colletto con la sua forma pulita e originale, non deformato, e
   - Perché non tutto nella texture: dove la stoffa è stirata o compressa (classica girocollo al centro davanti, raglan V nel taglio) il bordo dipinto si sfrangia, perché a 5 mm corrispondono pochi texel.
 - **Colletto grosso** (`kit.collarBig`, pulsante "Colletto grosso" sotto le forme; non vale per `polo`):
   - La costina della variante si allunga verso l'alto dal suo bordo basso: `growRib`, `BIG_RIB = { crew: 1.45, v: 2.0 }`.
-  - Per ogni angolo il punto si allontana dal bordo basso di k volte, in altezza e raggio. I primi `BIG_KEEP` = 1,5 mm restano fermi, perché il bordo è cucito alla stoffa.
-  - Il bordo basso si stima con 360 spicchi di 1°: minimo su ±2 spicchi, poi 6 passate di lisciatura. Con spicchi larghi la costina sale ai lati della V e lascia una fessura. Senza minimo sui vicini, alcuni spicchi contengono solo punti alti e il bordo alto viene seghettato.
+  - Per ogni angolo il punto si allontana dal bordo basso di k volte, in altezza e raggio. I primi `BIG_KEEP` = 1,5 mm (in altezza) restano fermi, perché il bordo è cucito alla stoffa.
+  - Il bordo basso si stima con 360 spicchi di 1°: minimo su ±2 spicchi, poi 40 passate di lisciatura (circa ±5°). Con spicchi larghi la costina sale ai lati della V e lascia una fessura. Senza minimo sui vicini, alcuni spicchi contengono solo punti alti e il bordo alto viene seghettato. Con poca lisciatura, ogni ondina del bordo basso si vede raddoppiata sul bordo interno della V e dietro al centro.
+  - L'allungamento usa l'**altezza** sopra il bordo basso stimato, non la distanza: chi sta sotto (vicino alla punta della V, dove la lisciatura alza il bordo stimato) o nel primo millimetro e mezzo resta fermo.
   - La stoffa non cambia, quindi bordino e `neck-bands.json` sono quelli della variante normale.
 
 ## 5. Altro nell'editor (in breve)

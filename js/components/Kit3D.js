@@ -174,7 +174,9 @@ function growRib(THREE, meshes, k) {
     for (let d = -2; d <= 2; d++) { const j = (b + d + N) % N; if (loY[j] < loY[best]) best = j; }
     ly[b] = loY[best]; lr[b] = loR[best];
   }
-  for (let it = 0; it < 6; it++) {
+  // lisciatura forte (circa ±5 gradi): il bordo alto si sposta di (k − 1) volte la distanza dal bordo basso stimato, e
+  // ogni ondina di quest'ultimo si vedeva amplificata sul bordo interno della V e dietro al centro
+  for (let it = 0; it < 40; it++) {
     const y = ly.slice(), r = lr.slice();
     for (let b = 0; b < N; b++) {
       ly[b] = (y[(b + N - 1) % N] + 2 * y[b] + y[(b + 1) % N]) / 4;
@@ -187,8 +189,10 @@ function growRib(THREE, meshes, k) {
       v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld);
       const f = bin(v.x, v.z) - .5, b0 = ((Math.floor(f) % N) + N) % N, b1 = (b0 + 1) % N, t = f - Math.floor(f);
       const y0 = ly[b0] + (ly[b1] - ly[b0]) * t, r0 = lr[b0] + (lr[b1] - lr[b0]) * t;
-      const r = Math.hypot(v.x - cx, v.z - cz) || 1e-6, dy = v.y - y0, dr = r - r0, d = Math.hypot(dy, dr);
-      const g = d > BIG_KEEP ? (k - 1) * (d - BIG_KEEP) / d : 0; // allungamento oltre il bordo fermo
+      // altezza sopra il bordo basso stimato: chi sta sotto (vicino alla punta della V, dove la lisciatura lo alza) o nel
+      // primo millimetro e mezzo resta fermo, il resto si allunga
+      const r = Math.hypot(v.x - cx, v.z - cz) || 1e-6, dy = v.y - y0, dr = r - r0;
+      const g = dy > BIG_KEEP ? (k - 1) * (dy - BIG_KEEP) / dy : 0; // allungamento oltre il bordo fermo
       const ny = v.y + dy * g, nr = r + dr * g;
       v.set(cx + (v.x - cx) / r * nr, ny, cz + (v.z - cz) / r * nr).applyMatrix4(inv);
       p.setXYZ(i, v.x, v.y, v.z);
