@@ -1218,6 +1218,13 @@ export const LiveMatchModule = {
     const fans = stadium.fans || null, crowdKey = `${this._teamColor(home, 0)}|${this._teamColor(away, 1)}|${JSON.stringify(fans)}`;
     if (V.crowdKey !== crowdKey) { V.crowdKey = crowdKey; V.viewer.setCrowd({ home: this._teamColor(home, 0), away: this._teamColor(away, 1), fans: normalizeFans(fans) }); }
 
+    // maxischermi: i loghi delle due squadre e, al centro, quello della competizione
+    const S = window.STATE || {}, comps = Array.isArray(S.competitions) ? S.competitions : Object.values(S.competitions || {});
+    const comp = comps.find(c => c && String(c.id) === String(S.currentCompetition));
+    const scrLogos = { home: home.info?.logo || '', away: away.info?.logo || '', center: (comp && String(comp.logo || '').trim()) || '' };
+    const scrKey = JSON.stringify(scrLogos);
+    if (V.scrKey !== scrKey) { V.scrKey = scrKey; V.viewer.setScreenLogos(scrLogos); }
+
     // giocatori: segnaposti nel 3D ed etichette (foto, nome, fantavoto) sopra
     const spots = [...this._pitchSpots(home, -1).map(s => ({ ...s, t: home, c: this._teamColor(home, 0) })), ...this._pitchSpots(away, 1).map(s => ({ ...s, t: away, c: this._teamColor(away, 1) }))];
     V.spots = spots;

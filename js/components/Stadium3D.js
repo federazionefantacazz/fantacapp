@@ -3102,7 +3102,8 @@ function paintAds(canvas, name, color) {
 }
 
 /** Immagine del maxischermo: nome dello stadio, punteggio, campo e minuto (anello) o tabellone (sopra le curve). */
-function paintScreen(canvas, kind, name, color) {
+function paintScreen(canvas, kind, name, color, logos = null) {
+  const L = logos || {};
   const ctx = canvas.getContext('2d'), W = canvas.width, H = canvas.height;
   const bg = ctx.createLinearGradient(0, 0, 0, H);
   bg.addColorStop(0, shade(color, 1.35)); bg.addColorStop(1, shade(color, 0.7));
@@ -3123,20 +3124,29 @@ function paintScreen(canvas, kind, name, color) {
     ctx.beginPath(); ctx.moveTo(x + w / 2, y + 4); ctx.lineTo(x + w / 2, y + h - 4); ctx.stroke();
     ctx.beginPath(); ctx.arc(x + w / 2, y + h / 2, h / 6, 0, Math.PI * 2); ctx.stroke();
   };
+  // logo (tela quadrata) dentro il riquadro, centrato, con un'ombra leggera
+  const logo = (c, x, y, w, h) => {
+    const k = Math.min(w / c.width, h / c.height), lw = c.width * k, lh = c.height * k;
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = Math.max(4, h * 0.06);
+    ctx.drawImage(c, x + (w - lw) / 2, y + (h - lh) / 2, lw, lh); ctx.restore();
+  };
   ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   if (kind === 'ring') {
-    fit(name, 170, H / 2 + 4, 300, 54);
-    ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(338, 14, 4, H - 28);
-    pitch(360, 12, 230, H - 24);
-    ctx.fillStyle = '#fff'; fit('2 - 1', 705, H / 2 + 4, 200, 80);
-    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(820, 18, 186, H - 36);
-    ctx.fillStyle = '#fff'; fit("88:10", 913, H / 2 + 3, 160, 52);
+    // striscia: nome | squadra di casa | competizione (o risultato) | ospiti | minuto
+    fit(name, 150, H / 2 + 4, 270, 54);
+    ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(298, 14, 4, H - 28);
+    if (L.home) logo(L.home, 320, 8, 150, H - 16); else pitch(320, 12, 150, H - 24);
+    if (L.center) logo(L.center, 485, 6, 160, H - 12); else { ctx.fillStyle = '#fff'; fit('2 - 1', 565, H / 2 + 4, 150, 80); }
+    if (L.away) logo(L.away, 660, 8, 150, H - 16); else pitch(660, 12, 150, H - 24);
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(830, 18, 176, H - 36);
+    ctx.fillStyle = '#fff'; fit("88:10", 918, H / 2 + 3, 150, 52);
   } else {
-    fit(name, W / 2, H * 0.17, W * 0.9, 50);
-    pitch(30, H * 0.34, W * 0.27, H * 0.5);
-    pitch(W - 30 - W * 0.27, H * 0.34, W * 0.27, H * 0.5);
-    fit('2 - 1', W / 2, H * 0.6, W * 0.36, 120);
-    fit("88:10", W / 2, H * 0.88, W * 0.3, 34);
+    fit(name, W / 2, H * 0.15, W * 0.9, 50);
+    const bw = W * 0.27, by = H * 0.3, bh = H * 0.6;
+    if (L.home) logo(L.home, 30, by, bw, bh); else pitch(30, H * 0.34, bw, H * 0.5);
+    if (L.away) logo(L.away, W - 30 - bw, by, bw, bh); else pitch(W - 30 - bw, H * 0.34, bw, H * 0.5);
+    if (L.center) logo(L.center, W / 2 - W * 0.16, H * 0.28, W * 0.32, H * 0.5); else fit('2 - 1', W / 2, H * 0.6, W * 0.36, 120);
+    ctx.fillStyle = '#fff'; fit("88:10", W / 2, H * 0.9, W * 0.3, 34);
   }
 }
 
@@ -7986,6 +7996,49 @@ function buildStadium(L, st) {
     for (const sz of [-1, 1]) { const m = new THREE.Mesh(post, goalMat); m.position.set(sx * PITCH.l / 2, 1.22, sz * 3.72); m.castShadow = true; group.add(m); }
     const m = new THREE.Mesh(bar, goalMat); m.position.set(sx * PITCH.l / 2, 2.44, 0); m.castShadow = true; group.add(m);
   }
+  // reti: tetto piatto per 1 m dietro la traversa, poi scendono fino a terra a 2 m dalla linea; ai lati i due fianchi
+  {
+    const c = document.createElement('canvas'), N = 64, cell = 8; // 8 maglie per metro (12,5 cm)
+    c.width = c.height = N;
+    const ctx = c.getContext('2d');
+    ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 1.6;
+    for (let k = 0; k <= cell; k++) {
+      const v = k * N / cell;
+      ctx.beginPath(); ctx.moveTo(v, 0); ctx.lineTo(v, N); ctx.moveTo(0, v); ctx.lineTo(N, v); ctx.stroke();
+    }
+    const netTex = new THREE.CanvasTexture(c);
+    netTex.wrapS = netTex.wrapT = THREE.RepeatWrapping; netTex.anisotropy = 8;
+    const netMat = new THREE.MeshStandardMaterial({ map: netTex, color: 0xf4f4f4, transparent: true, depthWrite: false, side: THREE.DoubleSide, roughness: 0.8 });
+    const H = 2.44, w = 3.66, Dt = 1.0, D = 2.0, x0 = PITCH.l / 2 + 0.06, back = Math.hypot(D - Dt, H);
+    const pos = [], uv = [], idx = [];
+    const quad = (pts, uvs) => {
+      const k = pos.length / 3;
+      pts.forEach(p => pos.push(...p)); uvs.forEach(u => uv.push(...u));
+      idx.push(k, k + 1, k + 2, k, k + 2, k + 3);
+    };
+    for (const sx of [-1, 1]) {
+      const X = (d) => sx * (x0 + d);
+      quad([[X(0), H, -w], [X(0), H, w], [X(Dt), H, w], [X(Dt), H, -w]], [[0, -w], [0, w], [Dt, w], [Dt, -w]]);           // tetto
+      quad([[X(Dt), H, -w], [X(Dt), H, w], [X(D), 0, w], [X(D), 0, -w]], [[-w, back], [w, back], [w, 0], [-w, 0]]);      // dietro
+      for (const sz of [-1, 1]) quad([[X(0), 0, sz * w], [X(0), H, sz * w], [X(Dt), H, sz * w], [X(D), 0, sz * w]], [[0, 0], [0, H], [Dt, H], [D, 0]]); // fianchi
+      // sostegni dietro (tubi bianchi sottili)
+      for (const sz of [-1, 1]) {
+        const tube = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 1), goalMat);
+        tube.scale.z = back; tube.position.set(X((Dt + D) / 2), H / 2, sz * w);
+        tube.lookAt(X(D), 0, sz * w);
+        group.add(tube); own.push(tube.geometry);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    const net = new THREE.Mesh(g, netMat);
+    net.renderOrder = 2;
+    group.add(net);
+    own.push(netTex, netMat, g);
+  }
 
   // cartelloni LED a bordo campo e, volendo, sul fronte degli anelli più alti: una tela con il nome che si ripete
   let adsCanvas = null, adsTex = null, adsMat = null;
@@ -8201,6 +8254,11 @@ function buildStadium(L, st) {
     }
   };
   let adsKey = '', paintKey = '', seatColorKey = '', signKey = '', screenKey = '', sign = null, night = false;
+  // loghi sui maxischermi: squadra di casa, ospiti e competizione al centro (tele; null = disegno di prima)
+  let scrLogos = { home: null, away: null, center: null }, scrLogoKey = '', scrName = 'FANTACAZZ', scrColor = '#152c78';
+  const scrLogoId = new WeakMap();
+  let scrLogoN = 0;
+  const logoId = (c) => { if (!c) return 0; if (!scrLogoId.has(c)) scrLogoId.set(c, ++scrLogoN); return scrLogoId.get(c); };
   let crowdMesh = null; const crowdTime = { value: 0 }, crowdNight = { value: 0 }; // tifosi (solo nel live)
   // tifo: teloni delle coreografie e bandiere
   let seatPlain = null, lastCrowd = null; // colori dei seggiolini senza tifosi (per rimetterli quando si tolgono)
@@ -8374,9 +8432,9 @@ function buildStadium(L, st) {
   const standScr = new THREE.Group(), scrFrameMat = new THREE.MeshStandardMaterial({ color: 0x1b1e23, roughness: 0.6 }), scrBox = new THREE.BoxGeometry(1, 1, 1);
   own.push(scrFrameMat, scrBox);
   group.add(standScr);
-  let standScrKey = '', standScrParts = [];
+  let standScrKey = '', standScrParts = [], lastRecolor = null;
   const applyStandScreens = (s, c) => {
-    const key = JSON.stringify([s.standScreens, s.name.trim(), c.screen]);
+    const key = JSON.stringify([s.standScreens, s.name.trim(), c.screen, scrLogoKey]);
     if (key === standScrKey) return false;
     standScrKey = key;
     standScrParts.forEach(o => o.dispose()); standScrParts = [];
@@ -8409,7 +8467,7 @@ function buildStadium(L, st) {
       }
       const cv = document.createElement('canvas'), ratio = T.w / T.h, ring360 = ratio > 4.5;
       cv.width = 1024; cv.height = Math.max(96, Math.round(1024 / ratio));
-      paintScreen(cv, ring360 ? 'ring' : 'ends', name, c.screen);
+      paintScreen(cv, ring360 ? 'ring' : 'ends', name, c.screen, scrLogos);
       const tex = new THREE.CanvasTexture(cv);
       tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
       const disp = new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.85, roughness: 0.4 });
@@ -8432,6 +8490,19 @@ function buildStadium(L, st) {
   };
   return {
     key: geomKey(st), group, shape, ext, height: reach.h, capacity: seats.count,
+    /**
+     * Loghi sui maxischermi (tele quadrate, null = come prima): { home, away } ai lati e center al posto del risultato
+     * (il logo della competizione). Si ridisegnano il maxischermo del tetto e quelli sugli spalti.
+     */
+    setScreenLogos(L) {
+      const next = { home: (L && L.home) || null, away: (L && L.away) || null, center: (L && L.center) || null };
+      const k = [next.home, next.away, next.center].map(logoId).join(',');
+      if (k === scrLogoKey) return;
+      scrLogos = next; scrLogoKey = k;
+      const scr = outside.screen;
+      if (scr) { paintScreen(scr.canvas, scr.kind, scrName, scrColor, scrLogos); scr.tex.needsUpdate = true; screenKey = ''; }
+      if (lastRecolor) { standScrKey = ''; if (applyStandScreens(lastRecolor, lastRecolor.colors) && lastCrowd) this.setCrowd(lastCrowd); }
+    },
     /** Aggiunge a un materiale il taglio della copertura nascosta (per la mappa di profondità delle etichette). */
     cutMaterial(m) { addCut(m); return m; },
     setNight(on) {
@@ -8522,10 +8593,11 @@ function buildStadium(L, st) {
         }
       }
       // maxischermo: nome dello stadio e colore
-      const scr = outside.screen, sck = s.name.trim() + '|' + c.screen;
+      scrName = (s.name.trim() || 'FANTACAZZ').toUpperCase(); scrColor = c.screen;
+      const scr = outside.screen, sck = s.name.trim() + '|' + c.screen + '|' + scrLogoKey;
       if (scr && sck !== screenKey) {
         screenKey = sck;
-        paintScreen(scr.canvas, scr.kind, (s.name.trim() || 'FANTACAZZ').toUpperCase(), c.screen);
+        paintScreen(scr.canvas, scr.kind, scrName, c.screen, scrLogos);
         scr.tex.needsUpdate = true;
       }
       aisleMat.color.set(c.aisle);
@@ -8580,6 +8652,7 @@ function buildStadium(L, st) {
         if (seatPlain && lastCrowd) { seatPlain = null; this.setCrowd(lastCrowd); }
       }
       // maxischermi sugli spalti (i tifosi stanno sui posti rimasti)
+      lastRecolor = s;
       if (applyStandScreens(s, c) && lastCrowd) this.setCrowd(lastCrowd);
       syncCut();
     },
@@ -8872,6 +8945,8 @@ class Stage {
     this.built.setLogo(logo);
     this.built.setEntranceImage(entranceImg);
     this.built.setCubeImage(cubeImg);
+    // loghi dei maxischermi dopo i colori (che danno nome e sfondo)
+    if (this.screenLogos) this.built.setScreenLogos(this.screenLogos);
     return this.built.capacity;
   }
 
@@ -9095,7 +9170,7 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
   canvas.style.cssText = `width:100%; height:100%; display:block; touch-action:${zoom ? 'none' : 'pan-y'}; cursor:grab;`;
   container.innerHTML = '';
   container.appendChild(canvas);
-  let stage = null, disposed = false, night = false, outside = true, token = 0, markers = null, onFrame = null, crowd = null, anim = null, tifoImgs = new Map();
+  let stage = null, disposed = false, night = false, outside = true, token = 0, markers = null, onFrame = null, crowd = null, anim = null, tifoImgs = new Map(), scrLogos = null, scrToken = 0;
   const ready = loadLib().then(L => {
     if (disposed) return null;
     const r = container.getBoundingClientRect();
@@ -9104,6 +9179,7 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
     stage.setExterior(outside);
     if (markers) stage.setMarkers(markers);
     if (crowd) { const c = crowd; crowd = null; queueMicrotask(() => api.setCrowd(c)); }
+    if (scrLogos) stage.screenLogos = scrLogos;
     if (onFrame) stage.afterRender = () => onFrame((x, y, z) => stage.project(x, y, z), (x, y, z) => stage.visibleAt(x, y, z));
     return stage;
   });
@@ -9157,6 +9233,20 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
       if (!stage) return;
       stage.setMarkers(list);
       if (stage.built) stage.render();
+    },
+    /**
+     * Loghi sui maxischermi: { home, away, center } indirizzi delle immagini (squadra di casa, ospiti, competizione al
+     * centro al posto del risultato); quelli che mancano o non si possono usare restano col disegno di prima.
+     */
+    setScreenLogos(urls) {
+      const u = urls || {}, my = ++scrToken;
+      return Promise.all([u.home, u.away, u.center].map(x => (x ? stadiumLogo(x).catch(() => null) : null))).then(([home, away, center]) => {
+        if (disposed || my !== scrToken) return;
+        scrLogos = { home, away, center };
+        if (!stage) return;
+        stage.screenLogos = scrLogos;
+        if (stage.built) { stage.built.setScreenLogos(scrLogos); stage.render(); }
+      });
     },
     /**
      * Tifosi sugli spalti (live): { home, away } colori delle due squadre, null per toglierli. Finché ci sono lo stadio si
@@ -9287,7 +9377,7 @@ function cropToContent(src) {
 let shot = null; // palcoscenico unico per le foto (un solo contesto WebGL)
 let queue = Promise.resolve();
 
-/** Foto PNG dello stadio (data URL, sfondo trasparente, ritagliata). opts: { width (default 800), view, logo (indirizzo del logo) } */
+/** Foto PNG dello stadio (data URL, sfondo trasparente, ritagliata). opts: { width (default 800), view, logo (indirizzo del logo), screenLogos } */
 export function renderStadiumImage(st, opts = {}) {
   const width = Math.round(opts.width || 800), height = Math.round(width * 0.6);
   const job = queue.then(async () => {
@@ -9297,6 +9387,10 @@ export function renderStadiumImage(st, opts = {}) {
     shot.setNight(false);
     const n = normalizeStadium(st);
     await loadTextFonts(n);
+    // loghi sui maxischermi (opts.screenLogos = { home, away, center } indirizzi), come nell'editor
+    const SL = opts.screenLogos || {};
+    const [lh, la, lc] = await Promise.all([SL.home, SL.away, SL.center].map(x => (x ? stadiumLogo(x).catch(() => null) : null)));
+    shot.screenLogos = { home: lh, away: la, center: lc };
     shot.setStadium(n, needsLogo(n) ? await stadiumLogo(opts.logo) : null, n.entrance !== 'none' || n.roof === 'wave' ? await entranceImageCanvas(n.entranceImage) : null, await cubeImageOf(n));
     shot.setView(opts.view || 'aerial');
     shot.render();

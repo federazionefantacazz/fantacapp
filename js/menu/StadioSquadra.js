@@ -194,6 +194,7 @@ export const StadioSquadra = {
     }
     if (this._viewer) this._viewer.update(this._st, { logo: this._logo() }).catch(e => console.error('Stadio:', e));
     this._previewCrowd();
+    this._previewScreens();
     const cap = this._root.querySelector('#std-cap');
     if (cap) cap.innerHTML = `${this._st.name.trim() ? `<b>${esc(this._st.name.trim())}</b> · ` : ''}Capienza: <b>${fmt(shownCapacity(this._st))}</b> posti`;
     const dirty = this._root.querySelector('#std-dirty');
@@ -213,6 +214,22 @@ export const StadioSquadra = {
     if (key === (this._crowdKey || '')) return;
     this._crowdKey = key;
     this._viewer.setCrowd(want);
+  },
+
+  /** Loghi per i maxischermi: in modifica due volte il logo della squadra e al centro quello della competizione scelta. */
+  _screenLogos() {
+    const S = window.STATE || {}, list = Array.isArray(S.competitions) ? S.competitions : Object.values(S.competitions || {});
+    const comp = list.find(c => c && String(c.id) === String(S.currentCompetition));
+    const logo = this._logo();
+    return { home: logo, away: logo, center: (comp && String(comp.logo || '').trim()) || '' };
+  },
+
+  _previewScreens() {
+    if (!this._viewer) return;
+    const L = this._screenLogos(), key = JSON.stringify(L);
+    if (key === this._scrLogoKey) return;
+    this._scrLogoKey = key;
+    this._viewer.setScreenLogos(L);
   },
 
   /** Valore in un percorso con i punti (fans.flags.0.c1). */
@@ -1139,7 +1156,7 @@ export const StadioSquadra = {
     try {
       // foto dello stadio per il resto dell'app (configurazione squadra, scheda club)
       try {
-        const dataUrl = await renderStadiumImage(st, { width: 1300, logo: team.logo || '' });
+        const dataUrl = await renderStadiumImage(st, { width: 1300, logo: team.logo || '', screenLogos: this._screenLogos() });
         if (dataUrl) {
           const blob = await dataUrlToBlob(dataUrl);
           st.image = await uploadPngToImgBB(new File([blob], `stadio-${team.id}.png`, { type: 'image/png' }), 800);
