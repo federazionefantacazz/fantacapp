@@ -27,6 +27,8 @@ function loadLib() {
 export const MAX_NAME = 40;
 export const MAX_CAPACITY = 200000;
 export const MAX_STAND_TEXT = 16;
+/** Scritte sugli spalti: quante al massimo, grandezza (% della larghezza del settore) e posizione (0 sinistra, 100 destra). */
+export const MAX_STAND_TEXTS = 12, STAND_TEXT_SIZE = [20, 100];
 export const MAX_OUTER_TEXT = 24;
 
 export const RINGS = [
@@ -151,7 +153,7 @@ const fontCss = (ft, px) => `${ft.style} ${ft.weight} ${Math.round(px)}px ${ft.c
 /** Aspetta i font delle scritte (se sono font web) prima di disegnarle sulle tele. */
 async function loadTextFonts(st) {
   if (typeof document === 'undefined' || !document.fonts || !document.fonts.load) return;
-  const ids = [st.standText && st.standTextFont, st.outerText && st.outerTextFont].filter(Boolean);
+  const ids = [...(st.standTexts || []).filter(t => t.text.trim()).map(t => t.font), st.outerText && st.outerTextFont].filter(Boolean);
   try { await Promise.all(ids.map(id => document.fonts.load(fontCss(fontOf(id), 100), 'AZ'))); } catch (e) { /* uso il ripiego */ }
 }
 
@@ -274,6 +276,39 @@ export function normalizeFans(src) {
   return { flags, choreos };
 }
 
+/**
+ * Scritte sugli spalti: [{ text, side (TEXT_SIDES), ring (0 = tutti), font, color, pos 0-100, size 20-100 }]. Gli stadi
+ * salvati con una scritta sola (standText...) la ritrovano come prima della lista.
+ */
+const listOf = (v) => (Array.isArray(v) ? v : v && typeof v === 'object' ? Object.values(v) : []);
+function normalizeStandTexts(src) {
+  let list = listOf(src.standTexts);
+  if (!list.length && String(src.standText || '').trim()) {
+    list = [{ text: src.standText, side: src.standTextSide, ring: src.standTextRing, font: src.standTextFont, color: src.colors && src.colors.standText }];
+  }
+  return list.slice(0, MAX_STAND_TEXTS).map(t => ({
+    text: String((t && t.text) || '').slice(0, MAX_STAND_TEXT),
+    side: oneOf(TEXT_SIDES, t && t.side, 'far'),
+    ring: [0, 1, 2, 3].includes(Number(t && t.ring)) ? Number(t.ring) : 1,
+    font: oneOf(TEXT_FONTS, t && t.font, 'black'),
+    color: validColor(t && t.color, '#ffffff'),
+    pos: Math.round(Math.min(100, Math.max(0, t && t.pos !== undefined && t.pos !== '' ? Number(t.pos) || 0 : 50))),
+    size: Math.round(Math.min(STAND_TEXT_SIZE[1], Math.max(STAND_TEXT_SIZE[0], Number(t && t.size) || 78)))
+  }));
+}
+
+/** Maxischermi sugli spalti (tra i seggiolini, come al Maradona): quanti al massimo e misure (m) dei cursori. */
+export const MAX_STAND_SCREENS = 8, STAND_SCREEN_W = [4, 30], STAND_SCREEN_H = [2, 12];
+function normalizeStandScreens(v) {
+  const num = (x, lo, hi, d) => Math.round(Math.min(hi, Math.max(lo, x === undefined || x === '' || Number.isNaN(Number(x)) ? d : Number(x))));
+  return listOf(v).slice(0, MAX_STAND_SCREENS).map(t => ({
+    side: oneOf(TEXT_SIDES, t && t.side, 'right'),
+    ring: [1, 2, 3].includes(Number(t && t.ring)) ? Number(t.ring) : 1,
+    pos: num(t && t.pos, 0, 100, 50), elev: num(t && t.elev, 0, 100, 60),
+    w: num(t && t.w, STAND_SCREEN_W[0], STAND_SCREEN_W[1], 14), h: num(t && t.h, STAND_SCREEN_H[0], STAND_SCREEN_H[1], 6)
+  }));
+}
+
 /** Cosa c'è sul pannello del cubo (muro dell'Amsterdam ArenA). */
 export const CUBE_PANELS = [
   { id: 'name',  label: 'Nome dello stadio' },
@@ -301,7 +336,7 @@ const DEFAULT = {
   name: '', rings: 2, ringsEnds: 0, ringsSides: [0, 0, 0, 0], horseshoe: false, vomitories: false, standGap: 0, endGap: 0, rake: 100, rakeEach: false, rakeSides: [100, 100, 100, 100], tierSpread: 0, cornerGap: 18, apronStyle: 'grass', groundStyle: 'concrete', adBoards: 'none', track: false, shape: 'rounded', corners: 'closed', mowing: 'stripes', seatMode: 'single',
   roof: 'none', roofCover: 'all', roofSectors: [true, false, false, false], roofReach: 'normal', lights: 'towers', facade: 'wall', ramps: false, boxes: false, shellPattern: 'rhombus', domeTeeth: true, arch: 'none', screen: 'none',
   roofSides: ['', '', '', ''], roofTexture: 'auto', roofWave: 0, roofWaves: 4, roofWaveShift: 0,
-  seatMosaic: 'none', standText: '', standTextSide: 'far', standTextRing: 1, standTextFont: 'black',
+  seatMosaic: 'none', standTexts: [], standScreens: [],
   outerText: '', outerTextFont: 'black', outerTextStyle: 'outline', outerTextSize: 'M', outerTextPlace: 'facade', logoPlaces: [], wallTexture: 'concrete',
   entrance: 'none', entranceSides: [true, false, false, false], entranceWidth: 26, entranceHeight: 14, entranceLogo: 100, entranceImage: '', entranceImageFit: 'fill', cubePanel: 'name', cubeImage: '', cubeImageFit: 'fill', fans: { flags: [], choreos: [] },
   colors: {
@@ -467,7 +502,7 @@ export function applyPreset(st, id) {
   return normalizeStadium({
     ...base, ...p.st, colors: { ...base.colors, ...p.st.colors, standText: c.standText, outerText: c.outerText, outerPanel: c.outerPanel },
     name: st.name, capacityCustom: st.capacityCustom, image: st.image, capacity: st.capacity,
-    standText: st.standText, standTextSide: st.standTextSide, standTextRing: st.standTextRing, standTextFont: st.standTextFont,
+    standTexts: st.standTexts, standScreens: st.standScreens, fans: st.fans, standText: st.standText, standTextSide: st.standTextSide, standTextRing: st.standTextRing, standTextFont: st.standTextFont,
     outerText: st.outerText, outerTextFont: st.outerTextFont, outerTextStyle: st.outerTextStyle, outerTextSize: st.outerTextSize, outerTextPlace: st.outerTextPlace, seatGrid: st.seatGrid,
     logoPlaces: st.logoPlaces
   });
@@ -549,10 +584,8 @@ export function normalizeStadium(s) {
     roofWaveShift: Math.round(Math.min(100, Math.max(0, Number(src.roofWaveShift) || 0))),
     screen: oneOf(SCREENS, src.screen, DEFAULT.screen),
     seatMosaic: oneOf(MOSAICS, seatMosaic, DEFAULT.seatMosaic),
-    standText: String(src.standText || '').slice(0, MAX_STAND_TEXT),
-    standTextSide: oneOf(TEXT_SIDES, src.standTextSide, DEFAULT.standTextSide),
-    standTextRing: [0, 1, 2, 3].includes(Number(src.standTextRing)) ? Number(src.standTextRing) : DEFAULT.standTextRing, // 0 = tutti gli anelli
-    standTextFont: oneOf(TEXT_FONTS, src.standTextFont, DEFAULT.standTextFont),
+    standTexts: normalizeStandTexts(src),
+    standScreens: normalizeStandScreens(src.standScreens),
     outerText: String(src.outerText || '').slice(0, MAX_OUTER_TEXT),
     outerTextFont: oneOf(TEXT_FONTS, src.outerTextFont, DEFAULT.outerTextFont),
     outerTextStyle: oneOf(OUTER_STYLES, src.outerTextStyle, DEFAULT.outerTextStyle),
@@ -696,8 +729,9 @@ function shapeOf(st) {
   // senza pista le curve arrotondate (soprattutto a semicerchio) non devono tagliare gli angoli del campo: le curve si
   // allontanano finché l'angolo (con la bandierina e il bordo intorno) resta almeno a 1,5 m dal primo gradone
   if (!st.track && r > 0) {
-    const cx = PITCH.l / 2 + 2.5, cz = PITCH.w / 2 + 2.5;
-    const fits = () => Math.hypot(Math.max(0, cx - (a - r)), Math.max(0, cz - (b - r))) <= r - 1.5;
+    // tutto il prato intorno al campo (PITCH_PAD oltre le linee) più 1 m
+    const cx = PITCH.l / 2 + PITCH_PAD, cz = PITCH.w / 2 + PITCH_PAD;
+    const fits = () => Math.hypot(Math.max(0, cx - (a - r)), Math.max(0, cz - (b - r))) <= r - 1;
     for (let k = 0; k < 200 && !fits(); k++) a += 0.5;
   }
   // anelli delle tribune (lati lunghi) e delle curve: gli anelli in comune sono larghi uguali, quelli in più salgono
@@ -1021,11 +1055,11 @@ function seatsOf(st) {
  * Scritta fatta con i seggiolini: per ogni posto 1 se fa parte delle lettere. Le lettere stanno nel lato e nell'anello
  * scelti (0 = tutti), centrate, alte quasi quanto le file e larghe al massimo il 78% del settore; si leggono dal campo.
  */
-function standTextMask(seats, st) {
-  const text = st.standText.trim();
+function standTextMask(seats, T) {
+  const text = T.text.trim();
   if (!text) return null;
-  const side = TEXT_SIDES.find(t => t.id === st.standTextSide).side;
-  const ring = Math.min(st.standTextRing, seats.tierRows.length); // 0 = tutti gli anelli
+  const side = TEXT_SIDES.find(t => t.id === T.side).side;
+  const ring = Math.min(T.ring, seats.tierRows.length); // 0 = tutti gli anelli
   const before = [0];
   seats.tierRows.forEach((r, i) => before.push(before[i] + r));
   const total = ring ? seats.tierRows[ring - 1] : before[before.length - 1];
@@ -1048,16 +1082,18 @@ function standTextMask(seats, st) {
   const c = document.createElement('canvas');
   c.width = cw; c.height = ch;
   const ctx = c.getContext('2d');
-  const ft = fontOf(st.standTextFont), font = (px) => fontCss(ft, px);
+  const ft = fontOf(T.font), font = (px) => fontCss(ft, px);
   ctx.font = font(100);
   const m = ctx.measureText(text), asc = m.actualBoundingBoxAscent || 72, desc = m.actualBoundingBoxDescent || 0;
   // larghezza vera delle lettere (i corsivi escono un po' dal riquadro del testo)
   const wide = Math.max(m.width, (m.actualBoundingBoxLeft || 0) + (m.actualBoundingBoxRight || 0)) || 1;
   let px = 100 * ch * 0.8 / (asc + desc);
-  px = Math.min(px, 100 * cw * 0.78 / wide);
+  // larga al massimo size% del settore, centrata dove dice pos (senza uscire dal settore)
+  px = Math.min(px, 100 * cw * (T.size / 100) / wide);
   ctx.font = font(px);
+  const half = Math.min(cw / 2, wide * px / 200), cx = half + (cw - 2 * half) * T.pos / 100;
   ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-  ctx.fillText(text, cw / 2, ch / 2 + (asc - desc) * px / 200);
+  ctx.fillText(text, cx, ch / 2 + (asc - desc) * px / 200);
   const data = ctx.getImageData(0, 0, cw, ch).data, mask = new Uint8Array(seats.count);
   for (const i of sel) {
     const g = ring ? seats.rows[i] : before[(info[i] >> 1) & 3] + seats.rows[i];
@@ -8329,6 +8365,71 @@ function buildStadium(L, st) {
       for (const k of ['map', 'emissiveMap', 'normalMap']) if (c[k] !== m[k]) { c[k] = m[k]; c.needsUpdate = true; }
     }
   };
+  /*
+   * Maxischermi sugli spalti (come al Maradona): ognuno sta dritto tra i seggiolini del settore e dell'anello scelti,
+   * più a sinistra o a destra (pos) e più in basso o in alto (elev); i posti che copre spariscono. Si rifanno senza
+   * ricostruire lo stadio quando cambiano (anche i tifosi, che stanno sui posti).
+   */
+  const seatBase = Float32Array.from(seatMesh.instanceMatrix.array);
+  const standScr = new THREE.Group(), scrFrameMat = new THREE.MeshStandardMaterial({ color: 0x1b1e23, roughness: 0.6 }), scrBox = new THREE.BoxGeometry(1, 1, 1);
+  own.push(scrFrameMat, scrBox);
+  group.add(standScr);
+  let standScrKey = '', standScrParts = [];
+  const applyStandScreens = (s, c) => {
+    const key = JSON.stringify([s.standScreens, s.name.trim(), c.screen]);
+    if (key === standScrKey) return false;
+    standScrKey = key;
+    standScrParts.forEach(o => o.dispose()); standScrParts = [];
+    standScr.clear();
+    const arr = seatMesh.instanceMatrix.array, info = seats.info, rings = ringsBySide(s);
+    arr.set(seatBase);
+    const name = (s.name.trim() || 'FANTACAZZ').toUpperCase();
+    for (const T of s.standScreens) {
+      const side = TEXT_SIDES.find(t => t.id === T.side).side, ring = Math.min(T.ring, rings[side] || 1) - 1;
+      const along = (i) => { const x = seatBase[i * 16 + 12], z = seatBase[i * 16 + 14]; return side === 0 ? -x : side === 2 ? x : side === 1 ? z : -z; };
+      const sel = [];
+      let amin = Infinity, amax = -Infinity, rmax = 0;
+      for (let i = 0; i < seats.count; i++) {
+        if (info[i] >> 3 !== side || ((info[i] >> 1) & 3) !== ring) continue;
+        const a = along(i); sel.push(i);
+        amin = Math.min(amin, a); amax = Math.max(amax, a); rmax = Math.max(rmax, seats.rows[i]);
+      }
+      if (!sel.length) continue;
+      const span = Math.max(0, amax - amin - T.w), A = amin + T.w / 2 + span * T.pos / 100, R = T.elev / 100 * rmax;
+      let best = sel[0], bc = Infinity;
+      for (const i of sel) { const cst = Math.abs(along(i) - A) + Math.abs(seats.rows[i] - R) * 0.9; if (cst < bc) { bc = cst; best = i; } }
+      const b = best * 16, tx = seatBase[b], tz = seatBase[b + 2], nx = seatBase[b + 8], nz = seatBase[b + 10];
+      const px = seatBase[b + 12] + nx * 0.35, base = seatBase[b + 13] + 0.15, pz = seatBase[b + 14] + nz * 0.35, yaw = Math.atan2(nx, nz);
+      // posti coperti: davanti fino a poco più avanti dello schermo, larghi quanto lui, fino alla sua cima
+      for (let i = 0; i < seats.count; i++) {
+        if (info[i] >> 3 !== side) continue;
+        const k = i * 16, rx = seatBase[k + 12] - px, rz = seatBase[k + 14] - pz, y = seatBase[k + 13];
+        const lat = rx * tx + rz * tz, dep = rx * nx + rz * nz;
+        if (Math.abs(lat) < T.w / 2 + 0.35 && dep < 0.5 && dep > -T.h * 3 && y > base - 0.6 && y < base + T.h + 0.3) for (let q = 0; q < 12; q++) if (q % 4 !== 3) arr[k + q] = 0;
+      }
+      const cv = document.createElement('canvas'), ratio = T.w / T.h, ring360 = ratio > 4.5;
+      cv.width = 1024; cv.height = Math.max(96, Math.round(1024 / ratio));
+      paintScreen(cv, ring360 ? 'ring' : 'ends', name, c.screen);
+      const tex = new THREE.CanvasTexture(cv);
+      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+      const disp = new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.85, roughness: 0.4 });
+      const plane = new THREE.PlaneGeometry(T.w, T.h);
+      standScrParts.push(tex, disp, plane);
+      const g = new THREE.Group();
+      g.position.set(px, base, pz); g.rotation.y = yaw;
+      const frame = new THREE.Mesh(scrBox, scrFrameMat);
+      frame.scale.set(T.w + 0.5, T.h + 0.5, 0.6); frame.position.set(0, T.h / 2 + 0.05, -0.32);
+      const screen = new THREE.Mesh(plane, disp);
+      screen.position.set(0, T.h / 2 + 0.05, 0.01);
+      // due gambe dietro che poggiano sui gradoni
+      for (const sx of [-1, 1]) { const leg = new THREE.Mesh(scrBox, scrFrameMat); leg.scale.set(0.35, T.h * 0.9, T.h * 0.9); leg.position.set(sx * T.w * 0.35, T.h * 0.45, -0.6 - T.h * 0.45); g.add(leg); }
+      frame.castShadow = true;
+      g.add(frame, screen);
+      standScr.add(g);
+    }
+    seatMesh.instanceMatrix.needsUpdate = true;
+    return true;
+  };
   return {
     key: geomKey(st), group, shape, ext, height: reach.h, capacity: seats.count,
     /** Aggiunge a un materiale il taglio della copertura nascosta (per la mappa di profondità delle etichette). */
@@ -8446,7 +8547,7 @@ function buildStadium(L, st) {
       setFloor(innerMat, { tartan: 'tartan', color: 'resin', concrete: 'concrete', grass: 'grass' }[apron],
         { tartan: c.track, color: c.apron, concrete: shade(c.structure, 1.05), grass: shade(c.grass, 0.95) }[apron]);
       if (trackMat) { setFloor(trackMat, 'tartan', c.track); lineMat.color.set(c.trackLines); }
-      const sk = JSON.stringify([s.seatMode, c.seatA, c.seatB, c.seatC, c.seatD, c.mosaicB, c.mosaicC, c.mosaicD, s.seatGrid, s.seatMosaic, s.standText, s.standTextSide, s.standTextRing, s.standTextFont, c.standText]);
+      const sk = JSON.stringify([s.seatMode, c.seatA, c.seatB, c.seatC, c.seatD, c.mosaicB, c.mosaicC, c.mosaicD, s.seatGrid, s.seatMosaic, s.standTexts, s.standScreens]);
       if (sk !== seatColorKey) {
         seatColorKey = sk;
         // tavolozza: 0-3 colori A-D, 4-15 settore e anello (lato * 3 + anello); ognuno con le varianti per il mosaico
@@ -8456,7 +8557,9 @@ function buildStadium(L, st) {
         const mixB = new THREE.Color(c.mosaicB), mixC = new THREE.Color(c.mosaicC), mixD = c.mosaicD ? new THREE.Color(c.mosaicD) : null;
         const base = pal.map(h => new THREE.Color(h));
         const dark = base.map(col => col.clone().multiplyScalar(0.68)), light = base.map(col => col.clone().lerp(white, 0.42));
-        const txt = new THREE.Color(c.standText), mask = standTextMask(seats, s);
+        // scritte (l'ultima vince dove si sovrappongono) e posti tolti dai maxischermi sugli spalti
+        const mask = new Uint8Array(seats.count), txts = s.standTexts.map(t => new THREE.Color(t.color));
+        s.standTexts.forEach((t, k) => { const m = standTextMask(seats, t); if (m) for (let i = 0; i < seats.count; i++) if (m[i]) mask[i] = k + 1; });
         const arr = seatMesh.instanceColor.array, info = seats.info;
         for (let i = 0; i < seats.count; i++) {
           let k = 0;
@@ -8469,13 +8572,15 @@ function buildStadium(L, st) {
           let col = base[k];
           if (s.seatMosaic === 'shades') col = h < 0.58 ? base[k] : h < 0.84 ? dark[k] : light[k];
           else if (s.seatMosaic === 'mix') col = mixD ? (h < 0.5 ? base[k] : h < 0.72 ? mixB : h < 0.87 ? mixC : mixD) : h < 0.6 ? base[k] : h < 0.88 ? mixB : mixC;
-          if (mask && mask[i]) col = txt;
+          if (mask[i]) col = txts[mask[i] - 1];
           arr[i * 3] = col.r; arr[i * 3 + 1] = col.g; arr[i * 3 + 2] = col.b;
         }
         seatMesh.instanceColor.needsUpdate = true;
         // con i tifosi i loro colori restano sopra: si aggiornano solo quelli da rimettere quando se ne vanno
         if (seatPlain && lastCrowd) { seatPlain = null; this.setCrowd(lastCrowd); }
       }
+      // maxischermi sugli spalti (i tifosi stanno sui posti rimasti)
+      if (applyStandScreens(s, c) && lastCrowd) this.setCrowd(lastCrowd);
       syncCut();
     },
     /** Logo della squadra (tela di stadiumLogo, null = nessuno): al posto dello stemma con le iniziali sull'ingresso. */
@@ -8690,7 +8795,7 @@ function buildStadium(L, st) {
       cubeImg = c || null;
       paintCube();
     },
-    dispose() { clearCrowd(); own.forEach(o => o.dispose()); seatMesh.dispose(); if (sign) sign.dispose(); if (logoTex) logoTex.dispose(); if (outside.entrance) outside.entrance.panels.forEach(E => E.tex.dispose()); }
+    dispose() { clearCrowd(); standScrParts.forEach(o => o.dispose()); own.forEach(o => o.dispose()); seatMesh.dispose(); if (sign) sign.dispose(); if (logoTex) logoTex.dispose(); if (outside.entrance) outside.entrance.panels.forEach(E => E.tex.dispose()); }
   };
 }
 
