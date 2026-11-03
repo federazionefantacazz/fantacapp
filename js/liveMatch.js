@@ -1164,7 +1164,7 @@ export const LiveMatchModule = {
           <button data-v3="aerial">Aerea</button>
           <button data-v3="stand">Tribuna</button>
           <button data-v3="night">Notte</button>
-          <button data-v3="ext">Nascondi esterno</button>
+          <button data-v3="ext">Togli copertura</button>
           <button data-v3="in" aria-label="Avvicina">＋</button>
           <button data-v3="out" aria-label="Allontana">−</button>
           <button data-v3="full" aria-label="Schermo intero"><i class="ri-fullscreen-line"></i></button>
@@ -1179,7 +1179,7 @@ export const LiveMatchModule = {
         if (a === 'in') viewer.zoomBy(0.75);
         else if (a === 'out') viewer.zoomBy(1 / 0.75);
         else if (a === 'night') { V.night = !V.night; b.textContent = V.night ? 'Giorno' : 'Notte'; viewer.setNight(V.night); }
-        else if (a === 'ext') { V.ext = !V.ext; b.textContent = V.ext ? 'Nascondi esterno' : 'Mostra esterno'; b.classList.toggle('on', !V.ext); viewer.setExterior(V.ext); }
+        else if (a === 'ext') { V.ext = !V.ext; b.textContent = V.ext ? 'Togli copertura' : 'Rimetti copertura'; b.classList.toggle('on', !V.ext); viewer.setExterior(V.ext); }
         else if (a === 'full') this._full3D(!V.full);
         else {
           el.querySelectorAll('[data-v3="pitch"],[data-v3="aerial"],[data-v3="stand"]').forEach(x => x.classList.toggle('on', x === b));
@@ -1217,6 +1217,13 @@ export const LiveMatchModule = {
     // con le bandiere e le coreografie salvate nello stadio della squadra di casa
     const fans = stadium.fans || null, crowdKey = `${this._teamColor(home, 0)}|${this._teamColor(away, 1)}|${JSON.stringify(fans)}`;
     if (V.crowdKey !== crowdKey) { V.crowdKey = crowdKey; V.viewer.setCrowd({ home: this._teamColor(home, 0), away: this._teamColor(away, 1), fans: normalizeFans(fans) }); }
+
+    // maxischermi: i loghi delle due squadre e, al centro, quello della competizione
+    const S = window.STATE || {}, comps = Array.isArray(S.competitions) ? S.competitions : Object.values(S.competitions || {});
+    const comp = comps.find(c => c && String(c.id) === String(S.currentCompetition));
+    const scrLogos = { home: home.info?.logo || '', away: away.info?.logo || '', center: (comp && String(comp.logo || '').trim()) || '' };
+    const scrKey = JSON.stringify(scrLogos);
+    if (V.scrKey !== scrKey) { V.scrKey = scrKey; V.viewer.setScreenLogos(scrLogos); }
 
     // giocatori: segnaposti nel 3D ed etichette (foto, nome, fantavoto) sopra
     const spots = [...this._pitchSpots(home, -1).map(s => ({ ...s, t: home, c: this._teamColor(home, 0) })), ...this._pitchSpots(away, 1).map(s => ({ ...s, t: away, c: this._teamColor(away, 1) }))];
