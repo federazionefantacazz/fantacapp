@@ -597,7 +597,7 @@ html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75re
     box.innerHTML = '<i class="ri-trophy-line"></i>';
   }
   // Rete lenta o assente (anche se l'app non riesce a caricarsi): dopo un po' si mostra comunque il login
-  setTimeout(function () { document.documentElement.classList.remove('resuming'); }, 12000);
+  setTimeout(function () { document.documentElement.classList.remove('resuming'); }, 20000);
 })();
 </script>
 
@@ -751,6 +751,7 @@ import { MercatoPage } from './js/mercato.js';
 import { MercatoService } from './js/services/mercatoService.js';
 import { TeamsPage } from './js/teams.js';
 import { LiveMatchModule } from "./js/liveMatch.js";
+import { preloadStadium3D } from "./js/components/Stadium3D.js";
 import { ClassificaPage } from './js/classifica.js';
 import { AssetPreloader } from './js/services/assetPreloader.js';
 import { PlayerCard } from './js/components/PlayerCard.js';
@@ -1523,7 +1524,10 @@ function bootApp() {
   // Notifiche: elenco/campanella, avvisi delle nuove e invito ad attivarle
   NotificationCenter.start(window.STATE, currentUid);
   window.goPage(start);
-  endResume();
+  // con il live aperto la schermata col logo resta finché il live non è pronto (stadio 3D compreso): l'app si apre
+  // già col live caricato; altrimenti la libreria 3D si carica subito dopo, per il live e l'editor dello stadio
+  if (start === 'live') Promise.all([preloadStadium3D(), LiveMatchModule.whenReady()]).then(endResume);
+  else { endResume(); setTimeout(() => preloadStadium3D(), 2500); }
   NotificationCenter.maybeInvite();
   if (wanted === 'notifiche') window.openMenuPage('notifiche');
 }
