@@ -8458,12 +8458,13 @@ function buildStadium(L, st) {
       for (const i of sel) { const cst = Math.abs(along(i) - A) + Math.abs(seats.rows[i] - R) * 0.9; if (cst < bc) { bc = cst; best = i; } }
       const b = best * 16, tx = seatBase[b], tz = seatBase[b + 2], nx = seatBase[b + 8], nz = seatBase[b + 10];
       const px = seatBase[b + 12] + nx * 0.35, base = seatBase[b + 13] + 0.15, pz = seatBase[b + 14] + nz * 0.35, yaw = Math.atan2(nx, nz);
-      // posti coperti: davanti fino a poco più avanti dello schermo, larghi quanto lui, fino alla sua cima
+      // posti coperti: larghi quanto lo schermo (più un margine), dietro fino alla sua cima e anche davanti se sono alla
+      // sua altezza (dove gli spalti girano, i posti ai lati vengono verso il campo e passerebbero davanti allo schermo);
+      // le file davanti, più basse, restano
       for (let i = 0; i < seats.count; i++) {
-        if (info[i] >> 3 !== side) continue;
         const k = i * 16, rx = seatBase[k + 12] - px, rz = seatBase[k + 14] - pz, y = seatBase[k + 13];
         const lat = rx * tx + rz * tz, dep = rx * nx + rz * nz;
-        if (Math.abs(lat) < T.w / 2 + 0.35 && dep < 0.5 && dep > -T.h * 3 && y > base - 0.6 && y < base + T.h + 0.3) for (let q = 0; q < 12; q++) if (q % 4 !== 3) arr[k + q] = 0;
+        if (Math.abs(lat) < T.w / 2 + 0.6 && dep < 6 && dep > -T.h * 3 && y > base - 0.45 && y < base + T.h + 0.3) for (let q = 0; q < 12; q++) if (q % 4 !== 3) arr[k + q] = 0;
       }
       const cv = document.createElement('canvas'), ratio = T.w / T.h, ring360 = ratio > 4.5;
       cv.width = 1024; cv.height = Math.max(96, Math.round(1024 / ratio));
