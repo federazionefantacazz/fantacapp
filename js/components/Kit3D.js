@@ -134,11 +134,15 @@ function remapUV(THREE, node, a, b) {
   });
 }
 
-/** Colletto grosso: di quanto si allunga la costina del girocollo (1 = com'è). */
-const BIG_RIB = 1.9;
+/** Colletto grosso: di quanto si allunga la costina (1 = com'è), per il girocollo e per lo scollo a V. */
+const BIG_RIB = { crew: 1.45, v: 2.0 };
+/** Il bordo basso della costina (questi metri) resta fermo: è quello cucito alla stoffa. */
+const BIG_KEEP = 0.0015;
 /**
  * Allunga la costina verso l'alto: per ogni angolo intorno al collo il suo bordo basso resta dov'è e ogni punto si
- * allontana da lui (in altezza e nel raggio) di k volte, così la costina resta della sua forma, solo più alta.
+ * allontana da lui (in altezza e nel raggio) di k volte, così la costina resta della sua forma, solo più alta. Il primo
+ * millimetro e mezzo resta fermo: il bordo cucito alla stoffa non si muove (sulla punta della V il bordo basso stimato
+ * per spicchi è appena sotto quello vero e lo avrebbe alzato).
  */
 function growRib(THREE, meshes, k) {
   const v = new THREE.Vector3(), all = [];
@@ -152,8 +156,8 @@ function growRib(THREE, meshes, k) {
   let cx = 0, cz = 0;
   for (let i = 0; i < n; i++) { cx += all[3 * i]; cz += all[3 * i + 2]; }
   cx /= n; cz /= n;
-  // bordo basso per angolo (72 spicchi): altezza e raggio del punto più basso
-  const N = 72, loY = new Array(N).fill(Infinity), loR = new Array(N).fill(0);
+  // bordo basso per angolo (360 spicchi di 1 grado): altezza e raggio del punto più basso
+  const N = 360, loY = new Array(N).fill(Infinity), loR = new Array(N).fill(0);
   const bin = (x, z) => ((Math.atan2(x - cx, z - cz) + Math.PI) / (2 * Math.PI)) * N;
   for (let i = 0; i < n; i++) {
     const x = all[3 * i], y = all[3 * i + 1], z = all[3 * i + 2], b = Math.floor(bin(x, z)) % N;
@@ -162,15 +166,34 @@ function growRib(THREE, meshes, k) {
   for (let b = 0; b < N; b++) if (!isFinite(loY[b])) {
     for (let d = 1; d < N; d++) { const j = (b + d) % N; if (isFinite(loY[j])) { loY[b] = loY[j]; loR[b] = loR[j]; break; } }
   }
-  const sm = (a) => a.map((x, b) => (a[(b + N - 1) % N] + 2 * x + a[(b + 1) % N]) / 4);
-  const ly = sm(loY), lr = sm(loR);
+  // per ogni spicchio il punto più basso entro ±2 spicchi (uno spicchio da solo può avere solo punti alti della costina),
+  // poi lisciato: il bordo basso stimato è una curva continua, sempre appena sotto quello vero (entro BIG_KEEP)
+  const ly = new Array(N), lr = new Array(N);
+  for (let b = 0; b < N; b++) {
+    let best = b;
+    for (let d = -2; d <= 2; d++) { const j = (b + d + N) % N; if (loY[j] < loY[best]) best = j; }
+    ly[b] = loY[best]; lr[b] = loR[best];
+  }
+  // lisciatura forte (circa ±5 gradi): il bordo alto si sposta di (k − 1) volte la distanza dal bordo basso stimato, e
+  // ogni ondina di quest'ultimo si vedeva amplificata sul bordo interno della V e dietro al centro
+  for (let it = 0; it < 40; it++) {
+    const y = ly.slice(), r = lr.slice();
+    for (let b = 0; b < N; b++) {
+      ly[b] = (y[(b + N - 1) % N] + 2 * y[b] + y[(b + 1) % N]) / 4;
+      lr[b] = (r[(b + N - 1) % N] + 2 * r[b] + r[(b + 1) % N]) / 4;
+    }
+  }
   meshes.forEach(m => {
     const p = m.geometry.getAttribute('position'), inv = m.matrixWorld.clone().invert();
     for (let i = 0; i < p.count; i++) {
       v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld);
       const f = bin(v.x, v.z) - .5, b0 = ((Math.floor(f) % N) + N) % N, b1 = (b0 + 1) % N, t = f - Math.floor(f);
       const y0 = ly[b0] + (ly[b1] - ly[b0]) * t, r0 = lr[b0] + (lr[b1] - lr[b0]) * t;
-      const r = Math.hypot(v.x - cx, v.z - cz) || 1e-6, ny = y0 + (v.y - y0) * k, nr = r0 + (r - r0) * k;
+      // altezza sopra il bordo basso stimato: chi sta sotto (vicino alla punta della V, dove la lisciatura lo alza) o nel
+      // primo millimetro e mezzo resta fermo, il resto si allunga
+      const r = Math.hypot(v.x - cx, v.z - cz) || 1e-6, dy = v.y - y0, dr = r - r0;
+      const g = dy > BIG_KEEP ? (k - 1) * (dy - BIG_KEEP) / dy : 0; // allungamento oltre il bordo fermo
+      const ny = v.y + dy * g, nr = r + dr * g;
       v.set(cx + (v.x - cx) / r * nr, ny, cz + (v.z - cz) / r * nr).applyMatrix4(inv);
       p.setXYZ(i, v.x, v.y, v.z);
     }
@@ -179,27 +202,68 @@ function growRib(THREE, meshes, k) {
   });
 }
 
+let neckRibbonJob = null, neckRibbons = null;
+/** Bordino per maglia e scollo (icons/kit3d/neck-bands.json: { 'setin:base': { rows, pts: [x, y, z, …] } }, rows punti per campione). */
+function loadNeckRibbons() {
+  if (!neckRibbonJob) neckRibbonJob = fetch(KIT3D_FILES.neckBands).then(r => (r.ok ? r.json() : null)).catch(() => null).then(d => (neckRibbons = d));
+  return neckRibbonJob;
+}
+
+/**
+ * Bordino 3D: una fascetta di 5 mm che gira intorno al collo appoggiata sulla stoffa, subito sotto la costina (la parte
+ * alta finisce sotto la costina). È una superficie vera e non un disegno nella texture: il bordo resta dritto e netto
+ * anche dove la stoffa è stirata o compressa (classica girocollo, raglan V). I punti sono sulla stoffa, 0,6 mm fuori.
+ */
+function buildNeckTrim(THREE, rd) {
+  // rd.pts: per ogni campione intorno al collo rd.rows punti dall'alto (sotto la costina) al basso, già sulla stoffa e
+  // staccati 0,6 mm verso fuori (neck-bands.json)
+  const R = rd.rows || 2, pts = rd.pts, n = pts.length / (3 * R);
+  const g = new THREE.BufferGeometry(), idx = [];
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pts), 3));
+  // verso dei triangoli: la normale del primo deve guardare fuori (lontano dall'asse del collo)
+  const P = (i) => new THREE.Vector3(pts[i * 3], pts[i * 3 + 1], pts[i * 3 + 2]);
+  const nrm = new THREE.Vector3().crossVectors(P(1).sub(P(0)), P(R).sub(P(0)));
+  const out = nrm.x * pts[0] + nrm.z * pts[2] > 0;
+  for (let i = 0; i < n; i++) {
+    const a = i * R, c = ((i + 1) % n) * R;
+    for (let j = 0; j < R - 1; j++) {
+      if (out) idx.push(a + j, a + j + 1, c + j, c + j, a + j + 1, c + j + 1);
+      else idx.push(a + j, c + j, a + j + 1, c + j, c + j + 1, a + j + 1);
+    }
+  }
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  // niente polygonOffset: guardando dentro il collo di sbieco tirava la fascetta davanti alla stoffa (si vedeva dietro)
+  const m = new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0, side: THREE.FrontSide });
+  const mesh = new THREE.Mesh(g, m);
+  mesh.name = 'neck_trim';
+  mesh.visible = false;
+  return mesh;
+}
+
 function loadVariant(kit) {
   const raglan = kit.sleeveCut === 'raglan';
   const shape = isDeformed(kit.collarShape, raglan) ? kit.collarShape : 'base';
-  const key = (raglan ? 'raglan:' : 'setin:') + shape;
+  const big = !!kit.collarBig && kit.collarShape !== 'polo';
+  const key = (raglan ? 'raglan:' : 'setin:') + shape + (big ? ':big' : '');
   if (!variants.has(key)) {
-    variants.set(key, Promise.all([loadLib(), raglan ? loadRaglan() : loadModel()]).then(async ([L, base]) => {
-      if (shape === 'base') return base;
+    variants.set(key, Promise.all([loadLib(), raglan ? loadRaglan() : loadModel(), loadNeckRibbons()]).then(async ([L, base]) => {
       const { THREE } = L;
+      if (big) {
+        // colletto grosso: la stessa maglia (girocollo o V) con la costina allungata verso l'alto dal suo bordo basso; la
+        // stoffa resta com'è
+        const m = (await loadVariant({ ...kit, collarBig: false })).clone(true);
+        m.updateMatrixWorld(true);
+        const isRib = (o) => /Pattern2D_3805002|raglan_collar/.test(`${o.name}|${o.parent ? o.parent.name : ''}`);
+        const ribs = [];
+        m.traverse(o => { if (o.isMesh && o.visible && (isRib(o) || o.userData.swappedRib)) ribs.push(o); });
+        growRib(THREE, ribs, BIG_RIB[kit.collarShape === 'v' ? 'v' : 'crew']);
+        return m;
+      }
+      if (shape === 'base') return base;
       const model = base.clone(true);
       const rib = /Pattern2D_3805002|raglan_collar/; // costina del collo (classica: a V, raglan: girocollo)
       const isRib = (o) => rib.test(`${o.name}|${o.parent ? o.parent.name : ''}`);
-      if (shape === 'big') {
-        // colletto grosso: la maglia col girocollo (raglan: quella del modello, classica: la variante 'crew') con la costina
-        // allungata verso l'alto dal suo bordo basso; la stoffa resta quella del girocollo
-        const crew = (await loadVariant({ ...kit, collarShape: 'crew' })).clone(true);
-        crew.updateMatrixWorld(true);
-        const ribs = [];
-        crew.traverse(o => { if (o.isMesh && o.visible && (isRib(o) || o.userData.swappedRib)) ribs.push(o); });
-        growRib(THREE, ribs, BIG_RIB);
-        return crew;
-      }
       if (shape === 'v') {
         // raglan con la V della classica: la sua costina così com'è al posto del girocollo, la stoffa dentro la V tolta e il
         // bordo del taglio sotto la costina. Nella texture la costina usa il riquadro del colletto della raglan
@@ -270,6 +334,10 @@ function loadVariant(kit) {
       collar.traverse(o => { if (o.isMesh) o.geometry.computeVertexNormals(); });
       model.add(collar);
       return model;
+    }).then(m => {
+      // quale linea del collo ha questa maglia (per il bordino, vedi buildNeckTrim); il colletto alto non ne ha
+      if (m) m.userData.neckKey = shape === 'polo' ? null : `${raglan ? 'raglan' : 'setin'}:${shape}`;
+      return m;
     }));
   }
   return variants.get(key);
@@ -350,7 +418,9 @@ class Stage {
 
   /** Copia del modello (forma del colletto) con materiali propri: la texture cambia per ogni maglia. */
   setModel(model) {
-    if (this.source === model) return;
+    // stessa maglia: niente da rifare (a meno che il bordino non sia ancora stato preparato: la maglia di partenza si
+    // carica prima di sapere che linea del collo ha)
+    if (this.source === model && this.trimKey === (model.userData.neckKey || null)) return;
     if (this.model) this.scene.remove(this.model);
     this.source = model;
     this.model = model.clone(true);
@@ -374,6 +444,11 @@ class Stage {
       if (name === 'shirt_inner_flip') { o.material.side = this.L.THREE.BackSide; this.innerMats.push(o.material); }
       if (/^polo_/.test(name)) (this.collarMats[name] ||= []).push(o.material);
     });
+    // bordino 3D (si vede solo con la rifinitura "Con bordino", vedi applyKit)
+    this.trimMesh = null;
+    const nk = this.model.userData.neckKey, rd = nk && neckRibbons && neckRibbons[nk];
+    this.trimKey = nk || null;
+    if (rd && rd.pts) { this.trimMesh = buildNeckTrim(this.L.THREE, rd); this.model.add(this.trimMesh); }
     this.scene.add(this.model);
   }
 
@@ -388,6 +463,10 @@ class Stage {
     });
     const ribInner = new this.L.THREE.Color(validColor(kit.colors.collar)).multiplyScalar(0.8);
     (this.ribInnerMats || []).forEach(m => { m.color.copy(ribInner); m.map = null; m.roughness = 0.9; m.needsUpdate = true; });
+    if (this.trimMesh) {
+      this.trimMesh.visible = kit.collar === 'trim' && kit.collarShape !== 'polo';
+      this.trimMesh.material.color.set(validColor(kit.colors.trim));
+    }
     const M = this.collarMats || {};
     const each = (name, fn) => (M[name] || []).forEach(fn);
     // colletto alto: tinta unita del colore del colletto

@@ -1,0 +1,28 @@
+<!doctype html><html><body><script type="module">
+// Esporta la geometria dei modelli (coordinate mondo, normali, UV, indici) in JSON per gli script Python (geo.json).
+// Va copiata nella radice del repo, vedi render/dump.js.
+const THREE = await import('./vendor/three/three.module.min.js');
+const { GLTFLoader } = await import('./vendor/three/GLTFLoader.js');
+const { MeshoptDecoder } = await import('./vendor/three/meshopt_decoder.module.js');
+const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+const out = {};
+for (const [k, f] of [['setin', 'icons/kit3d/shirt.glb'], ['raglan', 'icons/kit3d/shirt-raglan.glb'], ['polo', 'icons/kit3d/collar-polo.glb']]) {
+  const sc = (await loader.loadAsync(f)).scene; sc.updateMatrixWorld(true);
+  const meshes = [];
+  sc.traverse(o => {
+    if (!o.isMesh) return;
+    const g = o.geometry, p = g.attributes.position, n = g.attributes.normal, u = g.attributes.uv;
+    const nm = new THREE.Matrix3().getNormalMatrix(o.matrixWorld), v = new THREE.Vector3();
+    const P = [], N = [], U = [];
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); P.push(+v.x.toFixed(6), +v.y.toFixed(6), +v.z.toFixed(6));
+      if (n) { v.fromBufferAttribute(n, i).applyMatrix3(nm).normalize(); N.push(+v.x.toFixed(4), +v.y.toFixed(4), +v.z.toFixed(4)); }
+      if (u) U.push(+u.getX(i).toFixed(6), +u.getY(i).toFixed(6));
+    }
+    meshes.push({ name: o.name, parent: o.parent && o.parent.name, mat: o.material.name, P, N, U, I: g.index ? Array.from(g.index.array) : null });
+  });
+  out[k] = meshes;
+}
+window.OUT = JSON.stringify(out);
+window.DONE = 1;
+</script></body></html>
