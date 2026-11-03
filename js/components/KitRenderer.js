@@ -8,7 +8,8 @@ export { COLLAR_SHAPES };
  * Divisa della squadra: dati e pittura della texture UV della maglia 3D (vedi components/Kit3D.js).
  * La divisa è salvata in teams/{id}/kit:
  * {
- *   collarShape,                                            // forma del colletto: 'crew' (girocollo), 'v' (scollo a V), 'big' (colletto grosso) o 'polo' (vedi kitShapes.js)
+ *   collarShape,                                            // forma del colletto: 'crew' (girocollo), 'v' (scollo a V) o 'polo' (vedi kitShapes.js)
+ *   collarBig,                                              // colletto grosso (girocollo e V): costina più alta
  *   neckV,                                                  // 2: 'v' è lo scollo a V anche sulla raglan (prima la raglan salvava 'v' per il suo girocollo)
  *   sleeveCut,                                              // cucitura delle maniche: 'setin' (sulle spalle) o 'raglan' (dal colletto all'ascella)
  *   collar, cuffs, sleeveDeco,                              // stile di colletto, polsini, decorazioni maniche
@@ -445,7 +446,7 @@ export const SLEEVE_DECO = [
 
 export function defaultKit() {
   return {
-    collarShape: 'v', sleeveCut: 'setin', collar: 'plain', collarStripes: 3, cuffs: 'band', sleeveDeco: 'none', sleeveDecoN: 3, sleeveDecoShoulder: false,
+    collarShape: 'v', sleeveCut: 'setin', collar: 'plain', collarBig: false, collarStripes: 3, cuffs: 'band', sleeveDeco: 'none', sleeveDecoN: 3, sleeveDecoShoulder: false,
     sleeveTf: { x: 0, y: 0, scale: 100, rot: 0 },
     colors: { base: '#1e5bb8', sleeves: '#1e5bb8', sleevesR: '', shoulders: '#ffffff', collar: '#ffffff', cuffs: '#ffffff', trim: '#ffffff' },
     shoulders: { shape: 'none', size: 100, match: true },
@@ -468,7 +469,7 @@ export function normalizeKit(raw) {
   const toArr = (v) => Array.isArray(v) ? v.filter(Boolean) : (v && typeof v === 'object' ? Object.values(v).filter(Boolean) : []);
   return {
     // le raglan salvate prima con 'v' avevano il loro girocollo
-    collarShape: k.collarShape === 'v' && k.sleeveCut === 'raglan' && k.neckV !== 2 ? 'crew'
+    collarShape: (k.collarShape === 'v' && k.sleeveCut === 'raglan' && k.neckV !== 2) || k.collarShape === 'big' ? 'crew'
       : COLLAR_SHAPES.some(c => c.id === k.collarShape) ? k.collarShape : d.collarShape,
     neckV: 2,
     sleeveCut: SLEEVE_CUTS.some(c => c.id === k.sleeveCut) ? k.sleeveCut : d.sleeveCut,
@@ -477,6 +478,7 @@ export function normalizeKit(raw) {
     // tre / due strisce di prima: ora una sola decorazione "Strisce" con il numero di strisce
     sleeveDeco: /^stripes[23]$/.test(k.sleeveDeco) ? 'stripes' : SLEEVE_DECO.some(c => c.id === k.sleeveDeco) ? k.sleeveDeco : d.sleeveDeco,
     sleeveDecoN: Math.round(clamp(k.sleeveDecoN || (k.sleeveDeco === 'stripes2' ? 2 : 3), 1, SLEEVE_STRIPES_MAX)),
+    collarBig: !!k.collarBig || k.collarShape === 'big', // 'big' era una forma: ora è il girocollo grosso
     collarStripes: [1, 2, 3].includes(Number(k.collarStripes)) ? Number(k.collarStripes) : 3,
     sleeveDecoShoulder: !!k.sleeveDecoShoulder,
     sleeveTf: { ...d.sleeveTf, ...(k.sleeveTf || {}) },
@@ -794,7 +796,7 @@ async function drawBackPrint(ctx, bp, r) {
 
 /* --------------------------------------------- maschera e scollo del modello */
 let neckBandsJob = null;
-/** Contorno del bordino nella texture (per maglia e scollo: { 'setin:base': [{ part, top: [u, v, …], bot: [u, v, …] }] }). */
+/** Dati del bordino (icons/kit3d/neck-bands.json): per maglia e scollo { rows, pts } (fascetta 3D) o { tex: [{ part, top, bot }] }. */
 function loadNeckBands() {
   if (!neckBandsJob) neckBandsJob = fetch(KIT3D_FILES.neckBands).then(r => (r.ok ? r.json() : null)).catch(() => null);
   return neckBandsJob;
@@ -862,7 +864,7 @@ function loadMask(model) {
 export async function paintKitTexture(rawKit, opts = {}) {
   const k = normalizeKit(rawKit);
   if (k.collarShape === 'polo') k.collar = 'plain'; // il colletto alto è in tinta unita: niente rifiniture sotto
-  const swapped = k.sleeveCut === 'raglan' ? k.collarShape === 'v' : (k.collarShape === 'crew' || k.collarShape === 'big');
+  const swapped = k.sleeveCut === 'raglan' ? k.collarShape === 'v' : k.collarShape === 'crew';
   const S = Math.round(opts.size || 2048);
   const model = kitModel(k), raglan = model === MODELS.raglan;
   const R = (part) => { const r = model.uv[part]; return { x: r.x * S, y: r.y * S, w: r.w * S, h: r.h * S }; };
@@ -1151,21 +1153,23 @@ export async function paintKitTexture(rawKit, opts = {}) {
     if (k.collar === 'twotone') { ctx.fillStyle = trim; ctx.fillRect(r.x - m, r.y + r.h, r.w + 2 * m, m); } // sotto continua la seconda tinta
     paintCollar(ctx, r); ctx.restore();
   } else inPart('collar', paintCollar);
-  // bordino: fascia di 5 mm sulla stoffa subito sotto la costina, sul davanti, dietro e (raglan) sulle maniche.
-  // neck-bands.json ha per ogni maglia e scollo, pezzo per pezzo, il contorno della fascia nella texture: il bordo della
-  // stoffa (top) e la linea a 5 mm da una linea del collo lisciata, misurata sulla stoffa già spostata o tagliata come nel
-  // 3D (bot): larga uguale tutto intorno, dritta e continua sulle cuciture
+  // bordino: di solito è una fascetta 3D sulla stoffa (Kit3D.js, buildNeckTrim). Sulla classica con la V (lo scollo del
+  // modello, stoffa non stirata ma con pieghe sotto la costina) si disegna nella texture: neck-bands.json ha per ogni pezzo
+  // il contorno della fascia (bordo della stoffa e linea a 5 mm dal collo)
   if (k.collar === 'trim') {
     const bands = await loadNeckBands();
     const key = `${raglan ? 'raglan' : 'setin'}:${swapped ? (raglan ? 'v' : 'crew') : 'base'}`;
-    ctx.save(); ctx.fillStyle = trim;
-    ((bands && bands[key]) || []).forEach(({ top, bot }) => {
-      ctx.beginPath();
-      for (let i = 0; i < top.length; i += 2) (i ? ctx.lineTo : ctx.moveTo).call(ctx, top[i] * S, top[i + 1] * S);
-      for (let i = bot.length - 2; i >= 0; i -= 2) ctx.lineTo(bot[i] * S, bot[i + 1] * S);
-      ctx.closePath(); ctx.fill();
-    });
-    ctx.restore();
+    const tex = bands && bands[key] && bands[key].tex;
+    if (tex) {
+      ctx.save(); ctx.fillStyle = trim;
+      tex.forEach(({ top, bot }) => {
+        ctx.beginPath();
+        for (let i = 0; i < top.length; i += 2) (i ? ctx.lineTo : ctx.moveTo).call(ctx, top[i] * S, top[i + 1] * S);
+        for (let i = bot.length - 2; i >= 0; i -= 2) ctx.lineTo(bot[i] * S, bot[i + 1] * S);
+        ctx.closePath(); ctx.fill();
+      });
+      ctx.restore();
+    }
   }
 
   // 5. loghi, sponsor e patch sul davanti / maniche
