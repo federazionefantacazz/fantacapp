@@ -1,0 +1,23 @@
+<!doctype html><html><body style="margin:0;background:#1b1f25">
+<!-- Pagina di prova dei render 3D: va copiata nella radice del repo (gli asset sono relativi a icons/kit3d/), vedi render/render.sh.
+     Hash dell'URL: [[kit, [inquadratura, ...]], ...]; inquadratura = { yaw, x, y, z, d, pitch } come FOCUS in Kit3D.js. -->
+<div id="v" style="width:600px;height:600px"></div>
+<script type="module">
+window.showToast = () => {};
+const K3 = await import('./js/components/Kit3D.js');
+const list = JSON.parse(decodeURIComponent(location.hash.slice(1)));
+const viewer = K3.createKitViewer(document.getElementById('v'), { zoom: true });
+await viewer.ready;
+if (window.__dbg) window.__dbg();
+const out = [];
+for (const [kit, foci] of list) {
+  await viewer.update(kit, {});
+  K3.FOCUS.z = foci[0]; viewer.focus('z'); await new Promise(r => setTimeout(r, 900));
+  for (const f of foci) {
+    K3.FOCUS.z = f; viewer.focus('z');
+    await new Promise(r => setTimeout(r, 1200));
+    out.push(document.querySelector('#v canvas').toDataURL('image/png'));
+  }
+}
+window.OUT = out; window.DONE = 1;
+</script></body></html>
