@@ -134,6 +134,51 @@ function remapUV(THREE, node, a, b) {
   });
 }
 
+/** Colletto grosso: di quanto si allunga la costina del girocollo (1 = com'è). */
+const BIG_RIB = 1.9;
+/**
+ * Allunga la costina verso l'alto: per ogni angolo intorno al collo il suo bordo basso resta dov'è e ogni punto si
+ * allontana da lui (in altezza e nel raggio) di k volte, così la costina resta della sua forma, solo più alta.
+ */
+function growRib(THREE, meshes, k) {
+  const v = new THREE.Vector3(), all = [];
+  meshes.forEach(m => {
+    m.geometry = floatGeometry(THREE, m.geometry);
+    const p = m.geometry.getAttribute('position');
+    for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld); all.push(v.x, v.y, v.z); }
+  });
+  const n = all.length / 3;
+  if (!n) return;
+  let cx = 0, cz = 0;
+  for (let i = 0; i < n; i++) { cx += all[3 * i]; cz += all[3 * i + 2]; }
+  cx /= n; cz /= n;
+  // bordo basso per angolo (72 spicchi): altezza e raggio del punto più basso
+  const N = 72, loY = new Array(N).fill(Infinity), loR = new Array(N).fill(0);
+  const bin = (x, z) => ((Math.atan2(x - cx, z - cz) + Math.PI) / (2 * Math.PI)) * N;
+  for (let i = 0; i < n; i++) {
+    const x = all[3 * i], y = all[3 * i + 1], z = all[3 * i + 2], b = Math.floor(bin(x, z)) % N;
+    if (y < loY[b]) { loY[b] = y; loR[b] = Math.hypot(x - cx, z - cz); }
+  }
+  for (let b = 0; b < N; b++) if (!isFinite(loY[b])) {
+    for (let d = 1; d < N; d++) { const j = (b + d) % N; if (isFinite(loY[j])) { loY[b] = loY[j]; loR[b] = loR[j]; break; } }
+  }
+  const sm = (a) => a.map((x, b) => (a[(b + N - 1) % N] + 2 * x + a[(b + 1) % N]) / 4);
+  const ly = sm(loY), lr = sm(loR);
+  meshes.forEach(m => {
+    const p = m.geometry.getAttribute('position'), inv = m.matrixWorld.clone().invert();
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld);
+      const f = bin(v.x, v.z) - .5, b0 = ((Math.floor(f) % N) + N) % N, b1 = (b0 + 1) % N, t = f - Math.floor(f);
+      const y0 = ly[b0] + (ly[b1] - ly[b0]) * t, r0 = lr[b0] + (lr[b1] - lr[b0]) * t;
+      const r = Math.hypot(v.x - cx, v.z - cz) || 1e-6, ny = y0 + (v.y - y0) * k, nr = r0 + (r - r0) * k;
+      v.set(cx + (v.x - cx) / r * nr, ny, cz + (v.z - cz) / r * nr).applyMatrix4(inv);
+      p.setXYZ(i, v.x, v.y, v.z);
+    }
+    p.needsUpdate = true;
+    m.geometry.computeBoundingSphere();
+  });
+}
+
 function loadVariant(kit) {
   const raglan = kit.sleeveCut === 'raglan';
   const shape = isDeformed(kit.collarShape, raglan) ? kit.collarShape : 'base';
@@ -145,6 +190,16 @@ function loadVariant(kit) {
       const model = base.clone(true);
       const rib = /Pattern2D_3805002|raglan_collar/; // costina del collo (classica: a V, raglan: girocollo)
       const isRib = (o) => rib.test(`${o.name}|${o.parent ? o.parent.name : ''}`);
+      if (shape === 'big') {
+        // colletto grosso: la maglia col girocollo (raglan: quella del modello, classica: la variante 'crew') con la costina
+        // allungata verso l'alto dal suo bordo basso; la stoffa resta quella del girocollo
+        const crew = (await loadVariant({ ...kit, collarShape: 'crew' })).clone(true);
+        crew.updateMatrixWorld(true);
+        const ribs = [];
+        crew.traverse(o => { if (o.isMesh && o.visible && (isRib(o) || o.userData.swappedRib)) ribs.push(o); });
+        growRib(THREE, ribs, BIG_RIB);
+        return crew;
+      }
       if (shape === 'v') {
         // raglan con la V della classica: la sua costina così com'è al posto del girocollo, la stoffa dentro la V tolta e il
         // bordo del taglio sotto la costina. Nella texture la costina usa il riquadro del colletto della raglan
