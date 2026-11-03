@@ -51,6 +51,7 @@ const ASSETS_TO_CACHE = [
   './icons/kit3d/neck-crew-setin.bin',
   './icons/kit3d/neck-v-raglan.bin',
   './icons/kit3d/neck-cutv-raglan.bin',
+  './icons/kit3d/neck-bands.json',
   './icons/kit3d/mask.png',
   './icons/kit3d/seams.jpg',
   './icons/kit3d/shirt-raglan.glb',
