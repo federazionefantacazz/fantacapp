@@ -23,6 +23,11 @@ function loadLib() {
   return lib;
 }
 
+/** Carica in anticipo la libreria 3D (all'avvio dell'app), così la prima apertura del live o dell'editor è già pronta. */
+export function preloadStadium3D() {
+  return loadLib().then(() => {}, () => {});
+}
+
 /* ------------------------------------------------------------------ dati */
 export const MAX_NAME = 40;
 export const MAX_CAPACITY = 200000;
@@ -8952,12 +8957,17 @@ class Stage {
     const { THREE } = L;
     this.L = L;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
-    this.renderer.setPixelRatio(interactive ? Math.min(window.devicePixelRatio || 1, 2) : 1);
+    // risoluzione piena da fermi; mentre si gira o si fa zoom una più bassa (molto più fluido sui telefoni), poi si ripristina
+    this.fullRatio = interactive ? Math.min(window.devicePixelRatio || 1, 2) : 1;
+    this.renderer.setPixelRatio(this.fullRatio);
     this.renderer.setSize(width, height, false);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // il sole e lo stadio non si muovono: le ombre si calcolano solo quando cambia qualcosa (non a ogni fotogramma)
+    this.renderer.shadowMap.autoUpdate = false;
+    this.renderer.shadowMap.needsUpdate = true;
 
     this.scene = new THREE.Scene();
     const pmrem = new THREE.PMREMGenerator(this.renderer);
@@ -8996,6 +9006,17 @@ class Stage {
         c.enablePan = false; c.enableZoom = false; // solo rotazione orizzontale: il dito in verticale scorre la pagina
       }
       c.addEventListener('change', () => this.render());
+      // durante il gesto risoluzione più bassa, finito il gesto (e lo smorzamento) di nuovo piena
+      const low = Math.min(this.fullRatio, 1.1);
+      let idle = 0;
+      c.addEventListener('start', () => {
+        clearTimeout(idle);
+        if (this.fullRatio > low && this.renderer.getPixelRatio() !== low) { this.renderer.setPixelRatio(low); this.render(); }
+      });
+      c.addEventListener('end', () => {
+        clearTimeout(idle);
+        idle = setTimeout(() => { if (this.controls && this.renderer.getPixelRatio() !== this.fullRatio) { this.renderer.setPixelRatio(this.fullRatio); this.render(); } }, 350);
+      });
       this.controls = c;
       this.zoom = zoom;
     }
@@ -9012,6 +9033,7 @@ class Stage {
       this.scene.add(this.built.group);
       this.fit();
     }
+    this.renderer.shadowMap.needsUpdate = true;
     if (this.screenImages) this.built.setScreenImages(this.screenImages);
     this.built.recolor(st);
     this.built.setLogo(logo);
@@ -9026,11 +9048,13 @@ class Stage {
   setExterior(show) {
     this.outside = !!show;
     if (this.built) this.built.setExterior(this.outside);
+    this.renderer.shadowMap.needsUpdate = true;
   }
 
   /** Notte: sole spento, luce del cielo al minimo, proiettori accesi che illuminano campo e spalti. */
   setNight(on) {
     this.night = !!on;
+    this.renderer.shadowMap.needsUpdate = true;
     this.scene.environmentIntensity = on ? 0.04 : 0.3;
     this.hemi.intensity = on ? 0.07 : 0.45;
     this.sun.intensity = on ? 0 : 2;
@@ -9041,6 +9065,7 @@ class Stage {
 
   /** Distanza della camera e ombre adatte alla dimensione dello stadio. */
   fit() {
+    this.renderer.shadowMap.needsUpdate = true;
     const { THREE } = this.L;
     const e = this.built.ext, h = this.built.height;
     const R = Math.hypot(e.x, e.z);
@@ -9103,6 +9128,7 @@ class Stage {
       body.castShadow = head.castShadow = true;
       this.markers.add(disc, body, head);
     }
+    this.renderer.shadowMap.needsUpdate = true;
   }
 
   /** Punto 3D sullo schermo (pixel CSS dal bordo in alto a sinistra della tela); ok = davanti alla camera. */
@@ -9204,13 +9230,13 @@ class Stage {
     const buf = D && D.buf.length === w * h * 4 ? D.buf : new Uint8Array(w * h * 4);
     const hidden = [];
     this.scene.traverse(o => { if (o.visible && (o.userData.noOcclude || o === this.markers || o.isSprite || o.isPoints)) { o.visible = false; hidden.push(o); } });
-    const bg = this.scene.background, cc = r.getClearColor(new THREE.Color()), ca = r.getClearAlpha(), sh = r.shadowMap.autoUpdate;
-    this.scene.background = null; this.scene.overrideMaterial = this.outside === false ? this._dzCut : this._dzMat; r.shadowMap.autoUpdate = false;
+    const bg = this.scene.background, cc = r.getClearColor(new THREE.Color()), ca = r.getClearAlpha(), sh = r.shadowMap.autoUpdate, shN = r.shadowMap.needsUpdate;
+    this.scene.background = null; this.scene.overrideMaterial = this.outside === false ? this._dzCut : this._dzMat; r.shadowMap.autoUpdate = false; r.shadowMap.needsUpdate = false;
     r.setRenderTarget(this._dzRT); r.setClearColor(0xffffff, 1); r.clear();
     r.render(this.scene, cam);
     r.readRenderTargetPixels(this._dzRT, 0, 0, w, h, buf);
     r.setRenderTarget(null); r.setClearColor(cc, ca);
-    this.scene.background = bg; this.scene.overrideMaterial = null; r.shadowMap.autoUpdate = sh;
+    this.scene.background = bg; this.scene.overrideMaterial = null; r.shadowMap.autoUpdate = sh; r.shadowMap.needsUpdate = shN;
     hidden.forEach(o => { o.visible = true; });
     this._dz = { key, t: now, w, h, buf, near: cam.near, far: cam.far };
     return this._dz;
@@ -9247,6 +9273,7 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
     if (disposed) return null;
     const r = container.getBoundingClientRect();
     stage = new Stage(L, canvas, { interactive: true, zoom, width: Math.max(1, r.width), height: Math.max(1, r.height) });
+    stage.box = r.width > 0 && r.height > 0 ? [r.width, r.height] : null;
     stage.setNight(night);
     stage.setExterior(outside);
     if (markers) stage.setMarkers(markers);
@@ -9255,11 +9282,15 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
     if (onFrame) stage.afterRender = () => onFrame((x, y, z) => stage.project(x, y, z), (x, y, z) => stage.visibleAt(x, y, z));
     return stage;
   });
-  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => {
-    if (!stage || !stage.built) return;
+  // misura della tela: anche prima che lo stadio sia pronto (la prima volta il riquadro può essere ancora a zero)
+  const fitBox = () => {
+    if (!stage) return;
     const r = container.getBoundingClientRect();
-    if (r.width && r.height) { stage.resize(r.width, r.height); stage.render(); }
-  }) : null;
+    if (!r.width || !r.height) return;
+    if (!stage.box || stage.box[0] !== r.width || stage.box[1] !== r.height) { stage.box = [r.width, r.height]; stage.resize(r.width, r.height); }
+    if (stage.built) stage.render();
+  };
+  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fitBox) : null;
   if (ro) ro.observe(container);
 
   const api = {
@@ -9271,6 +9302,7 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
       if (!s || disposed || my !== token) return 0;
       s.screenImages = await screenImagesOf(n);
       if (disposed || my !== token) return 0;
+      fitBox();
       const capacity = s.setStadium(n, lc, ec, cc);
       s.render();
       return capacity;

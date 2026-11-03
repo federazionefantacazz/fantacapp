@@ -284,6 +284,24 @@ export const LiveMatchModule = {
     return comps.find(c => String(c.id) === String(this.currentCompId)) || null;
   },
 
+  /**
+   * Si risolve quando il live è pronto da mostrare: la partita è disegnata e, nella visuale Stadio, lo stadio 3D è
+   * costruito con le etichette dei giocatori al loro posto (all'avvio l'app resta sul logo fino a quel momento).
+   */
+  whenReady(maxMs = 15000) {
+    const t0 = Date.now();
+    return new Promise(res => {
+      const check = () => {
+        const c = document.getElementById('live-match-container');
+        const drawn = !!c && c.children.length > 0 && !/Sincronizzazione/.test(c.textContent);
+        const needs3D = drawn && !!c.querySelector('[data-lv3d]');
+        if ((drawn && (!needs3D || (this._lv3d && this._lv3d.firstFrame))) || Date.now() - t0 > maxMs) return res();
+        setTimeout(check, 100);
+      };
+      check();
+    });
+  },
+
   // ------------------------------------------------------------------
   // Tracking live
   // ------------------------------------------------------------------
@@ -1170,7 +1188,8 @@ export const LiveMatchModule = {
           <button data-v3="full" aria-label="Schermo intero"><i class="ri-fullscreen-line"></i></button>
         </div>`;
       const viewer = createStadiumViewer(el.querySelector('.lv3d-stage'), { zoom: true });
-      V = this._lv3d = { el, viewer, ov: el.querySelector('.lv3d-ov'), labels: new Map(), night: false, ext: true, full: false, stKey: null, spots: [] };
+      V = this._lv3d = { el, viewer, ov: el.querySelector('.lv3d-ov'), labels: new Map(), night: false, ext: true, full: false, stKey: null, spots: [], loaded: false };
+      V.ov.style.visibility = 'hidden';
       viewer.onFrame((project, visible) => this._place3D(project, visible));
       el.addEventListener('click', (e) => {
         const b = e.target.closest('[data-v3]');
@@ -1209,7 +1228,11 @@ export const LiveMatchModule = {
       V.viewer.update(stadium, { logo: team && team.logo || '' }).then(() => {
         const l = V.el.querySelector('.lv3d-load');
         if (l) l.remove();
+        // le etichette dei giocatori compaiono solo con lo stadio pronto (prima finirebbero in posti a caso)
+        V.loaded = true;
+        V.ov.style.visibility = '';
         if (first || V.el.querySelector('[data-v3="pitch"].on')) V.viewer.framePitch();
+        V.firstFrame = true;
       }).catch(err => console.error('Stadio live:', err));
     }
 
@@ -1253,7 +1276,7 @@ export const LiveMatchModule = {
   /** Posiziona le etichette dei giocatori sopra i segnaposti (dopo ogni disegno dello stadio). */
   _place3D(project, visible) {
     const V = this._lv3d;
-    if (!V) return;
+    if (!V || !V.loaded) return;
     const c0 = project(0, 0, 0), c1 = project(0, 0, 10);
     // grandezza delle etichette: con lo zoom crescono un poco (non troppo, per non coprire il campo)
     const ppm = Math.hypot(c1.x - c0.x, c1.y - c0.y) / 10, k = Math.max(0.5, Math.min(1.25, ppm / 6));
