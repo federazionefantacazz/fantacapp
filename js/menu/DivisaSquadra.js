@@ -614,6 +614,7 @@ export const DivisaSquadra = {
       ${this._part('ri-shirt-line', 'Colletto', `
       ${this._group('Forma', 'collar', `
         <div class="kit-grid">${COLLAR_SHAPES.map(c => this._opt('collarShape', c.id, this._thumb({ ...base, collarShape: c.id }), c.label, k.collarShape === c.id)).join('')}</div>
+        ${k.collarShape === 'polo' ? '' : `<div class="kit-chips" style="margin-top:.5rem;"><button class="lv-chip ${k.collarBig ? 'on' : ''}" data-act="collar-big"><i class="${k.collarBig ? 'ri-checkbox-line' : 'ri-checkbox-blank-line'}"></i> Colletto grosso</button></div>`}
         ${this._colorRow('Colore del colletto', 'collar')}`)}
       ${k.collarShape === 'polo' ? '' : this._group('Rifinitura', 'collar', `
         <div class="kit-grid">${COLLARS.map(c => this._opt('collar', c.id, this._thumb({ ...base, collar: c.id }), c.label, k.collar === c.id)).join('')}</div>
@@ -1155,6 +1156,9 @@ export const DivisaSquadra = {
         return;
       case 'shoulder-match':
         this._update(kit => { kit.shoulders.match = v === '1'; });
+        return;
+      case 'collar-big':
+        this._update(kit => { kit.collarBig = !kit.collarBig; });
         return;
       case 'collar-stripes':
         this._update(kit => { kit.collarStripes = Number(v) || 3; });
