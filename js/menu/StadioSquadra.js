@@ -8,7 +8,7 @@ import {
   ringsBySide, maxRingsOf, TIER_SPREAD_MAX, LOGO_PLACES, logoPlacesFor, ENTRANCES, ENTRANCE_W, ENTRANCE_H, ENTRANCE_LOGO, ENTRANCE_FITS, entranceSkips,
   MIX_ROOFS, ROOF_TEXTURES, TEXTURE_ROOFS, ROOF_WAVES, roofMixed, ARCHES, CUBE_PANELS,
   FLAG_SIZES, FLAG_PATTERNS, MAX_FLAGS, MAX_CHOREOS, CHOREO_SIZE, normalizeFans,
-  MAX_STAND_TEXTS, STAND_TEXT_SIZE, MAX_STAND_SCREENS, STAND_SCREEN_W, STAND_SCREEN_H
+  MAX_STAND_TEXTS, STAND_TEXT_SIZE, MAX_STAND_SCREENS, STAND_SCREEN_W, STAND_SCREEN_H, SCREEN_SHOWS, NET_PATTERNS
 } from '../components/Stadium3D.js';
 
 /** Nomi corti delle coperture nella scelta settore per settore. */
@@ -449,6 +449,7 @@ export const StadioSquadra = {
       ${s.screen !== 'none' ? `<div class="std-desc">${s.roof === 'none'
         ? 'Senza copertura lo schermo sta in cima agli spalti.'
         : 'Appeso sotto il bordo del tetto.'} Mostra il nome dello stadio, il risultato e il minuto.</div>
+      ${this._screenShow('screenShow', 'screenImage', s.screenShow, s.screenImage)}
       ${this._colorRow('Sfondo del maxischermo', 'colors.screen', s.colors.screen)}` : ''}
       <div class="kit-sub std-h2">Maxischermi sugli spalti (${s.standScreens.length}/${MAX_STAND_SCREENS})</div>
       <div class="std-desc" style="margin-top:0;">Schermi dritti tra i seggiolini, come al Maradona: scegli quanti, dove e quanto grandi. I posti dietro lo schermo spariscono.</div>
@@ -614,6 +615,13 @@ export const StadioSquadra = {
       ${this._colorRow('Colore del pavimento fuori', 'colors.ground', c.ground || ({ grass: c.grass, asphalt: '#6a6e73', cobbles: '#8f8a84' }[s.groundStyle] || c.structure))}
       </div>
       <div class="std-group">
+      <div class="kit-sub">Disegno della rete delle porte</div>
+      ${this._opts('netPattern', NET_PATTERNS, s.netPattern)}
+      <div class="kit-sub">Colori della rete</div>
+      ${this._colorRow(['stripes', 'checks', 'rings'].includes(s.netPattern) ? 'Primo colore' : 'Colore della rete', 'colors.net', c.net)}
+      ${['stripes', 'checks', 'rings'].includes(s.netPattern) ? this._colorRow('Secondo colore', 'colors.net2', c.net2) : ''}
+      </div>
+      <div class="std-group">
       <div class="kit-sub">Cartelloni LED</div>
       ${this._opts('adBoards', AD_BOARDS, s.adBoards)}
       ${s.adBoards !== 'none' ? `<div class="std-desc">Mostrano il nome dello stadio${s.adBoards === 'both' ? ', anche sul fronte degli anelli più alti' : ''}. Di notte si accendono.</div>
@@ -710,6 +718,25 @@ export const StadioSquadra = {
       style="font-family:${esc(f.css)}; font-weight:${f.weight}; font-style:${f.style}; font-size:.85rem;">${esc(f.label)}</button>`).join('')}</div>`;
   },
 
+  /** Immagine da caricare per un campo (path): anteprima, Carica / Cambia e Togli. */
+  _uploadRow(path, url) {
+    return `
+      ${url ? `<img src="${esc(url)}" alt="" style="display:block; max-width:100%; max-height:110px; border-radius:10px; margin:.4rem 0 .5rem;">` : ''}
+      <div class="kit-chips"><label class="lv-chip" style="cursor:pointer;"><i class="ri-image-add-line"></i> ${url ? 'Cambia immagine' : 'Carica un\'immagine'}
+        <input type="file" accept="image/png,image/jpeg,image/webp" data-upload="fan" data-path="${path}" style="display:none;"></label>
+        ${url ? `<button class="lv-chip" data-act="fan" data-path="${path}" data-v=""><i class="ri-delete-bin-line"></i> Togli</button>` : ''}</div>`;
+  },
+
+  /** Cosa mostra un maxischermo (loghi della partita o immagine) e, con l'immagine, il caricamento. */
+  _screenShow(showPath, imgPath, show, img) {
+    return `
+      <div class="kit-sub">Cosa mostra</div>
+      ${this._optsAt(showPath, SCREEN_SHOWS.map(o => [o.id, o.label]), show)}
+      ${show === 'image' ? `<div class="kit-sub">Immagine del maxischermo</div>${this._uploadRow(imgPath, img)}
+      <div class="std-desc">Riempie tutto lo schermo senza deformarsi (taglia quello che avanza).</div>`
+        : '<div class="std-desc">Nel live i loghi delle due squadre e al centro quello della competizione; qui due volte il logo della tua squadra.</div>'}`;
+  },
+
   /** Scelte in griglia a due colonne per un campo con il percorso (items = [[valore, etichetta]]). */
   _optsAt(path, items, cur, num = false) {
     return `<div class="std-opts">${items.map(([v, l]) => `<button class="lv-chip ${String(cur) === String(v) ? 'on' : ''}" data-act="fan" ${num ? 'data-num="1"' : ''} data-path="${path}" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div>`;
@@ -763,6 +790,7 @@ export const StadioSquadra = {
       <div class="kit-sub">Dimensione</div>
       ${this._range('Larghezza', `${P}.w`, STAND_SCREEN_W[0], STAND_SCREEN_W[1], t.w, v => `${v} m`)}
       ${this._range('Altezza', `${P}.h`, STAND_SCREEN_H[0], STAND_SCREEN_H[1], t.h, v => `${v} m`)}
+      ${this._screenShow(`${P}.show`, `${P}.image`, t.show, t.image)}
       <div class="kit-chips" style="margin-top:.5rem;"><button class="lv-chip" data-act="fanDel" data-kind="screen" data-v="${i}"><i class="ri-delete-bin-line"></i> Elimina questo maxischermo</button></div>`;
   },
 
@@ -1142,7 +1170,7 @@ export const StadioSquadra = {
   async _save() {
     if (this._busy || !this._st) return;
     if (this._entUpload) { await this._entUpload; this._entUpload = null; }
-    if (!this._st || /^data:/.test(this._st.entranceImage) || /^data:/.test(this._st.cubeImage) || /"data:/.test(JSON.stringify(this._st.fans))) { if (this._st) window.showToast('Immagine non ancora caricata, riprova', 'err'); return; }
+    if (!this._st || /"data:/.test(JSON.stringify({ ...this._st, image: '' }))) { if (this._st) window.showToast('Immagine non ancora caricata, riprova', 'err'); return; }
     const team = window.STATE.user;
     if (!team || String(team.id) !== String(this._teamId)) return;
     this._busy = true;

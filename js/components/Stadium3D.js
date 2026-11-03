@@ -157,6 +157,13 @@ async function loadTextFonts(st) {
   try { await Promise.all(ids.map(id => document.fonts.load(fontCss(fontOf(id), 100), 'AZ'))); } catch (e) { /* uso il ripiego */ }
 }
 
+/** Cosa mostrano i maxischermi: i loghi della partita o un'immagine caricata. */
+export const SCREEN_SHOWS = [{ id: 'match', label: 'Loghi della partita' }, { id: 'image', label: 'La tua immagine' }];
+/** Reti delle porte: disegni (due colori). */
+export const NET_PATTERNS = [
+  { id: 'square', label: 'Maglia quadrata' }, { id: 'diamond', label: 'A rombi' }, { id: 'hex', label: 'Esagonale' },
+  { id: 'stripes', label: 'A strisce' }, { id: 'checks', label: 'A scacchi' }, { id: 'rings', label: 'A cerchi' }
+];
 export const SCREENS = [
   { id: 'none', label: 'Nessuno' },
   { id: 'ring', label: 'Anello a 360°' },
@@ -305,7 +312,8 @@ function normalizeStandScreens(v) {
     side: oneOf(TEXT_SIDES, t && t.side, 'right'),
     ring: [1, 2, 3].includes(Number(t && t.ring)) ? Number(t.ring) : 1,
     pos: num(t && t.pos, 0, 100, 50), elev: num(t && t.elev, 0, 100, 60),
-    w: num(t && t.w, STAND_SCREEN_W[0], STAND_SCREEN_W[1], 14), h: num(t && t.h, STAND_SCREEN_H[0], STAND_SCREEN_H[1], 6)
+    w: num(t && t.w, STAND_SCREEN_W[0], STAND_SCREEN_W[1], 14), h: num(t && t.h, STAND_SCREEN_H[0], STAND_SCREEN_H[1], 6),
+    show: t && t.show === 'image' ? 'image' : 'match', image: imgUrl(t && t.image)
   }));
 }
 
@@ -342,7 +350,7 @@ const DEFAULT = {
   colors: {
     grass: '#3d8b37', track: '#b4452f', seatA: '#1e5bb8', seatB: '#ffffff', seatC: '#c62828', seatD: '#ffd400', parapet: '#e6e6e6', structure: '#a5a5a5',
     roof: '#cfd4da', steel: '#767d86', accent: '#1e5bb8', girder: '#c0392b', glow: '#e30613',
-    standText: '#ffffff', outerText: '#1d3f8f', outerPanel: '#ffffff', screen: '#152c78', trackLines: '#ffffff',
+    net: '#f4f4f4', net2: '#d0122d', standText: '#ffffff', outerText: '#1d3f8f', outerPanel: '#ffffff', screen: '#152c78', trackLines: '#ffffff',
     mosaicB: '#ffffff', mosaicC: '#9e9e9e', aisle: '#c4c7cb', apron: '#b24f3c', wall: '', ground: '', ads: '#c8102e', mosaicD: '', roofLight: '', entrance: '#1e5bb8', entranceStone: '#e9e4da', cladding: '#e9ecef', podium: '#d8c7a0', arch: '#f2f4f6'
   }
 };
@@ -585,6 +593,9 @@ export function normalizeStadium(s) {
     screen: oneOf(SCREENS, src.screen, DEFAULT.screen),
     seatMosaic: oneOf(MOSAICS, seatMosaic, DEFAULT.seatMosaic),
     standTexts: normalizeStandTexts(src),
+    screenShow: src.screenShow === 'image' ? 'image' : 'match',
+    screenImage: imgUrl(src.screenImage),
+    netPattern: oneOf(NET_PATTERNS, src.netPattern, 'square'),
     standScreens: normalizeStandScreens(src.standScreens),
     outerText: String(src.outerText || '').slice(0, MAX_OUTER_TEXT),
     outerTextFont: oneOf(TEXT_FONTS, src.outerTextFont, DEFAULT.outerTextFont),
@@ -1875,6 +1886,13 @@ function entranceImageCanvas(url) {
   return entranceImageCache.get(url);
 }
 
+/** Immagini personali dei maxischermi dello stadio, caricate: Map indirizzo → tela (null se non si può usare). */
+async function screenImagesOf(n) {
+  const urls = [...new Set([n.screenShow === 'image' ? n.screenImage : '', ...n.standScreens.map(t => (t.show === 'image' ? t.image : ''))].filter(Boolean))];
+  const cvs = await Promise.all(urls.map(u => entranceImageCanvas(u)));
+  return new Map(urls.map((u, i) => [u, cvs[i]]));
+}
+
 /** Serve il logo della squadra? (posti scelti o muro dell'Amsterdam ArenA) */
 const needsLogo = (n) => n.logoPlaces.length > 0 || n.facade === 'arena'; // Amsterdam: pannello del cubo e dischi del logo
 /** Tela dell'immagine personale del cubo (solo se il pannello la usa). */
@@ -3102,7 +3120,47 @@ function paintAds(canvas, name, color) {
 }
 
 /** Immagine del maxischermo: nome dello stadio, punteggio, campo e minuto (anello) o tabellone (sopra le curve). */
-function paintScreen(canvas, kind, name, color, logos = null) {
+/**
+ * Rete della porta: un metro di rete (tela quadrata, trasparente tra le maglie) col disegno scelto. Maglie di 12,5 cm;
+ * "strisce" e "scacchi" alternano i due colori a fasce o quadri di 50 cm, "cerchi" mette un anello in ogni maglia.
+ */
+function paintNet(canvas, pattern, c1, c2) {
+  const ctx = canvas.getContext('2d'), N = canvas.width, cell = N / 8, lw = N / 40;
+  ctx.clearRect(0, 0, N, N);
+  ctx.lineWidth = lw; ctx.lineCap = 'round';
+  const line = (x0, y0, x1, y1, col) => { ctx.strokeStyle = col; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); };
+  if (pattern === 'diamond') {
+    for (let k = -8; k <= 16; k++) { const o = k * cell; line(o, 0, o + N, N, c1); line(o + N, 0, o, N, c1); }
+  } else if (pattern === 'hex') {
+    // nido d'ape: esagoni a punta in su, 4 colonne e 4 righe per metro (righe pari: la tela si ripete senza salti)
+    const w = N / 4, r = w / Math.sqrt(3), sy = w / (1.5 * r);
+    ctx.strokeStyle = c1;
+    for (let j = -1; j <= 4; j++) for (let i = -1; i <= 4; i++) {
+      const cx = i * w + ((j + 4) % 2 ? w / 2 : 0), cy = j * w;
+      ctx.beginPath();
+      for (let q = 0; q <= 6; q++) { const a = Math.PI / 6 + q * Math.PI / 3, x = cx + r * Math.cos(a), y = cy + r * Math.sin(a) * sy; q ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+      ctx.stroke();
+    }
+  } else {
+    // maglia quadrata; strisce e scacchi cambiano colore ogni 4 maglie
+    const colAt = (x, y) => pattern === 'stripes' ? (Math.floor(y / (N / 2)) % 2 ? c2 : c1)
+      : pattern === 'checks' ? ((Math.floor(x / (N / 2)) + Math.floor(y / (N / 2))) % 2 ? c2 : c1) : c1;
+    for (let k = 0; k <= 8; k++) {
+      const v = k * cell;
+      for (let t = 0; t < 8; t++) {
+        const a = t * cell, b = a + cell;
+        line(v, a, v, b, colAt(Math.min(v, N - 1), a + 1));
+        line(a, v, b, v, colAt(a + 1, Math.min(v, N - 1)));
+      }
+    }
+    if (pattern === 'rings') {
+      ctx.strokeStyle = c2;
+      for (let j = 0; j < 8; j++) for (let i = 0; i < 8; i++) { ctx.beginPath(); ctx.arc((i + 0.5) * cell, (j + 0.5) * cell, cell * 0.28, 0, Math.PI * 2); ctx.stroke(); }
+    }
+  }
+}
+
+function paintScreen(canvas, kind, name, color, logos = null, image = null) {
   const L = logos || {};
   const ctx = canvas.getContext('2d'), W = canvas.width, H = canvas.height;
   const bg = ctx.createLinearGradient(0, 0, 0, H);
@@ -3130,23 +3188,26 @@ function paintScreen(canvas, kind, name, color, logos = null) {
     ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = Math.max(4, h * 0.06);
     ctx.drawImage(c, x + (w - lw) / 2, y + (h - lh) / 2, lw, lh); ctx.restore();
   };
+  // immagine personale: riempie tutto lo schermo (taglia quello che avanza)
+  if (image) {
+    const k = Math.max(W / image.width, H / image.height);
+    ctx.drawImage(image, (W - image.width * k) / 2, (H - image.height * k) / 2, image.width * k, image.height * k);
+    return;
+  }
   ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   if (kind === 'ring') {
-    // striscia: nome | squadra di casa | competizione (o risultato) | ospiti | minuto
-    fit(name, 150, H / 2 + 4, 270, 54);
-    ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(298, 14, 4, H - 28);
-    if (L.home) logo(L.home, 320, 8, 150, H - 16); else pitch(320, 12, 150, H - 24);
-    if (L.center) logo(L.center, 485, 6, 160, H - 12); else { ctx.fillStyle = '#fff'; fit('2 - 1', 565, H / 2 + 4, 150, 80); }
-    if (L.away) logo(L.away, 660, 8, 150, H - 16); else pitch(660, 12, 150, H - 24);
-    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(830, 18, 176, H - 36);
-    ctx.fillStyle = '#fff'; fit("88:10", 918, H / 2 + 3, 150, 52);
+    // striscia: nome | squadra di casa | competizione (o risultato) | ospiti
+    fit(name, 165, H / 2 + 4, 290, 54);
+    ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(330, 14, 4, H - 28);
+    if (L.home) logo(L.home, 360, 8, 190, H - 16); else pitch(370, 12, 170, H - 24);
+    if (L.center) logo(L.center, 570, 6, 210, H - 12); else { ctx.fillStyle = '#fff'; fit('2 - 1', 675, H / 2 + 4, 180, 80); }
+    if (L.away) logo(L.away, 800, 8, 190, H - 16); else pitch(810, 12, 170, H - 24);
   } else {
     fit(name, W / 2, H * 0.15, W * 0.9, 50);
-    const bw = W * 0.27, by = H * 0.3, bh = H * 0.6;
-    if (L.home) logo(L.home, 30, by, bw, bh); else pitch(30, H * 0.34, bw, H * 0.5);
-    if (L.away) logo(L.away, W - 30 - bw, by, bw, bh); else pitch(W - 30 - bw, H * 0.34, bw, H * 0.5);
-    if (L.center) logo(L.center, W / 2 - W * 0.16, H * 0.28, W * 0.32, H * 0.5); else fit('2 - 1', W / 2, H * 0.6, W * 0.36, 120);
-    ctx.fillStyle = '#fff'; fit("88:10", W / 2, H * 0.9, W * 0.3, 34);
+    const bw = W * 0.28, by = H * 0.32, bh = H * 0.6;
+    if (L.home) logo(L.home, 30, by, bw, bh); else pitch(30, H * 0.36, bw, H * 0.52);
+    if (L.away) logo(L.away, W - 30 - bw, by, bw, bh); else pitch(W - 30 - bw, H * 0.36, bw, H * 0.52);
+    if (L.center) logo(L.center, W / 2 - W * 0.17, H * 0.3, W * 0.34, H * 0.62); else fit('2 - 1', W / 2, H * 0.62, W * 0.36, 120);
   }
 }
 
@@ -7997,18 +8058,14 @@ function buildStadium(L, st) {
     const m = new THREE.Mesh(bar, goalMat); m.position.set(sx * PITCH.l / 2, 2.44, 0); m.castShadow = true; group.add(m);
   }
   // reti: tetto piatto per 1 m dietro la traversa, poi scendono fino a terra a 2 m dalla linea; ai lati i due fianchi
+  let netCanvas = null, netTex = null, netKey = '';
   {
-    const c = document.createElement('canvas'), N = 64, cell = 8; // 8 maglie per metro (12,5 cm)
-    c.width = c.height = N;
-    const ctx = c.getContext('2d');
-    ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 1.6;
-    for (let k = 0; k <= cell; k++) {
-      const v = k * N / cell;
-      ctx.beginPath(); ctx.moveTo(v, 0); ctx.lineTo(v, N); ctx.moveTo(0, v); ctx.lineTo(N, v); ctx.stroke();
-    }
-    const netTex = new THREE.CanvasTexture(c);
-    netTex.wrapS = netTex.wrapT = THREE.RepeatWrapping; netTex.anisotropy = 8;
-    const netMat = new THREE.MeshStandardMaterial({ map: netTex, color: 0xf4f4f4, transparent: true, depthWrite: false, side: THREE.DoubleSide, roughness: 0.8 });
+    netCanvas = document.createElement('canvas');
+    netCanvas.width = netCanvas.height = 128; // un metro di rete
+    paintNet(netCanvas, st.netPattern, st.colors.net, st.colors.net2);
+    netTex = new THREE.CanvasTexture(netCanvas);
+    netTex.wrapS = netTex.wrapT = THREE.RepeatWrapping; netTex.anisotropy = 8; netTex.colorSpace = THREE.SRGBColorSpace;
+    const netMat = new THREE.MeshStandardMaterial({ map: netTex, transparent: true, depthWrite: false, side: THREE.DoubleSide, roughness: 0.8 });
     const H = 2.44, w = 3.66, Dt = 1.0, D = 2.0, x0 = PITCH.l / 2 + 0.06, back = Math.hypot(D - Dt, H);
     const pos = [], uv = [], idx = [];
     const quad = (pts, uvs) => {
@@ -8256,6 +8313,8 @@ function buildStadium(L, st) {
   let adsKey = '', paintKey = '', seatColorKey = '', signKey = '', screenKey = '', sign = null, night = false;
   // loghi sui maxischermi: squadra di casa, ospiti e competizione al centro (tele; null = disegno di prima)
   let scrLogos = { home: null, away: null, center: null }, scrLogoKey = '', scrName = 'FANTACAZZ', scrColor = '#152c78';
+  // immagini personali dei maxischermi (indirizzo → tela già caricata) e quella del maxischermo del tetto
+  let scrImages = new Map(), scrImgKey = '', scrImage = null;
   const scrLogoId = new WeakMap();
   let scrLogoN = 0;
   const logoId = (c) => { if (!c) return 0; if (!scrLogoId.has(c)) scrLogoId.set(c, ++scrLogoN); return scrLogoId.get(c); };
@@ -8434,7 +8493,7 @@ function buildStadium(L, st) {
   group.add(standScr);
   let standScrKey = '', standScrParts = [], lastRecolor = null;
   const applyStandScreens = (s, c) => {
-    const key = JSON.stringify([s.standScreens, s.name.trim(), c.screen, scrLogoKey]);
+    const key = JSON.stringify([s.standScreens, s.name.trim(), c.screen, scrLogoKey, scrImgKey]);
     if (key === standScrKey) return false;
     standScrKey = key;
     standScrParts.forEach(o => o.dispose()); standScrParts = [];
@@ -8468,7 +8527,7 @@ function buildStadium(L, st) {
       }
       const cv = document.createElement('canvas'), ratio = T.w / T.h, ring360 = ratio > 4.5;
       cv.width = 1024; cv.height = Math.max(96, Math.round(1024 / ratio));
-      paintScreen(cv, ring360 ? 'ring' : 'ends', name, c.screen, scrLogos);
+      paintScreen(cv, ring360 ? 'ring' : 'ends', name, c.screen, scrLogos, T.show === 'image' ? scrImages.get(T.image) || null : null);
       const tex = new THREE.CanvasTexture(cv);
       tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
       const disp = new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.85, roughness: 0.4 });
@@ -8501,8 +8560,15 @@ function buildStadium(L, st) {
       if (k === scrLogoKey) return;
       scrLogos = next; scrLogoKey = k;
       const scr = outside.screen;
-      if (scr) { paintScreen(scr.canvas, scr.kind, scrName, scrColor, scrLogos); scr.tex.needsUpdate = true; screenKey = ''; }
+      if (scr) { paintScreen(scr.canvas, scr.kind, scrName, scrColor, scrLogos, scrImage); scr.tex.needsUpdate = true; screenKey = ''; }
       if (lastRecolor) { standScrKey = ''; if (applyStandScreens(lastRecolor, lastRecolor.colors) && lastCrowd) this.setCrowd(lastCrowd); }
+    },
+    /** Immagini personali dei maxischermi: Map indirizzo → tela (le altre restano coi loghi finché non arrivano). */
+    setScreenImages(map) {
+      const m = map || new Map(), k = [...m.entries()].filter(([, v]) => v).map(([u]) => u).sort().join('|');
+      if (k === scrImgKey) return;
+      scrImages = m; scrImgKey = k;
+      if (lastRecolor) { screenKey = ''; standScrKey = ''; this.recolor(lastRecolor); }
     },
     /** Aggiunge a un materiale il taglio della copertura nascosta (per la mappa di profondità delle etichette). */
     cutMaterial(m) { addCut(m); return m; },
@@ -8595,12 +8661,16 @@ function buildStadium(L, st) {
       }
       // maxischermo: nome dello stadio e colore
       scrName = (s.name.trim() || 'FANTACAZZ').toUpperCase(); scrColor = c.screen;
-      const scr = outside.screen, sck = s.name.trim() + '|' + c.screen + '|' + scrLogoKey;
+      scrImage = s.screenShow === 'image' ? scrImages.get(s.screenImage) || null : null;
+      const scr = outside.screen, sck = [s.name.trim(), c.screen, scrLogoKey, s.screenShow, s.screenImage, scrImgKey].join('|');
       if (scr && sck !== screenKey) {
         screenKey = sck;
-        paintScreen(scr.canvas, scr.kind, scrName, c.screen, scrLogos);
+        paintScreen(scr.canvas, scr.kind, scrName, c.screen, scrLogos, scrImage);
         scr.tex.needsUpdate = true;
       }
+      // rete delle porte: disegno e colori
+      const nk = [s.netPattern, c.net, c.net2].join('|');
+      if (netCanvas && nk !== netKey) { netKey = nk; paintNet(netCanvas, s.netPattern, c.net, c.net2); netTex.needsUpdate = true; }
       aisleMat.color.set(c.aisle);
       mats[M_PARAPET].color.set(c.parapet);
       mats[M_STEPS].color.set(shade(c.structure, 1.12));
@@ -8942,6 +9012,7 @@ class Stage {
       this.scene.add(this.built.group);
       this.fit();
     }
+    if (this.screenImages) this.built.setScreenImages(this.screenImages);
     this.built.recolor(st);
     this.built.setLogo(logo);
     this.built.setEntranceImage(entranceImg);
@@ -9198,6 +9269,8 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
       const [s, , lc, ec, cc] = await Promise.all([ready, loadTextFonts(n), needsLogo(n) ? stadiumLogo(logo) : null,
         n.entrance !== 'none' || n.roof === 'wave' ? entranceImageCanvas(n.entranceImage) : null, cubeImageOf(n)]);
       if (!s || disposed || my !== token) return 0;
+      s.screenImages = await screenImagesOf(n);
+      if (disposed || my !== token) return 0;
       const capacity = s.setStadium(n, lc, ec, cc);
       s.render();
       return capacity;
@@ -9392,6 +9465,7 @@ export function renderStadiumImage(st, opts = {}) {
     const SL = opts.screenLogos || {};
     const [lh, la, lc] = await Promise.all([SL.home, SL.away, SL.center].map(x => (x ? stadiumLogo(x).catch(() => null) : null)));
     shot.screenLogos = { home: lh, away: la, center: lc };
+    shot.screenImages = await screenImagesOf(n);
     shot.setStadium(n, needsLogo(n) ? await stadiumLogo(opts.logo) : null, n.entrance !== 'none' || n.roof === 'wave' ? await entranceImageCanvas(n.entranceImage) : null, await cubeImageOf(n));
     shot.setView(opts.view || 'aerial');
     shot.render();
