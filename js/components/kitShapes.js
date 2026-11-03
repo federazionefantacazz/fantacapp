@@ -7,6 +7,8 @@
  *           spostata, inclinata e rimpicciolita in modo uniforme, V_FIT in Kit3D.js) al posto del girocollo; la stoffa
  *           dentro la V si toglie (icons/kit3d/neck-cutv-raglan.bin) e il bordo del taglio va sotto la costina
  *           (icons/kit3d/neck-v-raglan.bin).
+ * - 'big':  colletto grosso: il girocollo (raglan: quello del modello, classica: come 'crew') con la costina alta quasi il
+ *           doppio, allungata verso l'alto dal suo bordo basso (BIG_RIB in Kit3D.js); la stoffa resta quella del girocollo.
  * - 'polo': colletto alto in tinta unita (icons/kit3d/collar-polo.glb, preso dal modello "Adidas Retro Jersey Mold"
  *           di akifdesign): colletto e strisce lungo la V, già posizionati sulla maglia e non deformati.
  *           La costina dello scollo a V si nasconde e il bordo della stoffa viene portato sulla cucitura del colletto
@@ -15,8 +17,9 @@
 export const COLLAR_SHAPES = [
   { id: 'crew', label: 'Girocollo' },
   { id: 'v',    label: 'Scollo a V' },
+  { id: 'big',  label: 'Colletto grosso' },
   { id: 'polo', label: 'Colletto alto' }
 ];
 
 /** true se la forma richiede una variante del modello (maglia modificata e/o colletto aggiunto). */
-export const isDeformed = (shape, raglan = false) => shape === 'polo' || (shape === 'crew' && !raglan) || (shape === 'v' && raglan);
+export const isDeformed = (shape, raglan = false) => shape === 'polo' || shape === 'big' || (shape === 'crew' && !raglan) || (shape === 'v' && raglan);

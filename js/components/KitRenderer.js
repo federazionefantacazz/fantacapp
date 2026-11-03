@@ -8,13 +8,14 @@ export { COLLAR_SHAPES };
  * Divisa della squadra: dati e pittura della texture UV della maglia 3D (vedi components/Kit3D.js).
  * La divisa è salvata in teams/{id}/kit:
  * {
- *   collarShape,                                            // forma del colletto: 'crew' (girocollo), 'v' (scollo a V) o 'polo' (vedi kitShapes.js)
+ *   collarShape,                                            // forma del colletto: 'crew' (girocollo), 'v' (scollo a V), 'big' (colletto grosso) o 'polo' (vedi kitShapes.js)
  *   neckV,                                                  // 2: 'v' è lo scollo a V anche sulla raglan (prima la raglan salvava 'v' per il suo girocollo)
  *   sleeveCut,                                              // cucitura delle maniche: 'setin' (sulle spalle) o 'raglan' (dal colletto all'ascella)
  *   collar, cuffs, sleeveDeco,                              // stile di colletto, polsini, decorazioni maniche
  *   colors: { base, sleeves, sleevesR, shoulders, collar, cuffs, trim },  // sleevesR: manica destra se diversa ('' = come sleeves)
  *   shoulders: { shape: 'none'|'raglan'|'yoke', size, match },  // spalle colorate; match: colore delle maniche
  *   sleeveDecoN,                                            // numero di strisce delle maniche (decorazione 'stripes')
+ *   collarStripes,                                          // righe del colletto 'striped': 1, 2 o 3
  *   sleeveDecoShoulder,                                     // strisce delle maniche che partono dal colletto (spalla + manica)
  *   layers: [{ type, color, opacity, scale, flipX, flipY, x, y, rot, zone }],  // type: disegno integrato, 'png:<id>' (dal Patron)
  *                                                           // motivi ('m-...'): anche count, size, gap, dir, amp, len, shape, fill, stagger (vedi motifParams)
@@ -409,8 +410,7 @@ export const COLLARS = [
   { id: 'plain',   label: 'Semplice' },
   { id: 'twotone', label: 'Bicolore' },
   { id: 'striped', label: 'Con righe' },
-  { id: 'trim',    label: 'Con bordino' },
-  { id: 'wide',    label: 'Bordo largo' }
+  { id: 'trim',    label: 'Con bordino' }
 ];
 
 export const CUFFS = [
@@ -445,7 +445,7 @@ export const SLEEVE_DECO = [
 
 export function defaultKit() {
   return {
-    collarShape: 'v', sleeveCut: 'setin', collar: 'plain', cuffs: 'band', sleeveDeco: 'none', sleeveDecoN: 3, sleeveDecoShoulder: false,
+    collarShape: 'v', sleeveCut: 'setin', collar: 'plain', collarStripes: 3, cuffs: 'band', sleeveDeco: 'none', sleeveDecoN: 3, sleeveDecoShoulder: false,
     sleeveTf: { x: 0, y: 0, scale: 100, rot: 0 },
     colors: { base: '#1e5bb8', sleeves: '#1e5bb8', sleevesR: '', shoulders: '#ffffff', collar: '#ffffff', cuffs: '#ffffff', trim: '#ffffff' },
     shoulders: { shape: 'none', size: 100, match: true },
@@ -472,11 +472,12 @@ export function normalizeKit(raw) {
       : COLLAR_SHAPES.some(c => c.id === k.collarShape) ? k.collarShape : d.collarShape,
     neckV: 2,
     sleeveCut: SLEEVE_CUTS.some(c => c.id === k.sleeveCut) ? k.sleeveCut : d.sleeveCut,
-    collar: COLLARS.some(c => c.id === k.collar) ? k.collar : d.collar,
+    collar: k.collar === 'wide' ? 'trim' : COLLARS.some(c => c.id === k.collar) ? k.collar : d.collar, // 'wide' (bordo largo) non c'è più
     cuffs: CUFFS.some(c => c.id === k.cuffs) ? k.cuffs : d.cuffs,
     // tre / due strisce di prima: ora una sola decorazione "Strisce" con il numero di strisce
     sleeveDeco: /^stripes[23]$/.test(k.sleeveDeco) ? 'stripes' : SLEEVE_DECO.some(c => c.id === k.sleeveDeco) ? k.sleeveDeco : d.sleeveDeco,
     sleeveDecoN: Math.round(clamp(k.sleeveDecoN || (k.sleeveDeco === 'stripes2' ? 2 : 3), 1, SLEEVE_STRIPES_MAX)),
+    collarStripes: [1, 2, 3].includes(Number(k.collarStripes)) ? Number(k.collarStripes) : 3,
     sleeveDecoShoulder: !!k.sleeveDecoShoulder,
     sleeveTf: { ...d.sleeveTf, ...(k.sleeveTf || {}) },
     colors: { ...d.colors, ...(k.colors || {}) },
@@ -560,6 +561,7 @@ const ASSET_BASE = 'icons/kit3d/';
 export const KIT3D_FILES = {
   model: ASSET_BASE + 'shirt.glb', collarPolo: ASSET_BASE + 'collar-polo.glb', neckPolo: ASSET_BASE + 'neck-polo.bin', mask: ASSET_BASE + 'mask.png', seams: ASSET_BASE + 'seams.jpg',
   neckCrewSetin: ASSET_BASE + 'neck-crew-setin.bin', neckVRaglan: ASSET_BASE + 'neck-v-raglan.bin', neckCutVRaglan: ASSET_BASE + 'neck-cutv-raglan.bin',
+  neckBands: ASSET_BASE + 'neck-bands.json',
   raglan: ASSET_BASE + 'shirt-raglan.glb', raglanMask: ASSET_BASE + 'mask-raglan.png', raglanSeams: ASSET_BASE + 'seams-raglan.jpg',
   collarPoloRaglan: ASSET_BASE + 'collar-polo-raglan.glb', neckCutRaglan: ASSET_BASE + 'neck-cut-raglan.bin',
   neckPoloRaglan: ASSET_BASE + 'neck-polo-raglan.bin'
@@ -791,6 +793,12 @@ async function drawBackPrint(ctx, bp, r) {
 }
 
 /* --------------------------------------------- maschera e scollo del modello */
+let neckBandsJob = null;
+/** Contorno del bordino nella texture (per maglia e scollo: { 'setin:base': [{ part, top: [u, v, …], bot: [u, v, …] }] }). */
+function loadNeckBands() {
+  if (!neckBandsJob) neckBandsJob = fetch(KIT3D_FILES.neckBands).then(r => (r.ok ? r.json() : null)).catch(() => null);
+  return neckBandsJob;
+}
 const maskJobs = new Map();
 /** Maschera dei pezzi + profilo superiore di davanti/dietro (per il bordino del colletto), per ogni modello. */
 function loadMask(model) {
@@ -854,9 +862,7 @@ function loadMask(model) {
 export async function paintKitTexture(rawKit, opts = {}) {
   const k = normalizeKit(rawKit);
   if (k.collarShape === 'polo') k.collar = 'plain'; // il colletto alto è in tinta unita: niente rifiniture sotto
-  // bordino e bordo largo sono disegnati sullo scollo originale del modello (classica: V, raglan: girocollo): sull'altro no
-  const swapped = k.sleeveCut === 'raglan' ? k.collarShape === 'v' : k.collarShape === 'crew';
-  if (swapped && (k.collar === 'trim' || k.collar === 'wide')) k.collar = 'plain';
+  const swapped = k.sleeveCut === 'raglan' ? k.collarShape === 'v' : (k.collarShape === 'crew' || k.collarShape === 'big');
   const S = Math.round(opts.size || 2048);
   const model = kitModel(k), raglan = model === MODELS.raglan;
   const R = (part) => { const r = model.uv[part]; return { x: r.x * S, y: r.y * S, w: r.w * S, h: r.h * S }; };
@@ -1122,11 +1128,18 @@ export async function paintKitTexture(rawKit, opts = {}) {
   }));
 
   // 4. colletto (striscia intorno al collo) ed eventuale bordo sul petto e sulla schiena
+  const ribIsRaglan = raglan !== swapped; // costina della raglan: sulla raglan girocollo o sulla classica girocollo
   const paintCollar = (x, r) => {
     x.fillStyle = safeColor(c.collar); x.fillRect(r.x - 2, r.y - 2, r.w + 4, r.h + 4);
     x.fillStyle = trim;
     if (k.collar === 'twotone') x.fillRect(r.x - 2, r.y + r.h * .5, r.w + 4, r.h * .5 + 2);
-    if (k.collar === 'striped') { x.fillRect(r.x - 2, r.y + r.h * .3, r.w + 4, r.h * .12); x.fillRect(r.x - 2, r.y + r.h * .58, r.w + 4, r.h * .12); }
+    // righe: una al centro, due o tre, nella faccia visibile della costina. Costina della raglan: tutto il riquadro (dall'alto in
+    // basso); costina a V della classica: solo la metà bassa (quella alta è il lato interno, ripiegato)
+    if (k.collar === 'striped') {
+      const [v0, v1] = ribIsRaglan ? [0, 1] : [.55, 1];
+      ({ 1: [[.43, .14]], 2: [[.31, .11], [.58, .11]], 3: [[.27, .09], [.455, .09], [.64, .09]] }[k.collarStripes])
+        .forEach(([y, h]) => x.fillRect(r.x - 2, r.y + r.h * (v0 + (v1 - v0) * y), r.w + 4, r.h * (v1 - v0) * h));
+    }
   };
   if (swapped) {
     // costina presa dall'altra maglia (classica col girocollo della raglan, raglan con la V della classica): occupa tutto
@@ -1138,16 +1151,21 @@ export async function paintKitTexture(rawKit, opts = {}) {
     if (k.collar === 'twotone') { ctx.fillStyle = trim; ctx.fillRect(r.x - m, r.y + r.h, r.w + 2 * m, m); } // sotto continua la seconda tinta
     paintCollar(ctx, r); ctx.restore();
   } else inPart('collar', paintCollar);
-  if ((k.collar === 'trim' || k.collar === 'wide') && mask) {
-    ['front', 'back'].forEach(p => inPart(p, (x) => {
-      const pts = mask.neck[p];
-      if (!pts || pts.length < 2) return;
-      const lw = S * (k.collar === 'wide' ? .012 : .005);
-      x.strokeStyle = safeColor(c.collar); x.lineWidth = lw; x.lineJoin = 'round';
-      x.beginPath();
-      pts.forEach(([u, v], i) => (i ? x.lineTo(u * S, v * S + lw / 2) : x.moveTo(u * S, v * S + lw / 2)));
-      x.stroke();
-    }));
+  // bordino: fascia di 5 mm sulla stoffa subito sotto la costina, sul davanti, dietro e (raglan) sulle maniche.
+  // neck-bands.json ha per ogni maglia e scollo, pezzo per pezzo, il contorno della fascia nella texture: il bordo della
+  // stoffa (top) e la linea a 5 mm da una linea del collo lisciata, misurata sulla stoffa già spostata o tagliata come nel
+  // 3D (bot): larga uguale tutto intorno, dritta e continua sulle cuciture
+  if (k.collar === 'trim') {
+    const bands = await loadNeckBands();
+    const key = `${raglan ? 'raglan' : 'setin'}:${swapped ? (raglan ? 'v' : 'crew') : 'base'}`;
+    ctx.save(); ctx.fillStyle = trim;
+    ((bands && bands[key]) || []).forEach(({ top, bot }) => {
+      ctx.beginPath();
+      for (let i = 0; i < top.length; i += 2) (i ? ctx.lineTo : ctx.moveTo).call(ctx, top[i] * S, top[i + 1] * S);
+      for (let i = bot.length - 2; i >= 0; i -= 2) ctx.lineTo(bot[i] * S, bot[i + 1] * S);
+      ctx.closePath(); ctx.fill();
+    });
+    ctx.restore();
   }
 
   // 5. loghi, sponsor e patch sul davanti / maniche
