@@ -693,6 +693,13 @@ function shapeOf(st) {
   a += st.endGap || 0; b += st.standGap || 0;
   if (b > a) a = b; // la pianta resta più lunga che larga
   const r = st.shape === 'oval' ? b : st.shape === 'rounded' ? b * 0.42 : st.shape === 'soft' ? SOFT_R : 0;
+  // senza pista le curve arrotondate (soprattutto a semicerchio) non devono tagliare gli angoli del campo: le curve si
+  // allontanano finché l'angolo (con la bandierina e il bordo intorno) resta almeno a 1,5 m dal primo gradone
+  if (!st.track && r > 0) {
+    const cx = PITCH.l / 2 + 2.5, cz = PITCH.w / 2 + 2.5;
+    const fits = () => Math.hypot(Math.max(0, cx - (a - r)), Math.max(0, cz - (b - r))) <= r - 1.5;
+    for (let k = 0; k < 200 && !fits(); k++) a += 0.5;
+  }
   // anelli delle tribune (lati lunghi) e delle curve: gli anelli in comune sono larghi uguali, quelli in più salgono
   // sopra; la pendenza (gradoni più bassi = spalti schiacciati, più larghi che alti) può cambiare da un settore all'altro
   const counts = ringsBySide(st), maxRings = Math.max(...counts), rakes = rakesBySide(st);
@@ -2942,7 +2949,16 @@ function archOf(shape, st) {
   if (!st.arch || st.arch === 'none') return null;
   const R = roofParts(st).map(P => reachBase(shape, P)), base = Math.max(...R.map(r => r.d)), high = Math.max(...R.map(r => r.h));
   const lean = st.arch === 'lean' ? ARCH_LEAN : 0, c = Math.cos(lean), sn = Math.sin(lean);
-  const X = shape.a + base + 12, H = Math.max(0.84 * X, 2.5 * high / c);
+  // l'arco passa sempre sopra la copertura: dove scende verso i piedi (sopra le curve e il loro tetto) deve restare
+  // almeno 8 m più alto della cosa più alta dello stadio, altrimenti i piedi vanno più lontani
+  const out = shape.a + base, clear = high + 8;
+  let X = out + 12, H = 0;
+  for (let k = 0; k < 40; k++) {
+    H = Math.max(0.84 * X, 2.5 * high / c);
+    const need = out / Math.sqrt(Math.max(0.04, 1 - clear / (H * c)));
+    if (X >= need - 0.01) break;
+    X = need;
+  }
   return { X, H, lean, top: H * c, zMax: H * sn, at: (s) => { const r = H * (1 - s * s); return [X * s, r * c, -r * sn]; } };
 }
 
@@ -8122,7 +8138,7 @@ function buildStadium(L, st) {
     return m;
   });
   let logoSrc = null, logoTex = null, showOutside = true;
-  const showLogos = () => logoMeshes.forEach((m, k) => { m.visible = !!logoTex && m.userData.count > 0 && (k === 1 || showOutside); });
+  const showLogos = () => logoMeshes.forEach((m) => { m.visible = !!logoTex && m.userData.count > 0; });
 
   // immagine dei pannelli degli ingressi: quella personale (tela) o il pannello col nome dello stadio
   let entImg = null, entName = 'FANTACAZZ', entColor = '#1e5bb8', entFit = 'fill';
@@ -8241,8 +8257,82 @@ function buildStadium(L, st) {
     }
     P.tex.needsUpdate = true;
   };
+  /*
+   * "Nascondi l'esterno": si toglie solo la copertura sopra gli spalti (e quello che ci sta sopra), la facciata intorno
+   * resta. Nei materiali dell'esterno si scartano i punti più alti della cima degli spalti di quel lato e più dentro del
+   * muro esterno (distanza dal bordo interno degli spalti, rettangolo con gli angoli arrotondati). I materiali che
+   * l'esterno usa insieme agli spalti si copiano (la copia segue i colori dell'originale), così gli spalti restano interi.
+   */
+  const cut = { on: { value: 0 }, ab: { value: new THREE.Vector3(shape.a, shape.b, shape.r) }, d: { value: new THREE.Vector4() }, h: { value: new THREE.Vector4() } };
+  {
+    const counts = ringsBySide(st), fo = shape.tiers.facadeOut || 0;
+    const sideD = [0, 1, 2, 3].map(k => shape.tiers[Math.max(0, counts[k] - 1)].back + WALL + fo - 1.2);
+    const sideH = [0, 1, 2, 3].map(k => shape.tiers[Math.max(0, counts[k] - 1)].top + 1.2);
+    // lato 0 = z+, 1 = x+, 2 = z-, 3 = x-
+    cut.d.value.set(...sideD); cut.h.value.set(...sideH);
+  }
+  const cutShader = (sh) => {
+    sh.uniforms.uCutOn = cut.on; sh.uniforms.uCutAB = cut.ab; sh.uniforms.uCutD = cut.d; sh.uniforms.uCutH = cut.h;
+    sh.vertexShader = 'varying vec3 vCutW;\n' + sh.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+  vec4 cutW = vec4(transformed, 1.0);
+  #ifdef USE_INSTANCING
+  cutW = instanceMatrix * cutW;
+  #endif
+  vCutW = (modelMatrix * cutW).xyz;`);
+    sh.fragmentShader = 'uniform float uCutOn;\nuniform vec3 uCutAB;\nuniform vec4 uCutD, uCutH;\nvarying vec3 vCutW;\n' + sh.fragmentShader.replace('void main() {', `void main() {
+  if (uCutOn > 0.5) {
+    vec2 p = abs(vCutW.xz), q = p - (uCutAB.xy - uCutAB.z);
+    float dist = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - uCutAB.z;
+    bool lng = p.y / (uCutAB.y + max(dist, 0.0)) > p.x / (uCutAB.x + max(dist, 0.0));
+    float dl = lng ? (vCutW.z > 0.0 ? uCutD.x : uCutD.z) : (vCutW.x > 0.0 ? uCutD.y : uCutD.w);
+    float hl = lng ? (vCutW.z > 0.0 ? uCutH.x : uCutH.z) : (vCutW.x > 0.0 ? uCutH.y : uCutH.w);
+    if (vCutW.y > hl && dist < dl || dist < -0.5 && vCutW.y > 0.3) discard; // anche quello appeso sopra il campo
+  }`);
+  };
+  const cutMats = new Set(), cutPairs = [];
+  const addCut = (m) => {
+    if (!m || cutMats.has(m)) return;
+    cutMats.add(m);
+    const prev = m.onBeforeCompile, key = m.customProgramCacheKey();
+    m.onBeforeCompile = function (sh, r) { prev.call(this, sh, r); cutShader(sh); };
+    m.customProgramCacheKey = () => key + '|cut';
+    m.needsUpdate = true;
+  };
+  {
+    const inExt = new Set();
+    for (const e of exts) e.group.traverse(o => inExt.add(o));
+    const standMats = new Set();
+    group.traverse(o => { if (o.isMesh && !inExt.has(o)) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => standMats.add(m)); });
+    const copies = new Map();
+    const own2 = (m) => {
+      if (!standMats.has(m)) return m;
+      if (!copies.has(m)) {
+        const c = m.clone(); // clone() non copia l'aggiunta allo shader (texture triplanari e simili)
+        c.onBeforeCompile = m.onBeforeCompile;
+        if (Object.prototype.hasOwnProperty.call(m, 'customProgramCacheKey')) c.customProgramCacheKey = m.customProgramCacheKey;
+        copies.set(m, c); cutPairs.push([m, c]); own.push(c);
+      }
+      return copies.get(m);
+    };
+    for (const e of exts) e.group.traverse(o => {
+      if (!o.isMesh) return;
+      o.material = Array.isArray(o.material) ? o.material.map(own2) : own2(o.material);
+      (Array.isArray(o.material) ? o.material : [o.material]).forEach(addCut);
+    });
+    addCut(logoMat);
+  }
+  // le copie prendono colori e texture degli originali (dopo recolor e setNight)
+  const syncCut = () => {
+    for (const [m, c] of cutPairs) {
+      if (m.color) c.color.copy(m.color);
+      if (m.emissive) { c.emissive.copy(m.emissive); c.emissiveIntensity = m.emissiveIntensity; }
+      for (const k of ['map', 'emissiveMap', 'normalMap']) if (c[k] !== m[k]) { c[k] = m[k]; c.needsUpdate = true; }
+    }
+  };
   return {
     key: geomKey(st), group, shape, ext, height: reach.h, capacity: seats.count,
+    /** Aggiunge a un materiale il taglio della copertura nascosta (per la mappa di profondità delle etichette). */
+    cutMaterial(m) { addCut(m); return m; },
     setNight(on) {
       night = on;
       if (sign) sign.glow(on); // la scritta si accende
@@ -8256,6 +8346,7 @@ function buildStadium(L, st) {
       if (archMat) archMat.emissiveIntensity = on ? 1.4 : 0; // l'arco si accende
       if (adsMat) adsMat.emissiveIntensity = on ? 1.3 : 0.85;
       nightLights.forEach(l => { l.visible = on; });
+      syncCut();
     },
     recolor(s) {
       const c = s.colors;
@@ -8325,7 +8416,7 @@ function buildStadium(L, st) {
           sign = buildSign(THREE, shape, s, s.outerText.trim(), c.outerText, c.outerPanel);
           if (W) warpGroup(sign.mesh, W, rampOf(parts[0].roof));
           sign.glow(night);
-          sign.mesh.visible = showOutside;
+          sign.mesh.traverse(o => { if (o.isMesh) (Array.isArray(o.material) ? o.material : [o.material]).forEach(addCut); });
           group.add(sign.mesh);
         }
       }
@@ -8385,6 +8476,7 @@ function buildStadium(L, st) {
         // con i tifosi i loro colori restano sopra: si aggiornano solo quelli da rimettere quando se ne vanno
         if (seatPlain && lastCrowd) { seatPlain = null; this.setCrowd(lastCrowd); }
       }
+      syncCut();
     },
     /** Logo della squadra (tela di stadiumLogo, null = nessuno): al posto dello stemma con le iniziali sull'ingresso. */
     setLogo(c) {
@@ -8402,10 +8494,14 @@ function buildStadium(L, st) {
     /** Mostra o nasconde l'esterno (copertura, facciata, spianata, ingressi, scritte e loghi fuori): si vede dentro. */
     setExterior(show) {
       showOutside = !!show;
-      for (const e of exts) e.group.visible = showOutside;
+      cut.on.value = showOutside ? 0 : 1;
       archGroup.visible = showOutside;
-      if (sign) sign.mesh.visible = showOutside;
-      showLogos();
+      // il tetto tolto non fa più ombra sugli spalti (neanche il resto dell'esterno, finché è nascosto)
+      for (const e of exts) e.group.traverse(o => {
+        if (!o.isMesh) return;
+        if (o.userData.castShadow0 === undefined) o.userData.castShadow0 = o.castShadow;
+        o.castShadow = showOutside && o.userData.castShadow0;
+      });
     },
     /** Immagine personale degli ingressi (tela di entranceImageCanvas, null = pannello col nome dello stadio). */
     setEntranceImage(c) {
@@ -8847,11 +8943,17 @@ class Stage {
       this._dzRT = new THREE.WebGLRenderTarget(w, h);
       this._dzMat = this._dzMat || new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide });
     }
+    // con l'esterno nascosto la copertura tagliata non copre i giocatori
+    if (this.outside === false && this._dzCutFor !== this.built) {
+      if (this._dzCut) this._dzCut.dispose();
+      this._dzCut = this.built.cutMaterial(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide }));
+      this._dzCutFor = this.built;
+    }
     const buf = D && D.buf.length === w * h * 4 ? D.buf : new Uint8Array(w * h * 4);
     const hidden = [];
     this.scene.traverse(o => { if (o.visible && (o.userData.noOcclude || o === this.markers || o.isSprite || o.isPoints)) { o.visible = false; hidden.push(o); } });
     const bg = this.scene.background, cc = r.getClearColor(new THREE.Color()), ca = r.getClearAlpha(), sh = r.shadowMap.autoUpdate;
-    this.scene.background = null; this.scene.overrideMaterial = this._dzMat; r.shadowMap.autoUpdate = false;
+    this.scene.background = null; this.scene.overrideMaterial = this.outside === false ? this._dzCut : this._dzMat; r.shadowMap.autoUpdate = false;
     r.setRenderTarget(this._dzRT); r.setClearColor(0xffffff, 1); r.clear();
     r.render(this.scene, cam);
     r.readRenderTargetPixels(this._dzRT, 0, 0, w, h, buf);
@@ -8870,6 +8972,7 @@ class Stage {
     if (this.built) this.built.dispose();
     if (this._dzRT) this._dzRT.dispose();
     if (this._dzMat) this._dzMat.dispose();
+    if (this._dzCut) this._dzCut.dispose();
     if (this.scene.environment) this.scene.environment.dispose();
     this.renderer.dispose();
     this.renderer.forceContextLoss(); // il contesto WebGL si libera subito (i telefoni ne tengono pochi)
@@ -9016,7 +9119,7 @@ export function openStadiumOverlay(st, opts = {}) {
     <div class="kit-zoom-bar">
       ${STADIUM_VIEWS.map(([v, l]) => `<button data-z="${v}">${l}</button>`).join('')}
       <button data-z="night">${night ? 'Giorno' : 'Notte'}</button>
-      <button data-z="ext" class="${hideExt ? 'on' : ''}">${hideExt ? 'Mostra esterno' : 'Nascondi esterno'}</button>
+      <button data-z="ext" class="${hideExt ? 'on' : ''}">${hideExt ? 'Rimetti copertura' : 'Togli copertura'}</button>
       <button data-z="in" aria-label="Avvicina">＋ Zoom</button>
       <button data-z="out" aria-label="Allontana">− Zoom</button>
     </div>`;
@@ -9041,7 +9144,7 @@ export function openStadiumOverlay(st, opts = {}) {
     else if (z === 'night') { night = !night; b.textContent = night ? 'Giorno' : 'Notte'; viewer.setNight(night); }
     else if (z === 'ext') {
       hideExt = !hideExt;
-      b.textContent = hideExt ? 'Mostra esterno' : 'Nascondi esterno';
+      b.textContent = hideExt ? 'Rimetti copertura' : 'Togli copertura';
       b.classList.toggle('on', hideExt);
       viewer.setExterior(!hideExt);
       if (opts.onExterior) opts.onExterior(hideExt);

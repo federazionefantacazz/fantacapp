@@ -1164,7 +1164,7 @@ export const LiveMatchModule = {
           <button data-v3="aerial">Aerea</button>
           <button data-v3="stand">Tribuna</button>
           <button data-v3="night">Notte</button>
-          <button data-v3="ext">Nascondi esterno</button>
+          <button data-v3="ext">Togli copertura</button>
           <button data-v3="in" aria-label="Avvicina">＋</button>
           <button data-v3="out" aria-label="Allontana">−</button>
           <button data-v3="full" aria-label="Schermo intero"><i class="ri-fullscreen-line"></i></button>
@@ -1179,7 +1179,7 @@ export const LiveMatchModule = {
         if (a === 'in') viewer.zoomBy(0.75);
         else if (a === 'out') viewer.zoomBy(1 / 0.75);
         else if (a === 'night') { V.night = !V.night; b.textContent = V.night ? 'Giorno' : 'Notte'; viewer.setNight(V.night); }
-        else if (a === 'ext') { V.ext = !V.ext; b.textContent = V.ext ? 'Nascondi esterno' : 'Mostra esterno'; b.classList.toggle('on', !V.ext); viewer.setExterior(V.ext); }
+        else if (a === 'ext') { V.ext = !V.ext; b.textContent = V.ext ? 'Togli copertura' : 'Rimetti copertura'; b.classList.toggle('on', !V.ext); viewer.setExterior(V.ext); }
         else if (a === 'full') this._full3D(!V.full);
         else {
           el.querySelectorAll('[data-v3="pitch"],[data-v3="aerial"],[data-v3="stand"]').forEach(x => x.classList.toggle('on', x === b));

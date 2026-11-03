@@ -790,7 +790,7 @@ export const StadioSquadra = {
 
   /** Pulsante per nascondere l'esterno (copertura, facciata...) e guardare dentro: solo anteprima, non si salva. */
   _extBtn() {
-    const t = this._hideExt ? 'Mostra l\'esterno' : 'Nascondi l\'esterno (si vede dentro)';
+    const t = this._hideExt ? 'Rimetti la copertura' : 'Togli la copertura (si vede dentro)';
     return `<button class="kit-zoom-btn std-ext-btn ${this._hideExt ? 'on' : ''}" data-act="exterior" title="${t}" aria-label="${t}"><i class="${this._hideExt ? 'ri-eye-line' : 'ri-eye-off-line'}"></i></button>`;
   },
 
