@@ -604,8 +604,6 @@ export const DivisaSquadra = {
     const onShoulder = stripes && k.sleeveDecoShoulder && !raglan;
     const split = !!k.colors.sleevesR;
     const collarTrim = k.collarShape !== 'polo' && k.collar !== 'plain';
-    // bordino e bordo largo sono disegnati sullo scollo originale del modello (classica: V, raglan: girocollo)
-    const notNative = raglan ? k.collarShape === 'v' : k.collarShape === 'crew';
     return `
       ${this._part('ri-t-shirt-line', 'Busto', this._group('', 'front', `
         ${this._colorRow('Colore della maglia', 'base')}
@@ -618,7 +616,8 @@ export const DivisaSquadra = {
         <div class="kit-grid">${COLLAR_SHAPES.map(c => this._opt('collarShape', c.id, this._thumb({ ...base, collarShape: c.id }), c.label, k.collarShape === c.id)).join('')}</div>
         ${this._colorRow('Colore del colletto', 'collar')}`)}
       ${k.collarShape === 'polo' ? '' : this._group('Rifinitura', 'collar', `
-        <div class="kit-grid">${COLLARS.filter(c => !(notNative && (c.id === 'trim' || c.id === 'wide'))).map(c => this._opt('collar', c.id, this._thumb({ ...base, collar: c.id }), c.label, k.collar === c.id)).join('')}</div>
+        <div class="kit-grid">${COLLARS.map(c => this._opt('collar', c.id, this._thumb({ ...base, collar: c.id }), c.label, k.collar === c.id)).join('')}</div>
+        ${k.collar === 'striped' ? this._seg([['1', '1 riga (centrale)', k.collarStripes === 1], ['3', '3 righe', k.collarStripes !== 1]], 'data-act="collar-stripes"') : ''}
         ${collarTrim ? this._colorRow('Colore di righe e bordino', 'trim') : ''}`)}`)}
       ${this._part('ri-t-shirt-2-line', 'Maniche', `
       ${this._group('Cucitura', 'shoulder', `
@@ -1156,6 +1155,9 @@ export const DivisaSquadra = {
         return;
       case 'shoulder-match':
         this._update(kit => { kit.shoulders.match = v === '1'; });
+        return;
+      case 'collar-stripes':
+        this._update(kit => { kit.collarStripes = v === '1' ? 1 : 3; });
         return;
       case 'stripes-reach':
         this._update(kit => { kit.sleeveDecoShoulder = v === '1'; });
