@@ -1,0 +1,5 @@
+tools/kit3d/geo.json
+tools/kit3d/neck-bands-tex.json
+tools/kit3d/**/__pycache__/
+_test_zoom.html
+_dump.html
