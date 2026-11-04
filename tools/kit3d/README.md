@@ -30,10 +30,10 @@ rm _dump.html
 |---|---|---|
 | `neck-crew-setin.bin` | `python3 tools/kit3d/setin_crew.py icons/kit3d/neck-crew-setin.bin` | classica col girocollo della raglan; adattamento in `crewfit.npy` (= `CREW_FIT`) |
 | `neck-v-raglan.bin` + `neck-cutv-raglan.bin` | `python3 tools/kit3d/raglan_v2.py icons/kit3d/neck-v-raglan.bin icons/kit3d/neck-cutv-raglan.bin 0.05` | raglan con la V della classica; adattamento in `vfit3.npy` (= `V_FIT`); 0.05 = fin dove si muove la stoffa (m) |
-| adattamento della V | `python3 tools/kit3d/vfit3.py 0.3` | trova `V_FIT` (peso 0.3 sul petto); **copiare i numeri in `V_FIT` in Kit3D.js** e rigenerare i due `.bin` |
-| `neck-bands.json` | `python3 tools/kit3d/neck_bands_tex.py && python3 tools/kit3d/neck_bands.py` | bordino: fascetta 3D per tre maglie, contorno nella texture per la classica a V. **Va rigenerato ogni volta che cambiano i `.bin` dei colli o `V_FIT`/`CREW_FIT`** (le costine sono ripetute dentro `neck_bands.py`: `setin_v_rib`, `raglan_crew_rib`) |
+| adattamento della V | `python3 tools/kit3d/vfit3.py 0.3 0` | trova `V_FIT` (peso 0.3 sul petto, abbassamento dietro 0: quello lo fa `V_BEND`); **copiare i numeri in `V_FIT` in Kit3D.js** e rigenerare i due `.bin` e `neck-bands.json` |
+| `neck-bands.json` | `python3 tools/kit3d/neck_bands_tex.py && python3 tools/kit3d/neck_bands.py` | bordino: fascetta 3D per tre maglie, contorno nella texture per la classica a V. **Va rigenerato ogni volta che cambiano i `.bin` dei colli o `V_FIT`/`CREW_FIT`** (le costine sono ricostruite dentro `neck_bands.py`: `setin_v_rib` legge `vfit3.npy` + `v_bend`, `raglan_crew_rib` ha i numeri di `CREW_FIT`) |
 
-Verifica: con i file attuali tutti e tre i comandi riproducono byte per byte i file del repo.
+Verifica: con i file attuali i comandi riproducono byte per byte i file del repo.
 Gli script stampano i controlli: triangoli rovesciati/schiacciati (devono essere 0), spostamento massimo, distanza delle cuciture, larghezza del bordino.
 
 `legacy/`: script delle versioni precedenti (polo, primi tentativi di girocollo e V). Restano come riferimento e non servono per i file attuali.

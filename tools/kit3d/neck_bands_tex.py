@@ -22,9 +22,9 @@ def read_cut(path):
         c = struct.unpack_from('<I', b, o)[0]; o += 4; out.append(np.frombuffer(b, '<u4', c, o)); o += 4 * c
     return out
 def setin_v_rib(Q):  # V_FIT (Kit3D.js)
-    dy, dz, tilt, s, sx, sz = 0.007651, -0.000199, 0.055347, 0.890214, 1.118983, 1.016285; P0 = np.array([0, 1.52, 0])
+    dy, dz, tilt, s, sx, sz = np.load(os.path.join(HERE, 'vfit3.npy')); P0 = np.array([0, 1.52, 0])   # = V_FIT
     c, si = np.cos(tilt), np.sin(tilt); q = (Q - P0) * s; y = q[:, 1] * c - q[:, 2] * si; z = q[:, 1] * si + q[:, 2] * c
-    return np.stack([q[:, 0] * sx, y, z * sz], 1) + P0 + np.array([0, dy, dz])
+    return v_bend(np.stack([q[:, 0] * sx, y, z * sz], 1) + P0 + np.array([0, dy, dz]))   # + V_BEND
 def raglan_crew_rib(Q):  # CREW_FIT
     dy, dz, tilt, sx, sz = 0.003238, -0.010652, -0.092575, 1.015959, 1.031167; P0 = np.array([0, 1.58, 0])
     c, si = np.cos(tilt), np.sin(tilt); q = Q - P0; y = q[:, 1] * c - q[:, 2] * si; z = q[:, 1] * si + q[:, 2] * c

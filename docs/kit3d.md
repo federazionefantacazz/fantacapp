@@ -46,6 +46,8 @@ L'utente vuole il colletto con la sua forma pulita e originale, non deformato, e
 1. La costina dell'altra maglia si clona e si mette **rigida**, con trasformazione affine: spostamento, inclinazione, scala e allargamento x/z.
    - `CREW_FIT = { pivot:[0,1.58,0], dy, dz, tilt, sx, sz }`: matrice `T(pivot+dy,dz) · S(sx,1,sz) · Rx(tilt) · T(-pivot)`.
    - `V_FIT = { pivot:[0,1.52,0], dy, dz, tilt, scale, sx, sz }`: matrice `T(pivot+dy,dz) · S(sx,1,sz) · Rx(tilt) · S(scale) · T(-pivot)`.
+   - Poi `V_BEND` (`bendRib` in Kit3D.js, `v_bend` in neckmorph.py): la raglan ha il collo dietro 14 mm sopra la spalla (la classica 7 mm) e la V sembrava rialzata. Dietro la costina scende di 5 mm, solo in verticale e appena in fuori (+0,5 mm di raggio per mm), con un passaggio graduale da 90 a 150 gradi. Dietro la stoffa viene tagliata come davanti.
+   - **Non** abbassare il dietro cambiando l'adattamento rigido (`vfit3.py` con DROP): la costina si inclina e dietro sembra una tesa piatta.
    - I parametri si trovano con un'ottimizzazione (`tools/kit3d/vfit3.py`). Ai lati e dietro il bordo basso della costina deve combaciare con lo scollo originale; davanti deve stare sul petto e non dentro.
 2. `remapUV` porta le UV della costina nel riquadro del colletto di questa maglia. Il nodo è marcato `userData.swappedRib`. Il suo rovescio (`ribInnerMats`) ha il colore del colletto × 0,8 e niente texture: così non resta una riga scura sotto il bordo.
 3. La stoffa si sposta (file NKP1) e, se serve, si taglia (file NKC1) in modo che il suo bordo vada **esattamente** su una linea pulita appena sotto la costina: 0,6 mm sopra il fondo e 1,3 mm dentro. Vedi `setin_crew.py` e `raglan_v2.py`.
@@ -67,7 +69,9 @@ L'utente vuole il colletto con la sua forma pulita e originale, non deformato, e
 - **Bordino** (`trim`): fascia di 5 mm nel colore `colors.trim` sulla stoffa, subito sotto la costina.
   - Su **classica girocollo, raglan girocollo e raglan V** è una **fascetta 3D** (`buildNeckTrim` in Kit3D.js), creata in `Stage.setModel` e accesa o spenta in `applyKit`.
     - Dati in `neck-bands.json` → `{ 'setin:crew': { rows: 4, pts: [...] }, ... }`: campioni intorno al collo × 4 file di punti.
-    - La prima fila sta 1 mm sopra il fondo vero della costina, così non resta mai una fessura. Le altre sono proiettate sulla superficie della stoffa e staccate 0,6 mm verso fuori.
+    - 6 file, un campione ogni grado (0,25° sulla punta della V).
+    - La prima fila sta 2 mm sopra il fondo vero della costina, su una curva ben lisciata (15 passate, non sulla punta della V), così copre anche le tacche della costina (al centro dietro, 1,5 mm) e non resta mai una fessura. Le altre sono proiettate sulla superficie della stoffa e staccate 0,6 mm verso fuori.
+    - Camera: piano vicino `dist × 0,04` (non 0,01 m): sui telefoni la profondità è meno precisa e la stoffa bucava la fascetta con delle seghettature.
     - Niente `polygonOffset`: guardando dentro il collo di sbieco tirava la fascetta davanti alla stoffa. FrontSide, con i triangoli girati verso fuori.
     - La chiave della variante sta in `model.userData.neckKey`.
   - Sulla **classica con la V** (scollo originale) è disegnato nella texture (`neck-bands.json` → `{ 'setin:base': { tex: [{ part, top, bot }] } }`, contorno UV del bordo della stoffa e della linea a 5 mm). Lì la stoffa sotto la costina ha pieghe e la fascetta 3D non si appoggiava bene; il disegno invece viene pulito.
@@ -104,6 +108,8 @@ L'utente vuole il colletto con la sua forma pulita e originale, non deformato, e
 - **Linea del collo per il bordino che comprende punti delle cuciture**: la fascia scende lungo la cucitura (grumi agli incroci). Vanno esclusi i punti cuciti a un altro pezzo.
 - Una **variante base condivisa** (`setModel` con la stessa sorgente usciva subito): il bordino non veniva creato per la maglia di partenza. Ora `setModel` confronta anche `trimKey`.
 - Sui telefoni la profondità è meno precisa che nei render headless: tenere sempre qualche decimo di millimetro di distanza tra superfici vicine (0,6-0,8 mm per la fascetta, 1,3 mm stoffa/costina).
+
+- **Triangoli ribaltati dopo il taglio** (raglan V): alla fine di `raglan_v2.py` i punti dei triangoli ribaltati vanno nella media dei vicini, un passo alla volta. Se restano triangoli con due punti sul bordo del collo, anche il terzo va sulla linea del bordo.
 
 ## 7. Checklist prima di consegnare una modifica alle maglie
 1. `tools/kit3d/render/render.sh` con colori contrastati (es. maglia `#1e6fd0`, colletto `#55dddd` o `#22aa33`, bordino `#ffffff`, oppure `#ff0000` per vedere dove sta).

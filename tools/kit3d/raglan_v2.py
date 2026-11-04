@@ -16,7 +16,7 @@ def xf(Q):
     dy, dz, tilt, s, sx, sz = FIT; c, si = np.cos(tilt), np.sin(tilt)
     q = (Q - PIV) * s; y = q[:, 1] * c - q[:, 2] * si; z = q[:, 1] * si + q[:, 2] * c
     return np.stack([q[:, 0] * sx, y, z * sz], 1) + PIV + np.array([0, dy, dz])
-RIB = xf(mesh('setin', 8)[0])
+RIB = v_bend(xf(mesh('setin', 8)[0]))   # V_FIT + abbassata dietro (V_BEND)
 rlo, rhi = map(smooth, edge_curves(RIB))
 _ra, _rr = cyl(RIB)
 _rtree = cKDTree(np.stack([np.radians(_ra) * 0.08, RIB[:, 1]], 1))
@@ -60,7 +60,8 @@ for k in OUTER:
     P, N, U, I = mesh('raglan', k)
     C = P[I].mean(1); a, r = cyl(C)
     # dentro la V: sopra la linea del bordo (davanti, dove il collo della raglan è più alto della V)
-    inside = (r < 0.14) & (C[:, 1] > 1.45) & (C[:, 1] > at(T, a)[:, 0] + 0.0015) & (np.abs(a) < 75)
+    # sopra la linea del bordo: davanti la stoffa dentro la V, dietro quella sopra la costina abbassata (vfit3.py, DROP)
+    inside = (r < 0.14) & (C[:, 1] > 1.45) & (C[:, 1] > at(T, a)[:, 0] + 0.0015)
     cuts[k] = cuts[k + 1] = np.where(inside)[0]
     Ps.append(P); Is.append(I[~inside]); kept.append(np.where(~inside)[0])
     print(ms[k]['name'], 'tagliati', inside.sum())
@@ -178,7 +179,7 @@ for _ in range(0):
 # la stoffa non sporge fuori dalla costina nella sua fascia
 Q = PA + DA; a, r = cyl(Q); lo, hi = at(rlo, a), at(rhi, a)
 rmax = rib_r(a, np.clip(Q[:, 1], lo[:, 0], hi[:, 0])) - 0.0008
-band = (Q[:, 1] > lo[:, 0] - 0.0005) & (Q[:, 1] < hi[:, 0] + 0.002) & (r > rmax) & (r < lo[:, 1] + 0.01)
+band = (Q[:, 1] > lo[:, 0] + 0.0008) & (Q[:, 1] < hi[:, 0] + 0.002) & (r > rmax) & (r < lo[:, 1] + 0.01)
 band &= np.isin(np.arange(n), used) & (dN > 0.004)   # vicino al bordo segue già il bordo
 ar = np.radians(a[band]); dr = rmax[band] - r[band]
 DA[band, 0] += np.sin(ar) * dr; DA[band, 2] += np.cos(ar) * dr
@@ -232,6 +233,41 @@ for q, k in enumerate(OUTER):
     cuts[k] = cuts[k + 1] = np.union1d(cuts[k], gi); nb += len(gi)
 bad = range(nb)
 print('pieghe tolte', len(bad))
+# ultimi triangolini rovesciati (incroci delle cuciture, lati dove la stoffa rientra): i loro punti, tranne quelli del
+# bordo del collo, vanno nella media dei vicini, un passo alla volta, finché non ne resta nessuno (i punti cuciti insieme)
+IK = np.vstack([Is[q] + off[q] for q in range(len(OUTER))])
+nb_ = [[] for _ in range(n)]
+for t in IK:
+    for a_, b_ in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0])): nb_[a_].append(b_); nb_[b_].append(a_)
+pm = {}
+for a_, b_ in pairs: pm.setdefault(a_, []).append(b_); pm.setdefault(b_, []).append(a_)
+n0 = np.cross(PA[IK[:, 1]] - PA[IK[:, 0]], PA[IK[:, 2]] - PA[IK[:, 0]])
+def flipped():
+    Q = PA + DA; n1 = np.cross(Q[IK[:, 1]] - Q[IK[:, 0]], Q[IK[:, 2]] - Q[IK[:, 0]])
+    return np.where(((n0 * n1).sum(1) <= 0) & (np.linalg.norm(n0, axis=1) > 1e-10))[0]
+held = set(neckset)
+for rnd in range(4):
+    for it in range(60):
+        bad = flipped()
+        if not len(bad): break
+        Q = PA + DA
+        for v in set(IK[bad].ravel().tolist()) - held:
+            if not nb_[v]: continue
+            DA[v] = Q[nb_[v]].mean(0) - PA[v]
+            for b_ in pm.get(v, []): DA[b_] = PA[v] + DA[v] - PA[b_]
+    bad = flipped()
+    if not len(bad): break
+    # ne resta qualcuno con due punti sul bordo del collo (gradini del taglio): anche il terzo va sulla linea del bordo, come
+    # quelli del collo, e resta lì (il triangolino si schiaccia sotto la costina invece di rovesciarsi)
+    Q = PA + DA
+    for t in bad:
+        tri = IK[t]; isn = np.array([v in neckset for v in tri])
+        if isn.sum() == 2:
+            v = tri[~isn][0]; av, rv = cyl(Q[v:v+1]); tt = at(T, av)[0]
+            DA[v] = to_xyz_delta(Q[v:v+1], np.array([tt[0] - Q[v, 1]]), np.array([tt[1] - rv[0]]))[0] + Q[v] - PA[v]
+            held.add(v); neckset.add(v)
+            for b_ in pm.get(v, []): DA[b_] = PA[v] + DA[v] - PA[b_]; held.add(b_)
+print('rovesciati rimasti', len(flipped()))
 # dopo lo spostamento: triangolini che guardano dentro la maglia (da dentro si vedrebbero azzurri) si tolgono
 Q = PA + DA; nb2 = 0
 for q, k in enumerate(OUTER):
