@@ -1,7 +1,7 @@
 import { ref, update, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { uploadBackgroundToImgBB } from "../services/integrationImgBB.js";
 import { DiviseSection } from "./divise.js";
-import { THEME_PAGES, THEME_VERSION, THEME_FONTS, normalizeTheme, buildThemeCss, legacyPageKeys } from "../services/themeService.js";
+import { THEME_PAGES, THEME_VERSION, THEME_FONTS, normalizeTheme, buildThemeCss, legacyPageKeys, transferLegacyPages } from "../services/themeService.js";
 import { THEME_SECTIONS, SECTION_GROUPS, PROPS, propsOf } from "../services/themeElements.js";
 import { esc } from "../utils.js";
 import { fillPreviewTeams } from "./previewTeams.js";
@@ -351,7 +351,10 @@ export const ThemesSection = {
     legacy.innerHTML = old.length ? `
       <div class="th-warn"><i class="ri-information-line"></i> Questo tema ha ancora impostazioni del vecchio editor per tipo di testo
         (${old.map(k => esc((THEME_PAGES.find(p => p.key === k) || {}).label || k)).join(', ')}): si applicano ancora sotto quelle nuove.
-        <button type="button" class="btn" onclick="window.rimuoviVecchioTema()" style="width: auto; padding: .25rem .6rem; font-size: .72rem; margin-left: .4rem; background: var(--bg3); color: var(--text2);">Rimuovile</button>
+        <div style="display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .5rem;">
+          <button type="button" class="btn btn-green" onclick="window.trasferisciVecchioTema()" style="width: auto; padding: .25rem .6rem; font-size: .72rem;" title="Le porta negli elementi con nome (Tutta la pagina · Testi, Titoli…): l'app resta identica"><i class="ri-arrow-right-line"></i> Trasferisci</button>
+          <button type="button" class="btn" onclick="window.rimuoviVecchioTema()" style="width: auto; padding: .25rem .6rem; font-size: .72rem; background: var(--bg3); color: var(--text2);">Rimuovile</button>
+        </div>
       </div>` : '';
 
     if (this.section === BASE_KEY) {
@@ -619,6 +622,18 @@ export const ThemesSection = {
       if (f) f.src = 'index.html?themePreview=1&r=' + Date.now();
       this._picking = false;
       document.getElementById('th-pick')?.classList.remove('th-pick-on');
+    };
+
+    // le impostazioni del vecchio editor diventano elementi con nome ("Tutta la pagina · Testi"…)
+    window.trasferisciVecchioTema = () => {
+      const pages = legacyPageKeys(this.draft).map(k => (THEME_PAGES.find(p => p.key === k) || {}).label || k);
+      this.draft = transferLegacyPages(this.draft);
+      this.draft.el = this.draft.el || {};
+      this.draft.general = this.draft.general || {};
+      this.dirty = true;
+      this.renderEditor();
+      this.pushPreview();
+      window.toast(`Trasferite (${pages.join(', ')}): le trovi negli elementi "Tutta la pagina · …". Salva il tema per confermare`, 'ok');
     };
 
     window.rimuoviVecchioTema = () => {

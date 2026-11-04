@@ -429,14 +429,20 @@ export function buildElementsCss(el, fonts) {
         let val;
         if (p === 'font') {
           const f = fonts.find(x => x.key === raw && x.css);
-          if (!f) return;
-          val = f.css;
+          // 'default' = il font originale di quel testo (impostazioni trasferite dal vecchio editor)
+          if (!f && !(raw === 'default' && e.fontDef)) return;
+          val = f ? f.css : e.fontDef;
         } else if (p === 'size' || p === 'radius') val = px(raw, p);
         else if (p === 'weight') val = raw === 'bold' ? '700' : (raw === 'normal' ? '400' : '');
         else val = clean(raw);
         if (!val) return;
 
-        if (e.vars && e.vars[p]) { vdecl.push(`${e.vars[p]}: ${val};`); return; }
+        if (e.vars && e.vars[p]) {
+          vdecl.push(`${e.vars[p]}: ${val};`);
+          // il font dei testi vale anche per tutto ciò che eredita il font nella pagina
+          if (p === 'font' && e.inheritFont) vdecl.push(`font-family: var(${e.vars[p]});`);
+          return;
+        }
         const css = { color: 'color', font: 'font-family', size: 'font-size', weight: 'font-weight', bg: 'background', border: 'border-color', radius: 'border-radius' }[p];
         decl.push(`${css}: ${val} !important;`);
         if (p === 'color' && e.fill) decl.push(`-webkit-text-fill-color: ${val} !important; background: none !important;`);

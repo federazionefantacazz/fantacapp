@@ -31,7 +31,7 @@
  *               come chiave di THEME_FONTS (menu a tendina nel Patron)
  */
 
-import { buildElementsCss } from './themeElements.js';
+import { buildElementsCss, THEME_SECTIONS } from './themeElements.js';
 
 /* Font selezionabili dal Patron. Il tema salva la chiave, non il CSS.
    I file dei font sono in /fonts, dichiarati con @font-face in fonts/fonts.css. */
@@ -292,6 +292,77 @@ export const THEME_PAGES = [
     fields: [SHEET_BG, OVERLAY_BG, ...CONTENT_TYPES, { key: 'accent', css: '--accent', kind: 'color', def: '#50e3c2', label: 'Evidenze', hint: 'Media, selezione giornata, alone della foto (vuoto = come Generale)' }] },
   { key: 'patron',      label: 'Patron',       selector: 'body.page-patron',  desc: 'Pannello Patron (admin.html).', fields: CONTENT_TYPES }
 ];
+
+/* ------------------------------------------------------------------------ *
+ * TRASFERIMENTO DAL VECCHIO EDITOR (pulsante "Trasferisci" nel Patron)
+ * Ogni impostazione per tipo di una pagina (Titoli, Testi, Sottotesti…) ha un elemento con nome nella
+ * sezione corrispondente, "Tutta la pagina · Testi" ecc.: imposta la stessa variabile CSS sulla stessa
+ * pagina, quindi dopo il trasferimento l'app appare identica.
+ * ------------------------------------------------------------------------ */
+const LEGACY_SECTION = {
+  header: 'header', nav: 'nav', drawer: 'drawer',
+  cards: 'cards',
+  menuPanel: 'panels', menuSettings: 'panels', menuTeam: 'panels', menuKit: 'panels', menuListone: 'panels', menuSvincolati: 'panels',
+  updateBanner: 'updateBanner', notifInvite: 'notifInvite', offlineBanner: 'offlineBanner', toast: 'toast',
+  login: 'login', home: 'home', calendario: 'calendario', classifica: 'classifica', formazione: 'formazione',
+  mercato: 'mercato', teams: 'teams', live: 'live',
+  kitZoom: 'kitWindows', kitPicker: 'kitWindows',
+  liveEditor: 'liveEditor', matchViewer: 'matchViewer', formPicker: 'choiceSheet', playerCard: 'playerSheet',
+  patron: 'patron'
+};
+// sezioni che nel catalogo non c'erano
+const EXTRA_SECTIONS = {
+  cards: { key: 'cards', label: 'Card (tutte le pagine)', icon: 'ri-layout-grid-line', go: 'page:home', group: 'Pagine',
+    desc: 'Tutte le schede e le card dell\'app (partite, squadre, pannelli, banner).', elements: [] },
+  patron: { key: 'patron', label: 'Pannello Patron', icon: 'ri-vip-crown-2-line', go: 'page:home', group: 'Pagine',
+    desc: 'Colori del pannello Patron (admin.html).', elements: [] }
+};
+const legacyProp = (css) => (/bg|border|overlay|card|mini|rows|inner/.test(css) ? 'bg' : 'color');
+
+THEME_PAGES.forEach(page => {
+  const secKey = LEGACY_SECTION[page.key];
+  if (!secKey) return;
+  let sec = THEME_SECTIONS.find(s => s.key === secKey);
+  if (!sec) { sec = EXTRA_SECTIONS[secKey]; THEME_SECTIONS.push(sec); }
+  const shared = Object.values(LEGACY_SECTION).filter(v => v === secKey).length > 1;
+  page.fields.forEach(f => {
+    const prop = legacyProp(f.css);
+    const el = {
+      key: `${page.key}_${f.key}`, noPick: true,
+      label: `${shared ? page.label : 'Tutta la pagina'} · ${f.label || f.hint}`,
+      hint: f.label ? f.hint : '',
+      sel: page.selector,
+      props: f.font ? [prop, 'font'] : [prop],
+      vars: f.font ? { [prop]: f.css, font: f.font.css } : { [prop]: f.css }
+    };
+    if (f.font) { el.fontDef = f.font.def; el.inheritFont = !!f.font.inherited; }
+    sec.elements.push(el);
+  });
+});
+
+/** Porta le impostazioni del vecchio editor negli elementi (senza toccare quelle già messe negli elementi). */
+export function transferLegacyPages(theme) {
+  if (!theme || typeof theme !== 'object') return theme;
+  const out = JSON.parse(JSON.stringify(theme));
+  Object.keys(out).forEach(k => {
+    const secKey = LEGACY_SECTION[k];
+    const page = THEME_PAGES.find(p => p.key === k);
+    if (!secKey || !page || !out[k] || typeof out[k] !== 'object') return;
+    const vals = out[k];
+    page.fields.forEach(f => {
+      const v = {};
+      if (vals[f.key]) v[legacyProp(f.css)] = vals[f.key];
+      if (f.font && vals[f.font.key]) v.font = vals[f.font.key];
+      if (!Object.keys(v).length) return;
+      out.el = out.el || {};
+      const sec = out.el[secKey] = out.el[secKey] || {};
+      const key = `${k}_${f.key}`;
+      sec[key] = { ...v, ...(sec[key] || {}) };
+    });
+    delete out[k];
+  });
+  return out;
+}
 
 /* ------------------------------------------------------------------------ *
  * COMPATIBILITÀ: i temi salvati prima della versione 2 sono "piatti"
