@@ -46,3 +46,11 @@ def write_nkp1(path, per_mesh):
         q = np.round(D[idx] * 20000).astype('<i2')
         out += struct.pack('<I', len(idx)) + idx.astype('<u4').tobytes() + q.tobytes()
     open(path, 'wb').write(out); return len(out)
+# Raglan con la V: dietro la costina scende di V_DROP (la raglan ha il collo dietro 14 mm sopra la spalla, la classica 7:
+# la V sembrava rialzata). Spostamento solo verticale e appena in fuori (la stoffa lì si allarga di ~0,5 mm per mm),
+# graduale da 90 a 150 gradi: la costina non ruota e resta della sua forma. Uguale a V_BEND in Kit3D.js.
+V_DROP = 0.005
+def v_bend(P):
+    a, r = cyl(P); t = np.clip((np.abs(a) - 90) / 60, 0, 1); d = V_DROP * t * t * (3 - 2 * t)
+    f = (r + 0.5 * d) / np.maximum(r, 1e-9)
+    return np.stack([P[:, 0] * f, P[:, 1] - d, P[:, 2] * f], 1)

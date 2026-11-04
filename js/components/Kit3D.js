@@ -119,6 +119,27 @@ const CREW_FIT = { pivot: [0, 1.58, 0], dy: 0.003238, dz: -0.010652, tilt: -0.09
  * (sx) e davanti-dietro (sz) e spostata (m) attorno a pivot, così combacia con lo scollo della raglan ai lati e dietro e
  * con il petto davanti; la stoffa in neck-v-raglan.bin arriva al suo bordo. */
 const V_FIT = { pivot: [0, 1.52, 0], dy: 0.007651, dz: -0.000199, tilt: 0.055347, scale: 0.890214, sx: 1.118983, sz: 1.016285 };
+/** Raglan con la V: dietro la costina scende di V_BEND m (la raglan ha il collo dietro più alto della classica: la V
+ * sembrava rialzata), solo in verticale e appena in fuori, graduale da 90 a 150 gradi (= v_bend in tools/kit3d/neckmorph.py). */
+const V_BEND = 0.005;
+function bendRib(THREE, wrap) {
+  wrap.updateMatrixWorld(true);
+  const v = new THREE.Vector3();
+  wrap.traverse(o => {
+    if (!o.isMesh) return;
+    o.geometry = floatGeometry(THREE, o.geometry);
+    const p = o.geometry.getAttribute('position'), M = o.matrixWorld, inv = M.clone().invert();
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i).applyMatrix4(M);
+      const a = Math.abs(Math.atan2(v.x, v.z)) * 180 / Math.PI, r = Math.hypot(v.x, v.z) || 1e-9;
+      const t = Math.min(1, Math.max(0, (a - 90) / 60)), d = V_BEND * t * t * (3 - 2 * t), f = (r + 0.5 * d) / r;
+      v.set(v.x * f, v.y - d, v.z * f).applyMatrix4(inv);
+      p.setXYZ(i, v.x, v.y, v.z);
+    }
+    p.needsUpdate = true;
+    o.geometry.computeBoundingSphere();
+  });
+}
 
 /** Coordinate della texture della costina presa dall'altra maglia: dal riquadro del colletto a a quello b. */
 function remapUV(THREE, node, a, b) {
@@ -289,6 +310,7 @@ function loadVariant(kit) {
           wrap.matrix.copy(M);
           wrap.add(rib);
           rib.traverse(o => { o.userData.swappedRib = true; });
+          bendRib(THREE, wrap);
           model.add(wrap);
         }
         return model;
@@ -390,8 +412,10 @@ class Stage {
     this.center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
     this.size = size;
-    this.camera = new THREE.PerspectiveCamera(22, width / height, 0.01, 50);
     this.dist = Math.max(size.y, size.x * height / width) / 2 / Math.tan(THREE.MathUtils.degToRad(11)) * 1.06;
+    // piano vicino il più lontano possibile (la camera non va mai più vicina di dist × 0,22 al punto guardato): sui telefoni
+    // la profondità è meno precisa e con 0,01 m la stoffa bucava il bordino (0,6 mm sopra) con delle seghettature
+    this.camera = new THREE.PerspectiveCamera(22, width / height, this.dist * 0.04, this.dist * 6);
     this.setView(0);
 
     if (interactive) {

@@ -23,9 +23,9 @@ def read_cut(path):
         c = struct.unpack_from('<I', b, o)[0]; o += 4; out.append(np.frombuffer(b, '<u4', c, o)); o += 4 * c
     return out
 def setin_v_rib(Q):  # V_FIT (Kit3D.js)
-    dy, dz, tilt, s, sx, sz = 0.007651, -0.000199, 0.055347, 0.890214, 1.118983, 1.016285; P0 = np.array([0, 1.52, 0])
+    dy, dz, tilt, s, sx, sz = np.load(os.path.join(HERE, 'vfit3.npy')); P0 = np.array([0, 1.52, 0])   # = V_FIT
     c, si = np.cos(tilt), np.sin(tilt); q = (Q - P0) * s; y = q[:, 1] * c - q[:, 2] * si; z = q[:, 1] * si + q[:, 2] * c
-    return np.stack([q[:, 0] * sx, y, z * sz], 1) + P0 + np.array([0, dy, dz])
+    return v_bend(np.stack([q[:, 0] * sx, y, z * sz], 1) + P0 + np.array([0, dy, dz]))   # + V_BEND
 def raglan_crew_rib(Q):  # CREW_FIT
     dy, dz, tilt, sx, sz = 0.003238, -0.010652, -0.092575, 1.015959, 1.031167; P0 = np.array([0, 1.58, 0])
     c, si = np.cos(tilt), np.sin(tilt); q = Q - P0; y = q[:, 1] * c - q[:, 2] * si; z = q[:, 1] * si + q[:, 2] * c
@@ -119,8 +119,12 @@ for key, (mdl, shf, cutf, ribf, pieces) in VARIANTS.items():
     okb = np.isfinite(ly); ly = np.interp(ang, ang[okb], ly[okb], period=360); lr = np.interp(ang, ang[okb], lr[okb], period=360)
     wy = np.array([ly[(np.arange(nb) + d_) % nb] for d_ in range(-2, 3)]); wi = np.argmin(wy, 0)
     ly2 = wy[wi, np.arange(nb)]; lr2 = np.array([lr[(i + d_) % nb] for i, d_ in zip(range(nb), wi - 2)])
-    for _ in range(2):
-        ly2 = (np.roll(ly2, 1) + 2 * ly2 + np.roll(ly2, -1)) / 4; lr2 = (np.roll(lr2, 1) + 2 * lr2 + np.roll(lr2, -1)) / 4
+    # lisciata bene (la costina ha piccole tacche, al centro dietro 1,5 mm: il bordino ci faceva una gobbetta), tranne sulla
+    # punta della V
+    keep = np.clip((np.abs(ang) - 3) / 10, 0, 1) if vtip else np.ones(nb)
+    for _ in range(15):
+        sy_ = (np.roll(ly2, 1) + 2 * ly2 + np.roll(ly2, -1)) / 4; sr_2 = (np.roll(lr2, 1) + 2 * lr2 + np.roll(lr2, -1)) / 4
+        ly2 = ly2 + (sy_ - ly2) * keep; lr2 = lr2 + (sr_2 - lr2) * keep
     # la distanza del bordino si misura dal bordo basso della costina (curva fitta)
     fa2 = np.radians(np.arange(0, 360, 0.2) - 179.5)
     ry_ = np.interp(np.degrees(fa2), ang, ly2, period=360); rr2 = np.interp(np.degrees(fa2), ang, lr2, period=360)
@@ -163,7 +167,7 @@ for key, (mdl, shf, cutf, ribf, pieces) in VARIANTS.items():
     # campioni: ogni 1,5 gradi, ogni 0,25 vicino alla punta della V
     samp = []; x = -180.0
     while x < 180:
-        samp.append(x); x += 0.25 if (vtip and abs(x) < 12) else 1.5
+        samp.append(x); x += 0.25 if (vtip and abs(x) < 12) else 1.0
     samp = np.array(samp); sr_ = np.radians(samp)
     ty = np.interp(samp, ang, sy, period=360); tr = np.interp(samp, ang, sr, period=360)
     bY = np.interp(samp, ang, sby, period=360); bR = np.interp(samp, ang, sbr, period=360)
@@ -204,9 +208,10 @@ for key, (mdl, shf, cutf, ribf, pieces) in VARIANTS.items():
         n_ = nrm[best[2]].copy()
         if n_[0] * best[1][0] + n_[2] * best[1][2] < 0: n_ = -n_
         return best[1] + n_ * 0.0006
-    ry = np.interp(samp, ang, ly2, period=360) + 0.001; rrad = np.interp(samp, ang, lr2, period=360) + 0.0004
+    ry = np.interp(samp, ang, ly2, period=360) + 0.002   # 2 mm sopra il fondo della costina: copre anche le tacche
+    rrad = np.interp(samp, ang, lr2, period=360) + 0.0004
     ribtop = np.stack([np.sin(sr_) * rrad, ry, np.cos(sr_) * rrad], 1)
-    ROWS = 4
+    ROWS = 6
     grid = np.zeros((len(samp), ROWS, 3))
     for i in range(len(samp)):
         grid[i, 0] = ribtop[i]
