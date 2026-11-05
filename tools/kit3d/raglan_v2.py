@@ -56,12 +56,21 @@ OUTER = [0, 2, 4, 6]
 per = [np.zeros((len(m['P']) // 3, 3)) for m in ms]
 cuts = [np.zeros(0, int) for m in ms]
 Ps, Is, kept = [], [], []
+def warp_fab(P):
+    # la stoffa intorno al collo scende insieme alla costina (V_BEND): stesso spostamento, che si spegne 4 cm sotto il collo.
+    # Tutti i pezzi si muovono allo stesso modo (i punti cuciti restano insieme): niente pieghe agli incroci delle cuciture
+    a, r = cyl(P); t = np.clip((np.abs(a) - 90) / 60, 0, 1); d = V_DROP * t * t * (3 - 2 * t)
+    fade = np.clip(1 - (at(RLO, a)[:, 0] - P[:, 1]) / 0.04, 0, 1)
+    return to_xyz_delta(P, -d * fade, 0.5 * d * fade)
+Ws = []
 for k in OUTER:
     P, N, U, I = mesh('raglan', k)
+    W_ = warp_fab(P); P = P + W_; Ws.append(W_)
     C = P[I].mean(1); a, r = cyl(C)
     # dentro la V: sopra la linea del bordo (davanti, dove il collo della raglan è più alto della V)
-    # sopra la linea del bordo: davanti la stoffa dentro la V, dietro quella sopra la costina abbassata (vfit3.py, DROP)
-    inside = (r < 0.14) & (C[:, 1] > 1.45) & (C[:, 1] > at(T, a)[:, 0] + 0.0015)
+    # sopra la linea del bordo, solo davanti (la stoffa dentro la V). Dietro, dove la costina è abbassata (V_BEND), la stoffa
+    # non si taglia ma si tira giù: tagliandola, lungo la cucitura dietro la spalla i due pezzi si aprivano (buco)
+    inside = (r < 0.14) & (C[:, 1] > 1.45) & (C[:, 1] > at(T, a)[:, 0] + 0.0015) & (np.abs(a) < 75)
     cuts[k] = cuts[k + 1] = np.where(inside)[0]
     Ps.append(P); Is.append(I[~inside]); kept.append(np.where(~inside)[0])
     print(ms[k]['name'], 'tagliati', inside.sum())
@@ -77,7 +86,8 @@ for it in range(4):
     for k, o in zip(OUTER, off):
         I0 = mesh('raglan', k)[3]
         if len(cuts[k]): cutv |= set((np.unique(I0[cuts[k]]) + o).tolist())
-    onneck = cKDTree(mesh('raglan', 8)[0]).query(PA[allb])[0] < 0.0025   # attaccati al girocollo originale
+    _col = mesh('raglan', 8)[0]; _col = _col + warp_fab(_col)
+    onneck = cKDTree(_col).query(PA[allb])[0] < 0.0025   # attaccati al girocollo originale (spostato come la stoffa)
     neckA = allb[onneck | np.isin(allb, list(cutv))]
     neckA = np.unique(neckA)
     tl = at(T, aA[neckA])
@@ -268,17 +278,39 @@ for rnd in range(4):
             held.add(v); neckset.add(v)
             for b_ in pm.get(v, []): DA[b_] = PA[v] + DA[v] - PA[b_]; held.add(b_)
 print('rovesciati rimasti', len(flipped()))
-# dopo lo spostamento: triangolini che guardano dentro la maglia (da dentro si vedrebbero azzurri) si tolgono
-Q = PA + DA; nb2 = 0
-for q, k in enumerate(OUTER):
-    I0 = mesh('raglan', k)[3]; G = I0 + off[q]
-    fn = np.cross(Q[G[:, 1]] - Q[G[:, 0]], Q[G[:, 2]] - Q[G[:, 0]]); C0 = Q[G].mean(1); tocam = np.array([0, 1.45, 0.02]) - C0
-    m = np.ones(len(I0), bool); m[cuts[k]] = False
-    gi = np.where(m & ((fn * tocam).sum(1) > 0.02 * np.linalg.norm(fn, axis=1) * np.linalg.norm(tocam, axis=1)) & (C0[:, 1] > 1.47))[0]
-    if len(gi): print(ms[k]['name'], 'girati dopo', len(gi), [('a%.0f y%.3f' % (cyl(C0[g:g+1])[0][0], C0[g, 1])) for g in gi])
-    cuts[k] = cuts[k + 1] = np.union1d(cuts[k], gi); nb2 += len(gi)
+# dopo lo spostamento: triangolini che guardano dentro la maglia (da dentro si vedrebbero azzurri). NON si tolgono (sulla
+# cucitura dietro la spalla lasciavano un buco visibile da fuori): i loro punti si distendono tra i vicini
+def inward_now():
+    Q = PA + DA
+    fn = np.cross(Q[IK[:, 1]] - Q[IK[:, 0]], Q[IK[:, 2]] - Q[IK[:, 0]]); C0 = Q[IK].mean(1); tocam = np.array([0, 1.45, 0.02]) - C0
+    return np.where(((fn * tocam).sum(1) > 0.02 * np.linalg.norm(fn, axis=1) * np.linalg.norm(tocam, axis=1)) & (C0[:, 1] > 1.47) & (np.linalg.norm(n0, axis=1) > 1e-10))[0]
+for it in range(80):
+    bad = inward_now()
+    if not len(bad): break
+    Q = PA + DA
+    for v in set(IK[bad].ravel().tolist()) - neckset:
+        if not nb_[v]: continue
+        DA[v] = Q[nb_[v]].mean(0) - PA[v]
+        for b_ in pm.get(v, []): DA[b_] = PA[v] + DA[v] - PA[b_]
+# quelli che restano sono pieghe minuscole della striscia della cucitura (1 mm): i loro punti non sul bordo si schiacciano
+# nel punto di mezzo del triangolo (area zero: da fuori non si vede più attraverso)
+for it2 in range(30):
+    bad = inward_now()
+    if not len(bad): break
+    Q = PA + DA
+    for t in bad:
+        tri = IK[t]; c = Q[tri].mean(0)
+        for v in tri:
+            if v in neckset: continue
+            DA[v] = c - PA[v]
+            for b_ in pm.get(v, []): DA[b_] = PA[v] + DA[v] - PA[b_]
+print('girati verso dentro rimasti', len(inward_now()), 'dopo', it, '+', it2, 'passi; rovesciati', len(flipped()))
+for t in list(inward_now()) + list(flipped()):
+    c = (PA + DA)[IK[t]].mean(0); a_, r_ = cyl(c[None]); print('  resta a %.0f y %.4f r %.4f dN %.1f mm' % (a_[0], c[1], r_[0], dN[IK[t]].min() * 1000))
+    if len(sys.argv) > 4:
+        for v in IK[t]: print('     v', v, 'N' if v in neckset else ('S' if v in seamv else '-'), 'held' if v in held else '', np.round(PA[v] * 1000, 1).tolist(), np.round(DA[v] * 1000, 1).tolist())
 for k, o, p in zip(OUTER, off, Ps):
-    D = DA[o:o + len(p)].copy(); D[np.setdiff1d(np.arange(len(p)), np.unique(Is[OUTER.index(k)]))] = 0
+    D = DA[o:o + len(p)] + Ws[OUTER.index(k)]; D[np.setdiff1d(np.arange(len(p)), np.unique(Is[OUTER.index(k)]))] = 0
     per[k] = per[k + 1] = D
     mv = np.linalg.norm(D, axis=1)
     print(ms[k]['name'], 'max %.1f mm' % (mv.max() * 1000), 'mossi >0.5mm', (mv > 5e-4).sum())

@@ -178,7 +178,7 @@ for key, (mdl, shf, cutf, ribf, pieces) in VARIANTS.items():
     TP = TP[np.linalg.norm(np.cross(TP[:, 1] - TP[:, 0], TP[:, 2] - TP[:, 0]), axis=1) > 1e-9]   # senza triangoli schiacciati
     cen = TP.mean(1); ctree = cKDTree(cen)
     nrm = np.cross(TP[:, 1] - TP[:, 0], TP[:, 2] - TP[:, 0]); nrm /= np.linalg.norm(nrm, axis=1, keepdims=True) + 1e-15
-    def closest(p):
+    def closest(p, raw=False):
         _, cand = ctree.query(p, k=16); best = None
         for t in cand:
             A_, B_, C_ = TP[t]
@@ -207,19 +207,68 @@ for key, (mdl, shf, cutf, ribf, pieces) in VARIANTS.items():
             if best is None or dd < best[0]: best = (dd, q, t)
         n_ = nrm[best[2]].copy()
         if n_[0] * best[1][0] + n_[2] * best[1][2] < 0: n_ = -n_
-        return best[1] + n_ * 0.0006
+        return (best[1], n_) if raw else best[1] + n_ * 0.0006
     ry = np.interp(samp, ang, ly2, period=360) + 0.002   # 2 mm sopra il fondo della costina: copre anche le tacche
-    rrad = np.interp(samp, ang, lr2, period=360) + 0.0004
+    rrad = np.interp(samp, ang, lr2, period=360) + 0.0008   # 0,8 mm fuori dalla costina: il suo bordo non spunta davanti
+    # raggio vero della faccia esterna della costina a quell'altezza (la costina della V ai lati è inclinata e svasata: col
+    # raggio del fondo la costina usciva davanti alla fascetta a zig-zag), lisciato lungo il collo
+    _ra0, _rr0 = cyl(RB); _rt0 = cKDTree(np.stack([np.radians(_ra0) * 0.07, RB[:, 1]], 1))
+    dd0, jj0 = _rt0.query(np.stack([np.radians(samp) * 0.07, ry], 1), k=12)
+    rr0 = np.where(dd0 < 0.003, _rr0[jj0], 0).max(1)
+    rr0 = np.where(rr0 > 0, rr0, rrad)
+    for _ in range(4): rr0 = (np.roll(rr0, 1) + 2 * rr0 + np.roll(rr0, -1)) / 4
+    rrad = np.maximum(rrad, rr0 + 0.0008)
     ribtop = np.stack([np.sin(sr_) * rrad, ry, np.cos(sr_) * rrad], 1)
-    ROWS = 6
-    grid = np.zeros((len(samp), ROWS, 3))
-    for i in range(len(samp)):
-        grid[i, 0] = ribtop[i]
-        for j in range(1, ROWS):
-            f = j / (ROWS - 1)
-            grid[i, j] = closest(top[i] * (1 - f) + bot[i] * f)
+    # fascia regolare: dal fondo della costina (lisciato) si scende SULLA STOFFA perpendicolarmente al collo, a passi di
+    # 0,5 mm, per 5 mm esatti: larghezza uguale tutto intorno (prima la linea bassa era un'isolinea a parte e la larghezza
+    # andava da 4 a 7 mm). File: 1 sulla costina (2 mm sopra il fondo) + 5 sulla stoffa a 0, 1,25, 2,5, 3,75 e 5 mm
+    n_s = len(samp)
+    F0 = np.zeros((n_s, 3)); N0 = np.zeros((n_s, 3))
+    for i in range(n_s): F0[i], N0[i] = closest(top[i], raw=True)
+    tg = np.roll(F0, -1, 0) - np.roll(F0, 1, 0)
+    dn = np.cross(N0, tg); dn /= np.linalg.norm(dn, axis=1, keepdims=True) + 1e-15
+    dn[dn[:, 1] > 0] *= -1                       # verso il basso (lontano dal collo)
+    for _ in range(3): dn = (np.roll(dn, 1, 0) + 2 * dn + np.roll(dn, -1, 0)) / 4
+    if vtip:
+        # sulla punta della V le due metà scenderebbero una sopra l'altra (piega scura): lì si scende dritti in giù,
+        # e la fascetta fa la punta come la costina
+        down = np.array([0, -1.0, 0]) - (N0 * np.array([0, -1.0, 0])).sum(1, keepdims=True) * N0
+        down /= np.linalg.norm(down, axis=1, keepdims=True) + 1e-15
+        wv = np.clip(1 - (np.abs(samp) - 2) / 10, 0, 1)[:, None]
+        dn = dn * (1 - wv) + down * wv
+    dn /= np.linalg.norm(dn, axis=1, keepdims=True)
+    S_ROWS = [0.001, 0.002, 0.0035, 0.005]   # la prima appena sotto il fondo della costina (dove la stoffa sta sotto la costina)
+    ROWS = 1 + len(S_ROWS)
+    grid = np.zeros((n_s, ROWS, 3)); grid[:, 0] = ribtop
+    for i in range(n_s):
+        p, nrm_, d = F0[i].copy(), N0[i].copy(), dn[i].copy(); s_ = 0.0; j = 0
+        while True:
+            while j < len(S_ROWS) and S_ROWS[j] <= s_ + 1e-9:
+                grid[i, 1 + j] = p + nrm_ * 0.0006; j += 1
+            if j >= len(S_ROWS): break
+            p, nrm_ = closest(p + d * 0.0005, raw=True); s_ += 0.0005
+            d = d - (d @ nrm_) * nrm_; d /= np.linalg.norm(d) + 1e-15
+    # la fascetta resta sempre fuori dalla costina dove le due si sovrappongono (al centro davanti della classica col
+    # girocollo il fondo della costina si piega in fuori e spuntava attraverso come un puntino bianco)
+    _ra, _rr = cyl(RB); _rt = cKDTree(np.stack([np.radians(_ra) * 0.07, RB[:, 1]], 1))
+    for j in range(ROWS):
+        P_ = grid[:, j]; ga, gr = cyl(P_)
+        dd, jj = _rt.query(np.stack([np.radians(ga) * 0.07, P_[:, 1]], 1), k=3)
+        near = dd[:, 0] < 0.002
+        rr = np.where(near, _rr[jj].max(1) + 0.0008, 0)
+        push = near & (gr < rr) & (rr - gr < 0.0025)   # solo dove la costina buca davvero (non la sua faccia esterna più in alto)
+        f = np.where(push, rr / np.maximum(gr, 1e-9), 1)
+        grid[:, j, 0] *= f; grid[:, j, 2] *= f
+        if push.any(): print('   fila', j, 'spinta fuori dalla costina in', push.sum(), 'punti, max %.2f mm' % ((rr - gr)[push].max() * 1000))
+    # file lisciate lungo il collo (non sulla punta della V)
+    kp = np.clip((np.abs(samp) - 3) / 10, 0, 1) if vtip else np.ones(n_s)
+    for j in range(1, ROWS):
+        for _ in range(12):
+            sm_ = (np.roll(grid[:, j], 1, 0) + 2 * grid[:, j] + np.roll(grid[:, j], -1, 0)) / 4
+            grid[:, j] += (sm_ - grid[:, j]) * kp[:, None]
     out[key] = {'rows': ROWS, 'pts': np.round(grid, 4).ravel().tolist()}
-    print(key, len(samp), 'larghezza mm min %.1f max %.1f' % (np.linalg.norm(grid[:, 0] - grid[:, -1], axis=1).min() * 1000, np.linalg.norm(grid[:, 0] - grid[:, -1], axis=1).max() * 1000))
+    wd = np.linalg.norm(grid[:, 1] - grid[:, -1], axis=1) * 1000
+    print(key, len(samp), 'larghezza sulla stoffa mm min %.1f max %.1f' % (wd.min(), wd.max()))
 # classica con la V: bordino nella texture (stoffa con pieghe sotto la costina, la fascetta 3D non si appoggia bene)
 TEX = os.path.join(HERE, 'neck-bands-tex.json')
 if os.path.exists(TEX): out['setin:base'] = {'tex': json.load(open(TEX))['setin:base']}

@@ -46,7 +46,8 @@ L'utente vuole il colletto con la sua forma pulita e originale, non deformato, e
 1. La costina dell'altra maglia si clona e si mette **rigida**, con trasformazione affine: spostamento, inclinazione, scala e allargamento x/z.
    - `CREW_FIT = { pivot:[0,1.58,0], dy, dz, tilt, sx, sz }`: matrice `T(pivot+dy,dz) · S(sx,1,sz) · Rx(tilt) · T(-pivot)`.
    - `V_FIT = { pivot:[0,1.52,0], dy, dz, tilt, scale, sx, sz }`: matrice `T(pivot+dy,dz) · S(sx,1,sz) · Rx(tilt) · S(scale) · T(-pivot)`.
-   - Poi `V_BEND` (`bendRib` in Kit3D.js, `v_bend` in neckmorph.py): la raglan ha il collo dietro 14 mm sopra la spalla (la classica 7 mm) e la V sembrava rialzata. Dietro la costina scende di 5 mm, solo in verticale e appena in fuori (+0,5 mm di raggio per mm), con un passaggio graduale da 90 a 150 gradi. Dietro la stoffa viene tagliata come davanti.
+   - La stoffa intorno al collo scende insieme alla costina (`warp_fab` in `raglan_v2.py`, stesso spostamento di `V_BEND`, che si spegne 4 cm sotto): tutti i pezzi si muovono allo stesso modo e le cuciture restano chiuse. Dietro la stoffa **non si taglia** (si tagliava sopra la costina abbassata, e lungo la cucitura dietro la spalla si apriva un buco). I triangolini rimasti girati verso dentro non si tolgono più (lasciavano un buco): si distendono e, se serve, si schiacciano.
+   - Poi `V_BEND` (`bendRib` in Kit3D.js, `v_bend` in neckmorph.py): la raglan ha il collo dietro 14 mm sopra la spalla (la classica 7 mm) e la V sembrava rialzata. Dietro la costina scende di 5 mm, solo in verticale e appena in fuori (+0,5 mm di raggio per mm), con un passaggio graduale da 90 a 150 gradi. 
    - **Non** abbassare il dietro cambiando l'adattamento rigido (`vfit3.py` con DROP): la costina si inclina e dietro sembra una tesa piatta.
    - I parametri si trovano con un'ottimizzazione (`tools/kit3d/vfit3.py`). Ai lati e dietro il bordo basso della costina deve combaciare con lo scollo originale; davanti deve stare sul petto e non dentro.
 2. `remapUV` porta le UV della costina nel riquadro del colletto di questa maglia. Il nodo è marcato `userData.swappedRib`. Il suo rovescio (`ribInnerMats`) ha il colore del colletto × 0,8 e niente texture: così non resta una riga scura sotto il bordo.
@@ -69,7 +70,11 @@ L'utente vuole il colletto con la sua forma pulita e originale, non deformato, e
 - **Bordino** (`trim`): fascia di 5 mm nel colore `colors.trim` sulla stoffa, subito sotto la costina.
   - Su **classica girocollo, raglan girocollo e raglan V** è una **fascetta 3D** (`buildNeckTrim` in Kit3D.js), creata in `Stage.setModel` e accesa o spenta in `applyKit`.
     - Dati in `neck-bands.json` → `{ 'setin:crew': { rows: 4, pts: [...] }, ... }`: campioni intorno al collo × 4 file di punti.
-    - 6 file, un campione ogni grado (0,25° sulla punta della V).
+    - Una fila sulla costina + 4 sulla stoffa, un campione ogni grado (0,25° sulla punta della V).
+    - **Fascia regolare**: dal fondo della costina (lisciato) si scende *sulla stoffa*, perpendicolarmente al collo, a passi di 0,5 mm (file a 1, 2, 3,5 e 5 mm). Prima la linea bassa era un'isolinea calcolata a parte e la larghezza andava da 4 a 7 mm: sembrava ondulata.
+    - La fila sulla costina usa il raggio vero della sua faccia esterna a quell'altezza, + 0,8 mm. La costina della V ai lati è inclinata e svasata: col raggio del fondo usciva davanti alla fascetta a zig-zag. Le file vicine alla costina vengono spinte fuori dove la costina le bucherebbe (al centro davanti della classica girocollo il fondo si piega in fuori: puntino bianco).
+    - Sulla punta della V si scende dritti in giù (le due metà si incrociavano: piega scura).
+    - Normali per colonna, prese dalla stoffa: luce uniforme su tutta la larghezza, senza riflesso sulla piega costina/stoffa.
     - La prima fila sta 2 mm sopra il fondo vero della costina, su una curva ben lisciata (15 passate, non sulla punta della V), così copre anche le tacche della costina (al centro dietro, 1,5 mm) e non resta mai una fessura. Le altre sono proiettate sulla superficie della stoffa e staccate 0,6 mm verso fuori.
     - Camera: piano vicino `dist × 0,04` (non 0,01 m): sui telefoni la profondità è meno precisa e la stoffa bucava la fascetta con delle seghettature.
     - Niente `polygonOffset`: guardando dentro il collo di sbieco tirava la fascetta davanti alla stoffa. FrontSide, con i triangoli girati verso fuori.
