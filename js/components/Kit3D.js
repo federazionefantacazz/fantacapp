@@ -254,6 +254,15 @@ function buildNeckTrim(THREE, rd) {
   }
   g.setIndex(idx);
   g.computeVertexNormals();
+  // luce uniforme su tutta la larghezza: ogni colonna usa la normale della stoffa (file basse), senza il riflesso sulla
+  // piega dove la fascetta passa dalla costina alla stoffa
+  const nor = g.getAttribute('normal'), v = new THREE.Vector3(), w = new THREE.Vector3();
+  for (let i = 0; i < n; i++) {
+    v.set(0, 0, 0);
+    for (let j = Math.min(2, R - 1); j < R; j++) v.add(w.fromBufferAttribute(nor, i * R + j));
+    v.normalize();
+    for (let j = 0; j < R; j++) nor.setXYZ(i * R + j, v.x, v.y, v.z);
+  }
   // niente polygonOffset: guardando dentro il collo di sbieco tirava la fascetta davanti alla stoffa (si vedeva dietro)
   const m = new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0, side: THREE.FrontSide });
   const mesh = new THREE.Mesh(g, m);
