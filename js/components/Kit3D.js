@@ -243,7 +243,8 @@ function buildNeckTrim(THREE, rd) {
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pts), 3));
   // verso dei triangoli: la normale del primo deve guardare fuori (lontano dall'asse del collo)
   const P = (i) => new THREE.Vector3(pts[i * 3], pts[i * 3 + 1], pts[i * 3 + 2]);
-  const nrm = new THREE.Vector3().crossVectors(P(1).sub(P(0)), P(R).sub(P(0)));
+  // (prima fila → ultima, non → seconda: la seconda può stare appena sopra la prima, sotto il bordo della costina)
+  const nrm = new THREE.Vector3().crossVectors(P(R - 1).sub(P(0)), P(R).sub(P(0)));
   const out = nrm.x * pts[0] + nrm.z * pts[2] > 0;
   for (let i = 0; i < n; i++) {
     const a = i * R, c = ((i + 1) % n) * R;
