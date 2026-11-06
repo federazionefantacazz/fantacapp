@@ -37,9 +37,24 @@ function loadModel() {
 
 let raglanJob = null;
 // pieghe del modello raglan vicino al collo (triangolini girati al contrario della stoffa intorno: da dentro il collo si
-// vedevano come segnetti chiari). Si annullano (i tre vertici uguali) senza cambiare la numerazione dei triangoli, che i
+// vedevano come segnetti chiari). Si girano nel verso giusto senza cambiare la numerazione dei triangoli, che i
 // file dei tagli (neck-cut*.bin) usano. Trovati con tools/kit3d (normale della faccia contro quella dei vertici).
 const RAGLAN_FOLDS = { front: [37604, 37609, 37611, 37898], back: [39092, 39093, 39125, 39135] };
+/** Dopo uno spostamento della stoffa le pieghe di RAGLAN_FOLDS possono essersi distese: ognuna guarda fuori (dal centro del collo). */
+function fixFolds(THREE, model) {
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  model.traverse(m => {
+    const tris = m.isMesh && RAGLAN_FOLDS[m.name.replace(/_1$/, '')];
+    if (!tris) return;
+    const idx = m.geometry.index, p = m.geometry.getAttribute('position'), inner = /_1$/.test(m.name);
+    tris.forEach(t => {
+      a.fromBufferAttribute(p, idx.getX(3 * t)); b.fromBufferAttribute(p, idx.getX(3 * t + 1)); c.fromBufferAttribute(p, idx.getX(3 * t + 2));
+      const nrm = b.clone().sub(a).cross(c.clone().sub(a)), cx = (a.x + b.x + c.x) / 3, cz = (a.z + b.z + c.z) / 3;
+      if (nrm.x * cx + nrm.z * cz < 0) { const v = idx.getX(3 * t + 1); idx.setX(3 * t + 1, idx.getX(3 * t + 2)); idx.setX(3 * t + 2, v); }
+    });
+    idx.needsUpdate = true;
+  });
+}
 function loadRaglan() {
   if (!raglanJob) raglanJob = loadLib().then(async L => {
     const scene = (await new L.GLTFLoader().loadAsync(KIT3D_FILES.raglan)).scene;
@@ -47,7 +62,8 @@ function loadRaglan() {
       const tris = m.isMesh && RAGLAN_FOLDS[m.name.replace(/_1$/, '')];
       if (!tris) return;
       const idx = m.geometry.index;
-      tris.forEach(t => { const v = idx.getX(3 * t); idx.setX(3 * t + 1, v); idx.setX(3 * t + 2, v); });
+      // girati dal verso giusto (scambio di due vertici): guardano fuori come la stoffa intorno, senza lasciare buchi
+      tris.forEach(t => { const b = idx.getX(3 * t + 1); idx.setX(3 * t + 1, idx.getX(3 * t + 2)); idx.setX(3 * t + 2, b); });
       idx.needsUpdate = true;
     });
     return scene;
@@ -314,6 +330,7 @@ function loadVariant(kit) {
         // bordo del taglio sotto la costina. Nella texture la costina usa il riquadro del colletto della raglan
         await applyShift(THREE, model, KIT3D_FILES.neckVRaglan);
         await applyCut(model, KIT3D_FILES.neckCutVRaglan);
+        fixFolds(THREE, model);
         model.traverse(o => { if (o.isMesh && isRib(o)) o.visible = false; });
         const setin = await loadModel();
         setin.updateMatrixWorld(true);

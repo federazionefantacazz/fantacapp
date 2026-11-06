@@ -110,6 +110,14 @@ for i in range(4):
         t = cKDTree(PA[bvs[j]]); d, jj = t.query(PA[bvs[i]])
         m = d < 0.0008
         if m.any(): pairs.append(np.stack([bvs[i][m], bvs[j][jj[m]]], 1))
+# cuciture DENTRO un pezzo (il davanti della raglan ha una cucitura sua accanto alla manica: con i soli pezzi diversi
+# restava aperta una fessura di un millimetro, si vedeva l'interno)
+for i in range(4):
+    t = cKDTree(PA[bvs[i]]); dd_, jj_ = t.query(PA[bvs[i]], k=2)
+    m = dd_[:, 1] < 0.00005   # punti doppi (coincidenti), non punti vicini dello stesso bordo
+    if m.any():
+        pp = np.stack([bvs[i][m], bvs[i][jj_[m, 1]]], 1); pp = pp[pp[:, 0] < pp[:, 1]]
+        if len(pp): pairs.append(pp); print('cuciture interne', ms[OUTER[i]]['name'], len(pp))
 pairs = np.vstack(pairs); seamv = set(pairs.ravel().tolist())
 print('cuciti', len(pairs))
 e = np.vstack([IA[:, [0, 1]], IA[:, [1, 2]], IA[:, [2, 0]]]); e = np.vstack([e, e[:, ::-1]])
@@ -149,7 +157,7 @@ def tfix(snap=False):
                 if A_ == B_: continue
                 eb = E[B_]; pa_, pb_ = PA[eb[:, 0]], PA[eb[:, 1]]; ab = pb_ - pa_
                 for v in bvs[A_]:
-                    if not nearN[v] or v in neckset: continue
+                    if (not nearN[v] and not snap) or v in neckset: continue
                     q = PA[v]
                     t_ = np.clip(((q - pa_) * ab).sum(1) / np.maximum((ab * ab).sum(1), 1e-14), 0, 1)
                     dd = np.linalg.norm(pa_ + ab * t_[:, None] - q, axis=1); i_ = np.argmin(dd)
@@ -158,7 +166,7 @@ def tfix(snap=False):
                     if snap:
                         # le fessurine del modello lungo le cuciture raglan (0,5 mm, si vedevano da dentro come segnetti
                         # azzurri) vicino al collo si chiudono: il punto va proprio sul lato dell'altro pezzo
-                        f = np.clip((0.05 - dN[v]) / 0.02, 0, 1)
+                        f = 1.0   # su tutta la maglia (anche sotto il braccio il modello ha fessure di mezzo millimetro)
                         SNAP[v] = (pa_[i_] + ab[i_] * t_[i_] - q) * f
 
 tfix()
@@ -240,7 +248,7 @@ for q, k in enumerate(OUTER):
     C0 = P[I0].mean(1); tocam = np.array([0, 1.45, 0.02]) - C0
     # la faccia guarda al contrario della stoffa intorno, oppure (da fuori) guarda dentro la maglia
     gi = np.where((((fn * vn).sum(1) < 0) | ((fn * tocam).sum(1) > 0.02 * np.linalg.norm(tocam, axis=1))) & (C0[:, 1] > 1.47))[0]
-    cuts[k] = cuts[k + 1] = np.union1d(cuts[k], gi); nb += len(gi)
+    nb += len(gi)   # non si tolgono più: Kit3D.js (RAGLAN_FOLDS) li gira nel verso giusto
 bad = range(nb)
 print('pieghe tolte', len(bad))
 # ultimi triangolini rovesciati (incroci delle cuciture, lati dove la stoffa rientra): i loro punti, tranne quelli del
@@ -262,6 +270,7 @@ for rnd in range(4):
         if not len(bad): break
         Q = PA + DA
         for v in set(IK[bad].ravel().tolist()) - held:
+            if dN[v] > 0.03: continue   # solo vicino al collo (lontano erano triangoli schiacciati del modello: si apriva una fessura)
             if not nb_[v]: continue
             DA[v] = Q[nb_[v]].mean(0) - PA[v]
             for b_ in pm.get(v, []): DA[b_] = PA[v] + DA[v] - PA[b_]
@@ -289,7 +298,7 @@ for it in range(80):
     if not len(bad): break
     Q = PA + DA
     for v in set(IK[bad].ravel().tolist()) - neckset:
-        if not nb_[v]: continue
+        if not nb_[v] or dN[v] > 0.03: continue
         DA[v] = Q[nb_[v]].mean(0) - PA[v]
         for b_ in pm.get(v, []): DA[b_] = PA[v] + DA[v] - PA[b_]
 # quelli che restano sono pieghe minuscole della striscia della cucitura (1 mm): i loro punti non sul bordo si schiacciano
@@ -300,6 +309,7 @@ for it2 in range(30):
     Q = PA + DA
     for t in bad:
         tri = IK[t]; c = Q[tri].mean(0)
+        if dN[tri].min() > 0.03: continue
         for v in tri:
             if v in neckset: continue
             DA[v] = c - PA[v]
@@ -309,6 +319,93 @@ for t in list(inward_now()) + list(flipped()):
     c = (PA + DA)[IK[t]].mean(0); a_, r_ = cyl(c[None]); print('  resta a %.0f y %.4f r %.4f dN %.1f mm' % (a_[0], c[1], r_[0], dN[IK[t]].min() * 1000))
     if len(sys.argv) > 4:
         for v in IK[t]: print('     v', v, 'N' if v in neckset else ('S' if v in seamv else '-'), 'held' if v in held else '', np.round(PA[v] * 1000, 1).tolist(), np.round(DA[v] * 1000, 1).tolist())
+# ultima passata su TUTTA la maglia: ogni punto di una cucitura va esattamente sul lato dell'altro pezzo su cui sta (il
+# modello ha fessure di mezzo millimetro lungo le cuciture raglan, anche sotto il braccio: si vedevano tagli scuri)
+from collections import Counter
+def _bed(I, o):
+    c = Counter()
+    for t in I:
+        for a_, b_ in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0])): c[tuple(sorted((a_ + o, b_ + o)))] += 1
+    return np.array([k_ for k_, v in c.items() if v == 1])
+# triangoli rimasti davvero (dopo i tagli delle pieghe): i lati di bordo sono questi
+for q, k in enumerate(OUTER):
+    I0 = mesh('raglan', k)[3]; m_ = np.ones(len(I0), bool); m_[cuts[k]] = False; Is[q] = I0[m_]
+EB = [_bed(Is[q], off[q]) for q in range(len(OUTER))]
+WA = np.vstack(Ws); nsnap = 0
+# coppie "quasi cucite" vicino al collo (stessa stoffa o pezzi diversi, punti di bordo a meno di 1,5 mm nel modello, non
+# vicini nella rete): alla fine tengono la stessa distanza che avevano nel modello (lì non si vedeva nessuna fessura)
+allb_ = np.unique(np.concatenate(EB).ravel()); allb_ = allb_[dN[allb_] < 0.04]
+tb = cKDTree(PA[allb_]); near_pairs = []
+for i_, v in enumerate(allb_):
+    ring2 = set(nb_[v]) | {u for w_ in nb_[v] for u in nb_[w_]} | {v}
+    for j_ in tb.query_ball_point(PA[v], 0.0015):
+        u = allb_[j_]
+        if u > v and u not in ring2: near_pairs.append((v, u))
+near_pairs = np.array(near_pairs, int).reshape(-1, 2)
+print('coppie quasi cucite', len(near_pairs))
+for _rep in range(8):
+    Q = PA + DA + WA
+    for A_ in range(len(OUTER)):
+        bvA = np.unique(EB[A_])
+        for B_ in range(len(OUTER)):
+            eb = EB[B_]; pa_, pb_ = PA[eb[:, 0]], PA[eb[:, 1]]; ab = pb_ - pa_
+            if A_ == B_:   # stesso pezzo: solo i lati che non toccano il punto (cucitura interna)
+                pass
+            mids = cKDTree((pa_ + pb_) / 2)
+            for v in bvA:
+                if dN[v] > 0.04: continue   # lontano dal collo le ha già chiuse la passata morbida (SNAP)
+                cand = mids.query_ball_point(PA[v], 0.012)
+                if not cand: continue
+                cand = np.array(cand)
+                if A_ == B_:
+                    cand = cand[(eb[cand, 0] != v) & (eb[cand, 1] != v)]
+                    ring2 = set(nb_[v]) | {u for w_ in nb_[v] for u in nb_[w_]} | {v}   # niente lati vicini nella stessa stoffa
+                    cand = np.array([c_ for c_ in cand if eb[c_, 0] not in ring2 and eb[c_, 1] not in ring2], int)
+                    if not len(cand): continue
+                t_ = np.clip(((PA[v] - pa_[cand]) * ab[cand]).sum(1) / np.maximum((ab[cand] ** 2).sum(1), 1e-14), 0, 1)
+                d0 = np.linalg.norm(pa_[cand] + ab[cand] * t_[:, None] - PA[v], axis=1); i = np.argmin(d0)
+                if d0[i] > (0.0012 if A_ == B_ else (0.0016 if dN[v] < 0.015 else 0.0008)): continue   # vicino al collo il modello ha fessure fino a 1,5 mm
+                e = eb[cand[i]]; tgt = Q[e[0]] * (1 - t_[i]) + Q[e[1]] * t_[i]
+                if np.linalg.norm(tgt - Q[v]) > 1e-5: DA[v] = tgt - PA[v] - WA[v]; nsnap += 1
+    Q = PA + DA + WA
+    for a_, b_ in pairs:
+        m = (Q[a_] + Q[b_]) / 2; DA[a_] = m - PA[a_] - WA[a_]; DA[b_] = m - PA[b_] - WA[b_]
+    Q = PA + DA + WA
+    for a_, b_ in near_pairs:
+        if (a_ in neckset) and (b_ in neckset): continue
+        m = (Q[a_] + Q[b_]) / 2; og_ = (PA[a_] - PA[b_]) / 2
+        DA[a_] = m + og_ - PA[a_] - WA[a_]; DA[b_] = m - og_ - PA[b_] - WA[b_]
+print('punti delle cuciture chiusi', nsnap)
+# la stoffa dentro i pezzi (vicino al collo) si adatta morbida ai bordi appena chiusi: i bordi restano dove sono, i punti
+# interni entro 4 cm dal collo seguono con un'armonica (niente triangoli girati dove un punto di bordo si è spostato)
+allbset = np.unique(np.concatenate(EB).ravel())
+zoneH = (dN < 0.04) & np.isin(np.arange(n), used) & ~np.isin(np.arange(n), allbset)
+fixedH = np.where(~zoneH)[0]; freeH = np.where(zoneH)[0]
+Dt = DA + WA
+eK2 = np.vstack([IK[:, [0, 1]], IK[:, [1, 2]], IK[:, [2, 0]]]); eK2 = np.vstack([eK2, eK2[:, ::-1]])
+Wh = sp.coo_matrix((np.ones(len(eK2)), (eK2[:, 0], eK2[:, 1])), shape=(n, n)).tocsr(); Wh.data[:] = 1
+Lh = sp.diags(np.asarray(Wh.sum(1)).ravel()) - Wh
+# si risolve la differenza rispetto allo spostamento di prima (così la forma che c'era resta, cambia solo vicino ai bordi)
+R0 = Lh @ Dt
+solveH = spl.factorized(Lh[freeH][:, freeH].tocsc()); LfcH = Lh[freeH][:, fixedH]
+for c in range(3): Dt[freeH, c] = solveH(R0[freeH, c] - LfcH @ Dt[fixedH, c])
+DA = Dt - WA
+print('stoffa adattata ai bordi:', len(freeH), 'punti')
+# i punti cuciti a un gemello finiscono esattamente insieme (alcuni passi li avevano separati fino a 2 mm)
+for _ in range(3):
+    Q = PA + DA + WA
+    for a_, b_ in pairs:
+        m = (Q[a_] + Q[b_]) / 2; DA[a_] = m - PA[a_] - WA[a_]; DA[b_] = m - PA[b_] - WA[b_]
+# dopo aver chiuso le cuciture, i punti vicini che non sono sulla cucitura si distendono finché nessun triangolo resta
+# girato (agli incroci delle cuciture con il collo restavano trattini scuri). Cuciture e collo restano fermi
+seamset = set(pairs.ravel().tolist())   # punti cuciti a un gemello (i bordi liberi possono muoversi)
+def flippedW():
+    Q = PA + DA + WA; n1 = np.cross(Q[IK[:, 1]] - Q[IK[:, 0]], Q[IK[:, 2]] - Q[IK[:, 0]])
+    return np.where(((n0 * n1).sum(1) <= 0) & (np.linalg.norm(n0, axis=1) > 1e-10))[0]
+print('rovesciati dopo le cuciture', len(flippedW()))
+if len(sys.argv) > 5:
+    for v in (6728, 20193 + off[3]):
+        print('DBG v', v, 'dN %.1f' % (dN[v] * 1000), 'neck', v in neckset, 'pair', pm.get(v), 'snap', v in SNAP, np.round((PA[v]) * 1000, 2).tolist(), np.round((PA[v] + DA[v] + WA[v]) * 1000, 2).tolist())
 for k, o, p in zip(OUTER, off, Ps):
     D = DA[o:o + len(p)] + Ws[OUTER.index(k)]; D[np.setdiff1d(np.arange(len(p)), np.unique(Is[OUTER.index(k)]))] = 0
     per[k] = per[k + 1] = D

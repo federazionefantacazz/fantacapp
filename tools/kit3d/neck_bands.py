@@ -219,13 +219,14 @@ for key, (mdl, shf, cutf, ribf, pieces) in VARIANTS.items():
     for _ in range(4): rr0 = (np.roll(rr0, 1) + 2 * rr0 + np.roll(rr0, -1)) / 4
     rrad = np.maximum(rrad, rr0 + 0.0008)
     ribtop = np.stack([np.sin(sr_) * rrad, ry, np.cos(sr_) * rrad], 1)
-    TUCK = key in ('setin:crew', 'raglan:base')
+    TUCK = key in ('setin:crew', 'raglan:base', 'raglan:v')
     if TUCK:
         # classica col girocollo: la fascetta non si sovrappone alla costina (le due superfici si incrociavano e il bordo
         # bianco veniva seghettato). Il suo bordo alto sta esattamente sul bordo basso vero della costina (la polilinea del
         # modello, punto per punto), 0,4 mm dietro: quello che si vede è il bordo pulito della costina, poi subito il verde
-        Pm, _, _, Im = mesh('raglan', 8); RBm = ribf()
-        lp = np.asarray(max(loops(Im), key=len)); la, lr_ = cyl(RBm[lp]); ly = RBm[lp, 1]
+        Pm, _, _, Im = mesh('setin' if key == 'raglan:v' else 'raglan', 8); RBm = ribf()
+        lp = np.unique(np.concatenate(loops(Im)))   # tutti i bordi della costina (quella a V è fatta di più pezzi)
+        la, lr_ = cyl(RBm[lp]); ly = RBm[lp, 1]
         lo_c, hi_c = edge_curves(RBm)
         # solo i punti del bordo basso (entro 1,2 mm dal più basso lì intorno): fuori la cucitura verticale della costina
         bot = (ly - at(lo_c, la)[:, 0]) < 0.0012
