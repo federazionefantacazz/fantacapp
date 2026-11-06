@@ -219,7 +219,7 @@ for key, (mdl, shf, cutf, ribf, pieces) in VARIANTS.items():
     for _ in range(4): rr0 = (np.roll(rr0, 1) + 2 * rr0 + np.roll(rr0, -1)) / 4
     rrad = np.maximum(rrad, rr0 + 0.0008)
     ribtop = np.stack([np.sin(sr_) * rrad, ry, np.cos(sr_) * rrad], 1)
-    TUCK = key == 'setin:crew'
+    TUCK = key in ('setin:crew', 'raglan:base')
     if TUCK:
         # classica col girocollo: la fascetta non si sovrappone alla costina (le due superfici si incrociavano e il bordo
         # bianco veniva seghettato). Il suo bordo alto sta esattamente sul bordo basso vero della costina (la polilinea del
@@ -231,7 +231,8 @@ for key, (mdl, shf, cutf, ribf, pieces) in VARIANTS.items():
         bot = (ly - at(lo_c, la)[:, 0]) < 0.0012
         ea, ey, er = la[bot], ly[bot], lr_[bot]; o = np.argsort(ea); ea, ey, er = ea[o], ey[o], er[o]
         ey_s = np.interp(samp, ea, ey, period=360); er_s = np.interp(samp, ea, er, period=360)
-        ribtop = np.stack([np.sin(sr_) * (er_s - 0.0004), ey_s, np.cos(sr_) * (er_s - 0.0004)], 1)
+        # appena FUORI dal bordo (0,15 mm): dentro la costina, la striscia si vedeva da dentro il collo come una linea
+        ribtop = np.stack([np.sin(sr_) * (er_s + 0.00015), ey_s, np.cos(sr_) * (er_s + 0.00015)], 1)
         top = np.stack([np.sin(sr_) * er_s, ey_s, np.cos(sr_) * er_s], 1)
         print('   bordo della costina: punti', bot.sum())
     # fascia regolare: dal fondo della costina (lisciato) si scende SULLA STOFFA perpendicolarmente al collo, a passi di

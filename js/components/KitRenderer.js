@@ -1143,7 +1143,9 @@ export async function paintKitTexture(rawKit, opts = {}) {
         .forEach(([y, h]) => x.fillRect(r.x - 2, r.y + r.h * (v0 + (v1 - v0) * y), r.w + 4, r.h * (v1 - v0) * h));
     }
   };
-  if (swapped) {
+  // raglan col suo girocollo: anche lì tutto il riquadro con il margine (con la maschera il bordo alto della costina, visto
+  // da dentro il collo, prendeva il colore che c'era fuori: una linea chiara)
+  if (swapped || raglan) {
     // costina presa dall'altra maglia (classica col girocollo della raglan, raglan con la V della classica): occupa tutto
     // il riquadro del colletto (la sagoma della maschera è quella della costina originale)
     // con un margine largo intorno: i bordi della costina (che si ripiegano verso l'interno) non prendono il colore della maglia
