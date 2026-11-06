@@ -36,8 +36,22 @@ function loadModel() {
 }
 
 let raglanJob = null;
+// pieghe del modello raglan vicino al collo (triangolini girati al contrario della stoffa intorno: da dentro il collo si
+// vedevano come segnetti chiari). Si annullano (i tre vertici uguali) senza cambiare la numerazione dei triangoli, che i
+// file dei tagli (neck-cut*.bin) usano. Trovati con tools/kit3d (normale della faccia contro quella dei vertici).
+const RAGLAN_FOLDS = { front: [37604, 37609, 37611, 37898], back: [39092, 39093, 39125, 39135] };
 function loadRaglan() {
-  if (!raglanJob) raglanJob = loadLib().then(async L => (await new L.GLTFLoader().loadAsync(KIT3D_FILES.raglan)).scene);
+  if (!raglanJob) raglanJob = loadLib().then(async L => {
+    const scene = (await new L.GLTFLoader().loadAsync(KIT3D_FILES.raglan)).scene;
+    scene.traverse(m => {
+      const tris = m.isMesh && RAGLAN_FOLDS[m.name.replace(/_1$/, '')];
+      if (!tris) return;
+      const idx = m.geometry.index;
+      tris.forEach(t => { const v = idx.getX(3 * t); idx.setX(3 * t + 1, v); idx.setX(3 * t + 2, v); });
+      idx.needsUpdate = true;
+    });
+    return scene;
+  });
   return raglanJob;
 }
 
@@ -243,7 +257,8 @@ function buildNeckTrim(THREE, rd) {
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pts), 3));
   // verso dei triangoli: la normale del primo deve guardare fuori (lontano dall'asse del collo)
   const P = (i) => new THREE.Vector3(pts[i * 3], pts[i * 3 + 1], pts[i * 3 + 2]);
-  const nrm = new THREE.Vector3().crossVectors(P(1).sub(P(0)), P(R).sub(P(0)));
+  // (prima fila → ultima, non → seconda: la seconda può stare appena sopra la prima, sotto il bordo della costina)
+  const nrm = new THREE.Vector3().crossVectors(P(R - 1).sub(P(0)), P(R).sub(P(0)));
   const out = nrm.x * pts[0] + nrm.z * pts[2] > 0;
   for (let i = 0; i < n; i++) {
     const a = i * R, c = ((i + 1) % n) * R;
@@ -474,7 +489,12 @@ class Stage {
       if (name === 'shirt_outer') { o.material.map = this.texture; o.material.needsUpdate = true; }
       if (name === 'shirt_inner') (this.innerMats ||= []).push(o.material);
       // maglia raglan: l'interno è il rovescio della stessa superficie
-      if (name === 'shirt_inner_flip') { o.material.side = this.L.THREE.BackSide; this.innerMats.push(o.material); }
+      if (name === 'shirt_inner_flip') {
+        o.material.side = this.L.THREE.BackSide; this.innerMats.push(o.material);
+        // rovescio della costina della raglan: senza la spinta indietro dell'interno (polygonOffset), che guardando il colletto
+        // di sbieco lo mandava dietro alla stoffa e al bordino di fuori (linee chiare dentro il collo)
+        if (/raglan_collar/.test(`${o.name}|${o.parent ? o.parent.name : ''}`)) o.material.userData.noOffset = true;
+      }
       if (/^polo_/.test(name)) (this.collarMats[name] ||= []).push(o.material);
     });
     // bordino 3D (si vede solo con la rifinitura "Con bordino", vedi applyKit)
@@ -492,7 +512,7 @@ class Stage {
     const inner = new this.L.THREE.Color(validColor(kit.colors.base, '#888888')).multiplyScalar(0.22);
     this.innerMats.forEach(m => {
       m.color.copy(inner); m.roughness = 1; m.envMapIntensity = 0.4;
-      m.polygonOffset = true; m.polygonOffsetFactor = 1; m.polygonOffsetUnits = 2; // l'interno non buca mai la stoffa esterna
+      m.polygonOffset = !m.userData.noOffset; m.polygonOffsetFactor = 1; m.polygonOffsetUnits = 2; // l'interno non buca mai la stoffa esterna
     });
     const ribInner = new this.L.THREE.Color(validColor(kit.colors.collar)).multiplyScalar(0.8);
     (this.ribInnerMats || []).forEach(m => { m.color.copy(ribInner); m.map = null; m.roughness = 0.9; m.needsUpdate = true; });

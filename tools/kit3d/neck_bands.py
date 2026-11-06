@@ -219,6 +219,22 @@ for key, (mdl, shf, cutf, ribf, pieces) in VARIANTS.items():
     for _ in range(4): rr0 = (np.roll(rr0, 1) + 2 * rr0 + np.roll(rr0, -1)) / 4
     rrad = np.maximum(rrad, rr0 + 0.0008)
     ribtop = np.stack([np.sin(sr_) * rrad, ry, np.cos(sr_) * rrad], 1)
+    TUCK = key in ('setin:crew', 'raglan:base')
+    if TUCK:
+        # classica col girocollo: la fascetta non si sovrappone alla costina (le due superfici si incrociavano e il bordo
+        # bianco veniva seghettato). Il suo bordo alto sta esattamente sul bordo basso vero della costina (la polilinea del
+        # modello, punto per punto), 0,4 mm dietro: quello che si vede è il bordo pulito della costina, poi subito il verde
+        Pm, _, _, Im = mesh('raglan', 8); RBm = ribf()
+        lp = np.asarray(max(loops(Im), key=len)); la, lr_ = cyl(RBm[lp]); ly = RBm[lp, 1]
+        lo_c, hi_c = edge_curves(RBm)
+        # solo i punti del bordo basso (entro 1,2 mm dal più basso lì intorno): fuori la cucitura verticale della costina
+        bot = (ly - at(lo_c, la)[:, 0]) < 0.0012
+        ea, ey, er = la[bot], ly[bot], lr_[bot]; o = np.argsort(ea); ea, ey, er = ea[o], ey[o], er[o]
+        ey_s = np.interp(samp, ea, ey, period=360); er_s = np.interp(samp, ea, er, period=360)
+        # appena FUORI dal bordo (0,15 mm): dentro la costina, la striscia si vedeva da dentro il collo come una linea
+        ribtop = np.stack([np.sin(sr_) * (er_s + 0.00015), ey_s, np.cos(sr_) * (er_s + 0.00015)], 1)
+        top = np.stack([np.sin(sr_) * er_s, ey_s, np.cos(sr_) * er_s], 1)
+        print('   bordo della costina: punti', bot.sum())
     # fascia regolare: dal fondo della costina (lisciato) si scende SULLA STOFFA perpendicolarmente al collo, a passi di
     # 0,5 mm, per 5 mm esatti: larghezza uguale tutto intorno (prima la linea bassa era un'isolinea a parte e la larghezza
     # andava da 4 a 7 mm). File: 1 sulla costina (2 mm sopra il fondo) + 5 sulla stoffa a 0, 1,25, 2,5, 3,75 e 5 mm
@@ -238,20 +254,21 @@ for key, (mdl, shf, cutf, ribf, pieces) in VARIANTS.items():
         dn = dn * (1 - wv) + down * wv
     dn /= np.linalg.norm(dn, axis=1, keepdims=True)
     S_ROWS = [0.001, 0.002, 0.0035, 0.005]   # la prima appena sotto il fondo della costina (dove la stoffa sta sotto la costina)
+    if TUCK: S_ROWS = [0.0, 0.002, 0.004, 0.006]   # misurate dal punto della stoffa sotto il bordo della costina
     ROWS = 1 + len(S_ROWS)
     grid = np.zeros((n_s, ROWS, 3)); grid[:, 0] = ribtop
     for i in range(n_s):
         p, nrm_, d = F0[i].copy(), N0[i].copy(), dn[i].copy(); s_ = 0.0; j = 0
         while True:
             while j < len(S_ROWS) and S_ROWS[j] <= s_ + 1e-9:
-                grid[i, 1 + j] = p + nrm_ * 0.0006; j += 1
+                grid[i, 1 + j] = p + nrm_ * (0.0012 if TUCK else 0.0006); j += 1   # classica girocollo: la stoffa sulla spalla fa pieghe, più stacco
             if j >= len(S_ROWS): break
             p, nrm_ = closest(p + d * 0.0005, raw=True); s_ += 0.0005
             d = d - (d @ nrm_) * nrm_; d /= np.linalg.norm(d) + 1e-15
     # la fascetta resta sempre fuori dalla costina dove le due si sovrappongono (al centro davanti della classica col
     # girocollo il fondo della costina si piega in fuori e spuntava attraverso come un puntino bianco)
     _ra, _rr = cyl(RB); _rt = cKDTree(np.stack([np.radians(_ra) * 0.07, RB[:, 1]], 1))
-    for j in range(ROWS):
+    for j in (range(ROWS) if not TUCK else []):
         P_ = grid[:, j]; ga, gr = cyl(P_)
         dd, jj = _rt.query(np.stack([np.radians(ga) * 0.07, P_[:, 1]], 1), k=3)
         near = dd[:, 0] < 0.002
@@ -263,7 +280,7 @@ for key, (mdl, shf, cutf, ribf, pieces) in VARIANTS.items():
     # file lisciate lungo il collo (non sulla punta della V)
     kp = np.clip((np.abs(samp) - 3) / 10, 0, 1) if vtip else np.ones(n_s)
     for j in range(1, ROWS):
-        for _ in range(12):
+        for _ in range(12 if not TUCK or j > 1 else 3):
             sm_ = (np.roll(grid[:, j], 1, 0) + 2 * grid[:, j] + np.roll(grid[:, j], -1, 0)) / 4
             grid[:, j] += (sm_ - grid[:, j]) * kp[:, None]
     out[key] = {'rows': ROWS, 'pts': np.round(grid, 4).ravel().tolist()}
