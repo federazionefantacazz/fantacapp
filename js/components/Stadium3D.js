@@ -9082,14 +9082,16 @@ class Stage {
       this.controls.minDistance = this.dist * 0.12;
       this.controls.maxDistance = this.dist * 1.5;
     }
-    if (this.pitchFrame) this.framePitch(); else this.setView(this.view);
+    if (this.pitchFrame) this.framePitch(this.pitchOpts); else this.setView(this.view);
   }
 
   /**
    * Vista dall'alto sul campo (live): il campo riempie lo schermo, in verticale sugli schermi alti (la squadra di casa in
    * basso) e in orizzontale su quelli larghi (la squadra di casa a sinistra). Resta così anche ridimensionando.
    */
-  framePitch() {
+  framePitch(opts = {}) {
+    this.pitchOpts = opts;
+    if (opts.tilt) { this._framePitchTilted(opts); return; }
     const { THREE } = this.L, el = this.renderer.domElement, aspect = el.clientWidth / Math.max(1, el.clientHeight);
     const portrait = aspect < 1, along = PITCH.l + (portrait ? 30 : 16), across = PITCH.w + (portrait ? 10 : 22); // margine per la barra dei comandi
     const [sw, sh] = portrait ? [across, along] : [along, across]; // metri da far stare in larghezza e in altezza
@@ -9104,6 +9106,51 @@ class Stage {
       this.controls.target.set(0, 0, 0);
       this.controls.minDistance = 6;
       this.controls.maxDistance = Math.max(this.dist * 1.5, dist * 1.2);
+      this.controls.update();
+    }
+  }
+
+  /**
+   * Campo inclinato (opts.tilt gradi dalla verticale): la camera sta dietro la porta di casa (in basso col telefono in
+   * verticale, a sinistra in orizzontale) e guarda verso l'altra; il campo, col suo bordo d'erba, riempie lo spazio
+   * libero tra opts.top e opts.bottom (parti dell'altezza coperte da riquadri sopra e pulsanti sotto).
+   */
+  _framePitchTilted({ tilt, top = 0.04, bottom = 0.12 }) {
+    const { THREE } = this.L, cam = this.camera, el = this.renderer.domElement;
+    const portrait = el.clientWidth < el.clientHeight;
+    if (cam.fov !== FOV) { cam.fov = FOV; cam.updateProjectionMatrix(); }
+    cam.aspect = el.clientWidth / Math.max(1, el.clientHeight); cam.updateProjectionMatrix();
+    const dir = new THREE.Vector3().setFromSpherical(new THREE.Spherical(1, THREE.MathUtils.degToRad(tilt), portrait ? -Math.PI / 2 : 0));
+    const fwd = new THREE.Vector3(-dir.x, 0, -dir.z).normalize(); // verso la porta lontana (in alto sullo schermo)
+    const L2 = PITCH.l / 2 + 2, W2 = PITCH.w / 2 + 2;
+    const pts = [[-L2, 0, -W2], [-L2, 0, W2], [L2, 0, -W2], [L2, 0, W2], [L2, 3.2, 0], [-L2, 0, 0]].map(p => new THREE.Vector3(...p));
+    const target = new THREE.Vector3(), v = new THREE.Vector3();
+    const xLim = 0.94, yLo = -1 + 2 * bottom, yHi = 1 - 2 * top;
+    const place = (d) => { cam.position.copy(target).addScaledVector(dir, d); cam.lookAt(target); cam.updateMatrixWorld(); };
+    const box = () => {
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const p of pts) { v.copy(p).project(cam); x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y); }
+      return { x0, x1, y0, y1 };
+    };
+    const fits = (d) => { place(d); const b = box(); return b.x0 >= -xLim && b.x1 <= xLim && b.y1 - b.y0 <= yHi - yLo; };
+    let d = 100;
+    for (let k = 0; k < 6; k++) {
+      let lo = 20, hi = 3000;
+      for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (fits(m)) hi = m; else lo = m; }
+      d = hi;
+      place(d);
+      // centro verticale nella fascia libera: spostando il punto guardato in avanti il campo scende sullo schermo
+      const b = box(), dy = (yLo + yHi) / 2 - (b.y0 + b.y1) / 2;
+      if (Math.abs(dy) < 0.004) break;
+      target.addScaledVector(fwd, -dy * d * Math.tan(THREE.MathUtils.degToRad(FOV) / 2) * 0.9);
+    }
+    place(d);
+    this.pitchFrame = true;
+    this.view = 'top';
+    if (this.controls) {
+      this.controls.target.copy(target);
+      this.controls.minDistance = 6;
+      this.controls.maxDistance = Math.max(this.dist * 1.5, d * 1.4);
       this.controls.update();
     }
   }
@@ -9328,9 +9375,10 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
     },
     zoomBy(f) { if (stage) stage.zoomBy(f); },
     /** Vista dall'alto con il campo che riempie lo schermo (live). */
-    framePitch() {
+    /** opts: { tilt (gradi), top, bottom (parti dell'altezza coperte) } per il campo inclinato; senza: dall'alto. */
+    framePitch(opts) {
       if (!stage || !stage.built) return;
-      stage.framePitch();
+      stage.framePitch(opts || {});
       stage.render();
     },
     /** Segnaposti dei giocatori sul campo: [{ x, z, color }] in metri (x lungo il campo, 0 al centro). */
