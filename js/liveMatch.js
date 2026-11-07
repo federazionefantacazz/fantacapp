@@ -91,7 +91,7 @@ const LIVE_STYLES = `
 .lv3d-head{display:none}
 .lv3d.full .lv3d-head{display:block;position:absolute;left:10px;right:10px;top:calc(8px + env(safe-area-inset-top,0px));z-index:3}
 .lv3d.full .lv3d-head .lv-stadio-btn{display:none}
-.lv3d.full .lv3d-head .lv-head{padding:.6rem .5rem .55rem;background:color-mix(in srgb,var(--bg) 78%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.lv3d.full .lv3d-head .lv-head{padding:.6rem .5rem .55rem;background:color-mix(in srgb,var(--bg) 52%,transparent);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
 .lv3d.full.no-head .lv3d-head{display:none}
 .lv3d:not(.full) [data-v3="head"]{display:none}
 .lv-seg{display:inline-flex;background:var(--bg3);border-radius:10px;padding:3px;gap:2px;flex-shrink:0}
@@ -1270,10 +1270,13 @@ export const LiveMatchModule = {
         else if (a === 'night') { V.night = !V.night; b.textContent = V.night ? 'Giorno' : 'Notte'; viewer.setNight(V.night); }
         else if (a === 'ext') { V.ext = !V.ext; b.textContent = V.ext ? 'Togli copertura' : 'Rimetti copertura'; b.classList.toggle('on', !V.ext); viewer.setExterior(V.ext); }
         else if (a === 'full') this._full3D(!V.full);
-        else if (a === 'head') { V.headOff = !V.headOff; el.classList.toggle('no-head', V.headOff); b.classList.toggle('on', !V.headOff); }
+        else if (a === 'head') {
+          V.headOff = !V.headOff; el.classList.toggle('no-head', V.headOff); b.classList.toggle('on', !V.headOff);
+          if (el.querySelector('[data-v3="pitch"].on')) viewer.framePitch(this._pitchOpts());
+        }
         else {
           el.querySelectorAll('[data-v3="pitch"],[data-v3="aerial"],[data-v3="stand"]').forEach(x => x.classList.toggle('on', x === b));
-          if (a === 'pitch') viewer.framePitch(); else viewer.setView(a);
+          if (a === 'pitch') viewer.framePitch(this._pitchOpts()); else viewer.setView(a);
         }
       });
       // tocco breve su un giocatore: la sua scheda (le etichette non prendono il dito, così si può girare ovunque)
@@ -1308,7 +1311,7 @@ export const LiveMatchModule = {
         // le etichette dei giocatori compaiono solo con lo stadio pronto (prima finirebbero in posti a caso)
         V.loaded = true;
         V.ov.style.visibility = '';
-        if (first || V.el.querySelector('[data-v3="pitch"].on')) V.viewer.framePitch();
+        if (first || V.el.querySelector('[data-v3="pitch"].on')) V.viewer.framePitch(this._pitchOpts());
         V.firstFrame = true;
       }).catch(err => console.error('Stadio live:', err));
     }
@@ -1365,6 +1368,21 @@ export const LiveMatchModule = {
       lab.style.display = seen ? '' : 'none';
       lab.style.transform = `translate(${q.x}px, ${q.y}px) translate(-50%, -78%) scale(${k})`;
     });
+  },
+
+  /**
+   * Inquadratura "Campo": a tutto schermo inclinata come vista da dietro la porta, nello spazio libero tra il riquadro
+   * del punteggio (se c'è) e i pulsanti in basso; nello stadio dentro la pagina dall'alto.
+   */
+  _pitchOpts() {
+    const V = this._lv3d;
+    if (!V || !V.full) return {};
+    const r = V.el.getBoundingClientRect(), H = Math.max(1, r.height);
+    const head = V.el.querySelector('.lv3d-head'), bar = V.el.querySelector('.lv3d-bar');
+    const hr = head && !V.headOff && head.getClientRects().length ? head.getBoundingClientRect() : null;
+    const top = hr ? (hr.bottom - r.top) / H + 0.015 : 0.03;
+    const bottom = bar ? (r.bottom - bar.getBoundingClientRect().top) / H + 0.01 : 0.12;
+    return { tilt: 17, top: Math.min(0.45, top), bottom: Math.min(0.3, bottom) };
   },
 
   _full3D(on, { silent = false } = {}) {
