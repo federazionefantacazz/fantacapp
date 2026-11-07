@@ -80,6 +80,11 @@ const LIVE_STYLES = `
 .lv-wrap{--lv-ok:#5ec82b;--lv-warn:#f5a623;--lv-bad:#ff4757}
 .lv-toolbar{display:flex;gap:.5rem;align-items:center;margin-bottom:.8rem;flex-wrap:wrap}
 .lv-toolbar .select-rose{flex:1;min-width:180px}
+.lv-fab{position:fixed;right:16px;z-index:900;width:58px;height:58px;border-radius:50%;padding:7px;border:2px solid color-mix(in srgb,var(--accent) 70%,transparent);background:var(--bg2);box-shadow:0 6px 18px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.lv-fab img{width:100%;height:100%;object-fit:contain;border-radius:50%}
+.lv-fab i{font-size:1.6rem;color:var(--gold,var(--accent))}
+.lv-fab:active{transform:scale(.94)}
+.lv3d.full ~ .lv-fab,body:has(.lv3d.full) .lv-fab{display:none}
 .lv-seg{display:inline-flex;background:var(--bg3);border-radius:10px;padding:3px;gap:2px;flex-shrink:0}
 .lv-seg button{border:none;background:transparent;color:var(--text2);font:600 .75rem var(--font-text);padding:.45rem .7rem;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:.3rem}
 .lv-seg button.on{background:var(--accent);color:#0a0f1e}
@@ -399,10 +404,38 @@ export const LiveMatchModule = {
 
   stopLiveTracking() {
     this._dispose3D();
+    if (this._fab) { this._fab.remove(); this._fab = null; }
     this.unsubscribers.forEach(u => { try { u(); } catch (e) {} });
     this.unsubscribers = [];
     this._ctxKey = null;
     this._closeEditor();
+  },
+
+  /**
+   * Pulsante tondo fisso in basso a destra (resta lì anche scorrendo) col logo della competizione: apre la scelta
+   * della partita (la lista del <select> nascosto, che resta quello di prima con i suoi eventi).
+   */
+  _mountPickFab() {
+    let f = this._fab;
+    if (!f) {
+      f = this._fab = document.createElement('button');
+      f.type = 'button';
+      f.className = 'lv-fab';
+      f.setAttribute('aria-label', 'Scegli la partita');
+      f.title = 'Scegli la partita';
+      f.addEventListener('click', () => {
+        const b = document.querySelector('[data-cs-for="live-match-select"]');
+        if (b) b.click();
+      });
+      document.body.appendChild(f);
+    }
+    const comp = this._getCompData(), logo = String((comp && comp.logo) || '').trim();
+    const html = logo ? `<img src="${esc(logo)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'ri-trophy-line'}))">` : '<i class="ri-trophy-line"></i>';
+    if (f.dataset.logo !== logo) { f.dataset.logo = logo; f.innerHTML = html; }
+    // sopra la barra in basso
+    const nav = document.getElementById('nav');
+    const top = nav && nav.getClientRects().length ? nav.getBoundingClientRect().top : window.innerHeight;
+    f.style.bottom = `${Math.max(16, window.innerHeight - top + 14)}px`;
   },
 
   _teamInfo(id) {
@@ -464,7 +497,7 @@ export const LiveMatchModule = {
         <i class="ri-information-line" style="font-size:1.2rem; color:var(--accent2);"></i>
         <div style="font-size:.8rem; color:var(--text2);font-family:var(--font-sub,inherit);">
           <strong style="color:var(--text);">Non giochi in questa giornata.</strong> ${esc(d.status.reason)}<br>
-          Puoi seguire gli altri incontri scegliendoli dal menu.
+          Puoi seguire gli altri incontri scegliendoli col pulsante in basso a destra.
         </div>
       </div>`;
 
@@ -486,14 +519,13 @@ export const LiveMatchModule = {
     container.innerHTML = `
       <div class="lv-wrap">
         ${notice}
-        <div class="lv-toolbar">
-          <select id="live-match-select" class="select-rose" data-title="Scegli la partita">${options}</select>
-          ${this._viewSwitchMarkup()}
-        </div>
+        <div class="lv-pick" hidden><select id="live-match-select" class="select-rose" data-title="Scegli la partita">${options}</select></div>
+        <div class="lv-toolbar">${this._viewSwitchMarkup()}</div>
         ${body}
       </div>
     `;
     this._mount3D(container);
+    this._mountPickFab();
     if (scroller && Math.abs(scroller.scrollTop - scrollTop) > 2) scroller.scrollTop = scrollTop;
 
     const selectEl = document.getElementById('live-match-select');
@@ -883,7 +915,7 @@ export const LiveMatchModule = {
     const home = this._team(homeId, lineups, playersById, ctx);
     const away = this._team(awayId, lineups, playersById, ctx);
     const isLive = mode === 'live';
-    const sim = isLive && this._sim.on;
+    const sim = isLive && this._sim.on && this.view !== 'stadio'; // nella visuale Stadio niente simulazione
 
     // Parziale (solo titolari) o finale (con sostituzioni)
     const withSubs = mode === 'past';
@@ -902,7 +934,7 @@ export const LiveMatchModule = {
     const mH = subsMark(subsH), mA = subsMark(subsA);
 
     const header = this._headerMarkup({ mode, home, away, tH, tA, couple, updatedAt: ctx.updatedAt, ufficiali: ctx.ufficiali });
-    const simBox = isLive ? this._simMarkup(home, away, simH, simA) : '';
+    const simBox = isLive && this.view !== 'stadio' ? this._simMarkup(home, away, simH, simA) : '';
 
     const content = this.view === 'stadio'
       ? this._stadiumMarkup(home, away, sim)
