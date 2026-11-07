@@ -944,7 +944,7 @@ export const LiveMatchModule = {
       ${header}
       ${simBox}
       ${content}
-      ${this._footerMarkup({ mode, home, away, tH, tA })}
+      ${isLive && this.view === 'stadio' ? '' : this._footerMarkup({ mode, home, away, tH, tA })}
     `;
   },
 
