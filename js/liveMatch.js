@@ -216,6 +216,15 @@ const LIVE_STYLES = `
 .lv3d-p .lf-shirt.is-circle{width:34px;height:34px}
 .lv3d-p .lf-shirt.has-png{width:40px;height:44px;border-radius:50%;box-shadow:0 0 0 2px var(--lv3d-c);background-color:rgba(255,255,255,.12)}
 .lv3d-p .lf-name{border-bottom:2px solid var(--lv3d-c)}
+/* stadio a tutto schermo: giocatori, voti e bonus più grandi (i nomi restano uguali) */
+.lv3d.full .lv3d-p{width:96px}
+.lv3d.full .lv3d-p .lf-shirt.is-circle{width:48px;height:48px;font-size:1.15rem}
+.lv3d.full .lv3d-p .lf-shirt.has-png{width:56px;height:60px}
+.lv3d.full .lv3d-p .lf-score{top:-9px;right:-24px;min-width:32px;padding:2px 7px;font-size:.88rem;border-radius:12px}
+.lv3d.full .lv3d-p .lf-cap{top:-9px;left:-18px}
+.lv3d.full .lv3d-evs{max-width:110px;gap:3px;padding:3px 5px}
+.lv3d.full .lv3d-evs .lv-ev{font-size:.95rem}.lv3d.full .lv3d-evs .lv-ico{width:18px;height:18px}
+.lv3d.full .lv3d-evs .lv-card{width:11px;height:15px}.lv3d.full .lv3d-evs .lv-chip{font-size:.7rem;padding:2px 4px}
 .lv3d-evs{display:flex;gap:2px;align-items:center;justify-content:center;flex-wrap:wrap;max-width:84px;margin-top:2px;padding:2px 4px;border-radius:6px;background:rgba(10,15,30,.85);color:#fff}
 .lv3d-evs .lv-ev{color:#fff;font-size:.72rem}.lv3d-evs .lv-ico{width:13px;height:13px}.lv3d-evs .lv-ico .cut{stroke:#0a0f1e}
 .lv3d-evs .lv-chip{background:rgba(255,255,255,.14)}
@@ -437,9 +446,15 @@ export const LiveMatchModule = {
       f.addEventListener('click', () => {
         // nello stadio a tutto schermo si può cambiare anche la competizione
         if (!(this._lv3d && this._lv3d.full)) { pickMatch(); return; }
+        // la partita e la competizione di adesso, coi loghi: toccandole si cambiano
+        const sel = document.getElementById('live-match-select'), o = sel && sel.options[sel.selectedIndex];
+        const comp = this._getCompData() || {};
         openChoiceSheet({
           title: 'Cosa vuoi cambiare?',
-          items: [{ value: 'match', label: 'Cambia partita', icon: 'ri-football-line' }, { value: 'comp', label: 'Cambia competizione', icon: 'ri-trophy-line' }],
+          items: [
+            o ? { value: 'match', label: o.text, img: o.dataset.img || '', img2: o.dataset.img2 || '', sub: 'Partita · tocca per cambiarla' } : { value: 'match', label: 'Partita', icon: 'ri-football-line', sub: 'Tocca per cambiarla' },
+            { value: 'comp', label: comp.name || 'Competizione', ...(comp.logo ? { img: comp.logo } : { icon: 'ri-trophy-line' }), sub: 'Competizione · tocca per cambiarla' }
+          ],
           onChoose: (v) => setTimeout(v === 'comp' ? pickComp : pickMatch, 60)
         });
       });
