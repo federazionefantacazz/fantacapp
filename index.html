@@ -1619,6 +1619,7 @@ window.goPage = function(name, btn) {
   btn = btn || document.querySelector(`.nav-btn[data-page="${name === 'live' ? 'formazione' : name}"]`);
   if (window.STATE.currentPage === 'live' && name !== 'live') {
     LiveMatchModule.stopLiveTracking();
+    LiveMatchModule._liveView = 'colonne'; // rientrando nel live si riparte dalle colonne
   }
 
   if (name === 'teams' && typeof TeamsPage.backToTeamsList === 'function') {

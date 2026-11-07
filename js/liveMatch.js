@@ -25,6 +25,7 @@ import { CalcoloMatchService, RULE_MATCH } from "./services/calcoloMatch.js";
 import { GwService } from "./services/gwService.js";
 import { ProbabiliService } from "./services/probabiliService.js";
 import { esc, fitName } from './utils.js';
+import { openChoiceSheet } from './components/SelectSheet.js';
 import { kitImageHTML, openKitOverlay } from './components/Kit3D.js';
 import { getCompPatchesOf } from './services/kitAssets.js';
 import { BackNav } from './services/backNav.js';
@@ -84,7 +85,15 @@ const LIVE_STYLES = `
 .lv-fab img{width:100%;height:100%;object-fit:contain;border-radius:50%}
 .lv-fab i{font-size:1.6rem;color:var(--gold,var(--accent))}
 .lv-fab:active{transform:scale(.94)}
-.lv3d.full ~ .lv-fab,body:has(.lv3d.full) .lv-fab{display:none}
+.lv-fab.on3d{z-index:5600}
+.lv-head .lv-stadio-btn{grid-column:1/-1;justify-self:center;margin-top:.55rem;display:inline-flex;align-items:center;gap:.4rem;border:0;border-radius:999px;padding:.5rem 1rem;background:var(--accent);color:#0a0f1e;font:700 .8rem var(--font-btn,inherit);cursor:pointer}
+.lv-head .lv-stadio-btn i{font-size:1rem}
+.lv3d-head{display:none}
+.lv3d.full .lv3d-head{display:block;position:absolute;left:10px;right:10px;top:calc(8px + env(safe-area-inset-top,0px));z-index:3}
+.lv3d.full .lv3d-head .lv-stadio-btn{display:none}
+.lv3d.full .lv3d-head .lv-head{padding:.6rem .5rem .55rem;background:color-mix(in srgb,var(--bg) 78%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.lv3d.full.no-head .lv3d-head{display:none}
+.lv3d:not(.full) [data-v3="head"]{display:none}
 .lv-seg{display:inline-flex;background:var(--bg3);border-radius:10px;padding:3px;gap:2px;flex-shrink:0}
 .lv-seg button{border:none;background:transparent;color:var(--text2);font:600 .75rem var(--font-text);padding:.45rem .7rem;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:.3rem}
 .lv-seg button.on{background:var(--accent);color:#0a0f1e}
@@ -423,16 +432,37 @@ export const LiveMatchModule = {
       f.className = 'lv-fab';
       f.setAttribute('aria-label', 'Scegli la partita');
       f.title = 'Scegli la partita';
+      const pickMatch = () => { const b = document.querySelector('[data-cs-for="live-match-select"]'); if (b) b.click(); };
+      const pickComp = () => { const b = document.querySelector('[data-cs-for="userCompSelect"]'); if (b) b.click(); };
       f.addEventListener('click', () => {
-        const b = document.querySelector('[data-cs-for="live-match-select"]');
-        if (b) b.click();
+        // nello stadio a tutto schermo si può cambiare anche la competizione
+        if (!(this._lv3d && this._lv3d.full)) { pickMatch(); return; }
+        openChoiceSheet({
+          title: 'Cosa vuoi cambiare?',
+          items: [{ value: 'match', label: 'Cambia partita', icon: 'ri-football-line' }, { value: 'comp', label: 'Cambia competizione', icon: 'ri-trophy-line' }],
+          onChoose: (v) => setTimeout(v === 'comp' ? pickComp : pickMatch, 60)
+        });
       });
       document.body.appendChild(f);
     }
     const comp = this._getCompData(), logo = String((comp && comp.logo) || '').trim();
     const html = logo ? `<img src="${esc(logo)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'ri-trophy-line'}))">` : '<i class="ri-trophy-line"></i>';
     if (f.dataset.logo !== logo) { f.dataset.logo = logo; f.innerHTML = html; }
-    // sopra la barra in basso
+    this._placeFab();
+  },
+
+  /** Posizione del pulsante: sopra la barra in basso, o sopra i pulsanti dello stadio a tutto schermo. */
+  _placeFab() {
+    const f = this._fab;
+    if (!f) return;
+    const V = this._lv3d, full = !!(V && V.full);
+    f.classList.toggle('on3d', full);
+    if (full) {
+      const bar = V.el.querySelector('.lv3d-bar');
+      const top = bar ? bar.getBoundingClientRect().top : window.innerHeight - 90;
+      f.style.bottom = `${Math.max(16, window.innerHeight - top + 12)}px`;
+      return;
+    }
     const nav = document.getElementById('nav');
     const top = nav && nav.getClientRects().length ? nav.getBoundingClientRect().top : window.innerHeight;
     f.style.bottom = `${Math.max(16, window.innerHeight - top + 14)}px`;
@@ -520,7 +550,6 @@ export const LiveMatchModule = {
       <div class="lv-wrap">
         ${notice}
         <div class="lv-pick" hidden><select id="live-match-select" class="select-rose" data-title="Scegli la partita">${options}</select></div>
-        <div class="lv-toolbar">${this._viewSwitchMarkup()}</div>
         ${body}
       </div>
     `;
@@ -644,7 +673,11 @@ export const LiveMatchModule = {
       const btn = e.target.closest('[data-lv]');
       if (!btn || !root.contains(btn)) return;
       const act = btn.dataset.lv;
-      if (act === 'view') {
+      if (act === 'stadio3d') {
+        // stadio 3D a tutto schermo (si torna alle colonne chiudendolo)
+        this._liveView = 'stadio';
+        root._lvRerender();
+      } else if (act === 'view') {
         this.view = btn.dataset.v;
         root._lvRerender();
       } else if (act === 'sim-toggle') {
@@ -915,7 +948,9 @@ export const LiveMatchModule = {
     const home = this._team(homeId, lineups, playersById, ctx);
     const away = this._team(awayId, lineups, playersById, ctx);
     const isLive = mode === 'live';
-    const sim = isLive && this._sim.on && this.view !== 'stadio'; // nella visuale Stadio niente simulazione
+    // visuale: nel live parte sempre da Colonne (lo stadio si apre a tutto schermo col pulsante nel riquadro del punteggio)
+    const view = isLive ? (this._liveView || 'colonne') : this.view;
+    const sim = isLive && this._sim.on && view !== 'stadio'; // nella visuale Stadio niente simulazione
 
     // Parziale (solo titolari) o finale (con sostituzioni)
     const withSubs = mode === 'past';
@@ -934,9 +969,9 @@ export const LiveMatchModule = {
     const mH = subsMark(subsH), mA = subsMark(subsA);
 
     const header = this._headerMarkup({ mode, home, away, tH, tA, couple, updatedAt: ctx.updatedAt, ufficiali: ctx.ufficiali });
-    const simBox = isLive && this.view !== 'stadio' ? this._simMarkup(home, away, simH, simA) : '';
+    const simBox = isLive && view !== 'stadio' ? this._simMarkup(home, away, simH, simA) : '';
 
-    const content = this.view === 'stadio'
+    const content = view === 'stadio'
       ? this._stadiumMarkup(home, away, sim)
       : this._columnsMarkup(home, away, { sim, mH, mA });
 
@@ -944,7 +979,7 @@ export const LiveMatchModule = {
       ${header}
       ${simBox}
       ${content}
-      ${this._footerMarkup({ mode, home, away, tH, tA })}
+      ${isLive && view === 'stadio' ? '' : this._footerMarkup({ mode, home, away, tH, tA })}
     `;
   },
 
@@ -1001,7 +1036,8 @@ export const LiveMatchModule = {
     } else {
       center = `<div class="lv-pts">VS</div><div class="lv-pts-sub">Da giocare</div>`;
     }
-    return `<div class="lv-head">${team(home)}<div class="lv-score">${center}</div>${team(away)}</div>`;
+    const stadioBtn = mode === 'live' ? `<button class="lv-stadio-btn" data-lv="stadio3d"><i class="ri-football-line"></i> Visualizzazione stadio</button>` : '';
+    return `<div class="lv-head">${team(home)}<div class="lv-score">${center}</div>${team(away)}${stadioBtn}</div>`;
   },
 
   _simMarkup(home, away, simH, simA) {
@@ -1208,6 +1244,7 @@ export const LiveMatchModule = {
       el.innerHTML = `
         <div class="lv3d-stage"></div>
         <div class="lv3d-ov"></div>
+        <div class="lv3d-head"></div>
         <div class="lv3d-load">Costruzione dello stadio…</div>
         <div class="lv3d-bar">
           <button data-v3="pitch" class="on">Campo</button>
@@ -1215,6 +1252,7 @@ export const LiveMatchModule = {
           <button data-v3="stand">Tribuna</button>
           <button data-v3="night">Notte</button>
           <button data-v3="ext">Togli copertura</button>
+          <button data-v3="head" class="on">Pannello</button>
           <button data-v3="in" aria-label="Avvicina">＋</button>
           <button data-v3="out" aria-label="Allontana">−</button>
           <button data-v3="full" aria-label="Schermo intero"><i class="ri-fullscreen-line"></i></button>
@@ -1232,6 +1270,7 @@ export const LiveMatchModule = {
         else if (a === 'night') { V.night = !V.night; b.textContent = V.night ? 'Giorno' : 'Notte'; viewer.setNight(V.night); }
         else if (a === 'ext') { V.ext = !V.ext; b.textContent = V.ext ? 'Togli copertura' : 'Rimetti copertura'; b.classList.toggle('on', !V.ext); viewer.setExterior(V.ext); }
         else if (a === 'full') this._full3D(!V.full);
+        else if (a === 'head') { V.headOff = !V.headOff; el.classList.toggle('no-head', V.headOff); b.classList.toggle('on', !V.headOff); }
         else {
           el.querySelectorAll('[data-v3="pitch"],[data-v3="aerial"],[data-v3="stand"]').forEach(x => x.classList.toggle('on', x === b));
           if (a === 'pitch') viewer.framePitch(); else viewer.setView(a);
@@ -1248,6 +1287,12 @@ export const LiveMatchModule = {
       });
     }
     slot.appendChild(V.el);
+    // live: lo stadio si vede solo a tutto schermo, col riquadro del punteggio in alto (copia di quello della pagina)
+    if (root.id === 'live-match-container') {
+      const head = root.querySelector('.lv-head'), box = V.el.querySelector('.lv3d-head');
+      if (box) box.innerHTML = head ? head.outerHTML : '';
+      if (!V.full) this._full3D(true);
+    }
 
     // stadio della squadra di casa (o quello di base): si ricostruisce solo se cambia
     const { home, away, sim } = this._lv3dData;
@@ -1322,7 +1367,7 @@ export const LiveMatchModule = {
     });
   },
 
-  _full3D(on) {
+  _full3D(on, { silent = false } = {}) {
     const V = this._lv3d;
     if (!V) return;
     V.full = on;
@@ -1331,12 +1376,18 @@ export const LiveMatchModule = {
     if (b) b.innerHTML = `<i class="${on ? 'ri-fullscreen-exit-line' : 'ri-fullscreen-line'}"></i>`;
     if (on) BackNav.push('live-3d-full', () => this._full3D(false));
     else BackNav.pop('live-3d-full');
+    if (this._fab) this._placeFab();
+    // live: chiudendo lo stadio si torna alle colonne
+    if (!on && !silent && this._liveView === 'stadio' && V.el.closest('#live-match-container')) {
+      this._liveView = 'colonne';
+      this.render();
+    }
   },
 
   _dispose3D() {
     const V = this._lv3d;
     if (!V) return;
-    if (V.full) this._full3D(false);
+    if (V.full) this._full3D(false, { silent: true });
     V.viewer.dispose();
     V.el.remove();
     this._lv3d = null;
