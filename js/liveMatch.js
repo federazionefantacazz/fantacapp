@@ -218,6 +218,9 @@ const LIVE_STYLES = `
 .lv3d-p .lf-name{border-bottom:2px solid var(--lv3d-c)}
 /* stadio a tutto schermo: giocatori, voti e bonus più grandi (i nomi restano uguali) */
 .lv3d.full .lv3d-p{width:96px}
+.lv3d.full .lv3d-p .lf-name{font-size:.74rem;max-width:96px}
+.lv3d-bar button.lv3d-back{order:-1;background:var(--accent);color:#0a0f1e;border-color:var(--accent);font-size:.8rem;padding:.38rem .8rem;display:inline-flex;align-items:center;gap:.25rem}
+.lv3d-bar button.lv3d-back i{font-size:1rem}
 .lv3d.full .lv3d-p .lf-shirt.is-circle{width:48px;height:48px;font-size:1.15rem}
 .lv3d.full .lv3d-p .lf-shirt.has-png{width:56px;height:60px}
 .lv3d.full .lv3d-p .lf-score{top:-9px;right:-24px;min-width:32px;padding:2px 7px;font-size:.88rem;border-radius:12px}
@@ -1395,7 +1398,8 @@ export const LiveMatchModule = {
     const r = V.el.getBoundingClientRect(), H = Math.max(1, r.height);
     const head = V.el.querySelector('.lv3d-head'), bar = V.el.querySelector('.lv3d-bar');
     const hr = head && !V.headOff && head.getClientRects().length ? head.getBoundingClientRect() : null;
-    const top = hr ? (hr.bottom - r.top) / H + 0.015 : 0.03;
+    // spazio in più sopra: l'etichetta del portiere lontano sta sopra la sua porta
+    const top = (hr ? hr.bottom - r.top : 0) / H + 72 / H;
     const bottom = bar ? (r.bottom - bar.getBoundingClientRect().top) / H + 0.01 : 0.12;
     return { tilt: 17, top: Math.min(0.45, top), bottom: Math.min(0.3, bottom) };
   },
@@ -1406,7 +1410,7 @@ export const LiveMatchModule = {
     V.full = on;
     V.el.classList.toggle('full', on);
     const b = V.el.querySelector('[data-v3="full"]');
-    if (b) b.innerHTML = `<i class="${on ? 'ri-fullscreen-exit-line' : 'ri-fullscreen-line'}"></i>`;
+    if (b) { b.innerHTML = on ? '<i class="ri-arrow-left-line"></i> Indietro' : '<i class="ri-fullscreen-line"></i>'; b.classList.toggle('lv3d-back', on); }
     if (on) BackNav.push('live-3d-full', () => this._full3D(false));
     else BackNav.pop('live-3d-full');
     if (this._fab) this._placeFab();
