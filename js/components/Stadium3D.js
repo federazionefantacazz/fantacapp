@@ -6599,15 +6599,15 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
             const face = (uu) => poly.map(([D, h]) => { const [x, z] = pointAt(run, cum, um + uu, D); return [x, h, z]; });
             prism(face(u1), face(u0), towerPos);
           };
-          const cw = 0.22 * U, hA = 0.47 * H1, hB = fc * H1, hF = hA - p * H1, t = 0.7; // nodo: parapetti in cima a hA, pavimento hF
-          // sotto: dal davanti del nodo (in cima) al davanti del pianerottolo (in basso)
-          const Dn = back(hA) + Td + 0.15, Dl = back(hB - 0.8) + Td + FC, k = (hB - 0.8 - hA) / Math.max(0.5, Dl - Dn);
-          const under = (D) => hA + (D - Dn) * k, walk = (D) => under(D) + t;
-          const DA = Dn - (walk(Dn) - hF) / k, DB = Dl - (walk(Dl) - hB) / k;                       // dove il piano di calpestio
-          along(-cw, cw, [[DA, walk(DA)], [Dl, walk(Dl)], [Dl, under(Dl)], [DA, under(DA)]]);      // incontra nodo e pianerottolo
+          // parte dal bordo davanti del nodo (tutta fuori dalla torre: le rampe di mezzo arrivano libere sul nodo) e sale
+          // in avanti fino al pianerottolo in cima; il suo sotto continua il davanti del nodo
+          const cw = 0.22 * U, hA = 0.47 * H1, hB = fc * H1, hF = hA - p * H1, t = 0.7;
+          const DA = back(hA) + Td + 0.2, Dl = back(hB - 0.8) + Td + FC, DB = Math.max(DA + 1.5, Dl - 0.4);
+          const walk = (D) => hF + (hB - hF) * (D - DA) / (DB - DA), under = (D) => walk(D) - t;
+          along(-cw, cw, [[DA, walk(DA)], [DB, walk(DB)], [DB, under(DB)], [DA, under(DA)]]);       // soletta
           for (const s2 of [-1, 1]) {                                                               // parapetti
             const a = s2 * cw, b = s2 * (cw - PW);
-            along(Math.min(a, b), Math.max(a, b), [[DA, under(DA)], [Dl, under(Dl)], [Dl, walk(Dl) + 1.1], [DA, walk(DA) + 1.1]]);
+            along(Math.min(a, b), Math.max(a, b), [[DA, under(DA)], [DB, under(DB)], [DB, walk(DB) + 1.1], [DA, walk(DA) + 1.1]]);
           }
           const nS = Math.max(3, Math.round((hB - hF) / 0.28)), wst = 2 * (cw - PW), [ctx, ctz] = tangentAt(run, cum, um, (DA + DB) / 2);
           for (let j = 0; j < nS; j++) {
