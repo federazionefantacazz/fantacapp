@@ -6394,7 +6394,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     // sopra (da fuori non si vede il campo); davanti la fascia del ballatoio in cemento a pannelli; a terra il muretto con
     // la ringhiera e, più fuori, la recinzione gialla con i cancelli al centro di ogni lato e le insegne blu dei settori
     const rect = (d0, d1, h0, h1, m) => [[d0, h0], [d1, h0], [d1, h1], [d0, h1]].map(([d, h]) => ({ d, h, m }));
-    const pos = [], idx = [[], [], [], []], steps = [], slabs = [], struts = [], joints = [], rails = [], rails2 = [], idx2 = [[], [], [], []], fence = [], fIdx = [[], [], []];
+    const pos = [], idx = [[], [], [], []], steps = [], slabs = [], struts = [], joints = [], rails = [], rails2 = [], idx2 = [[], [], [], []], fence = [], fIdx = [[], [], []], greenRails = [], stairSigns = [];
     // cemento: fasce più chiare, scale e travi grigie, di notte appena illuminati dai lampioni sotto lo sbalzo
     const concrete = (f, glow) => {
       const m = new THREE.MeshStandardMaterial({ roughness: 0.9, side: THREE.DoubleSide, emissive: 0xffc98a, emissiveIntensity: 0 });
@@ -6443,8 +6443,10 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       const inner = rt.length > 1 ? rt[rt.length - 2].back + WALL + 0.4 : o, room = o - inner > 5.5;
       const dIn = room ? inner + 0.2 : o + 0.4, dOut = room ? o : o + 6.4, top = rt.length > 1 ? rt[rt.length - 1].under(o) : T.top;
       const under = (d) => (rt.length > 1 ? rt[rt.length - 1].under(d) : T.top + 2.2);
-      // la trave ad anello (il ballatoio) a metà altezza sotto lo sbalzo, il ballatoio alto più su
-      const Hw = Math.max(8.5, Math.min(top * 0.5, top - 9));
+      // la trave ad anello (il ballatoio dove arrivano le scale) in alto, appena sotto lo sbalzo dell'anello di sopra
+      const Hw = Math.max(8.5, Math.min(under(dIn) - 1, top - 4));
+      // quota della grande gradinata dei cancelli (più bassa: sale fino al primo ballatoio dentro)
+      const Hg = Math.max(8.5, Math.min(top * 0.5, top - 9));
       const w = Math.min(3.2, dOut - dIn - 2.4); // larghezza delle rampe (dietro la trave ad anello e i puntoni)
       // ballatoio e, sul bordo, la grossa trave ad anello liscia; anello in alto
       extrude(THREE, run, rect(dIn - 0.3, dOut - 1.4, Hw - 0.6, Hw, 0), pos, idx);
@@ -6465,7 +6467,9 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       for (const ug of gates) {
         const [xg, zg] = pointAt(run, cum, ug, 0);
         if (nearEntrance(shape, st, xg, zg, 3)) continue;
-        grand(run, cum, ug, 2 * GATE_HALF - 4, dOut + FENCE_OUT - 1.5, dIn + 2, Hw - 0.6);
+        grand(run, cum, ug, 2 * GATE_HALF - 4, dOut + FENCE_OUT - 1.5, dIn + 2, Hg - 0.6);
+        // pianerottolo in cima alla gradinata, fino al muro
+        piece(run, cum, ug, [[-(GATE_HALF - 2), Hg - 1.2], [GATE_HALF - 2, Hg - 1.2], [GATE_HALF - 2, Hg - 0.6], [-(GATE_HALF - 2), Hg - 0.6]], dIn - 0.3, dIn + 2.2);
       }
       const n = Math.max(1, Math.round(total / STAIR_BAY)), bay = total / n;
       // scale a clessidra: due per settore, a destra e a sinistra del cancello (a circa 3/10 della lunghezza del settore),
@@ -6481,7 +6485,10 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         for (const sg of [-1, 1]) {
           const ut = ug + sg * Math.max(GATE_HALF + bay * 0.6, len * 0.3);
           if (!run.closed && (ut < 0 || ut > total)) continue;
-          stairBays.add(((Math.floor(wrapU(run, total, ut) / bay) % n) + n) % n);
+          // nelle campate dispari i due puntoni si aprono verso l'alto (a V, come al Maradona): lì vanno le scale
+          let kb = ((Math.floor(wrapU(run, total, ut) / bay) % n) + n) % n;
+          if (kb % 2 === 0) kb = run.closed ? (kb + sg + n) % n : Math.min(n - 1, Math.max(0, kb + sg));
+          stairBays.add(kb);
         }
       }
       for (let k = 0; k < n; k++) {
@@ -6490,54 +6497,53 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         // puntone tra le campate: da terra fin sotto la trave ad anello, inclinato lungo la facciata (uno sì e uno no
         // dall'altra parte: a coppie si chiudono verso l'alto), grosso e profondo
         {
-          const sgn = k % 2 ? -1 : 1, lean = Math.min(3.5, Hw * 0.28), dp = dOut - 0.6;
-          const [bx0, bz0] = pointAt(run, cum, wrapU(run, total, ua - sgn * lean), dp), [bx1, bz1] = pointAt(run, cum, ua, dp);
+          // in profondità sale da dentro (vicino alle scale) verso fuori, fino al bordo dello sbalzo
+          const sgn = k % 2 ? -1 : 1, lean = Math.min(3.5, Hw * 0.28), dp = dOut - 0.6, dp0 = Math.max(dIn + 1, dp - Hw * 0.3);
+          const [bx0, bz0] = pointAt(run, cum, wrapU(run, total, ua - sgn * lean), dp0), [bx1, bz1] = pointAt(run, cum, ua, dp);
           const [tx, tz] = tangentAt(run, cum, ua, dp), a = [bx1 - bx0, Hw - 1.9, bz1 - bz0];
           boxAt(struts, (bx0 + bx1) / 2, a[1] / 2, (bz0 + bz1) / 2, a, [tx * 1.5, 0, tz * 1.5], [-tz * 2.2, 0, tx * 2.2]);
         }
         const [xa, za] = pointAt(run, cum, um, 0);
         if (!stairBays.has(k) || nearEntrance(shape, st, xa, za, 3)) continue;
-        // scala a clessidra (come al Maradona): un blocco di cemento nel piano della facciata fatto di pezzi che si toccano
-        // solo sui bordi (B = larghezza della campata, G = altezza sotto la trave ad anello). Il percorso: da terra la
-        // scalinata centrale (in ombra sotto la strozzatura) sale al pianerottolo; da lì le due bande basse vanno verso i
-        // lati, poi i bracci salgono a gradini verso il centro fino alla strozzatura (la rampa centrale, che sale verso
-        // dentro); da lì due bracci salgono a gradini verso i lati fino alle bande alte, che portano dentro; in cima al
-        // centro il telaio a esagono
-        const G = Hw - 1.9, B = bay, dd = 2.6, d1 = dOut - 1.8, d0 = d1 - dd, out = 0.4;
+        // torre delle scale (come al Maradona), nel piano della facciata tra i due puntoni a V, fatta di pezzi di cemento
+        // che si toccano solo sui bordi (U = mezza larghezza in cima, G = altezza fino al ballatoio). Dal basso: la
+        // scalinata centrale da terra; le due gambe salgono verso fuori fino ai pianerottoli laterali (con l'insegna del
+        // settore); da lì due bracci risalgono verso il centro fino al nodo e al pilastro centrale; in cima due bracci
+        // larghi salgono verso fuori fino al ballatoio, che corre per tutta la campata ed entra dentro
+        const G = Hw - 1.9, U = Math.min(7.6, bay * 0.42, G * 0.47), dd = 2.8, d1 = dOut - 1.9, d0 = d1 - dd;
         if (d0 < dIn + 0.4) continue;
-        const h = (f) => f * G, u = (f) => f * B, [tx, tz] = tangentAt(run, cum, um, (d0 + d1) / 2);
-        const P = (list, o = 0, da = d0, db = d1 + o) => piece(run, cum, um, list.map(([a, b]) => [u(a), h(b)]), da, db);
-        // gradini sul bordo di sopra di un braccio, da (ua, ha) a (ub, hb) (frazioni di B e G): ogni gradino sporge sopra
-        const stepsOn = (ua, ha, ub, hb) => {
-          const nS = Math.max(2, Math.round(h(hb - ha) / STAIR_RISE)), r = h(hb - ha) / nS;
-          for (let j = 0; j < nS; j++) {
-            const u0 = u(ua + (ub - ua) * j / nS), u1 = u(ua + (ub - ua) * (j + 1) / nS), hj = h(ha) + r * j;
-            const [x, z] = pointAt(run, cum, um + (u0 + u1) / 2, (d0 + d1 + out) / 2), wj = Math.abs(u1 - u0), dj = dd + out - 0.1;
-            boxAt(steps, x, hj + r / 2 - 0.01, z, [tx * wj, 0, tz * wj], [0, r + 0.02, 0], [-tz * dj, 0, tx * dj]);
-          }
-        };
+        const [tx, tz] = tangentAt(run, cum, um, (d0 + d1) / 2);
+        const P = (list, o = 0, da = d0, db = d1 + o) => piece(run, cum, um, list.map(([a, b]) => [a * U, b * G]), da, db);
         for (const k of [-1, 1]) {
           const m = (list) => (k > 0 ? list : list.map(([a, b]) => [-a, b]).reverse());
-          P(m([[0.07, 0.10], [0.46, 0.10], [0.46, 0.19], [0.07, 0.19]]));                 // banda bassa
-          P(m([[0.30, 0.19], [0.44, 0.19], [0.14, 0.40], [0.14, 0.29]]), out);            // braccio basso
-          P(m([[0.14, 0.45], [0.36, 0.55], [0.36, 0.67], [0.14, 0.57]]), out);            // braccio alto
-          P(m([[0.36, 0.55], [0.50, 0.55], [0.50, 0.67], [0.36, 0.67]]));                 // banda alta
-          // la banda alta continua dietro fino al muro (si entra dentro)
-          P(m([[0.38, 0.60], [0.50, 0.60], [0.50, 0.67], [0.38, 0.67]]), 0, dIn + 0.2, d0);
-          stepsOn(k * 0.44, 0.19, k * 0.14, 0.40);
-          stepsOn(k * 0.14, 0.57, k * 0.36, 0.67);
+          P(m([[0.19, 0.66], [0.19, 0.885], [0.98, 0.885], [0.98, 0.86]]));                  // braccio alto (a V)
+          P(m([[0.19, 0.36], [0.19, 0.44], [0.50, 0.345], [0.50, 0.25]]));                   // braccio di mezzo
+          P(m([[0.50, 0.25], [0.50, 0.345], [0.76, 0.345], [0.76, 0.25]]), 0.5);             // pianerottolo laterale
+          P(m([[0.32, 0.0], [0.50, 0.25], [0.74, 0.25], [0.52, 0.0]]));                      // gamba
         }
-        P([[-0.14, 0.29], [0.14, 0.29], [0.14, 0.57], [-0.14, 0.57]], out);               // strozzatura
-        // telaio a esagono in cima al centro, un poco più avanti, con la feritoia scura
-        P([[-0.16, 0.615], [0.16, 0.615], [0.22, 0.675], [0.16, 0.735], [-0.16, 0.735], [-0.22, 0.675]], 0, d0 + 0.3, d1 + 0.7);
-        const [xs, zs] = pointAt(run, cum, um, d1 + 0.72);
-        boxAt(joints, xs, h(0.675), zs, [tx * u(0.24), 0, tz * u(0.24)], [0, h(0.05), 0], [-tz * 0.05, 0, tx * 0.05]);
-        // pianerottolo e scalinata centrale da terra (in ombra sotto la strozzatura), che sale verso dentro
-        P([[-0.07, 0.10], [0.07, 0.10], [0.07, 0.19], [-0.07, 0.19]], 0, d0, d0 + 1.2);
-        const hL = h(0.19), nS = Math.max(2, Math.round(hL / STAIR_RISE)), wS = u(0.13);
+        P([[-1, 0.885], [1, 0.885], [1, 1], [-1, 1]], 0.15);                                  // ballatoio in cima
+        P([[-1, 0.885], [1, 0.885], [1, 1], [-1, 1]], 0, dIn + 0.2, d0);                      // ...che entra dentro
+        P([[-0.19, 0.44], [0.19, 0.44], [0.19, 0.66], [-0.19, 0.66]], 0.3);                   // pilastro centrale
+        P([[-0.19, 0.36], [0, 0.30], [0.19, 0.36], [0.19, 0.44], [-0.19, 0.44]], 0.3);       // nodo sotto il pilastro
+        // insegne del settore sul fronte dei pianerottoli
+        {
+          const [px, pz] = pointAt(run, cum, um, d1), [qx, qz] = pointAt(run, cum, um, d1 + 1), nl = Math.hypot(qx - px, qz - pz) || 1;
+          const nx = (qx - px) / nl, nz = (qz - pz) / nl, name = ['TRIBUNA', 'CURVA B', 'DISTINTI', 'CURVA A'][sideOfPoint({ x: px, z: pz, mx: nx, mz: nz })];
+          for (const k of [-1, 1]) {
+            const [sx, sz] = pointAt(run, cum, um + k * 0.63 * U, d1 + 0.56);
+            stairSigns.push({ text: `${name} · SETTORE`, x: sx, z: sz, rx: -nz, rz: nx, nx, nz, y: 0.255 * G, w: 0.24 * U * 2 });
+          }
+        }
+        // scalinata centrale da terra che sale verso dentro, sotto il nodo
+        const hL = Math.min(G * 0.2, 3.6), nS = Math.max(2, Math.round(hL / STAIR_RISE)), wS = 0.6 * U;
         for (let j = 0; j < nS; j++) {
-          const dj = d0 + 1.2 + (nS - j - 0.5) * STAIR_TREAD, [x, z] = pointAt(run, cum, um, dj), hj = STAIR_RISE * (j + 1);
+          const dj = d1 + 0.6 - (j + 0.5) * STAIR_TREAD, [x, z] = pointAt(run, cum, um, dj), hj = STAIR_RISE * (j + 1);
           boxAt(steps, x, hj / 2, z, [tx * wS, 0, tz * wS], [0, hj, 0], [-tz * STAIR_TREAD, 0, tx * STAIR_TREAD]);
+        }
+        // corrimano verdi ai lati della scalinata
+        for (const k of [-1, 1]) {
+          const [x0, z0] = pointAt(run, cum, um + k * wS / 2, d1 + 0.6), [x1, z1] = pointAt(run, cum, um + k * wS / 2, d1 + 0.6 - nS * STAIR_TREAD);
+          beam(greenRails, x0, 1.0, z0, x1, hL + 1.0, z1, 0.09);
         }
       }
       // muretto con la ringhiera ai piedi della facciata
@@ -6562,7 +6568,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       }
     }
     // cancelli: due pali, la trave in alto con le insegne del settore (sopra e sotto), i tornelli ai lati
-    const signs = [];
+    const signs = [...stairSigns];
     for (const side of [0, 1, 2, 3]) {
       const sz = side === 0 ? 1 : side === 2 ? -1 : 0;
       const run = shape.runs.find(r => r.pts.some(p => sideOfPoint(p) === side && (sz ? Math.abs(p.x) < 2 : Math.abs(p.z) < 2)));
@@ -6596,9 +6602,9 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         tex.needsUpdate = true;
       };
       repaint.push(paint);
-      const sp = [], su = [], si = [], sw = 7.4, sh = sw * Hc / W * 1.25;
+      const sp = [], su = [], si = [], sw0 = 7.4;
       signs.forEach((sg, i) => {
-        const b = sp.length / 3, y0 = 4.6, v0 = 1 - (i + 1) / signs.length, v1 = 1 - i / signs.length;
+        const b = sp.length / 3, y0 = sg.y ?? 4.6, sw = sg.w ?? sw0, sh = sw * Hc / W * 1.25, v0 = 1 - (i + 1) / signs.length, v1 = 1 - i / signs.length;
         // da fuori la destra del cartello è verso −r
         for (const [a, h, u, v] of [[-1, 0, 0, v0], [1, 0, 1, v0], [1, sh, 1, v1], [-1, sh, 0, v1]]) {
           sp.push(sg.x - sg.rx * a * sw / 2, y0 + h, sg.z - sg.rz * a * sw / 2); su.push(u, v);
@@ -6630,6 +6636,11 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     }
     inst(stairMat, steps);
     inst(stairMat, slabs);
+    if (greenRails.length) {
+      const gm = new THREE.MeshStandardMaterial({ color: 0x5f9e8f, roughness: 0.5, metalness: 0.3 });
+      own.push(gm);
+      inst(gm, greenRails);
+    }
     if (prismPos.length) {
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.Float32BufferAttribute(prismPos, 3));
