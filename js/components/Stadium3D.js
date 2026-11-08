@@ -6580,8 +6580,10 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         const fw = Gt / H1, fc = fw - 0.065;                                                 // ballatoio e pianerottolo centrale
         // in alto: pianerottolo centrale (sotto c'è la rampa centrale) e rampe corte fino al ballatoio, che va da una
         // costola all'altra
-        P([[-0.26, fc - 0.8 / H1], [0.26, fc - 0.8 / H1], [0.26, fc], [-0.26, fc]]);
-        rail([-0.26, fc], [0.26, fc], true, false);
+        // il pianerottolo centrale sporge in avanti di FC oltre la torre: lì arriva la rampa centrale
+        const FC = 1.2;
+        P([[-0.26, fc - 0.8 / H1], [0.26, fc - 0.8 / H1], [0.26, fc], [-0.26, fc]], 0, Td + FC);
+        P([[-0.26, fc], [0.26, fc], [0.26, fc + p], [-0.26, fc + p]], Td + FC - PW, Td + FC);
         both([[0.22, 0.69], [0.55, 0.82], [0.45, fw], [0.26, fc]], (l) => P(l));
         both([[0.55, 0.82], [1, 0.82], [1, fw], [0.45, fw]], (l) => P(l));
         for (const s2 of [-1, 1]) {
@@ -6589,23 +6591,27 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
           stepsOn([s2 * 0.26, fc], [s2 * 0.45, fw]);
           rail([s2 * 0.45, fw], [s2 * 1, fw], true, false);
         }
-        // rampa centrale: dal nodo sale verso fuori fino al pianerottolo in cima. Vista da fuori se ne vede il sotto, che
-        // è inclinato (più della torre)
+        // rampa centrale: dal nodo sale verso fuori fino al pianerottolo in cima, tutta sul davanti della torre. Vista da
+        // fuori se ne vede il sotto, che continua il davanti del nodo fino al davanti del pianerottolo (inclinato più
+        // della torre, perché il pianerottolo sporge in avanti)
         {
           const along = (u0, u1, poly) => {
             const face = (uu) => poly.map(([D, h]) => { const [x, z] = pointAt(run, cum, um + uu, D); return [x, h, z]; });
             prism(face(u1), face(u0), towerPos);
           };
-          // tutta davanti, dentro lo spessore della torre: parte dal nodo e arriva sul bordo davanti del pianerottolo
-          const cw = 0.22 * U, hA = 0.47 * H1, hB = fc * H1, DA = back(hA) + 0.6, DB = Math.max(DA + 1, back(hB) + Td - 0.3);
-          along(-cw, cw, [[DA, hA], [DB, hB], [DB, hB - 0.6], [DA, hA - 0.6]]);                       // soletta
-          for (const s2 of [-1, 1]) {                                                                  // parapetti
+          const cw = 0.22 * U, hA = 0.47 * H1, hB = fc * H1, hF = hA - p * H1, t = 0.7; // nodo: parapetti in cima a hA, pavimento hF
+          // sotto: dal davanti del nodo (in cima) al davanti del pianerottolo (in basso)
+          const Dn = back(hA) + Td + 0.15, Dl = back(hB - 0.8) + Td + FC, k = (hB - 0.8 - hA) / Math.max(0.5, Dl - Dn);
+          const under = (D) => hA + (D - Dn) * k, walk = (D) => under(D) + t;
+          const DA = Dn - (walk(Dn) - hF) / k, DB = Dl - (walk(Dl) - hB) / k;                       // dove il piano di calpestio
+          along(-cw, cw, [[DA, walk(DA)], [Dl, walk(Dl)], [Dl, under(Dl)], [DA, under(DA)]]);      // incontra nodo e pianerottolo
+          for (const s2 of [-1, 1]) {                                                               // parapetti
             const a = s2 * cw, b = s2 * (cw - PW);
-            along(Math.min(a, b), Math.max(a, b), [[DA, hA - 0.6], [DB, hB - 0.6], [DB, hB + 1.1], [DA, hA + 1.1]]);
+            along(Math.min(a, b), Math.max(a, b), [[DA, under(DA)], [Dl, under(Dl)], [Dl, walk(Dl) + 1.1], [DA, walk(DA) + 1.1]]);
           }
-          const nS = Math.max(3, Math.round((hB - hA) / 0.28)), wst = 2 * (cw - PW), [ctx, ctz] = tangentAt(run, cum, um, (DA + DB) / 2);
+          const nS = Math.max(3, Math.round((hB - hF) / 0.28)), wst = 2 * (cw - PW), [ctx, ctz] = tangentAt(run, cum, um, (DA + DB) / 2);
           for (let j = 0; j < nS; j++) {
-            const D0 = DA + (DB - DA) * j / nS, D1 = DA + (DB - DA) * (j + 1) / nS, h0 = hA + (hB - hA) * j / nS - 0.02, h1 = hA + (hB - hA) * (j + 1) / nS;
+            const D0 = DA + (DB - DA) * j / nS, D1 = DA + (DB - DA) * (j + 1) / nS, h0 = walk(D0) - 0.02, h1 = walk(D1);
             const [x, z] = pointAt(run, cum, um, (D0 + D1) / 2), dl = D1 - D0;
             boxAt(steps, x, (h0 + h1) / 2, z, [ctx * wst, 0, ctz * wst], [0, h1 - h0, 0], [-ctz * dl, 0, ctx * dl]);
           }
