@@ -6536,8 +6536,13 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       }
       // torri: dietro (in alto ad altezza h) appoggiate al sotto inclinato con 2,4 m liberi sopra ogni pianerottolo, profonde
       // Td; senza sbalzo (un anello solo) davanti al muro, appena inclinate
-      const Td = 2.4, PW = 0.25, back = two ? (h) => Math.max(dW + 0.3, S(h) + 2.4 * sl) : (h) => o + 0.4 + 0.22 * h;
-      const Gt = two ? Math.max(7, Math.min(hb - 3.5, hW + (oX - 0.3 - Td - 2.4 * sl - dW) / Math.max(0.05, sl))) : Math.max(7, T.top - 3);
+      const Td = 2.4, PW = 0.25, back0 = two ? (h) => Math.max(dW + 0.3, S(h) + 2.4 * sl) : (h) => o + 0.4 + 0.22 * h;
+      // in cima il ballatoio sta subito sotto la fascia sul bordo dello sbalzo
+      const Gt = two ? Math.max(7, Math.min(hb - 1.7, hW + (oX + 0.9 - Td - 2.4 * sl - dW) / Math.max(0.05, sl))) : Math.max(7, T.top - 3);
+      // tutta la torre viene in avanti salendo (più in alto, più avanti): in cima il ballatoio arriva a filo del bordo
+      // dello sbalzo, come al Maradona; da lì una passerella porta dentro, sotto gli spalti
+      const Etop = two ? Math.max(0, oX + 0.9 - (back0(Gt) + Td)) : 0;
+      const back = (h) => back0(h) + Etop * Math.min(1, Math.max(0, h / Gt));
       const H1 = Gt + 1.1, p = 1.1 / H1; // altezza del parapetto del pianerottolo in cima; parapetto (frazione)
       for (let k = 0; k < n; k++) {
         const ua = k * bay, um = ua + bay / 2;
@@ -6581,7 +6586,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         // in alto: pianerottolo centrale (sotto c'è la rampa centrale) e rampe corte fino al ballatoio, che va da una
         // costola all'altra
         // il pianerottolo centrale sporge in avanti di FC oltre la torre: lì arriva la rampa centrale
-        const FC = 4.5;
+        const FC = 1.0;
         P([[-0.26, fc - 0.8 / H1], [0.26, fc - 0.8 / H1], [0.26, fc], [-0.26, fc]], 0, Td + FC);
         P([[-0.26, fc], [0.26, fc], [0.26, fc + p], [-0.26, fc + p]], Td + FC - PW, Td + FC);
         both([[0.22, 0.69], [0.55, 0.82], [0.45, fw], [0.26, fc]], (l) => P(l));
@@ -6591,6 +6596,8 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
           stepsOn([s2 * 0.26, fc], [s2 * 0.45, fw]);
           rail([s2 * 0.45, fw], [s2 * 1, fw], true, false);
         }
+        // passerella dal ballatoio fin dentro, sotto gli spalti
+        if (Etop > 0) piece(run, cum, um, [[-U, Gt - 0.5], [U, Gt - 0.5], [U, Gt], [-U, Gt]], S(Gt) - 0.6, back(Gt) + 0.3, null, towerPos);
         // rampa centrale: dal nodo sale verso fuori fino al pianerottolo in cima, tutta sul davanti della torre. Vista da
         // fuori se ne vede il sotto, che continua il davanti del nodo fino al davanti del pianerottolo (inclinato più
         // della torre, perché il pianerottolo sporge in avanti)
