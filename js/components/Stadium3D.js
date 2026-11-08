@@ -6509,11 +6509,15 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         // puntone tra le campate: da terra fin sotto la trave ad anello, inclinato lungo la facciata (uno sì e uno no
         // dall'altra parte: a coppie si chiudono verso l'alto), grosso e profondo
         {
-          // in profondità sale da dentro (vicino alle scale) verso fuori, fino al bordo dello sbalzo
-          const sgn = k % 2 ? -1 : 1, lean = Math.min(3.5, Hw * 0.28), dp = dOut - 0.6, dp0 = Math.max(dIn + 1, dp - Hw * 0.3);
-          const [bx0, bz0] = pointAt(run, cum, wrapU(run, total, ua - sgn * lean), dp0), [bx1, bz1] = pointAt(run, cum, ua, dp);
+          // costola di cemento perpendicolare alla facciata (come al Maradona): da terra, dentro vicino al muro, sale
+          // inclinata verso fuori fino al bordo dello sbalzo, parallela al sotto degli spalti di sopra
+          const dp = dOut - 0.8, dp0 = dIn + 1.4;
+          const [bx0, bz0] = pointAt(run, cum, ua, dp0), [bx1, bz1] = pointAt(run, cum, ua, dp);
           const [tx, tz] = tangentAt(run, cum, ua, dp), a = [bx1 - bx0, Hw - 1.9, bz1 - bz0];
-          boxAt(struts, (bx0 + bx1) / 2, a[1] / 2, (bz0 + bz1) / 2, a, [tx * 1.5, 0, tz * 1.5], [-tz * 2.2, 0, tx * 2.2]);
+          // sezione: stretta lungo la facciata (1,2 m), profonda 2,6 m perpendicolare all'asse (verso l'alto e verso fuori)
+          const al = Math.hypot(...a) || 1, ah = Math.hypot(a[0], a[2]) || 1, rx = a[0] / ah, rz = a[2] / ah;
+          const nrm = [-rx * a[1] / al, ah / al, -rz * a[1] / al].map(v => v * 2.6);
+          boxAt(struts, (bx0 + bx1) / 2, a[1] / 2, (bz0 + bz1) / 2, a, [tx * 1.2, 0, tz * 1.2], nrm);
         }
         const [xa, za] = pointAt(run, cum, um, 0);
         if (!stairBays.has(k) || nearEntrance(shape, st, xa, za, 3)) continue;
@@ -6526,8 +6530,9 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         if (d0 < dIn + 0.4) continue;
         const [tx, tz] = tangentAt(run, cum, um, (d0 + d1) / 2);
         const ph = 1.1 / G, PW = 0.25; // parapetto: altezza (frazione di G) e spessore (m)
-        // tutta la torre è inclinata come i puntoni: in cima sta contro lo sbalzo, in basso viene avanti verso fuori
-        const LEAN = Math.min(6.5, G * 0.32), lean = (hm) => LEAN * Math.max(0, 1 - hm / G);
+        // tutta la torre è inclinata come le costole ai lati: in cima sporge sotto il bordo dello sbalzo, in basso rientra
+        // verso dentro; da lì la scalinata centrale viene avanti verso fuori
+        const LEAN = Math.max(0, Math.min(3.2, d0 - dIn - 0.6)), lean = (hm) => -LEAN * Math.max(0, 1 - hm / G);
         const P = (list, o = 0, da = d0, db = d1 + o, inside = false) => piece(run, cum, um, list.map(([a, b]) => [a * U, b * G]), da, db, inside ? null : lean);
         const lerp = (A, B, uu) => A[1] + (B[1] - A[1]) * (uu - A[0]) / ((B[0] - A[0]) || 1e-9);
         // rampa: poly = sagoma nel piano della facciata; top = bordo dei parapetti (da un capo all'altro), bot = sotto
@@ -6581,12 +6586,12 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         // scalinata centrale da terra che sale verso dentro, sotto il nodo
         const hL = Math.min(G * 0.2, 3.6), nS = Math.max(2, Math.round(hL / STAIR_RISE)), wS = 0.36 * U;
         for (let j = 0; j < nS; j++) {
-          const dj = d1 + 0.6 + LEAN - (j + 0.5) * STAIR_TREAD, [x, z] = pointAt(run, cum, um, dj), hj = STAIR_RISE * (j + 1);
+          const dj = d1 - LEAN + 0.6 + nS * STAIR_TREAD * 0.55 - (j + 0.5) * STAIR_TREAD, [x, z] = pointAt(run, cum, um, dj), hj = STAIR_RISE * (j + 1);
           boxAt(steps, x, hj / 2, z, [tx * wS, 0, tz * wS], [0, hj, 0], [-tz * STAIR_TREAD, 0, tx * STAIR_TREAD]);
         }
         // corrimano verdi ai lati della scalinata
         for (const k of [-1, 1]) {
-          const [x0, z0] = pointAt(run, cum, um + k * wS / 2, d1 + 0.6 + LEAN), [x1, z1] = pointAt(run, cum, um + k * wS / 2, d1 + 0.6 + LEAN - nS * STAIR_TREAD);
+          const f0 = d1 - LEAN + 0.6 + nS * STAIR_TREAD * 0.55, [x0, z0] = pointAt(run, cum, um + k * wS / 2, f0), [x1, z1] = pointAt(run, cum, um + k * wS / 2, f0 - nS * STAIR_TREAD);
           beam(greenRails, x0, 1.0, z0, x1, hL + 1.0, z1, 0.09);
         }
       }
