@@ -6590,14 +6590,14 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
           rail([s2 * 0.45, fw], [s2 * 1, fw], true, false);
         }
         // rampa centrale: dal nodo sale verso fuori fino al pianerottolo in cima. Vista da fuori se ne vede il sotto, che
-        // è inclinato (più della torre): dal nodo, vicino al sotto degli spalti, al pianerottolo che sporge in avanti
+        // è inclinato (più della torre)
         {
           const along = (u0, u1, poly) => {
             const face = (uu) => poly.map(([D, h]) => { const [x, z] = pointAt(run, cum, um + uu, D); return [x, h, z]; });
             prism(face(u1), face(u0), towerPos);
           };
-          const cw = 0.22 * U, hA = 0.47 * H1, hB = fc * H1, DB = back(hB) + 1.2;
-          const DA = Math.max((two ? S(hA) : dW) + 0.5, DB - (hB - hA) / Math.tan(THREE.MathUtils.degToRad(46)));
+          // tutta davanti, dentro lo spessore della torre: parte dal nodo e arriva sul bordo davanti del pianerottolo
+          const cw = 0.22 * U, hA = 0.47 * H1, hB = fc * H1, DA = back(hA) + 0.6, DB = Math.max(DA + 1, back(hB) + Td - 0.3);
           along(-cw, cw, [[DA, hA], [DB, hB], [DB, hB - 0.6], [DA, hA - 0.6]]);                       // soletta
           for (const s2 of [-1, 1]) {                                                                  // parapetti
             const a = s2 * cw, b = s2 * (cw - PW);
