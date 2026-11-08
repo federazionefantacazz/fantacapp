@@ -6415,8 +6415,9 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     };
     // pezzo della clessidra: poligono convesso nel piano della facciata (punti [u, h], u lungo il giro dal centro um)
     // spinto in profondità da d0 a d1
-    const piece = (run, cum, um, pts, d0, d1) => {
-      const face = (d) => pts.map(([u, h]) => { const [x, z] = pointAt(run, cum, um + u, d); return [x, h, z]; });
+    const piece = (run, cum, um, pts, d0, d1, lean = null) => {
+      // lean(h): spostamento verso fuori a quell'altezza (scale inclinate: in basso vengono avanti)
+      const face = (d) => pts.map(([u, h]) => { const [x, z] = pointAt(run, cum, um + u, d + (lean ? lean(h) : 0)); return [x, h, z]; });
       prism(face(d1), face(d0));
     };
     // gradinata dritta che sale verso dentro (all'ingresso dei cancelli): da (dA, 0) a (dB, hB), larga w, coi muri ai lati
@@ -6525,7 +6526,9 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         if (d0 < dIn + 0.4) continue;
         const [tx, tz] = tangentAt(run, cum, um, (d0 + d1) / 2);
         const ph = 1.1 / G, PW = 0.25; // parapetto: altezza (frazione di G) e spessore (m)
-        const P = (list, o = 0, da = d0, db = d1 + o) => piece(run, cum, um, list.map(([a, b]) => [a * U, b * G]), da, db);
+        // tutta la torre è inclinata come i puntoni: in cima sta contro lo sbalzo, in basso viene avanti verso fuori
+        const LEAN = Math.min(6.5, G * 0.32), lean = (hm) => LEAN * Math.max(0, 1 - hm / G);
+        const P = (list, o = 0, da = d0, db = d1 + o, inside = false) => piece(run, cum, um, list.map(([a, b]) => [a * U, b * G]), da, db, inside ? null : lean);
         const lerp = (A, B, uu) => A[1] + (B[1] - A[1]) * (uu - A[0]) / ((B[0] - A[0]) || 1e-9);
         // rampa: poly = sagoma nel piano della facciata; top = bordo dei parapetti (da un capo all'altro), bot = sotto
         const flight = (poly, top, bot, o = 0) => {
@@ -6540,7 +6543,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
             const tread = (lo[1] + (hi[1] - lo[1]) * (j + 1) / nS - ph) * G;
             const base = Math.max(lerp(bot[0], bot[1], ua), lerp(bot[0], bot[1], ub)) * G + 0.3;
             if (tread - base < 0.05) continue;
-            const [x, z] = pointAt(run, cum, um + (ua + ub) / 2 * U, (d0 + d1) / 2), w = Math.abs(ub - ua) * U;
+            const [x, z] = pointAt(run, cum, um + (ua + ub) / 2 * U, (d0 + d1) / 2 + lean((tread + base) / 2)), w = Math.abs(ub - ua) * U;
             boxAt(steps, x, (tread + base) / 2, z, [tx * w, 0, tz * w], [0, tread - base, 0], [-tz * wDep, 0, tx * wDep]);
           }
         };
@@ -6561,7 +6564,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
           flight(m([[0.25, 0.668], [0.25, 0.915], [0.58, 1.0], [0.58, 0.755]]), [f([0.25, 0.915]), f([0.58, 1.0])], [f([0.25, 0.668]), f([0.58, 0.755])]);
           // pianerottolo alto in fondo (sotto inclinato come i bracci a V) che continua dentro fino al muro
           landing(...(k > 0 ? [0.58, 0.98] : [-0.98, -0.58]), k > 0 ? 0.755 : 0.86, k > 0 ? 0.86 : 0.755, 1.0, 0.15, k);
-          P(m([[0.62, 1 - ph - 0.03], [0.62, 1 - ph], [0.98, 1 - ph], [0.98, 1 - ph - 0.03]]), 0, dIn + 0.2, d0);
+          P(m([[0.62, 1 - ph - 0.03], [0.62, 1 - ph], [0.98, 1 - ph], [0.98, 1 - ph - 0.03]]), 0, dIn + 0.2, d0, true);
         }
         landing(-0.25, 0.25, 0.66, 0.66, 0.915, 0.15);                                         // pianerottolo in cima al pilastro
         P([[-0.19, 0.44], [0.19, 0.44], [0.19, 0.66], [-0.19, 0.66]], 0.3);                   // pilastro (la rampa che sale dentro)
@@ -6571,19 +6574,19 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
           const [px, pz] = pointAt(run, cum, um, d1), [qx, qz] = pointAt(run, cum, um, d1 + 1), nl = Math.hypot(qx - px, qz - pz) || 1;
           const nx = (qx - px) / nl, nz = (qz - pz) / nl, name = ['TRIBUNA', 'CURVA B', 'DISTINTI', 'CURVA A'][sideOfPoint({ x: px, z: pz, mx: nx, mz: nz })];
           for (const k of [-1, 1]) {
-            const [sx, sz] = pointAt(run, cum, um + k * 0.63 * U, d1 + 0.56);
+            const [sx, sz] = pointAt(run, cum, um + k * 0.63 * U, d1 + 0.56 + lean(0.25 * G));
             stairSigns.push({ text: `${name} · SETTORE`, x: sx, z: sz, rx: -nz, rz: nx, nx, nz, y: 0.255 * G, w: 0.24 * U * 2 });
           }
         }
         // scalinata centrale da terra che sale verso dentro, sotto il nodo
         const hL = Math.min(G * 0.2, 3.6), nS = Math.max(2, Math.round(hL / STAIR_RISE)), wS = 0.36 * U;
         for (let j = 0; j < nS; j++) {
-          const dj = d1 + 0.6 - (j + 0.5) * STAIR_TREAD, [x, z] = pointAt(run, cum, um, dj), hj = STAIR_RISE * (j + 1);
+          const dj = d1 + 0.6 + LEAN - (j + 0.5) * STAIR_TREAD, [x, z] = pointAt(run, cum, um, dj), hj = STAIR_RISE * (j + 1);
           boxAt(steps, x, hj / 2, z, [tx * wS, 0, tz * wS], [0, hj, 0], [-tz * STAIR_TREAD, 0, tx * STAIR_TREAD]);
         }
         // corrimano verdi ai lati della scalinata
         for (const k of [-1, 1]) {
-          const [x0, z0] = pointAt(run, cum, um + k * wS / 2, d1 + 0.6), [x1, z1] = pointAt(run, cum, um + k * wS / 2, d1 + 0.6 - nS * STAIR_TREAD);
+          const [x0, z0] = pointAt(run, cum, um + k * wS / 2, d1 + 0.6 + LEAN), [x1, z1] = pointAt(run, cum, um + k * wS / 2, d1 + 0.6 + LEAN - nS * STAIR_TREAD);
           beam(greenRails, x0, 1.0, z0, x1, hL + 1.0, z1, 0.09);
         }
       }
