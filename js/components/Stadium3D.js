@@ -4853,7 +4853,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
   own.push(fenceMat);
   const cylinder = new THREE.CylinderGeometry(1, 1, 1, 28);
   own.push(dark, girderMat, cylinder);
-  const beams = [], pilasters = [], lamps = [], spots = [], windows = [];
+  const beams = [], pilasters = [], lamps = [], spots = [], windows = [], pylonXZ = []; // pylonXZ: piloni d'acciaio del tetto
   const towerCores = [], towerCaps = [], girderBeams = [], drums = [], frames = [], seams = [], sculpt = [];
   const sculptMat = new THREE.MeshStandardMaterial({ color: 0xf2f3f4, roughness: 0.5 });
   own.push(sculptMat);
@@ -6068,6 +6068,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
           if (nearTower(u)) continue;
           pylon(beams, run, cum, u, PD, PH);
           const [x, z] = pointAt(run, cum, u, PD), [tx, tz] = tangentAt(run, cum, u, PD);
+          pylonXZ.push([x, z]);
           drumAt(drums, x, PH + 0.9, z, tz, -tx, 1.25, 5.2);
         }
         // diagonali della trave reticolare a zig-zag tra posizioni a passo regolare (misurato sulla trave)
@@ -6488,6 +6489,16 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
           // nelle campate dispari i due puntoni si aprono verso l'alto (a V, come al Maradona): lì vanno le scale
           let kb = ((Math.floor(wrapU(run, total, ut) / bay) % n) + n) % n;
           if (kb % 2 === 0) kb = run.closed ? (kb + sg + n) % n : Math.min(n - 1, Math.max(0, kb + sg));
+          // non dietro un pilone d'acciaio del tetto: si passa alla campata dispari vicina (più lontana dal cancello)
+          const blocked = (kk) => {
+            const uc = (kk + 0.5) * bay, [cx, cz] = pointAt(run, cum, uc, dOut), [ttx, ttz] = tangentAt(run, cum, uc, dOut);
+            // distanza lungo la facciata (il pilone sta più fuori)
+            return pylonXZ.some(([px, pz]) => Math.hypot(px - cx, pz - cz) < 25 && Math.abs((px - cx) * ttx + (pz - cz) * ttz) < 6);
+          };
+          if (blocked(kb)) {
+            const alt = run.closed ? (kb + 2 * sg + n) % n : kb + 2 * sg;
+            if (alt >= 0 && alt < n && !blocked(alt)) kb = alt;
+          }
           stairBays.add(kb);
         }
       }
@@ -6505,25 +6516,55 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         }
         const [xa, za] = pointAt(run, cum, um, 0);
         if (!stairBays.has(k) || nearEntrance(shape, st, xa, za, 3)) continue;
-        // torre delle scale (come al Maradona), nel piano della facciata tra i due puntoni a V, fatta di pezzi di cemento
-        // che si toccano solo sui bordi (U = mezza larghezza in cima, G = altezza fino al ballatoio). Dal basso: la
-        // scalinata centrale da terra; le due gambe salgono verso fuori fino ai pianerottoli laterali (con l'insegna del
-        // settore); da lì due bracci risalgono verso il centro fino al nodo e al pilastro centrale; in cima due bracci
-        // larghi salgono verso fuori fino al ballatoio, che corre per tutta la campata ed entra dentro
+        // torre delle scale (come al Maradona), nel piano della facciata tra i due puntoni a V (U = mezza larghezza in
+        // cima, G = altezza fino al ballatoio). È una serie di rampe vere (gradini tra due parapetti) e pianerottoli: da
+        // terra la scalinata centrale; le gambe salgono ripide verso fuori fino ai pianerottoli laterali (con l'insegna del
+        // settore); da lì le rampe di mezzo risalgono verso il centro fino al pilastro (la rampa che sale dentro); dal
+        // pianerottolo in cima al pilastro le rampe alte salgono verso fuori fino ai pianerottoli alti, che entrano dentro
         const G = Hw - 1.9, U = Math.min(7.6, bay * 0.42, G * 0.47), dd = 2.8, d1 = dOut - 1.9, d0 = d1 - dd;
         if (d0 < dIn + 0.4) continue;
         const [tx, tz] = tangentAt(run, cum, um, (d0 + d1) / 2);
+        const ph = 1.1 / G, PW = 0.25; // parapetto: altezza (frazione di G) e spessore (m)
         const P = (list, o = 0, da = d0, db = d1 + o) => piece(run, cum, um, list.map(([a, b]) => [a * U, b * G]), da, db);
+        const lerp = (A, B, uu) => A[1] + (B[1] - A[1]) * (uu - A[0]) / ((B[0] - A[0]) || 1e-9);
+        // rampa: poly = sagoma nel piano della facciata; top = bordo dei parapetti (da un capo all'altro), bot = sotto
+        const flight = (poly, top, bot, o = 0) => {
+          P(poly, o, d1 - PW, d1 + o);                                                       // parapetto davanti
+          P(poly, 0, d0, d0 + PW);                                                           // parapetto dietro
+          const sl = 0.45 / G;                                                               // soletta inclinata sotto
+          P([bot[0], [bot[0][0], bot[0][1] + sl], [bot[1][0], bot[1][1] + sl], bot[1]], 0, d0 + PW, d1 - PW);
+          const [lo, hi] = top[0][1] < top[1][1] ? top : [top[1], top[0]], nS = Math.max(2, Math.round((hi[1] - lo[1]) * G / 0.28));
+          const wDep = dd - 2 * PW, [mx, mz] = pointAt(run, cum, um, (d0 + d1) / 2);
+          for (let j = 0; j < nS; j++) {
+            const ua = lo[0] + (hi[0] - lo[0]) * j / nS, ub = lo[0] + (hi[0] - lo[0]) * (j + 1) / nS;
+            const tread = (lo[1] + (hi[1] - lo[1]) * (j + 1) / nS - ph) * G;
+            const base = Math.max(lerp(bot[0], bot[1], ua), lerp(bot[0], bot[1], ub)) * G + 0.3;
+            if (tread - base < 0.05) continue;
+            const [x, z] = pointAt(run, cum, um + (ua + ub) / 2 * U, (d0 + d1) / 2), w = Math.abs(ub - ua) * U;
+            boxAt(steps, x, (tread + base) / 2, z, [tx * w, 0, tz * w], [0, tread - base, 0], [-tz * wDep, 0, tx * wDep]);
+          }
+        };
+        // pianerottolo: pieno fino al pavimento, sopra i due parapetti e il muretto in fondo (lato e = ±1 o 0)
+        const landing = (u0, u1, hb0, hb1, ht, o = 0, e = 0) => {
+          P([[u0, hb0], [u0, ht - ph], [u1, ht - ph], [u1, hb1]], o);
+          for (const [da, db] of [[d1 - PW, d1 + o], [d0, d0 + PW]]) P([[u0, ht - ph], [u0, ht], [u1, ht], [u1, ht - ph]], 0, da, db);
+          if (e) { const ue = e > 0 ? u1 : u0, w = PW / U; P([[Math.min(ue, ue - e * w), ht - ph], [Math.min(ue, ue - e * w), ht], [Math.max(ue, ue - e * w), ht], [Math.max(ue, ue - e * w), ht - ph]], 0, d0 + PW, d1 - PW); }
+        };
         for (const k of [-1, 1]) {
-          const m = (list) => (k > 0 ? list : list.map(([a, b]) => [-a, b]).reverse());
-          P(m([[0.19, 0.66], [0.19, 0.885], [0.98, 0.885], [0.98, 0.86]]));                  // braccio alto (a V)
-          P(m([[0.19, 0.36], [0.19, 0.44], [0.50, 0.345], [0.50, 0.25]]));                   // braccio di mezzo
-          P(m([[0.50, 0.25], [0.50, 0.345], [0.76, 0.345], [0.76, 0.25]]), 0.5);             // pianerottolo laterale
-          P(m([[0.32, 0.0], [0.50, 0.25], [0.74, 0.25], [0.52, 0.0]]));                      // gamba
+          const f = ([a, b]) => [k * a, b], m = (list) => (k > 0 ? list.map(f) : list.map(f).reverse());
+          // gamba: da terra (vicino al centro) ripida verso fuori fino al pianerottolo laterale
+          flight(m([[0.20, 0], [0.20, ph], [0.50, 0.345], [0.50, 0.25], [0.23, 0]]), [f([0.20, ph]), f([0.50, 0.345])], [f([0.23, 0]), f([0.50, 0.25])]);
+          landing(...(k > 0 ? [0.50, 0.76] : [-0.76, -0.50]), 0.25, 0.25, 0.345, 0.5, k);     // pianerottolo laterale
+          // rampa di mezzo: dal pianerottolo laterale sale verso il centro fino al pilastro
+          flight(m([[0.19, 0.36], [0.19, 0.44], [0.50, 0.345], [0.50, 0.25]]), [f([0.50, 0.345]), f([0.19, 0.44])], [f([0.50, 0.25]), f([0.19, 0.36])]);
+          // rampa alta: dal pianerottolo in cima al pilastro sale verso fuori
+          flight(m([[0.25, 0.668], [0.25, 0.915], [0.58, 1.0], [0.58, 0.755]]), [f([0.25, 0.915]), f([0.58, 1.0])], [f([0.25, 0.668]), f([0.58, 0.755])]);
+          // pianerottolo alto in fondo (sotto inclinato come i bracci a V) che continua dentro fino al muro
+          landing(...(k > 0 ? [0.58, 0.98] : [-0.98, -0.58]), k > 0 ? 0.755 : 0.86, k > 0 ? 0.86 : 0.755, 1.0, 0.15, k);
+          P(m([[0.62, 1 - ph - 0.03], [0.62, 1 - ph], [0.98, 1 - ph], [0.98, 1 - ph - 0.03]]), 0, dIn + 0.2, d0);
         }
-        P([[-1, 0.885], [1, 0.885], [1, 1], [-1, 1]], 0.15);                                  // ballatoio in cima
-        P([[-1, 0.885], [1, 0.885], [1, 1], [-1, 1]], 0, dIn + 0.2, d0);                      // ...che entra dentro
-        P([[-0.19, 0.44], [0.19, 0.44], [0.19, 0.66], [-0.19, 0.66]], 0.3);                   // pilastro centrale
+        landing(-0.25, 0.25, 0.66, 0.66, 0.915, 0.15);                                         // pianerottolo in cima al pilastro
+        P([[-0.19, 0.44], [0.19, 0.44], [0.19, 0.66], [-0.19, 0.66]], 0.3);                   // pilastro (la rampa che sale dentro)
         P([[-0.19, 0.36], [0, 0.30], [0.19, 0.36], [0.19, 0.44], [-0.19, 0.44]], 0.3);       // nodo sotto il pilastro
         // insegne del settore sul fronte dei pianerottoli
         {
@@ -6535,7 +6576,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
           }
         }
         // scalinata centrale da terra che sale verso dentro, sotto il nodo
-        const hL = Math.min(G * 0.2, 3.6), nS = Math.max(2, Math.round(hL / STAIR_RISE)), wS = 0.6 * U;
+        const hL = Math.min(G * 0.2, 3.6), nS = Math.max(2, Math.round(hL / STAIR_RISE)), wS = 0.36 * U;
         for (let j = 0; j < nS; j++) {
           const dj = d1 + 0.6 - (j + 0.5) * STAIR_TREAD, [x, z] = pointAt(run, cum, um, dj), hj = STAIR_RISE * (j + 1);
           boxAt(steps, x, hj / 2, z, [tx * wS, 0, tz * wS], [0, hj, 0], [-tz * STAIR_TREAD, 0, tx * STAIR_TREAD]);
