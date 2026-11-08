@@ -6064,7 +6064,22 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         const towersAt = st.ramps ? rampStations(run, cum) : [];
         const nearTower = (u) => towersAt.some(t => Math.min(Math.abs(u - t), run.closed ? total - Math.abs(u - t) : Infinity) < 8)
           || nearEntrance(shape, st, ...pointAt(run, cum, u, 0), 4);
-        for (const u of stations(run, cum, PYLON_EVERY, PD)) {
+        let pyl = stations(run, cum, PYLON_EVERY, PD);
+        if (st.facade === 'stairs') {
+          // scalinate e recinzione (Maradona): niente pilone davanti al cancello al centro del lato; al suo posto due
+          // piloni ai lati del cancello (come allo stadio vero) e via quelli rimasti troppo vicini
+          const room = GATE_HALF + 3, flanks = [], rest = [];
+          for (const u of pyl) {
+            const [x0, z0] = pointAt(run, cum, u, 0), [tx0, tz0] = tangentAt(run, cum, u, 0);
+            const onLong = Math.abs(z0) > shape.b * 0.5 && Math.abs(x0) < room + 2, onEnd = Math.abs(x0) > shape.a * 0.5 && Math.abs(z0) < room + 2;
+            if (!onLong && !onEnd) { rest.push(u); continue; }
+            const c = onLong ? x0 : z0, t = (onLong ? tx0 : tz0) || 1, ug = u - c / t;
+            for (const k of [-1, 1]) flanks.push(wrapU(run, total, ug + k * room / Math.abs(t)));
+          }
+          const gap = (a, b) => { const dl = Math.abs(a - b); return run.closed ? Math.min(dl, total - dl) : dl; };
+          pyl = [...flanks, ...rest.filter(u => flanks.every(f => gap(u, f) > 10))].filter((u, i, all) => all.findIndex(v => gap(u, v) < 1) === i);
+        }
+        for (const u of pyl) {
           if (nearTower(u)) continue;
           pylon(beams, run, cum, u, PD, PH);
           const [x, z] = pointAt(run, cum, u, PD), [tx, tz] = tangentAt(run, cum, u, PD);
@@ -6473,7 +6488,9 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       run.pts.forEach((p, i) => {
         const side = sideOfPoint(p), c = onLongSide(p) ? Math.abs(p.x) : Math.abs(p.z), prev = run.pts[i - 1], next = run.pts[i + 1];
         const cOf = (q) => (q && sideOfPoint(q) === side ? (onLongSide(q) ? Math.abs(q.x) : Math.abs(q.z)) : Infinity);
-        if (c < 3 && c <= cOf(prev) && c <= cOf(next)) gates.push(cum[i]);
+        // un cancello solo per lato (sul tratto chiuso il primo e l'ultimo punto possono essere lo stesso posto)
+        const dup = gates.some(g => { const dl = Math.abs(g - cum[i]); return Math.min(dl, run.closed ? total - dl : Infinity) < GATE_HALF; });
+        if (c < 3 && c <= cOf(prev) && c <= cOf(next) && !dup) gates.push(cum[i]);
       });
       for (const ug of gates) {
         const [xg, zg] = pointAt(run, cum, ug, 0);
@@ -6508,8 +6525,13 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
             const uc = (kk + 0.5) * bay, [cx, cz] = pointAt(run, cum, uc, oX), [ttx, ttz] = tangentAt(run, cum, uc, oX);
             return pylonXZ.some(([px, pz]) => Math.hypot(px - cx, pz - cz) < 25 && Math.abs((px - cx) * ttx + (pz - cz) * ttz) < 4.5);
           };
-          const free = [0, sg, -sg].map(step => (run.closed ? (kb + step + n) % n : kb + step)).find(kk => kk >= 0 && kk < n && !blocked(kk) && !stairBays.has(kk));
-          stairBays.add(free ?? kb);
+          // e mai due torri vicine: almeno due campate libere tra l'una e l'altra
+          const apart = (kk) => [...stairBays].every(o2 => { const dl = Math.abs(o2 - kk); return Math.min(dl, run.closed ? n - dl : Infinity) >= 3; });
+          // ...e non attaccate al cancello
+          const offGate = (kk) => { const dl = Math.abs((kk + 0.5) * bay - ug); return Math.min(dl, run.closed ? total - dl : Infinity) >= GATE_HALF + bay / 2 + 2; };
+          const cand = [0, sg, -sg, 2 * sg].map(step => (run.closed ? (kb + step + n) % n : kb + step)).filter(kk => kk >= 0 && kk < n && apart(kk) && offGate(kk));
+          const pick = cand.find(kk => !blocked(kk)) ?? cand[0];
+          if (pick !== undefined) stairBays.add(pick);
         }
       }
       // torri: dietro (in alto ad altezza h) appoggiate al sotto inclinato con 2,4 m liberi sopra ogni pianerottolo, profonde
@@ -6556,9 +6578,10 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
           }
         };
         const fw = Gt / H1, fc = fw - 0.065;                                                 // ballatoio e pianerottolo centrale
-        // in alto: pianerottolo centrale e rampe corte fino al ballatoio, che va da una costola all'altra
-        P([[-0.22, 0.69], [0.22, 0.69], [0.26, fc], [-0.26, fc]]);
-        rail([-0.26, fc], [0.26, fc]);
+        // in alto: pianerottolo centrale (sotto c'è la rampa centrale) e rampe corte fino al ballatoio, che va da una
+        // costola all'altra
+        P([[-0.26, fc - 0.8 / H1], [0.26, fc - 0.8 / H1], [0.26, fc], [-0.26, fc]]);
+        rail([-0.26, fc], [0.26, fc], true, false);
         both([[0.22, 0.69], [0.55, 0.82], [0.45, fw], [0.26, fc]], (l) => P(l));
         both([[0.55, 0.82], [1, 0.82], [1, fw], [0.45, fw]], (l) => P(l));
         for (const s2 of [-1, 1]) {
@@ -6566,8 +6589,28 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
           stepsOn([s2 * 0.26, fc], [s2 * 0.45, fw]);
           rail([s2 * 0.45, fw], [s2 * 1, fw], true, false);
         }
-        // pilastro e nodo
-        P([[-0.22, 0.47], [0.22, 0.47], [0.22, 0.69], [-0.22, 0.69]], -0.15, Td + 0.25);
+        // rampa centrale: dal nodo sale verso fuori fino al pianerottolo in cima. Vista da fuori se ne vede il sotto, che
+        // è inclinato (più della torre): dal nodo, vicino al sotto degli spalti, al pianerottolo che sporge in avanti
+        {
+          const along = (u0, u1, poly) => {
+            const face = (uu) => poly.map(([D, h]) => { const [x, z] = pointAt(run, cum, um + uu, D); return [x, h, z]; });
+            prism(face(u1), face(u0), towerPos);
+          };
+          const cw = 0.22 * U, hA = 0.47 * H1, hB = fc * H1, DB = back(hB) + 1.2;
+          const DA = Math.max((two ? S(hA) : dW) + 0.5, DB - (hB - hA) / Math.tan(THREE.MathUtils.degToRad(46)));
+          along(-cw, cw, [[DA, hA], [DB, hB], [DB, hB - 0.6], [DA, hA - 0.6]]);                       // soletta
+          for (const s2 of [-1, 1]) {                                                                  // parapetti
+            const a = s2 * cw, b = s2 * (cw - PW);
+            along(Math.min(a, b), Math.max(a, b), [[DA, hA - 0.6], [DB, hB - 0.6], [DB, hB + 1.1], [DA, hA + 1.1]]);
+          }
+          const nS = Math.max(3, Math.round((hB - hA) / 0.28)), wst = 2 * (cw - PW), [ctx, ctz] = tangentAt(run, cum, um, (DA + DB) / 2);
+          for (let j = 0; j < nS; j++) {
+            const D0 = DA + (DB - DA) * j / nS, D1 = DA + (DB - DA) * (j + 1) / nS, h0 = hA + (hB - hA) * j / nS - 0.02, h1 = hA + (hB - hA) * (j + 1) / nS;
+            const [x, z] = pointAt(run, cum, um, (D0 + D1) / 2), dl = D1 - D0;
+            boxAt(steps, x, (h0 + h1) / 2, z, [ctx * wst, 0, ctz * wst], [0, h1 - h0, 0], [-ctz * dl, 0, ctx * dl]);
+          }
+        }
+        // nodo (pianerottolo dove arrivano le rampe di mezzo)
         P([[-0.1, 0.2], [0.1, 0.2], [0.22, 0.3], [0.22, 0.47], [-0.22, 0.47], [-0.22, 0.3]], -0.1, Td + 0.15);
         // rampe di mezzo, pianerottoli laterali (sporgono un po'), gambe e rampe basse
         const fs = 0.39 - p, fg = Math.min(0.15, 2.4 / H1);
