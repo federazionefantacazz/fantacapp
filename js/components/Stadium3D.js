@@ -6581,7 +6581,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         // in alto: pianerottolo centrale (sotto c'è la rampa centrale) e rampe corte fino al ballatoio, che va da una
         // costola all'altra
         // il pianerottolo centrale sporge in avanti di FC oltre la torre: lì arriva la rampa centrale
-        const FC = 1.2;
+        const FC = 4.5;
         P([[-0.26, fc - 0.8 / H1], [0.26, fc - 0.8 / H1], [0.26, fc], [-0.26, fc]], 0, Td + FC);
         P([[-0.26, fc], [0.26, fc], [0.26, fc + p], [-0.26, fc + p]], Td + FC - PW, Td + FC);
         both([[0.22, 0.69], [0.55, 0.82], [0.45, fw], [0.26, fc]], (l) => P(l));
