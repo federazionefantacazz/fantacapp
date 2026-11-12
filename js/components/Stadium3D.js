@@ -6844,15 +6844,12 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
           const [x0, z0] = pointAt(run, rc, u, Rs.dIn + 0.3), [x1, z1] = pointAt(run, rc, u, dGl + 0.6);
           beam(roofRibs, x0, Rs.h(Rs.dIn + 0.3) - 0.55, z0, x1, Rs.h(dGl + 0.6) - 0.55, z1, 0.8);
         }
-        // Main Stand: sotto la sporgenza oltre il muro il soffitto con le travi scure che vanno dal muro al bordo
+        // Main Stand: sotto la sporgenza oltre il muro il soffitto chiaro (dalla galleria al bordo) e la grossa fascia
         if (Rs.main) {
           const oW = runOuter(run) + 0.3;
-          for (const u of stations(run, rc, 4.5, oW)) {
-            const [x0, z0] = pointAt(run, rc, u, oW), [x1, z1] = pointAt(run, rc, u, Rs.dOut - 0.3);
-            beam(roofRibs, x0, Rs.h(oW) - 0.9, z0, x1, Rs.h(Rs.dOut - 0.3) - 0.6, z1, 0.6);
-          }
-          // bordo esterno: fascia grigia alta che segue la salita
-          extrude(THREE, run, rect(Rs.dOut - 0.05, Rs.dOut + 0.25, Rs.h(Rs.dOut) - 1.6, Rs.h(Rs.dOut) + 0.2, 2), pos, idx);
+          // bordo esterno: la grossa fascia bianca che segue il tetto (sotto, il soffitto chiaro fino alla galleria)
+          extrude(THREE, run, rect(Rs.dOut - 0.05, Rs.dOut + 0.3, Rs.h(Rs.dOut) - 3.4, Rs.h(Rs.dOut) + 0.25, 1), pos, idx);
+          extrude(THREE, run, [[oW + 3.4, Rs.h(oW + 3.4) - 0.55], [Rs.dOut, Rs.h(Rs.dOut) - 3.4], [Rs.dOut, Rs.h(Rs.dOut) - 3.2], [oW + 3.4, Rs.h(oW + 3.4) - 0.35]].map(([d, h]) => ({ d, h, m: 1 })), pos, idx);
         }
         // Main Stand: alle due estremità la testata, una parete grigia rivestita a filo della parete di testa: in alto
         // segue il tetto (più alta verso fuori), in basso arriva sul tetto della tribuna vicina o, fuori da questa, fino
@@ -6966,7 +6963,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       eg.setAttribute('position', new THREE.Float32BufferAttribute(endPos, 3));
       eg.setIndex(endIdx);
       eg.computeVertexNormals();
-      const em = new THREE.MeshStandardMaterial({ color: 0xa9adb2, roughness: 0.5, metalness: 0.35, side: THREE.DoubleSide });
+      const em = new THREE.MeshStandardMaterial({ color: 0xe9ecef, roughness: 0.55, metalness: 0.1, side: THREE.DoubleSide });
       const wm = new THREE.MeshStandardMaterial({ color: 0x2b333c, roughness: 0.3, metalness: 0.4, emissive: 0xffd7a0, emissiveIntensity: 0 });
       own.push(eg, em, wm);
       nightGlow.push([wm, 0, 0.6]);
@@ -7081,10 +7078,14 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         stripUV(gal, [{ d: o + 0.44, h: HG }, { d: o + 0.44 + GO, h: hG }], glassFace, GLASS_TILE, Math.hypot(GO, hG - HG));
         extrude(THREE, run, rect(o + 0.3, o + 0.9, HG - 0.6, HG, 0), pos, idx);                // davanzale chiaro
         const mc = runLengths(gal);
-        for (const u of stations(gal, mc, 3, o + 0.5)) {
-          const [x0, z0] = pointAt(gal, mc, u, o + 0.48), [x1, z1] = pointAt(gal, mc, u, o + 0.48 + GO);
-          beam(mullions, x0, HG, z0, x1, hG, z1, 0.14);
+        // montanti a V (come ad Anfield): da un piede in basso salgono in diagonale ai due nodi in alto vicini
+        const st2 = stations(gal, mc, 6, o + 0.5), tot = mc[mc.length - 1];
+        for (const u of st2) for (const k of [-1, 1]) {
+          const ut = Math.min(tot, Math.max(0, u + k * 3));
+          const [x0, z0] = pointAt(gal, mc, u, o + 0.48), [x1, z1] = pointAt(gal, mc, ut, o + 0.48 + GO);
+          beam(mullions, x0, HG, z0, x1, hG, z1, 0.22);
         }
+        extrude(THREE, gal, rect(o + 0.3 + GO - 0.2, o + 0.45 + GO, hG - 0.5, hG, 0), pos, idx);   // trave in cima alla galleria
       } else extrude(THREE, run, rect(o + 0.3, o + 0.6, H - CH, H, anf ? 0 : 1), pos, idx);     // cornicione
       if (!anf) extrude(THREE, run, rect(o + 0.6, o + 0.68, H - CH - 1, H - CH - 0.1, 0), glowPos, glowIdx);
       for (const [h0, h1] of mainBrick ? [] : cladBands(run.tiers)) {
