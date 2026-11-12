@@ -1707,8 +1707,13 @@ function diagonalPoint(shape, sx, sz) {
 function standsRoofOf(shape, st, run) {
   if (st.roof !== 'anfield') return roofOf({ ...shape, tiers: run.tiers }, 'stands', reachOf_(st));
   const most = Math.max(...shape.runs.map(r => r.tiers.length)), main = run.tiers.length === most && run.pts.some(p => onLongSide(p) && Math.abs(p.x) < 3);
-  return roofOf({ ...shape, tiers: run.tiers, outer: runOuter(run) + (main ? 3.5 : 0) }, 'stands', reachOf_(st));
+  const R = roofOf({ ...shape, tiers: run.tiers, outer: runOuter(run) + (main ? ANF_OVER - 1.2 : 0) }, 'stands', reachOf_(st));
+  if (!main) return R;
+  // Main Stand: il tetto sale verso fuori e sporge molto oltre il muro (sotto si vede il soffitto con le travi)
+  const hIn = R.h(R.dIn);
+  return { ...R, main: true, h: (d) => hIn + Math.max(0, d - R.dIn) * ANF_RISE };
 }
+const ANF_OVER = 9, ANF_RISE = 0.17; // Main Stand di Anfield: sporgenza del tetto oltre il muro (m) e salita verso fuori
 
 /** Piloni del tetto per tribuna: uno per angolo, fuori dagli spalti sulla diagonale, più alti del tetto più alto. */
 function mastsOf(shape, st) {
@@ -6793,7 +6798,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     // scura con la struttura a vista (travi reticolari a sbalzo, più alte dietro, e correnti lungo la tribuna), davanti
     // la fascia chiara con la riga colorata e le luci, sotto pannelli chiari; agli angoli i piloni con i tiranti
     const pos = [], idx = [[], [], []], under = [], underUv = [], underIdx = [], covered = [], top = { pos: [], uv: [], idx: [] };
-    const anfSides = [], clearPos = [], clearIdx = [[], [], []], roofRibs = []; // Anfield: tratti dritti (travi lungo il davanti), lastre chiare e travi scure sotto
+    const anfSides = [], clearPos = [], clearIdx = [[], [], []], roofRibs = [], endPos = [], endIdx = [], endWins = []; // Anfield: tratti dritti (travi lungo il davanti), lastre chiare e travi scure sotto
     // Anfield: la tribuna più alta (Main Stand) ha il tetto liscio, senza le travi a sbalzo sopra
     const hRoofMax = anf ? Math.max(...roofRuns.map(r => { const R2 = standsRoofOf(shape, st, r); return R2.h(R2.dIn); })) : Infinity;
     const rect = (d0, d1, h0, h1, m) => [[d0, h0], [d1, h0], [d1, h1], [d0, h1]].map(([d, h]) => ({ d, h, m }));
@@ -6803,8 +6808,18 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     // logo dipinto sul tetto: lì niente travi sopra (si vede intero dall'alto)
     const logos = logoSpots(shape, st).filter(l => l.place === 'roof');
     const onLogo = (x, z) => logos.some(l => Math.sign(z) === l.side && Math.abs(z) > shape.b - 1 && Math.abs(x) < l.s / 2 + 1.5);
-    for (const run of roofRuns) {
-      const Rs = standsRoofOf(shape, st, run), hI = Rs.h(Rs.dIn);
+    for (const run0 of roofRuns) {
+      const Rs = standsRoofOf(shape, st, run0), hI = Rs.h(Rs.dIn);
+      // Anfield, Main Stand: il tetto è un rettangolo dritto lungo tutta la tribuna, fino a filo delle sue pareti di
+      // testa (anche sopra gli angoli), invece di girare l'angolo come gli altri
+      let run = run0;
+      if (Rs.main) {
+        // (a filo della galleria vetrata inclinata, che sulla testata resta coperta dalla parete grigia)
+        const sz = Math.sign(run0.pts.find(q => onLongSide(q)).z) || 1, xE = shape.a + runOuter(run0) + 3.9, n2 = Math.ceil(2 * xE / 2.5);
+        const asc = run0.pts[0].x < run0.pts[run0.pts.length - 1].x;
+        const pts = Array.from({ length: n2 + 1 }, (_, i) => { const x = (asc ? -1 : 1) * (-xE + 2 * xE * i / n2); return { x, z: sz * shape.b, mx: 0, mz: sz }; });
+        run = { pts, closed: false, tiers: run0.tiers };
+      }
       const d0 = Rs.dIn + 0.6, span = Rs.dOut - 0.5 - d0, yb = (d) => Rs.h(d) + 0.1;
       const yt = (d) => yb(d) + 1 + 4.5 * (d - d0) / span; // sopra le travi: 1 m sulla punta, 5,5 m sull'appoggio dietro
       // lastra (bordi chiari), sopra la lamiera con la texture, e fascia davanti
@@ -6829,28 +6844,40 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
           const [x0, z0] = pointAt(run, rc, u, Rs.dIn + 0.3), [x1, z1] = pointAt(run, rc, u, dGl + 0.6);
           beam(roofRibs, x0, Rs.h(Rs.dIn + 0.3) - 0.55, z0, x1, Rs.h(dGl + 0.6) - 0.55, z1, 0.8);
         }
-        // Main Stand: alle due estremità il tetto scende inclinato (testata a falda) fin sul tetto della tribuna vicina
-        if (hI > hRoofMax - 0.5 && !run.closed) {
-          for (const [pe, pn] of [[run.pts[0], run.pts[1]], [run.pts[run.pts.length - 1], run.pts[run.pts.length - 2]]]) {
-            const near = roofRuns.find(r => r !== run && r.pts.includes(pe)), Rn = near ? standsRoofOf(shape, st, near) : null;
-            let ex = pe.x - pn.x, ez = pe.z - pn.z;
-            const el = Math.hypot(ex, ez) || 1; ex /= el; ez /= el;
-            const steps2 = 8, ring = [];
-            for (let i = 0; i <= steps2; i++) {
-              const d = Rs.dIn + (Rs.dOut - Rs.dIn) * i / steps2, hTop = Rs.h(d), hLow = Math.max(Rn ? Rn.h(Math.min(d, Rn.dOut)) : runTop(run).top, hTop - 14);
-              const run2 = Math.max(0.5, (hTop - hLow) * 0.9), bx = pe.x + pe.mx * d, bz = pe.z + pe.mz * d;
-              ring.push([[bx, hTop, bz], [bx + ex * run2, hLow, bz + ez * run2]]);
+        // Main Stand: sotto la sporgenza oltre il muro il soffitto con le travi scure che vanno dal muro al bordo
+        if (Rs.main) {
+          const oW = runOuter(run) + 0.3;
+          for (const u of stations(run, rc, 4.5, oW)) {
+            const [x0, z0] = pointAt(run, rc, u, oW), [x1, z1] = pointAt(run, rc, u, Rs.dOut - 0.3);
+            beam(roofRibs, x0, Rs.h(oW) - 0.9, z0, x1, Rs.h(Rs.dOut - 0.3) - 0.6, z1, 0.6);
+          }
+          // bordo esterno: fascia grigia alta che segue la salita
+          extrude(THREE, run, rect(Rs.dOut - 0.05, Rs.dOut + 0.25, Rs.h(Rs.dOut) - 1.6, Rs.h(Rs.dOut) + 0.2, 2), pos, idx);
+        }
+        // Main Stand: alle due estremità la testata, una parete grigia rivestita a filo della parete di testa: in alto
+        // segue il tetto (più alta verso fuori), in basso arriva sul tetto della tribuna vicina o, fuori da questa, fino
+        // al basamento (verso il campo) e ai mattoni della Main Stand (verso fuori); con le finestre verticali in alto
+        if (Rs.main) {
+          const mainRun = run0, H0 = wallTopOf(mainRun), PH0 = cladPodium(H0, st), HG0 = Math.max(PH0 + 8, H0 - 9), sz = run.pts[0].mz;
+          for (const pe of [run.pts[0], run.pts[run.pts.length - 1]]) {
+            const ex = Math.sign(pe.x), nb = roofRuns.find(r => r !== run0 && r.pts.some(q => !onLongSide(q) && Math.sign(q.x) === ex));
+            const Rn = nb ? standsRoofOf(shape, st, nb) : null, dn = Math.abs(pe.x) - shape.a, oN = nb ? runOuter(nb) : 0;
+            const N2 = 12, top2 = [], bot2 = [];
+            for (let i = 0; i <= N2; i++) {
+              const d = Rs.dIn + (Rs.dOut - Rs.dIn) * i / N2, hT = Rs.h(d) + 0.2;
+              const over = d < 0 && Rn && dn <= oN ? Rn.h(Math.min(Math.max(dn, Rn.dIn), Rn.dOut)) - 0.3 : d < 0 ? PH0 : HG0;
+              const x = pe.x + ex * 0.15, z = sz * (shape.b + d);
+              top2.push([x, hT, z]); bot2.push([x, Math.min(over, hT - 0.5), z]);
             }
-            for (let i = 0; i < steps2; i++) {
-              const [a0, a1] = ring[i], [b0, b1] = ring[i + 1], k = pos.length / 3;
-              pos.push(...a0, ...b0, ...b1, ...a1);
-              idx[1].push(k, k + 1, k + 2, k, k + 2, k + 3, k, k + 2, k + 1, k, k + 3, k + 2);
+            for (let i = 0; i < N2; i++) {
+              const k = endPos.length / 3;
+              endPos.push(...bot2[i], ...bot2[i + 1], ...top2[i + 1], ...top2[i]);
+              endIdx.push(k, k + 1, k + 2, k, k + 2, k + 3);
             }
-            // fianchi della testata (davanti e dietro)
-            for (const i of [0, steps2]) {
-              const [a0, a1] = ring[i], k = pos.length / 3;
-              pos.push(...a0, ...a1, a0[0], a1[1], a0[2]);
-              idx[1].push(k, k + 1, k + 2, k, k + 2, k + 1);
+            for (let j = 0; j < 6; j++) {
+              const d = Rs.dIn + 4 + j * 2.4, hT = Rs.h(d) - 1.6, hB = hT - 6.5;
+              if (d > runOuter(mainRun) - 4) break;
+              boxAt(endWins, pe.x + ex * 0.3, (hT + hB) / 2, sz * (shape.b + d), [0.15, 0, 0], [0, hT - hB, 0], [0, 0, 1.1]);
             }
           }
         }
@@ -6933,6 +6960,19 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     group.add(new THREE.Mesh(ug, underMat));
     own.push(g, ug, underMat, gridTex);
     if (roofRibs.length) { const rm = new THREE.MeshStandardMaterial({ color: 0x3b4048, roughness: 0.6, metalness: 0.3 }); own.push(rm); inst(rm, roofRibs); }
+    if (endPos.length) {
+      // testate grigie della Main Stand (rivestimento a doghe verticali)
+      const eg = new THREE.BufferGeometry();
+      eg.setAttribute('position', new THREE.Float32BufferAttribute(endPos, 3));
+      eg.setIndex(endIdx);
+      eg.computeVertexNormals();
+      const em = new THREE.MeshStandardMaterial({ color: 0xa9adb2, roughness: 0.5, metalness: 0.35, side: THREE.DoubleSide });
+      const wm = new THREE.MeshStandardMaterial({ color: 0x2b333c, roughness: 0.3, metalness: 0.4, emissive: 0xffd7a0, emissiveIntensity: 0 });
+      own.push(eg, em, wm);
+      nightGlow.push([wm, 0, 0.6]);
+      group.add(new THREE.Mesh(eg, em));
+      inst(wm, endWins);
+    }
     if (clearPos.length) {
       const cg = new THREE.BufferGeometry();
       cg.setAttribute('position', new THREE.Float32BufferAttribute(clearPos, 3));
@@ -7034,12 +7074,15 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       const HG = mainBrick ? Math.max(PH + 8, H - 9) : H, GO = 3.4, hG = roofUnder(o + 0.3 + GO);
       extrude(THREE, run, rect(o - 0.1, o + 0.3, 0, Math.max(H, anf ? roofUnder(o + 0.3) : H), 0), pos, idx);   // parete chiara
       if (mainBrick) {
-        extrude(THREE, run, [[o + 0.3, HG], [o + 0.3 + GO, hG], [o + 0.42 + GO, hG], [o + 0.42, HG]].map(([d, h]) => ({ d, h, m: 0 })), winPos, winIdx);
-        stripUV(run, [{ d: o + 0.44, h: HG }, { d: o + 0.44 + GO, h: hG }], glassFace, GLASS_TILE, Math.hypot(GO, hG - HG));
+        // la galleria solo sul fronte lungo (fino all'angolo); sulle testate c'è la parete grigia del tetto
+        const sz0 = Math.sign(run.pts.find(q => onLongSide(q)).z) || 1;
+        const gal = subRuns(run, (q) => Math.sign(q.z) === sz0 && (onLongSide(q) || Math.abs(q.mx * q.mz) > 0.3))[0] || run;
+        extrude(THREE, gal, [[o + 0.3, HG], [o + 0.3 + GO, hG], [o + 0.42 + GO, hG], [o + 0.42, HG]].map(([d, h]) => ({ d, h, m: 0 })), winPos, winIdx);
+        stripUV(gal, [{ d: o + 0.44, h: HG }, { d: o + 0.44 + GO, h: hG }], glassFace, GLASS_TILE, Math.hypot(GO, hG - HG));
         extrude(THREE, run, rect(o + 0.3, o + 0.9, HG - 0.6, HG, 0), pos, idx);                // davanzale chiaro
-        const mc = runLengths(run);
-        for (const u of stations(run, mc, 3, o + 0.5)) {
-          const [x0, z0] = pointAt(run, mc, u, o + 0.48), [x1, z1] = pointAt(run, mc, u, o + 0.48 + GO);
+        const mc = runLengths(gal);
+        for (const u of stations(gal, mc, 3, o + 0.5)) {
+          const [x0, z0] = pointAt(gal, mc, u, o + 0.48), [x1, z1] = pointAt(gal, mc, u, o + 0.48 + GO);
           beam(mullions, x0, HG, z0, x1, hG, z1, 0.14);
         }
       } else extrude(THREE, run, rect(o + 0.3, o + 0.6, H - CH, H, anf ? 0 : 1), pos, idx);     // cornicione
