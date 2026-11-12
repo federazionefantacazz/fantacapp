@@ -8318,8 +8318,13 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       const delta = (x, y, z) => {
         const d = z * sz - shape.b;
         if (d < dT || y <= yLo) return 0;
-        const t = cl((x * sz + xE) / ramp), E = Eend + (Efull - Eend) * t; // in diagonale dritta
-        return (E - Efull) * cl((d - dT) / (R.dOut - dT)) * cl((y - yLo) / (yHi - yLo));
+        // la salita parte dal fianco, dal suo capo verso il campo (subito fuori dalla trave reticolare), corre lungo il
+        // fianco e il lato smussato e arriva all'altezza piena dove comincia il davanti: p = strada fatta lungo il bordo
+        const u = x * sz + xE, v = d - dT, Ltot = (R.dOut - dT) + ramp;
+        if (u >= Ltot) return 0;
+        const t = cl((v + Math.max(0, u)) / Ltot), E = Eend + (Efull - Eend) * t;
+        const w = cl((d - dT) / 7), ws = w * w * (3 - 2 * w); // dalla trave reticolare (dritta) il tetto scende morbido
+        return (E - Efull) * ws * cl((y - yLo) / (yHi - yLo));
       };
       const e = 0.05;
       warpGroup(group, { at: (x, y, z) => {
