@@ -8229,13 +8229,15 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     if (mr) {
       const R = standsRoofOf(shape, st, mr), sz = Math.sign(mr.pts.find(q => onLongSide(q)).z) || 1, H0 = wallTopOf(mr);
       const HG0 = st.facade === 'brick' ? Math.max(cladPodium(H0, st) + 8, H0 - 9) : H0;
-      const xE = shape.a + runOuter(mr) + 3.9, ramp = 2 * xE * 0.45, Efull = R.h(R.dOut), Eend = HG0 + 0.7;
+      const xE = shape.a + runOuter(mr) + 3.9, ramp = 2 * xE * 0.6, Efull = R.h(R.dOut), Eend = HG0 + 0.7;
+      // la parte verso il campo (fino alla grande trave reticolare, compresa) resta dritta: scende solo quella verso fuori
+      const d0 = R.dIn + 0.6, dT = d0 + (R.dOut - 0.5 - d0) * 0.3 + 3.1;
       const yLo = HG0, yHi = R.h(R.dIn) - 2, cl = (v) => Math.min(1, Math.max(0, v));
       const delta = (x, y, z) => {
         const d = z * sz - shape.b;
-        if (d < R.dIn - 1 || y <= yLo) return 0;
+        if (d < dT || y <= yLo) return 0;
         const t = cl((x * sz + xE) / ramp), E = Eend + (Efull - Eend) * t; // in diagonale dritta
-        return (E - Efull) * cl((d - R.dIn) / (R.dOut - R.dIn)) * cl((y - yLo) / (yHi - yLo));
+        return (E - Efull) * cl((d - dT) / (R.dOut - dT)) * cl((y - yLo) / (yHi - yLo));
       };
       const e = 0.05;
       warpGroup(group, { at: (x, y, z) => {
