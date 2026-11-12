@@ -8220,6 +8220,30 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
   inst(girderMat, girderBeams);
   inst([steel, steel, steel, steel, lamp, steel], lamps); // la faccia +z del proiettore è quella accesa
 
+  // Anfield, Main Stand: da un'estremità (a sinistra guardando da fuori) il bordo esterno del tetto parte all'altezza del
+  // muro e sale in diagonale fino alla sua altezza piena, poi corre parallelo al muro; in mezzo la galleria vetrata
+  // scura (che lì si assottiglia fino a sparire). Si piega tutto quello che sta sopra il muro di quella tribuna.
+  if (st.roof === 'anfield') {
+    const mr = roofRuns.find(r => standsRoofOf(shape, st, r).main);
+    if (mr) {
+      const R = standsRoofOf(shape, st, mr), sz = Math.sign(mr.pts.find(q => onLongSide(q)).z) || 1, H0 = wallTopOf(mr);
+      const HG0 = st.facade === 'brick' ? Math.max(cladPodium(H0, st) + 8, H0 - 9) : H0;
+      const xE = shape.a + runOuter(mr) + 3.9, ramp = 2 * xE * 0.45, Efull = R.h(R.dOut), Eend = HG0 + 0.7;
+      const yLo = HG0, yHi = R.h(R.dIn) - 2, cl = (v) => Math.min(1, Math.max(0, v));
+      const delta = (x, y, z) => {
+        const d = z * sz - shape.b;
+        if (d < R.dIn - 1 || y <= yLo) return 0;
+        const t = cl((x * sz + xE) / ramp), E = Eend + (Efull - Eend) * t; // in diagonale dritta
+        return (E - Efull) * cl((d - R.dIn) / (R.dOut - R.dIn)) * cl((y - yLo) / (yHi - yLo));
+      };
+      const e = 0.05;
+      warpGroup(group, { at: (x, y, z) => {
+        const dy = delta(x, y, z);
+        if (!dy) return [0, 0, 0, 0];
+        return [dy, (delta(x + e, y, z) - delta(x - e, y, z)) / (2 * e), (delta(x, y + e, z) - delta(x, y - e, z)) / (2 * e), (delta(x, y, z + e) - delta(x, y, z - e)) / (2 * e)];
+      } }, null);
+    }
+  }
   return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, nightGlow, repaint, tints, badge, wallMat, panelSkinMat, stoneLight, stoneDark, tentGlass, entrance, lawn, roofType: st.roof, towersAt, shellClear, cubePanel, cubeDiscs };
 }
 
