@@ -1713,7 +1713,7 @@ function standsRoofOf(shape, st, run) {
   const hIn = R.h(R.dIn);
   return { ...R, main: true, h: (d) => hIn + Math.max(0, d - R.dIn) * ANF_RISE };
 }
-const ANF_OVER = 9, ANF_RISE = 0.17; // Main Stand di Anfield: sporgenza del tetto oltre il muro (m) e salita verso fuori
+const ANF_OVER = 9, ANF_RISE = 0.17, ANF_CHAMFER = 13; // Main Stand di Anfield: sporgenza del tetto oltre il muro (m) e salita verso fuori
 
 /** Piloni del tetto per tribuna: uno per angolo, fuori dagli spalti sulla diagonale, più alti del tetto più alto. */
 function mastsOf(shape, st) {
@@ -8246,7 +8246,8 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     if (mr) {
       const R = standsRoofOf(shape, st, mr), sz = Math.sign(mr.pts.find(q => onLongSide(q)).z) || 1, H0 = wallTopOf(mr);
       const HG0 = st.facade === 'brick' ? Math.max(cladPodium(H0, st) + 8, H0 - 9) : H0;
-      const xE = shape.a + runOuter(mr) + 3.9, ramp = 2 * xE * 0.6, Efull = R.h(R.dOut), Eend = HG0 + 0.7;
+      // la salita sta tutta nello spigolo: l'angolo della Main Stand è un piccolo lato in più, a 45° (come un esagono)
+      const xE = shape.a + runOuter(mr) + 3.9, CH = ANF_CHAMFER, ramp = CH, Efull = R.h(R.dOut), Eend = HG0 + 0.7;
       // la parte verso il campo (fino alla grande trave reticolare, compresa) resta dritta: scende solo quella verso fuori
       const d0 = R.dIn + 0.6, dT = d0 + (R.dOut - 0.5 - d0) * 0.3 + 3.1;
       const yLo = HG0, yHi = R.h(R.dIn) - 2, cl = (v) => Math.min(1, Math.max(0, v));
@@ -8262,6 +8263,37 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         if (!dy) return [0, 0, 0, 0];
         return [dy, (delta(x + e, y, z) - delta(x - e, y, z)) / (2 * e), (delta(x, y + e, z) - delta(x, y - e, z)) / (2 * e), (delta(x, y, z + e) - delta(x, y, z - e)) / (2 * e)];
       } }, null);
+      // spigoli smussati: oltre il muro (galleria, sporgenza del tetto, testate) la profondità si riduce verso le due
+      // estremità, così il bordo esterno in pianta gira l'angolo con un lato a 45°
+      const oW = runOuter(mr) + 1.6, PHs = cladPodium(H0, st) + 1.2;
+      const squeeze = (x, y, z) => {
+        const d = z * sz - shape.b, k = (Math.abs(x) - (xE - CH)) / CH;
+        if (d <= oW || k <= 0 || y < PHs) return z;
+        const over = R.dOut + 0.4 - oW, f = 1 - Math.min(1, k) * Math.min(0.92, CH / Math.max(1, over)) * Math.min(1, over / CH);
+        return sz * (shape.b + oW + (d - oW) * Math.max(0.08, f));
+      };
+      group.traverse(o => {
+        if (o.isInstancedMesh) {
+          const a = o.instanceMatrix.array;
+          for (let i = 0; i < o.count; i++) {
+            const b = i * 16;
+            let L = -1, m = 0;
+            for (let c = 0; c < 3; c++) { const l = Math.hypot(a[b + c * 4], a[b + c * 4 + 1], a[b + c * 4 + 2]); if (l > L) { L = l; m = c; } }
+            const cx = a[b + 12], cy = a[b + 13], cz = a[b + 14], vx = a[b + m * 4] / 2, vy = a[b + m * 4 + 1] / 2, vz = a[b + m * 4 + 2] / 2;
+            const z1 = squeeze(cx - vx, cy - vy, cz - vz), z2 = squeeze(cx + vx, cy + vy, cz + vz);
+            if (z1 === cz - vz && z2 === cz + vz) continue;
+            a[b + m * 4 + 2] = z2 - z1; a[b + 14] = (z1 + z2) / 2;
+          }
+          o.instanceMatrix.needsUpdate = true;
+        } else if (o.isMesh && o.geometry) {
+          const P = o.geometry.getAttribute('position');
+          if (!P || o.geometry.userData.sq) return;
+          o.geometry.userData.sq = true;
+          let ch = false;
+          for (let i = 0; i < P.count; i++) { const z = P.getZ(i), z2 = squeeze(P.getX(i), P.getY(i), z); if (z2 !== z) { P.setZ(i, z2); ch = true; } }
+          if (ch) { P.needsUpdate = true; o.geometry.computeVertexNormals(); o.geometry.computeBoundingSphere(); o.geometry.computeBoundingBox(); }
+        }
+      });
     }
   }
   return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, nightGlow, repaint, tints, badge, wallMat, panelSkinMat, stoneLight, stoneDark, tentGlass, entrance, lawn, roofType: st.roof, towersAt, shellClear, cubePanel, cubeDiscs };
