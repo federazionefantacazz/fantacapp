@@ -1713,7 +1713,7 @@ function standsRoofOf(shape, st, run) {
   const hIn = R.h(R.dIn);
   return { ...R, main: true, h: (d) => hIn + Math.max(0, d - R.dIn) * ANF_RISE };
 }
-const ANF_OVER = 9, ANF_RISE = 0.17, ANF_CHAMFER = 13; // Main Stand di Anfield: sporgenza del tetto oltre il muro (m) e salita verso fuori
+const ANF_OVER = 9, ANF_RISE = 0.17, ANF_CHAMFER = 13, ANF_END = 9; // ANF_END: il tetto della Main Stand va oltre le sue estremità // Main Stand di Anfield: sporgenza del tetto oltre il muro (m) e salita verso fuori
 
 /** Piloni del tetto per tribuna: uno per angolo, fuori dagli spalti sulla diagonale, più alti del tetto più alto. */
 function mastsOf(shape, st) {
@@ -6841,7 +6841,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       let run = run0;
       if (Rs.main) {
         // (a filo della galleria vetrata inclinata, che sulla testata resta coperta dalla parete grigia)
-        const sz = Math.sign(run0.pts.find(q => onLongSide(q)).z) || 1, xE = shape.a + runOuter(run0) + 3.9, n2 = Math.ceil(2 * xE / 2.5);
+        const sz = Math.sign(run0.pts.find(q => onLongSide(q)).z) || 1, xE = shape.a + runOuter(run0) + ANF_END, n2 = Math.ceil(2 * xE / 2.5);
         const asc = run0.pts[0].x < run0.pts[run0.pts.length - 1].x;
         const pts = Array.from({ length: n2 + 1 }, (_, i) => { const x = (asc ? -1 : 1) * (-xE + 2 * xE * i / n2); return { x, z: sz * shape.b, mx: 0, mz: sz }; });
         run = { pts, closed: false, tiers: run0.tiers };
@@ -8308,7 +8308,10 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       const R = standsRoofOf(shape, st, mr), sz = Math.sign(mr.pts.find(q => onLongSide(q)).z) || 1, H0 = wallTopOf(mr);
       const HG0 = st.facade === 'brick' ? Math.max(cladPodium(H0, st) + 8, H0 - 9) : H0;
       // la salita sta tutta nello spigolo: l'angolo della Main Stand è un piccolo lato in più, a 45° (come un esagono)
-      const xE = shape.a + runOuter(mr) + 3.9, CH = ANF_CHAMFER, ramp = CH, Efull = R.h(R.dOut), Eend = HG0 + 0.7;
+      // il tetto arriva fin oltre i blocchi d'angolo; in pianta il suo bordo è parallelo al muro smussato (davanti, lato a
+      // 45°, fianco) e la salita va dal fianco (basso, sopra i mattoni) lungo il lato smussato fino al davanti
+      const o0 = runOuter(mr), T0 = CLAD_PODIUM_W, Cb = 9, vMax = R.dOut - o0, g = Math.max(1, vMax - T0), cLine = 2 * T0 - Cb + g * Math.SQRT2;
+      const xE = shape.a + o0 + ANF_END, CH = ANF_CHAMFER, ramp = Math.max(4, ANF_END - (cLine - vMax)), Efull = R.h(R.dOut), Eend = HG0 + 0.7;
       // la parte verso il campo (fino alla grande trave reticolare, compresa) resta dritta: scende solo quella verso fuori
       const d0 = R.dIn + 0.6, dT = d0 + (R.dOut - 0.5 - d0) * 0.3 + 3.1;
       const yLo = HG0, yHi = R.h(R.dIn) - 2, cl = (v) => Math.min(1, Math.max(0, v));
@@ -8328,10 +8331,12 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       // estremità, così il bordo esterno in pianta gira l'angolo con un lato a 45°
       const oW = runOuter(mr) + 1.6, PHs = cladPodium(H0, st) + 1.2;
       const squeeze = (x, y, z) => {
-        const d = z * sz - shape.b, k = (Math.abs(x) - (xE - CH)) / CH;
-        if (d <= oW || k <= 0 || y < PHs) return z;
-        const over = R.dOut + 0.4 - oW, f = 1 - Math.min(1, k) * Math.min(0.92, CH / Math.max(1, over)) * Math.min(1, over / CH);
-        return sz * (shape.b + oW + (d - oW) * Math.max(0.08, f));
+        const d = z * sz - shape.b, u = Math.abs(x) - (shape.a + o0), vW = oW - o0;
+        if (d <= oW || y < PHs) return z;
+        const V = Math.min(vMax + 0.4, cLine - u);
+        if (V >= vMax + 0.4) return z;
+        const f = Math.max(0.05, (V - vW) / (vMax + 0.4 - vW));
+        return sz * (shape.b + oW + (d - oW) * f);
       };
       group.traverse(o => {
         if (o.userData.noSq) return;
