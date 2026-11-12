@@ -6871,10 +6871,10 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
               endPos.push(...bot2[i], ...bot2[i + 1], ...top2[i + 1], ...top2[i]);
               endIdx.push(k, k + 1, k + 2, k, k + 2, k + 3);
             }
-            for (let j = 0; j < 6; j++) {
-              const d = Rs.dIn + 4 + j * 2.4, hT = Rs.h(d) - 1.6, hB = hT - 6.5;
+            for (let j = 0; j < 7; j++) {
+              const d = Rs.dIn + 4 + j * 1.9, hT = Rs.h(d) - 1.4, hB = hT - 7.5;
               if (d > runOuter(mainRun) - 4) break;
-              boxAt(endWins, pe.x + ex * 0.3, (hT + hB) / 2, sz * (shape.b + d), [0.15, 0, 0], [0, hT - hB, 0], [0, 0, 1.1]);
+              boxAt(endWins, pe.x + ex * 0.3, (hT + hB) / 2, sz * (shape.b + d), [0.15, 0, 0], [0, hT - hB, 0], [0, 0, 0.8]);
             }
           }
         }
@@ -6961,9 +6961,26 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       // testate grigie della Main Stand (rivestimento a doghe verticali)
       const eg = new THREE.BufferGeometry();
       eg.setAttribute('position', new THREE.Float32BufferAttribute(endPos, 3));
+      // coordinate della texture in metri: lungo la parete (z) e in alto (y)
+      const euv = [];
+      for (let i = 0; i < endPos.length; i += 3) euv.push(endPos[i + 2] / 4, endPos[i + 1] / 4);
+      eg.setAttribute('uv', new THREE.Float32BufferAttribute(euv, 2));
       eg.setIndex(endIdx);
       eg.computeVertexNormals();
-      const em = new THREE.MeshStandardMaterial({ color: 0xe9ecef, roughness: 0.55, metalness: 0.1, side: THREE.DoubleSide });
+      // lamiera argento a doghe verticali (ogni 0,5 m), con le giunte orizzontali ogni 4 m
+      const dc2 = document.createElement('canvas'); dc2.width = dc2.height = 256;
+      const dx2 = dc2.getContext('2d');
+      dx2.fillStyle = '#c4c9ce'; dx2.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 8; i++) {
+        const x = i * 32, g = dx2.createLinearGradient(x, 0, x + 32, 0);
+        g.addColorStop(0, '#a9afb5'); g.addColorStop(0.18, '#d7dbdf'); g.addColorStop(0.55, '#c7ccd1'); g.addColorStop(1, '#b3b9bf');
+        dx2.fillStyle = g; dx2.fillRect(x, 0, 32, 256);
+      }
+      dx2.fillStyle = 'rgba(70,76,84,.55)'; dx2.fillRect(0, 0, 256, 3);
+      const etex = new THREE.CanvasTexture(dc2);
+      etex.wrapS = etex.wrapT = THREE.RepeatWrapping; etex.colorSpace = THREE.SRGBColorSpace; etex.anisotropy = 8;
+      own.push(etex);
+      const em = new THREE.MeshStandardMaterial({ map: etex, roughness: 0.4, metalness: 0.45, side: THREE.DoubleSide });
       const wm = new THREE.MeshStandardMaterial({ color: 0x2b333c, roughness: 0.3, metalness: 0.4, emissive: 0xffd7a0, emissiveIntensity: 0 });
       own.push(eg, em, wm);
       nightGlow.push([wm, 0, 0.6]);
