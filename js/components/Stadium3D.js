@@ -7098,7 +7098,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     const pos = [], idx = [[], [], []], winPos = [], winIdx = [[], [], []], poster = { pos: [], uv: [], idx: [] };
     const panelFace = { pos: [], uv: [], idx: [] }, stoneFace = { pos: [], uv: [], idx: [] }, glassFace = { pos: [], uv: [], idx: [] };
     const accentBoxes = [], whiteBoxes = [], winBoxes = [], paveBoxes = [], flatLamps = [], drumBody = [], drumWin = [], drumTop = [], cladEnds = [], brickPiers = [], mullions = [];
-    const deckFace = { pos: [], uv: [], idx: [] }, stairBoxes = [], cornerWins = [], BTc = anf ? wallTexture('brick') : null;
+    const deckFace = { pos: [], uv: [], idx: [] }, stairBoxes = [], cornerWins = [], cornerCaps = [], BTc = anf ? wallTexture('brick') : null;
     let cornerGeo = null; // Anfield: pavimento chiaro della terrazza rialzata e scalinate
     // ingresso principale: centro del lato lungo verso z+ (davanti al basamento)
     const E = entranceOf(shape, st), mid = E && E.run, z0 = E ? E.z0 : 0;
@@ -7233,6 +7233,13 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         }
         const tris = THREE.ShapeUtils.triangulateShape(P.map(([x, z]) => new THREE.Vector2(x, z)), []), k0 = bp.length / 3;
         P.forEach(([x, z]) => { bp.push(x, K.HB, z); buv.push(x, z); });
+        // cornicione grigio scuro in cima al blocco (lo stacco tra i mattoni e la copertura)
+        for (let i = 0; i < N; i++) {
+          const [ax, az] = P[i], [bx, bz] = P[(i + 1) % N], l = Math.hypot(bx - ax, bz - az);
+          if (l < 0.5) continue;
+          const nx = (bz - az) / l, nz = -(bx - ax) / l;
+          boxAt(cornerCaps, (ax + bx) / 2 + nx * 0.15 * K.sx * K.sz, K.HB + 0.6, (az + bz) / 2 + nz * 0.15 * K.sx * K.sz, [(bx - ax) + (bx - ax) / l * 0.3, 0, (bz - az) + (bz - az) / l * 0.3], [0, 1.2, 0], [nx * 0.5, 0, nz * 0.5]);
+        }
         tris.forEach(([a, b, c]) => bi.push(k0 + a, k0 + b, k0 + c));
       }
       if (bp.length) {
@@ -7395,6 +7402,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       const cm2 = brickMat([1, 1]); own.push(cm2, cornerGeo); tints.push([cm2, 'podium']);
       const cmesh = new THREE.Mesh(cornerGeo, cm2); cmesh.castShadow = cmesh.receiveShadow = true; group.add(cmesh);
     }
+    if (cornerCaps.length) { const cc = new THREE.MeshStandardMaterial({ color: 0x4a4f56, roughness: 0.6, metalness: 0.3 }); own.push(cc); const im = inst(cc, cornerCaps); if (im) im.userData.noSq = true; }
     if (cornerWins.length) { const im = inst(winMat, cornerWins); if (im) im.userData.noSq = true; }
     if (stairBoxes.length) { const sm2 = new THREE.MeshStandardMaterial({ color: 0xb4554a, roughness: 0.85 }); own.push(sm2); inst(sm2, stairBoxes); }
     if (deckFace.pos.length) {
@@ -8311,7 +8319,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       // il tetto arriva fin oltre i blocchi d'angolo; in pianta il suo bordo è parallelo al muro smussato (davanti, lato a
       // 45°, fianco) e la salita va dal fianco (basso, sopra i mattoni) lungo il lato smussato fino al davanti
       const o0 = runOuter(mr), T0 = CLAD_PODIUM_W, Cb = 9, vMax = R.dOut - o0, g = Math.max(1, vMax - T0), cLine = 2 * T0 - Cb + g * Math.SQRT2;
-      const xE = shape.a + o0 + ANF_END, CH = ANF_CHAMFER, ramp = Math.max(4, ANF_END - (cLine - vMax)), Efull = R.h(R.dOut), Eend = HG0 + 0.7;
+      const xE = shape.a + o0 + ANF_END, CH = ANF_CHAMFER, ramp = Math.max(4, ANF_END - (cLine - vMax)), Efull = R.h(R.dOut), Eend = HG0 + 6; // (sul fianco il tetto resta staccato dal muro: in mezzo il sotto scuro)
       // la parte verso il campo (fino alla grande trave reticolare, compresa) resta dritta: scende solo quella verso fuori
       const d0 = R.dIn + 0.6, dT = d0 + (R.dOut - 0.5 - d0) * 0.3 + 3.1;
       const yLo = HG0, yHi = R.h(R.dIn) - 2, cl = (v) => Math.min(1, Math.max(0, v));
