@@ -90,21 +90,20 @@ function ensurePanel() {
 
 export const MenuPanel = {
   _view: null,
+  _name: '',
+  _parents: [], // viste da cui si è arrivati (Configurazione squadra → Divisa): Indietro torna lì
 
-  /** name = chiave della vista (settings, team, ...): scope del tema #menu-panel[data-view="..."] */
-  open(view, name = '') {
+  /**
+   * name = chiave della vista (settings, team, ...): scope del tema #menu-panel[data-view="..."].
+   * opts.stack: la vista si apre "sopra" quella aperta, e Indietro (freccia o tasto del telefono) torna a quella.
+   */
+  open(view, name = '', { stack = false } = {}) {
     const panel = ensurePanel();
-    if (this._view && this._view.unmount) this._view.unmount();
-    this._view = view;
-    panel.dataset.view = name;
-
-    panel.querySelector('.mp-title').textContent = view.title;
-    const body = panel.querySelector('.mp-body');
-    body.innerHTML = '';
-    body.scrollTop = 0;
-    view.mount(body, window.STATE);
-
     const wasOpen = panel.classList.contains('open');
+    if (stack && wasOpen && this._view) this._parents.push([this._view, this._name]);
+    else this._parents = [];
+    this._show(view, name);
+
     if (!wasOpen) this._opener = document.activeElement;
     panel.classList.add('open');
     panel.setAttribute('aria-hidden', 'false');
@@ -115,14 +114,43 @@ export const MenuPanel = {
     }
   },
 
-  close() {
+  /** Monta la vista nel pannello (smontando quella di prima). */
+  _show(view, name) {
+    const panel = ensurePanel();
+    if (this._view && this._view.unmount) this._view.unmount();
+    this._view = view;
+    this._name = name;
+    panel.dataset.view = name;
+    panel.querySelector('.mp-title').textContent = view.title;
+    const body = panel.querySelector('.mp-body');
+    body.innerHTML = '';
+    body.scrollTop = 0;
+    view.mount(body, window.STATE);
+  },
+
+  /** all: chiude tutto il pannello anche se la vista era aperta sopra un'altra (le modifiche non salvate si chiedono comunque). */
+  close({ all = false } = {}) {
     const panel = document.getElementById('menu-panel');
     if (!panel || !panel.classList.contains('open')) return;
+    // modifiche non salvate (editor della divisa e dello stadio): si chiede prima di uscire
+    if (this._view && this._view.confirmClose && !this._view.confirmClose()) {
+      BackNav.push('menu-panel', () => this.close()); // il tasto Indietro l'aveva già tolto dalla pila
+      return;
+    }
+    // aperta da un'altra vista: si torna a quella
+    if (all) this._parents = [];
+    if (this._parents.length) {
+      const [view, name] = this._parents.pop();
+      this._show(view, name);
+      BackNav.push('menu-panel', () => this.close());
+      return;
+    }
     panel.classList.remove('open');
     panel.setAttribute('aria-hidden', 'true');
     panel.inert = true;
     if (this._view && this._view.unmount) this._view.unmount();
     this._view = null;
+    this._parents = [];
     BackNav.pop('menu-panel');
     const opener = this._opener;
     this._opener = null;

@@ -47,9 +47,9 @@ export const ConfigurazioneSquadra = {
     root.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
-      if (btn.dataset.action === 'open-kit') MenuPanel.open(DivisaSquadra, 'kit');
-      else if (btn.dataset.action === 'open-stadium') MenuPanel.open(StadioSquadra, 'stadium');
-      else if (btn.dataset.action === 'open-band') { DivisaSquadra.startSection = 'band'; MenuPanel.open(DivisaSquadra, 'kit'); } // fascia: nell'editor della divisa
+      if (btn.dataset.action === 'open-kit') MenuPanel.open(DivisaSquadra, 'kit', { stack: true });
+      else if (btn.dataset.action === 'open-stadium') MenuPanel.open(StadioSquadra, 'stadium', { stack: true });
+      else if (btn.dataset.action === 'open-band') { DivisaSquadra.startSection = 'band'; MenuPanel.open(DivisaSquadra, 'kit', { stack: true }); } // fascia: nell'editor della divisa
       else if (btn.dataset.action === 'remove-logo') this._removeLogo();
       else if (btn.dataset.action === 'save-staff') this._saveStaff();
       else if (btn.dataset.action === 'reset-photo') this._resetPlayerPhoto(btn.dataset.pid);

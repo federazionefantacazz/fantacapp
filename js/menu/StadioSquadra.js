@@ -13,8 +13,9 @@ import {
 
 /** Nomi corti delle coperture nella scelta settore per settore. */
 const MIX_LABELS = { none: 'No', membrane: 'Moderna', truss: 'Reticolare', stands: 'Tribuna', anfield: 'Anfield', dragon: 'Drago', sliding: 'Wembley' };
-import { injectStyle, parseColor, SWATCHES } from './DivisaSquadra.js';
+import { injectStyle, parseColor, SWATCHES, phaseStrip, syncPhaseStrip, phaseNav } from './DivisaSquadra.js';
 import { esc } from './menuUtils.js';
+import { BackNav } from '../services/backNav.js';
 
 /**
  * Editor dello stadio della squadra (Configurazione squadra → Stadio).
@@ -88,6 +89,31 @@ function seatFields(st) {
 
 const VIEWS = STADIUM_VIEWS;
 
+/** Fasi dell'editor: [chiave, titolo, nome corto (barra delle fasi), inquadratura dello stadio (vedi focus in Stadium3D.js)]. */
+const SECTIONS = [
+  ['name',      'FASE 1: Nome e capienza', 'Nome', 'aerial'],
+  ['styles',    'FASE 2: Stili rapidi', 'Stili', 'aerial'],
+  ['structure', 'FASE 3: Anelli, curve e pista', 'Anelli', 'aerial'],
+  ['exterior',  'FASE 4: Copertura e maxischermo', 'Copertura', 'roof'],
+  ['outside',   'FASE 5: Muro esterno, fari e rampe', 'Esterno', 'outside'],
+  ['entrances', 'FASE 6: Ingressi', 'Ingressi', 'entrance'],
+  ['pitch',     'FASE 7: Campo, pista e pavimenti', 'Campo', 'pitch'],
+  ['seats',     'FASE 8: Colore dei seggiolini', 'Seggiolini', 'stand'],
+  ['texts',     'FASE 9: Scritte e logo', 'Scritte', 'stand'],
+  ['walls',     'FASE 10: Parapetti e cemento', 'Parapetti', 'stand'],
+  ['fans',      'FASE 11: Tifo e coreografie', 'Tifo', 'stand']
+];
+/**
+ * Dentro una fase, toccando una voce lo stadio inquadra la sua parte: si guarda il titolo della voce (kit-sub) sopra
+ * il punto toccato. La prima regola che corrisponde vince; se nessuna corrisponde resta l'inquadratura della fase.
+ */
+const SUB_FOCUS = [
+  [/esterno|muro|cubo|rampe|fari|pavimento fuori|ingress|vélodrome/i, 'outside'],
+  [/erba|pista|pavimento intorno|rete|porte|cartelloni|distanza degli spalti/i, 'pitch'],
+  [/copertura|coperti|copre|involucro|denti|arco|ondulazione/i, 'roof'],
+  [/seggiolini|mosaico|sparsi|scritte sugli spalti|maxischermi sugli spalti|bandier|coreografi|telone|palchi|vomitori|pendenza/i, 'stand']
+];
+
 export const StadioSquadra = {
   title: 'Stadio',
   _open: 'name',
@@ -110,10 +136,12 @@ export const StadioSquadra = {
     this._st = normalizeStadium(team.stadium || defaultStadium());
     this._saved = sig(this._st);
     this._open = 'name';
+    this._focusName = 'aerial';
     this._night = false;
     this._hideExt = false;
     this._renderAll();
 
+    root.addEventListener('pointerdown', (e) => this._onPointerDown(e));
     root.addEventListener('click', (e) => this._onClick(e));
     root.addEventListener('input', (e) => this._onInput(e));
     root.addEventListener('change', (e) => this._onChange(e));
@@ -124,8 +152,17 @@ export const StadioSquadra = {
     if (this._zoom) this._zoom.close();
     if (this._viewer) this._viewer.dispose();
     this._viewer = null;
+    // il visore nuovo della prossima apertura non ha ancora tifosi né loghi dei maxischermi: senza azzerare le chiavi
+    // _previewScreens li saltava (stessa chiave di prima) e i maxischermi restavano senza il logo della squadra
+    this._crowdKey = this._scrLogoKey = null;
     this._root = null;
     this._st = null;
+  },
+
+  /** Uscita dall'editor (freccia o tasto Indietro): con modifiche non salvate si chiede prima. */
+  confirmClose() {
+    if (!this._st || !this._dirty()) return true;
+    return window.confirm('Ci sono modifiche non salvate allo stadio. Uscire senza salvare?');
   },
 
   /** Logo della squadra (per metterlo sullo stadio nei posti scelti). */
@@ -138,19 +175,7 @@ export const StadioSquadra = {
   _dirty() { return sig(this._st) !== this._saved; },
 
   _renderAll() {
-    const sections = [
-      ['name',      'FASE 1: Nome e capienza'],
-      ['styles',    'FASE 2: Stili rapidi'],
-      ['structure', 'FASE 3: Anelli, curve e pista'],
-      ['exterior',  'FASE 4: Copertura e maxischermo'],
-      ['outside',   'FASE 5: Muro esterno, fari e rampe'],
-      ['entrances', 'FASE 6: Ingressi'],
-      ['pitch',     'FASE 7: Campo, pista e pavimenti'],
-      ['seats',     'FASE 8: Colore dei seggiolini'],
-      ['texts',     'FASE 9: Scritte e logo'],
-      ['walls',     'FASE 10: Parapetti e cemento'],
-      ['fans',      'FASE 11: Tifo e coreografie']
-    ];
+    const sections = SECTIONS;
     this._root.innerHTML = `
       <div class="kit-stage">
         <div class="kit-preview">
@@ -167,6 +192,7 @@ export const StadioSquadra = {
           <button class="mp-btn ghost" data-act="undo"><i class="ri-arrow-go-back-line"></i> Annulla modifiche</button>
           <button class="mp-btn" data-act="save"><i class="ri-save-3-line"></i> Salva stadio</button>
         </div>
+        ${phaseStrip(sections, this._open)}
       </div>
       ${sections.map(([key, label]) => `
         <div class="kit-acc ${this._open === key ? 'open' : ''}" data-sec="${key}">
@@ -247,6 +273,7 @@ export const StadioSquadra = {
   _renderSection() {
     if (!this._root) return;
     this._root.classList.toggle('has-open', !!this._open);
+    syncPhaseStrip(this._root, this._open);
     this._root.querySelectorAll('.kit-acc-body').forEach(b => { b.innerHTML = ''; });
     const key = this._open;
     const box = key && this._root.querySelector(`#std-sec-${key}`);
@@ -255,7 +282,7 @@ export const StadioSquadra = {
       styles: this._secStyles, structure: this._secStructure, exterior: this._secExterior, outside: this._secOutside, entrances: this._secEntrances, pitch: this._secPitch,
       seats: this._secSeats, texts: this._secTexts, walls: this._secWalls, name: this._secName, fans: this._secFans
     }[key];
-    box.innerHTML = fn.call(this);
+    box.innerHTML = fn.call(this) + phaseNav(SECTIONS, key);
     // righe di colori senza un titolo sopra: "Colori"
     box.querySelectorAll('.kit-color-row').forEach(r => {
       const prev = r.previousElementSibling;
@@ -895,6 +922,42 @@ export const StadioSquadra = {
     o[parts[parts.length - 1]] = value;
   },
 
+  /* --------------------------------------------------- inquadrature (zoom sulle parti) */
+  /** Inquadratura della fase: gli ingressi si guardano dal primo lato che ne ha uno. */
+  _secFocus(key) {
+    const f = (SECTIONS.find(x => x[0] === key) || [])[3] || 'aerial';
+    return f === 'entrance' ? this._entranceFocus() : f;
+  },
+
+  _entranceFocus() {
+    const sides = this._st.entranceSides || [], i = this._st.roof === 'wave' && this._st.entrance === 'none' ? 1 : sides.findIndex(Boolean);
+    return `outside@${[0, 90, 180, -90][i < 0 ? 0 : i]}`;
+  },
+
+  /** Lo stadio inquadra una parte: 'aerial', 'pitch', 'roof', 'stand', 'outside' o 'outside@gradi' (lato). */
+  _focusTo(name, force = false) {
+    if (!name || (!force && name === this._focusName)) return;
+    this._focusName = name;
+    if (!this._viewer) return;
+    const [view, yaw] = name.split('@');
+    this._viewer.focus(view, yaw == null ? null : Number(yaw));
+  },
+
+  /** Tocco dentro una fase: inquadra la parte della voce toccata (titolo sopra), altrimenti quella della fase. */
+  _onPointerDown(e) {
+    const body = e.target.closest('.kit-acc-body');
+    if (!body || !this._open || e.target.closest('.kd-phase-nav')) return;
+    let el = e.target, sub = null;
+    while (el && el !== body && !sub) {
+      for (let p = el.previousElementSibling; p && !sub; p = p.previousElementSibling) if (p.classList.contains('kit-sub') && p.textContent.trim() !== 'Colori') sub = p;
+      if (el.classList && el.classList.contains('kit-sub')) sub = el;
+      el = el.parentElement;
+    }
+    const t = sub ? sub.textContent : '', hit = SUB_FOCUS.find(([re]) => re.test(t));
+    const f = hit ? hit[1] : this._secFocus(this._open);
+    this._focusTo(f === 'outside' && /ingress|vélodrome/i.test(t) ? this._entranceFocus() : f);
+  },
+
   /** Pulsante per nascondere l'esterno (copertura, facciata...) e guardare dentro: solo anteprima, non si salva. */
   _extBtn() {
     const t = this._hideExt ? 'Rimetti la copertura' : 'Togli la copertura (si vede dentro)';
@@ -905,8 +968,10 @@ export const StadioSquadra = {
   _openZoom() {
     if (this._zoom) return;
     // esterno nascosto anche nell'anteprima sotto, che resta uguale quando si chiude lo zoom
-    this._zoom = openStadiumOverlay(this._st, { logo: this._logo(), night: this._night, hideExterior: this._hideExt,
-      onExterior: (hide) => this._setExterior(hide), onClose: () => { this._zoom = null; } });
+    // tasto Indietro del telefono: chiude solo la vista grande (prima chiudeva tutto l'editor)
+    this._zoom = openStadiumOverlay(this._st, { logo: this._logo(), night: this._night, hideExterior: this._hideExt, view: this._focusName,
+      onExterior: (hide) => this._setExterior(hide), onClose: () => { this._zoom = null; BackNav.pop('stadium-zoom'); } });
+    BackNav.push('stadium-zoom', () => { if (this._zoom) this._zoom.close(); });
   },
 
   _setExterior(hide) {
@@ -923,12 +988,16 @@ export const StadioSquadra = {
     const v = btn.dataset.v;
 
     switch (act) {
+      case 'phase': // barra delle fasi e "fase successiva": apre (non chiude) la fase
+        if (this._open === btn.dataset.sec) { this._scrollToOpen(); return; }
+        // falls through
       case 'toggle':
         this._open = this._open === btn.dataset.sec ? null : btn.dataset.sec;
         this._root.querySelectorAll('.kit-acc').forEach(a => a.classList.toggle('open', a.dataset.sec === this._open));
         this._renderSection();
         this._previewCrowd();
         this._scrollToOpen();
+        if (this._open) this._focusTo(this._secFocus(this._open), true);
         return;
       case 'save': this._save(); return;
       case 'reset': this._reset(); return;
@@ -939,7 +1008,8 @@ export const StadioSquadra = {
         return;
       case 'zoom-open': this._openZoom(); return;
       case 'view':
-        if (this._viewer) this._viewer.setView(v);
+        this._focusName = v;
+        if (this._viewer) this._viewer.focus(v);
         return;
       case 'exterior': this._setExterior(!this._hideExt); return;
       case 'night':

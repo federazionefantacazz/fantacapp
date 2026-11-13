@@ -572,7 +572,10 @@ class Stage {
    */
   focus(f, ms = 480) {
     const { THREE } = this.L;
-    const t1 = new THREE.Vector3(this.center.x + (f.x || 0) * this.size.x, this.center.y + (f.y || 0) * this.size.y, this.center.z + (f.z || 0) * this.size.z);
+    // il punto guardato (e quindi il centro della rotazione) resta sempre sull'asse della maglia: cambia solo l'altezza.
+    // Con x/z il centro finiva sulla spalla o sulla manica e, girando col dito, la maglia ruotava intorno alla spalla
+    // e usciva dallo schermo. Per le parti di lato si gira la maglia (yaw), non si sposta il centro.
+    const t1 = new THREE.Vector3(this.center.x, this.center.y + (f.y || 0) * this.size.y, this.center.z);
     const a1 = (f.yaw || 0) * Math.PI / 180, d1 = this.dist * (f.d || 1);
     const t0 = this.controls ? this.controls.target.clone() : this.center.clone();
     const off = this.camera.position.clone().sub(t0);
@@ -916,13 +919,14 @@ export const FOCUS = {
   back:     { yaw: 180 },
   collar:   { yaw: 0, y: .4, z: .1, d: .42 },
   collarBack: { yaw: 180, y: .4, d: .42 },
-  shoulder: { yaw: -40, x: -.2, y: .3, d: .5 },
-  sleeve:   { yaw: -50, x: -.38, y: .18, d: .55 },
-  sleeveR:  { yaw: 50, x: .38, y: .18, d: .55 },
-  sleevePatch: { yaw: -82, x: -.35, y: .2, d: .6 }, // patch della competizione (esterno della manica sinistra)
-  bandArm:  { yaw: -82, x: -.35, y: .12, d: .6 },  // fascia da capitano (manica sinistra, sotto la patch)
+  // parti di lato: il centro resta sull'asse della maglia (vedi Stage.focus), la maglia si gira verso la parte
+  shoulder: { yaw: -60, y: .28, d: .64 },
+  sleeve:   { yaw: -68, y: .18, d: .62 },
+  sleeveR:  { yaw: 68, y: .18, d: .62 },
+  sleevePatch: { yaw: -88, y: .2, d: .62 }, // patch della competizione (esterno della manica sinistra)
+  bandArm:  { yaw: -88, y: .12, d: .62 },  // fascia da capitano (manica sinistra, sotto la patch)
   bandAlone: { yaw: 0, d: .5 },                      // fascia da capitano 3D da sola (al centro della scena)
-  cuff:     { yaw: -50, x: -.46, y: .13, d: .45 },
+  cuff:     { yaw: -75, y: .13, d: .6 },
   chest:    { yaw: 0, y: .22, d: .55 },
   sponsor:  { yaw: 0, y: .05, d: .62 },
   backTop:  { yaw: 180, y: .1, d: .7 },
