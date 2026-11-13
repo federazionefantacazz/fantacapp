@@ -183,6 +183,7 @@ export const ROOFS = [
   { id: 'shell',    label: 'Involucro a cuscini' },
   { id: 'wave',     label: 'Ondulata a sella' },
   { id: 'stands',   label: 'Tetti separati per tribuna' },
+  { id: 'anfield',  label: 'Tetti con le travi sopra (Anfield)' },
   { id: 'dome',     label: 'Cupola a raggiera' },
   { id: 'tent',     label: 'Tenda con pennoni' },
   { id: 'petals',   label: 'Petali' },
@@ -196,7 +197,11 @@ export const ROOFS = [
 export const WRAP_ROOFS = ['shell', 'wave', 'dome', 'tent', 'petals', 'crown', 'blades'];
 const SHELLISH = ['shell', 'tent', 'petals'];
 /** Coperture che si possono mescolare settore per settore (le altre avvolgono tutto o stanno su torri comuni). */
-export const MIX_ROOFS = ['none', 'membrane', 'truss', 'stands', 'dragon', 'sliding'];
+export const MIX_ROOFS = ['none', 'membrane', 'truss', 'stands', 'anfield', 'dragon', 'sliding'];
+/** Coperture "una per tribuna" (ogni tribuna alla sua altezza): Stamford Bridge e Anfield. */
+const STANDS_ROOFS = ['stands', 'anfield'], isStands = (r) => STANDS_ROOFS.includes(r);
+/** Facciate inglesi (parete chiara sopra il basamento): Stamford Bridge e Anfield (mattoni rossi). */
+const CLAD_FACADES = ['cladding', 'brick'], isClad = (f) => CLAD_FACADES.includes(f);
 /** Texture che si possono mettere sulla copertura ('auto' = quella dello stile) e coperture che la accettano. */
 export const ROOF_TEXTURES = [
   { id: 'auto',       label: 'Quella dello stile' },
@@ -251,6 +256,7 @@ export const FACADES = [
   { id: 'glass',   label: 'Vetrate scure' },
   { id: 'panels',  label: 'Rivestimento a pannelli' },
   { id: 'cladding', label: 'Inglese con ingresso' },
+  { id: 'brick',    label: 'Mattoni rossi e pannelli bianchi (Anfield)' },
   { id: 'curtain',  label: 'Vetrate e colonnato (Wembley)' }
 ];
 /** Ingressi monumentali fuori dallo stadio (al centro dei lati scelti). */
@@ -477,13 +483,15 @@ export const PRESETS = [
     }
   },
   {
-    id: 'english', label: 'Stile inglese (Stamford Bridge)',
-    desc: 'Quattro tribune squadrate vicine al campo con gli angoli chiusi e smussati e palchi vetrati tra gli anelli; ogni tribuna ha il suo tetto scuro con le travi bianche sopra e la fascia chiara davanti, piloni blu agli angoli con i tiranti, facciata bianca a fasce sopra un basamento color sabbia con manifesti, tornelli, torri d\'angolo e l\'ingresso principale vetrato, luci blu di notte.',
+    id: 'anfield', label: 'Stile Anfield',
+    desc: 'Quattro tribune squadrate attaccate al campo con gli angoli chiusi e seggiolini rossi; ogni tribuna ha il suo tetto bianco con davanti la larga fascia di lastre traslucide e sopra la grande trave reticolare triangolare. La Main Stand a tre anelli è la più alta: la sua trave enorme va oltre le curve e scende a terra con due gambe a traliccio, il muro è di mattoni rossi con i pilastri alti e il nastro vetrato in cima; la Kop è un anello solo, ripido, con la reticolare sopra il tetto; fuori le altre tribune hanno il basamento di mattoni e la parete bianca con le vetrate.',
     st: {
-      rings: 3, ringsEnds: 2, track: false, shape: 'soft', corners: 'closed', mowing: 'stripes', seatMode: 'single', seatMosaic: 'none', roof: 'stands', roofCover: 'all', roofReach: 'normal', lights: 'roof', facade: 'cladding', ramps: false, boxes: true, screen: 'none',
+      rings: 2, ringsEnds: 0, ringsSides: [3, 2, 2, 1], rakeEach: true, rakeSides: [100, 105, 100, 125], track: false, shape: 'rect', corners: 'closed', mowing: 'stripes',
+      seatMode: 'single', seatMosaic: 'none', roof: 'anfield', roofCover: 'all', roofReach: 'normal', lights: 'roof', facade: 'brick', ramps: false, boxes: true,
+      screen: 'none', adBoards: 'both', standGap: 0, endGap: 0,
       colors: {
-        grass: '#3d9a43', seatA: '#1d4fb8', parapet: '#1c3f94', structure: '#a4abb5', roof: '#4f565f', girder: '#eef1f4', steel: '#1f5fc4',
-        accent: '#1d4fb8', cladding: '#e9ecef', podium: '#d8c7a0', glow: '#2b6bff', aisle: '#f2c200'
+        grass: '#3a983f', seatA: '#c8102e', parapet: '#eef0f2', structure: '#b9bcc0', roof: '#f1f3f5', girder: '#e9ecef', steel: '#9ca3aa',
+        accent: '#c8102e', cladding: '#f3f4f5', podium: '#b5532f', glow: '#ffffff', aisle: '#7d838a', ads: '#c8102e'
       }
     }
   },
@@ -1539,7 +1547,7 @@ function roofOf(shape, roof, shift = 0) {
     const D = dragonOf(shape, { roofReach: 'normal', ...(shift ? { roofReach: ROOF_REACHES.find(r => r.m === shift)?.id || 'normal' } : {}) });
     return { dIn: D.dF, dOut: D.out - 1, h: () => D.hF, depth: () => 1.2 };
   }
-  if (roof === 'stands') {
+  if (isStands(roof)) {
     // tetti piatti per tribuna: dal davanti dell'anello più alto fino appena oltre il muro, salgono un poco verso il campo
     const dOut = shape.outer + 1.2, dIn = clampIn(Math.max(top.D - 3, 2), dOut), hIn = top.top + 6.5;
     return { dIn, dOut, h: (d) => hIn - (d - dIn) * 0.06, depth: () => 1.2 };
@@ -1693,6 +1701,21 @@ function diagonalPoint(shape, sx, sz) {
     .reduce((m, q) => (Math.abs(q.mx * q.mz) > Math.abs(m.mx * m.mz) ? q : m));
 }
 
+/**
+ * Tetto di una tribuna (coperture "una per tribuna"): alla sua altezza e, con Anfield, fino al suo muro (non a quello
+ * della tribuna più alta); la Main Stand di Anfield (la più alta, su un lato lungo) sporge di più verso fuori.
+ */
+function standsRoofOf(shape, st, run) {
+  if (st.roof !== 'anfield') return roofOf({ ...shape, tiers: run.tiers }, 'stands', reachOf_(st));
+  const most = Math.max(...shape.runs.map(r => r.tiers.length)), main = run.tiers.length === most && run.pts.some(p => onLongSide(p) && Math.abs(p.x) < 3);
+  const R = roofOf({ ...shape, tiers: run.tiers, outer: runOuter(run) + (main ? ANF_OVER - 1.2 : 0) }, 'stands', reachOf_(st));
+  if (!main) return R;
+  // Main Stand: il tetto sale verso fuori e sporge molto oltre il muro (sotto si vede il soffitto con le travi)
+  const hIn = R.h(R.dIn);
+  return { ...R, main: true, h: (d) => hIn + Math.max(0, d - R.dIn) * ANF_RISE };
+}
+const ANF_OVER = 9, ANF_RISE = 0.17, ANF_CHAMFER = 13, ANF_END = 9; // ANF_END: il tetto della Main Stand va oltre le sue estremità // Main Stand di Anfield: sporgenza del tetto oltre il muro (m) e salita verso fuori
+
 /** Piloni del tetto per tribuna: uno per angolo, fuori dagli spalti sulla diagonale, più alti del tetto più alto. */
 function mastsOf(shape, st) {
   const R = roofOf(shape, 'stands', reachOf_(st)), top = R.h(R.dIn) + 13, d = R.dOut + STANDS_MAST_OUT;
@@ -1712,10 +1735,10 @@ function roofShapeOf(shape, st, roofRuns) {
 }
 
 /** Ingresso principale della facciata inglese: al centro del lato lungo verso z+ (fronte del basamento z0, vetrata fino a top). */
-function entranceOf(shape) {
+function entranceOf(shape, st = null) {
   const run = shape.runs.find(r => r.pts.some(p => onLongSide(p) && p.z > 0 && Math.abs(p.x) < 3));
   if (!run) return null;
-  const o = runOuter(run), PH = cladPodium(wallTopOf(run));
+  const o = runOuter(run), PH = cladPodium(wallTopOf(run), st);
   return { run, o, PH, z0: shape.b + o + CLAD_PODIUM_W, top: PH + 1 };
 }
 
@@ -1808,7 +1831,7 @@ function entrancesOf(shape, st) {
 /** Lati dove non può andare un ingresso monumentale (e perché): ci sono già quelli della facciata inglese e del Vélodrome. */
 export function entranceSkips(st) {
   const out = {};
-  if (st.facade === 'cladding') out[0] = 'c\'è già l\'ingresso della facciata inglese';
+  if (isClad(st.facade)) out[0] = 'c\'è già l\'ingresso della facciata inglese';
   if (st.roof === 'wave') {
     out[1] = 'c\'è già l\'ingresso del Vélodrome (lo personalizzi qui sotto)';
     out[0] = out[2] = 'la fascia del Vélodrome scende quasi a terra';
@@ -1833,7 +1856,7 @@ function entrancesBuild(shape, st) {
     if (st.roof === 'wave') d = Math.max(d, waveOf(shape, st).beyond(best.x, best.z, nx, nz) + 0.5);
     if (st.roof === 'blades') d = Math.max(d, bladesOf(shape, st).out + 0.5);
     if (st.roof === 'dragon') d = Math.max(d, dragonOf(shape, st).out + 0.5);
-    if (st.roof === 'stands' && st.facade === 'wall') d = Math.max(d, shape.outer + 1.4);
+    if (isStands(st.roof) && st.facade === 'wall') d = Math.max(d, shape.outer + 1.4);
     const W = st.entranceWidth, k = st.entranceLogo / 100, base = esp ? ESPLANADE_H : 0;
     let H = st.entranceHeight, g = entranceGeom(st.entrance, W, H, k);
     if (clear) {
@@ -1939,7 +1962,7 @@ export function logoPlacesFor(st) {
   const wrapped = WRAP_ROOFS.includes(st.roof) || st.roof === 'dragon';
   // sul tetto: ci vuole un tetto piatto (con le coperture mescolate basta che ce ne sia uno)
   const flat = roofTypesOf(st).some(t => t !== 'none' && t !== 'dragon' && !WRAP_ROOFS.includes(t));
-  const ok = { entrance: st.facade === 'cladding' || st.entrance !== 'none' || st.roof === 'wave', roof: flat, facade: !wrapped, pitch: true };
+  const ok = { entrance: isClad(st.facade) || st.entrance !== 'none' || st.roof === 'wave', roof: flat, facade: !wrapped, pitch: true };
   return LOGO_PLACES.map(o => o.id).filter(id => ok[id]);
 }
 
@@ -1949,12 +1972,32 @@ const LOGO_ENTRANCE = 12, LOGO_MAX = 15, LOGO_PITCH = 12; // lato del logo in me
  * Logo della squadra: un quadrato per posto scelto, con i vertici [in basso a sinistra, in basso a destra, in alto a destra,
  * in alto a sinistra] come lo si guarda (da fuori; dall'alto con l'alto verso -z), più place, lato (side) e misura (s).
  */
+/**
+ * Anfield: blocchi di mattoni sui due spigoli della Main Stand, che smussano l'angolo del muro a 45° (come un esagono).
+ * Pianta (poligono in x, z), altezza HB, e la faccia smussata (centro, normale verso fuori, larghezza).
+ */
+function anfCornersOf(shape, st) {
+  if (st.facade !== 'brick') return [];
+  const Hm = Math.max(...shape.runs.map(wallTopOf));
+  const run = shape.runs.find(r => wallTopOf(r) > Hm - 0.5 && r.pts.some(p => onLongSide(p) && Math.abs(p.x) < 3));
+  if (!run) return [];
+  const o = runOuter(run), H = wallTopOf(run), PH = cladPodium(H, st), HB = Math.max(PH + 8, H - 9);
+  const sz = Math.sign(run.pts.find(p => onLongSide(p) && Math.abs(p.x) < 3).z) || 1;
+  const T = CLAD_PODIUM_W, C = 9, L = 16, L2 = 10;
+  return [-1, 1].map(sx => {
+    const X0 = sx * (shape.a + o), Z0 = sz * (shape.b + o), P2 = [X0 + sx * (T - C), Z0 + sz * T], P3 = [X0 + sx * T, Z0 + sz * (T - C)];
+    const poly = [[X0 - sx * L, Z0], [X0 - sx * L, Z0 + sz * T], P2, P3, [X0 + sx * T, Z0 - sz * L2], [X0, Z0 - sz * L2], [X0, Z0]];
+    const nl = Math.SQRT1_2, n = [sx * nl, sz * nl];
+    return { sx, sz, poly, HB, PH, c: [(P2[0] + P3[0]) / 2, (P2[1] + P3[1]) / 2], n, w: C * Math.SQRT2 };
+  });
+}
+
 function logoSpots(shape, st) {
   const places = logoPlacesFor(st).filter(id => (st.logoPlaces || []).includes(id)), out = [];
   const sq = (c, r, u, s) => [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([i, j]) => c.map((v, k) => v + (r[k] * i + u[k] * j) * s / 2));
   if (places.includes('entrance')) {
     // sopra il portale, appoggiato a metà dell'architrave
-    const E = st.facade === 'cladding' ? entranceOf(shape) : null;
+    const E = isClad(st.facade) ? entranceOf(shape, st) : null;
     if (E) out.push({ place: 'entrance', s: LOGO_ENTRANCE, pts: sq([0, E.top + 0.6 + LOGO_ENTRANCE / 2, E.z0 + 4.45], [1, 0, 0], [0, 1, 0], LOGO_ENTRANCE) });
     // sulla fascia del Vélodrome, sopra il suo ingresso
     const VE = veloEntryOf(shape, st);
@@ -1978,8 +2021,8 @@ function logoSpots(shape, st) {
         if (r) { run = r; P = Q; runs = rs; break; }
       }
       if (!run) continue;
-      const R = P.roof === 'stands' ? roofOf({ ...shape, tiers: run.tiers }, 'stands', reach) : roofOf(roofShapeOf(shape, P, runs), P.roof, reach);
-      const s = Math.min(LOGO_MAX, R.dOut - R.dIn - 3), dm = (R.dIn + R.dOut) / 2, lift = st.roof === 'stands' ? 0.45 : 0.08;
+      const R = isStands(P.roof) ? standsRoofOf(shape, st, run) : roofOf(roofShapeOf(shape, P, runs), P.roof, reach);
+      const s = Math.min(LOGO_MAX, R.dOut - R.dIn - 3), dm = (R.dIn + R.dOut) / 2, lift = isStands(st.roof) ? 0.45 : 0.08;
       if (s < 4) continue;
       const at = (x, d) => [x, R.h(d) + lift, sgn * (shape.b + d)], dB = dm + sgn * s / 2, dT = dm - sgn * s / 2;
       out.push({ place: 'roof', side: sgn, s, pts: [at(-s / 2, dB), at(s / 2, dB), at(s / 2, dT), at(-s / 2, dT)] });
@@ -1996,13 +2039,18 @@ function logoSpots(shape, st) {
       }
       const run = shape.runs.find(r => r.pts.some(p => !onLongSide(p) && Math.sign(p.x) === sgn && Math.abs(p.z) < 3));
       if (!run) continue;
-      const o = runOuter(run), H = wallTopOf(run), clad = st.facade === 'cladding';
-      const lo = clad ? cladPodium(H) + 1.6 : { esplanade: ESPLANADE_H + 1, struts: PLATFORM_H + 1.15 }[st.facade] ?? 1.5;
+      const o = runOuter(run), H = wallTopOf(run), clad = isClad(st.facade);
+      const lo = clad ? cladPodium(H, st) + 1.6 : { esplanade: ESPLANADE_H + 1, struts: PLATFORM_H + 1.15 }[st.facade] ?? 1.5;
       const hi = clad ? H - cladCornice(H) - 0.8 : H - 0.5, s = Math.min(LOGO_MAX, hi - lo);
       const d = o + (clad ? 0.95 : { struts: PLATFORM_OUT + 0.35, bands: 2, columns: 1.2 }[st.facade] ?? 0.5);
       if (s < 4) continue;
       // da fuori la destra è verso -z sulla curva x+ e verso +z sulla curva x-
       out.push({ place: 'facade', side: sgn, s, pts: sq([sgn * (shape.a + d), (lo + hi) / 2, 0], [0, 0, -sgn], [0, 1, 0], s) });
+      // Anfield: anche sulle facce smussate degli spigoli della Main Stand (lo stemma)
+      for (const K of anfCornersOf(shape, st).filter(K => K.sx === sgn)) {
+        const s2 = Math.min(LOGO_MAX, K.w * 0.7, K.HB - K.PH - 2);
+        out.push({ place: 'facade', side: sgn, s: s2, pts: sq([K.c[0] + K.n[0] * 0.1, (K.PH + K.HB) / 2 + 1, K.c[1] + K.n[1] * 0.1], [K.n[1], 0, -K.n[0]], [0, 1, 0], s2) });
+      }
     }
   }
   if (places.includes('pitch')) out.push({ place: 'pitch', s: LOGO_PITCH, pts: sq([0, 0.09, 0], [1, 0, 0], [0, 0, -1], LOGO_PITCH) });
@@ -2262,9 +2310,10 @@ const pylonHeight = (R) => R.h(R.dOut) + 7;
 
 /** Distanza dal bordo occupata dal muro esterno (con basamento o fasce). */
 const CLAD_PODIUM_W = 6, CLAD_MODULE = 12, CLAD_ENTRANCE = 30, CLAD_DRUM_R = 6.5; // facciata inglese: basamento, moduli, ingresso, torri
-const footOf = (shape, st) => shape.outer + ({ struts: PLATFORM_OUT + 0.2, stairs: FENCE_OUT + 0.4, arena: 1, bands: 1.8, columns: 0.8, curtain: CURTAIN_SLAB + 0.3, cladding: CLAD_PODIUM_W + 0.2, esplanade: esplanadeW(st) + 0.2 + (st.roof === 'shell' ? SHELL_PLAZA_OUT : 0) }[st.facade] || 0);
+const footOf = (shape, st) => shape.outer + ({ struts: PLATFORM_OUT + 0.2, stairs: FENCE_OUT + 0.4, arena: 1, bands: 1.8, columns: 0.8, curtain: CURTAIN_SLAB + 0.3, cladding: CLAD_PODIUM_W + 0.2, brick: CLAD_PODIUM_W + 0.2, esplanade: esplanadeW(st) + 0.2 + (st.roof === 'shell' ? SHELL_PLAZA_OUT : 0) }[st.facade] || 0);
 /** Facciata inglese: altezza del basamento e del cornicione colorato per una parete alta H. */
-const cladPodium = (H) => Math.min(10.5, H * 0.42), cladCornice = (H) => Math.min(3, H * 0.12);
+// (Anfield: il basamento è una terrazza rialzata più bassa, a circa 6 m)
+const cladPodium = (H, st = null) => (st && st.facade === 'brick' ? Math.min(6.2, H * 0.3) : Math.min(10.5, H * 0.42)), cladCornice = (H) => Math.min(3, H * 0.12);
 /** Facciata inglese: nastri di vetrate [da, a] all'altezza del corridoio sotto ogni anello superiore. */
 const cladBands = (tiers) => tiers.slice(1).map(t => [t.H - 4.2, t.H - 1.6]);
 
@@ -3040,9 +3089,9 @@ function reachBase(shape, st) {
   else if (st.roof !== 'none') { const R = roofOf(shape, st.roof, reachOf_(st)); d = Math.max(d, st.roof === 'truss' ? pylonDist(R) + 2.5 : R.dOut); h = Math.max(R.h(R.dIn), st.roof === 'truss' ? pylonHeight(R) : 0) + 1; }
   if (st.ramps) d = Math.max(d, foot + RAMP_R * 2);
   if (st.ramps && WRAP_ROOFS.includes(st.roof)) d += RAMP_R * 2 + 1; // le torri stanno fuori dall'involucro
-  if (st.facade === 'cladding') d = Math.max(d, foot + 12); // torri d'angolo, pensilina e gradini dell'ingresso
+  if (isClad(st.facade)) d = Math.max(d, foot + 12); // torri d'angolo, pensilina e gradini dell'ingresso
   if (st.facade === 'arena') d = Math.max(d, shape.outer + 16); // cubo e torri cilindriche
-  if (st.roof === 'stands') { const R = roofOf(shape, 'stands', reachOf_(st)); d = Math.max(d, R.dOut + STANDS_MAST_OUT + 10); h = Math.max(h, R.h(R.dIn) + 18); }
+  if (isStands(st.roof)) { const R = roofOf(shape, 'stands', reachOf_(st)); d = Math.max(d, R.dOut + STANDS_MAST_OUT + 10); h = Math.max(h, R.h(R.dIn) + 18); }
   if (st.roof === 'girders') {
     const G = girdersOf(shape, st);
     d = Math.max(d, foot + CORNER_R * 2 + 2);
@@ -3101,7 +3150,7 @@ function screenOf(shape, st) {
   if (st.roof !== 'none') {
     const R = roofOf(shape, st.roof, reachOf_(st)), ds = R.dIn + 0.9, ribbed = st.roof === 'truss' || st.roof === 'girders';
     // tetto per tribuna: sotto la fascia con la riga colorata
-    return { ds, hang: true, y: R.h(R.dIn) - (st.roof === 'stands' ? STANDS_FASCIA + 0.8 : 3.2), roofY: R.h(ds) - (ribbed ? R.depth(ds) : 0.4) };
+    return { ds, hang: true, y: R.h(R.dIn) - (isStands(st.roof) ? STANDS_FASCIA + 0.8 : 3.2), roofY: R.h(ds) - (ribbed ? R.depth(ds) : 0.4) };
   }
   return { ds: T.back + WALL / 2, hang: false, y: T.top + 2.2 };
 }
@@ -3276,10 +3325,10 @@ function signOf(shape, st) {
     return { hc: best.h, maxH: 8.5, standOn: 0, dAt, outline: S.rowAt, rows: 8 };
   }
   const outline = (d) => { const pts = shape.path.map(p => [p.x + p.mx * d, p.z + p.mz * d]); pts.push(pts[0]); return pts; };
-  if (st.facade === 'cladding') {
+  if (isClad(st.facade)) {
     // sui pannelli chiari, nella fascia libera più alta tra zoccolo, vetrate e cornicione
     const above = st.logoPlaces && st.logoPlaces.includes('entrance') ? 1.6 + LOGO_ENTRANCE + 0.6 : 4.5; // sopra il portale (e il logo)
-    const cuts = [[0, cladPodium(Ht) + above], ...cladBands(shape.tiers), [Ht - cladCornice(Ht) - 1.2, Ht]];
+    const cuts = [[0, cladPodium(Ht, st) + above], ...cladBands(shape.tiers), [Ht - cladCornice(Ht) - 1.2, Ht]];
     let best = [0, 0], end = 0;
     for (const [a, b] of cuts.sort((p, q) => p[0] - q[0])) { if (a - end > best[1] - best[0]) best = [end, a]; end = Math.max(end, b); }
     return { hc: (best[0] + best[1]) / 2, maxH: Math.max(2, Math.min(7, best[1] - best[0] - 1.2)), standOn: 0, dAt: () => o + 0.9, outline, rows: 1 }; // davanti alle lesene
@@ -4901,6 +4950,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     m.castShadow = m.receiveShadow = true;
     group.add(m);
     own.push(m);
+    return m;
   };
 
   // texture scelta per la copertura sul suo materiale: la ripetizione della texture originale era tileU x tileV metri
@@ -4927,7 +4977,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
   // dove c'è la copertura (tutto unito, per settore, solo tribune, solo curve...)
   const roofRuns = coveredRuns(shape, st);
   const roofShape = roofShapeOf(shape, st, roofRuns);
-  const R = st.roof !== 'none' && st.roof !== 'stands' && st.roof !== 'dragon' && !WRAP_ROOFS.includes(st.roof) ? roofOf(roofShape, st.roof, reachOf_(st)) : null;
+  const R = st.roof !== 'none' && !isStands(st.roof) && st.roof !== 'dragon' && !WRAP_ROOFS.includes(st.roof) ? roofOf(roofShape, st.roof, reachOf_(st)) : null;
   let shellMat = null, shellClear = null, roofDecor = null, tentGlass = null;
   if (st.roof === 'wave') {
     // copertura ondulata: sopra i cuscini a spicchi radiali, sotto la membrana chiara con le travi reticolari d'acciaio;
@@ -6769,11 +6819,15 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     inst(steel, rails);
   }
 
-  if (st.roof === 'stands') {
+  if (isStands(st.roof)) {
+    const anf = st.roof === 'anfield'; // Anfield: tetti chiari con la trave reticolare lungo il davanti, niente tiranti
     // stile inglese (Stamford Bridge): ogni tribuna ha il suo tetto alla sua altezza, anche sugli angoli. Sopra lamiera
     // scura con la struttura a vista (travi reticolari a sbalzo, più alte dietro, e correnti lungo la tribuna), davanti
     // la fascia chiara con la riga colorata e le luci, sotto pannelli chiari; agli angoli i piloni con i tiranti
     const pos = [], idx = [[], [], []], under = [], underUv = [], underIdx = [], covered = [], top = { pos: [], uv: [], idx: [] };
+    const anfSides = [], clearPos = [], clearIdx = [[], [], []], roofRibs = [], endPos = [], endIdx = [], endWins = []; // Anfield: tratti dritti (travi lungo il davanti), lastre chiare e travi scure sotto
+    // Anfield: la tribuna più alta (Main Stand) ha il tetto liscio, senza le travi a sbalzo sopra
+    const hRoofMax = anf ? Math.max(...roofRuns.map(r => { const R2 = standsRoofOf(shape, st, r); return R2.h(R2.dIn); })) : Infinity;
     const rect = (d0, d1, h0, h1, m) => [[d0, h0], [d1, h0], [d1, h1], [d0, h1]].map(([d, h]) => ({ d, h, m }));
     // tratti dritti dei lati (fuori dagli angoli): lì stanno le travi sopra il tetto
     const gapA = shape.a - Math.max(shape.r, 4), gapB = shape.b - Math.max(shape.r, 4);
@@ -6781,26 +6835,87 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     // logo dipinto sul tetto: lì niente travi sopra (si vede intero dall'alto)
     const logos = logoSpots(shape, st).filter(l => l.place === 'roof');
     const onLogo = (x, z) => logos.some(l => Math.sign(z) === l.side && Math.abs(z) > shape.b - 1 && Math.abs(x) < l.s / 2 + 1.5);
-    for (const run of roofRuns) {
-      const Rs = roofOf({ ...shape, tiers: run.tiers }, 'stands', reachOf_(st)), hI = Rs.h(Rs.dIn);
+    for (const run0 of roofRuns) {
+      const Rs = standsRoofOf(shape, st, run0), hI = Rs.h(Rs.dIn);
+      // Anfield, Main Stand: il tetto è un rettangolo dritto lungo tutta la tribuna, fino a filo delle sue pareti di
+      // testa (anche sopra gli angoli), invece di girare l'angolo come gli altri
+      let run = run0;
+      if (Rs.main) {
+        // (a filo della galleria vetrata inclinata, che sulla testata resta coperta dalla parete grigia)
+        const sz = Math.sign(run0.pts.find(q => onLongSide(q)).z) || 1, xE = shape.a + runOuter(run0) + ANF_END, n2 = Math.ceil(2 * xE / 2.5);
+        const asc = run0.pts[0].x < run0.pts[run0.pts.length - 1].x;
+        const pts = Array.from({ length: n2 + 1 }, (_, i) => { const x = (asc ? -1 : 1) * (-xE + 2 * xE * i / n2); return { x, z: sz * shape.b, mx: 0, mz: sz }; });
+        run = { pts, closed: false, tiers: run0.tiers };
+      }
       const d0 = Rs.dIn + 0.6, span = Rs.dOut - 0.5 - d0, yb = (d) => Rs.h(d) + 0.1;
       const yt = (d) => yb(d) + 1 + 4.5 * (d - d0) / span; // sopra le travi: 1 m sulla punta, 5,5 m sull'appoggio dietro
       // lastra (bordi chiari), sopra la lamiera con la texture, e fascia davanti
-      extrude(THREE, run, [[Rs.dIn, hI - 0.25, 1], [Rs.dOut, Rs.h(Rs.dOut) - 0.25, 1], [Rs.dOut, Rs.h(Rs.dOut), 1], [Rs.dIn, hI, 1]]
-        .map(([d, h, m]) => ({ d, h, m })), pos, idx);
-      stripUV(run, [{ d: Rs.dIn, h: hI + 0.02 }, { d: Rs.dOut, h: Rs.h(Rs.dOut) + 0.02 }], top, ROOF_TILE, ROOF_TILE);
-      extrude(THREE, run, rect(Rs.dIn - 0.05, Rs.dIn + 0.35, hI - STANDS_FASCIA, hI + 0.15, 1), pos, idx);
-      extrude(THREE, run, rect(Rs.dIn - 0.1, Rs.dIn + 0.35, hI - STANDS_FASCIA - 0.5, hI - STANDS_FASCIA, 0), glowPos, glowIdx);
+      { const ds = anf ? Rs.dIn + Math.min(11, (Rs.dOut - 0.5 - Rs.dIn - 0.6) * 0.34) : Rs.dIn;
+        extrude(THREE, run, [[ds, Rs.h(ds) - 0.25, 1], [Rs.dOut, Rs.h(Rs.dOut) - 0.25, 1], [Rs.dOut, Rs.h(Rs.dOut), 1], [ds, Rs.h(ds), 1]]
+          .map(([d, h, m]) => ({ d, h, m })), pos, idx); }
+      // Anfield: davanti una larga fascia di lastre traslucide (dal campo si vede il cielo tra le travi), dietro il tetto bianco
+      const dGl = anf ? Rs.dIn + Math.min(11, span * 0.34) : Rs.dIn;
+      stripUV(run, [{ d: dGl, h: Rs.h(dGl) + 0.02 }, { d: Rs.dOut, h: Rs.h(Rs.dOut) + 0.02 }], top, ROOF_TILE, ROOF_TILE);
+      // fascia davanti (Anfield: sottile, così da sotto si vedono le lastre e le travi)
+      const FAS = anf ? 0.9 : STANDS_FASCIA;
+      extrude(THREE, run, rect(Rs.dIn - 0.05, Rs.dIn + 0.35, hI - FAS, hI + 0.15, 1), pos, idx);
+      if (!anf) extrude(THREE, run, rect(Rs.dIn - 0.1, Rs.dIn + 0.35, hI - STANDS_FASCIA - 0.5, hI - STANDS_FASCIA, 0), glowPos, glowIdx);
       extrude(THREE, run, rect(Rs.dOut, Rs.dOut + 0.08, Rs.h(Rs.dOut) - 1.05, Rs.h(Rs.dOut) - 0.3, 0), glowPos, glowIdx);
+      if (anf) {
+        // lastre traslucide, sotto le travi scure verso il campo ogni 4,5 m (dal campo si vedono le strisce di luce) e
+        // i traversi lungo la tribuna
+        const dc = Rs.dIn + 0.4, rc = runLengths(run);
+        extrude(THREE, run, [[dc, Rs.h(dc) + 0.04], [dGl, Rs.h(dGl) + 0.04], [dGl, Rs.h(dGl) + 0.1], [dc, Rs.h(dc) + 0.1]].map(([d, h]) => ({ d, h, m: 0 })), clearPos, clearIdx);
+        for (let dd = dc + 3.5; dd < dGl - 1; dd += 3.5) extrude(THREE, run, rect(dd - 0.1, dd + 0.1, Rs.h(dd) - 0.15, Rs.h(dd) + 0.02, 2), pos, idx);
+        for (const u of stations(run, rc, 4.5, dc)) {
+          const [x0, z0] = pointAt(run, rc, u, Rs.dIn + 0.3), [x1, z1] = pointAt(run, rc, u, dGl + 0.6);
+          beam(roofRibs, x0, Rs.h(Rs.dIn + 0.3) - 0.55, z0, x1, Rs.h(dGl + 0.6) - 0.55, z1, 0.8);
+        }
+        // Main Stand: sotto la sporgenza oltre il muro il soffitto chiaro (dalla galleria al bordo) e la grossa fascia
+        if (Rs.main) {
+          const oW = runOuter(run) + 0.3;
+          // bordo esterno: la grossa fascia bianca che segue il tetto (sotto, il soffitto chiaro fino alla galleria)
+          extrude(THREE, run, rect(Rs.dOut - 0.05, Rs.dOut + 0.3, Rs.h(Rs.dOut) - 3.4, Rs.h(Rs.dOut) + 0.25, 1), pos, idx);
+          extrude(THREE, run, [[oW + 3.4, Rs.h(oW + 3.4) - 0.55], [Rs.dOut, Rs.h(Rs.dOut) - 3.4], [Rs.dOut, Rs.h(Rs.dOut) - 3.2], [oW + 3.4, Rs.h(oW + 3.4) - 0.35]].map(([d, h]) => ({ d, h, m: 1 })), pos, idx);
+        }
+        // Main Stand: alle due estremità la testata, una parete grigia rivestita a filo della parete di testa: in alto
+        // segue il tetto (più alta verso fuori), in basso arriva sul tetto della tribuna vicina o, fuori da questa, fino
+        // al basamento (verso il campo) e ai mattoni della Main Stand (verso fuori); con le finestre verticali in alto
+        if (Rs.main) {
+          const mainRun = run0, H0 = wallTopOf(mainRun), PH0 = cladPodium(H0, st), HG0 = Math.max(PH0 + 8, H0 - 9), sz = run.pts[0].mz;
+          for (const pe of [run.pts[0], run.pts[run.pts.length - 1]]) {
+            const ex = Math.sign(pe.x), nb = roofRuns.find(r => r !== run0 && r.pts.some(q => !onLongSide(q) && Math.sign(q.x) === ex));
+            const Rn = nb ? standsRoofOf(shape, st, nb) : null, dn = Math.abs(pe.x) - shape.a, oN = nb ? runOuter(nb) : 0;
+            const N2 = 12, top2 = [], bot2 = [];
+            for (let i = 0; i <= N2; i++) {
+              const d = Rs.dIn + (Rs.dOut - Rs.dIn) * i / N2, hT = Rs.h(d) + 0.2;
+              const over = d < 0 && Rn && dn <= oN ? Rn.h(Math.min(Math.max(dn, Rn.dIn), Rn.dOut)) - 0.3 : d < 0 ? PH0 : HG0;
+              const x = pe.x + ex * 0.15, z = sz * (shape.b + d);
+              top2.push([x, hT, z]); bot2.push([x, Math.min(over, hT - 0.5), z]);
+            }
+            for (let i = 0; i < N2; i++) {
+              const k = endPos.length / 3;
+              endPos.push(...bot2[i], ...bot2[i + 1], ...top2[i + 1], ...top2[i]);
+              endIdx.push(k, k + 1, k + 2, k, k + 2, k + 3);
+            }
+            for (let j = 0; j < 7; j++) {
+              const d = Rs.dIn + 4 + j * 1.9, hT = Rs.h(d) - 1.4, hB = hT - 7.5;
+              if (d > runOuter(mainRun) - 4) break;
+              boxAt(endWins, pe.x + ex * 0.3, (hT + hB) / 2, sz * (shape.b + d), [0.15, 0, 0], [0, hT - hB, 0], [0, 0, 0.8]);
+            }
+          }
+        }
+      }
       // correnti lungo il tetto: in cima alle travi sulla punta, a metà e sull'appoggio, più quelli in basso
       for (const f of [0, 0.5, 1]) {
         const d = d0 + span * f;
-        for (const part of f === 0.5 ? subRuns(run, p => !onLogo(p.x, p.z) || !onLongSide(p)) : [run]) extrude(THREE, part, rect(d - 0.18, d + 0.18, yt(d) - 0.36, yt(d), 1), pos, idx);
+        // (Anfield: le travi a sbalzo sono solo sulle curve, i correnti in alto si fermano lì)
+        for (const part of anf ? subRuns(run, p => !onLongSide(p) && straight(p)) : f === 0.5 ? subRuns(run, p => !onLogo(p.x, p.z) || !onLongSide(p)) : [run]) extrude(THREE, part, rect(d - 0.18, d + 0.18, yt(d) - 0.36, yt(d), 1), pos, idx);
         if (f > 0) extrude(THREE, run, rect(d - 0.15, d + 0.15, yb(d), yb(d) + 0.3, 1), pos, idx);
       }
       const cum = runLengths(run), total = cum[cum.length - 1];
       // pannelli chiari sotto il tetto (con coordinate per la griglia)
-      const P = run.pts, n = P.length, b0 = under.length / 3, dU = Rs.dIn + 0.35;
+      const P = run.pts, n = P.length, b0 = under.length / 3, dU = anf ? dGl : Rs.dIn + 0.35;
       for (let k = 0; k < n; k++) {
         for (const d of [dU, Rs.dOut]) { under.push(P[k].x + P[k].mx * d, Rs.h(d) - 0.3, P[k].z + P[k].mz * d); underUv.push(cum[k] / 6, (d - dU) / 6); }
         if (k) { const a = b0 + (k - 1) * 2, c = a + 2; underIdx.push(a, c, a + 1, a + 1, c, c + 1); }
@@ -6813,16 +6928,19 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       };
       for (const side of subRuns(run, straight)) {
         const sc = runLengths(side), len = sc[sc.length - 1];
-        for (const u of stations(side, sc, 9)) { const [x, z] = pointAt(side, sc, u, 0); if (!onLogo(x, z)) across(side, sc, u); }
+        // Anfield: la reticolare a sbalzo sopra il tetto solo sulle curve (Kop e Anfield Road), sulle tribune il tetto è liscio
+        const sd = sideOfPoint(side.pts[Math.floor(side.pts.length / 2)]);
+        if (!(anf && (hI > hRoofMax - 0.5 || sd % 2 === 0))) for (const u of stations(side, sc, anf ? 6 : 9)) { const [x, z] = pointAt(side, sc, u, 0); if (!onLogo(x, z)) across(side, sc, u); }
         covered.push({ side: sideOfPoint(side.pts[Math.floor(side.pts.length / 2)]), Rs, d0, span, yt });
+        if (anf) anfSides.push({ side, sc, len, Rs, d0, span, yb, hI, sd: sideOfPoint(side.pts[Math.floor(side.pts.length / 2)]) });
         if (lights === 'roof') for (const f of [0.25, 0.75]) { const [x, z] = pointAt(side, sc, len * f, Rs.dIn); spots.push([x, hI - 3, z]); }
       }
-      for (const corner of subRuns(run, (p) => !straight(p))) {
+      for (const corner of anf ? [] : subRuns(run, (p) => !straight(p))) {
         const p = corner.pts.reduce((m, q) => (Math.abs(q.mx * q.mz) > Math.abs(m.mx * m.mz) ? q : m));
         if (Math.abs(p.mx * p.mz) > 0.1) across({ pts: [p, p], closed: false }, [0, 0], 0);
       }
       if (lights === 'roof') {
-        for (const u of stations(run, cum, 4)) { const [x, z] = pointAt(run, cum, Math.min(u, total - 0.01), Rs.dIn + 0.9); lampAt(lamps, x, hI - STANDS_FASCIA - 0.9, z, 1.4, 0.8); }
+        for (const u of stations(run, cum, 4)) { const [x, z] = pointAt(run, cum, Math.min(u, total - 0.01), Rs.dIn + 0.9); lampAt(lamps, x, hI - (anf ? 1.6 : STANDS_FASCIA + 0.9), z, 1.4, 0.8); }
       }
     }
     const g = new THREE.BufferGeometry();
@@ -6865,8 +6983,97 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     ug.computeVertexNormals();
     group.add(new THREE.Mesh(ug, underMat));
     own.push(g, ug, underMat, gridTex);
+    if (roofRibs.length) { const rm = new THREE.MeshStandardMaterial({ color: 0x3b4048, roughness: 0.6, metalness: 0.3 }); own.push(rm); inst(rm, roofRibs); }
+    if (endPos.length) {
+      // testate grigie della Main Stand (rivestimento a doghe verticali)
+      const eg = new THREE.BufferGeometry();
+      eg.setAttribute('position', new THREE.Float32BufferAttribute(endPos, 3));
+      // coordinate della texture in metri: lungo la parete (z) e in alto (y)
+      const euv = [];
+      for (let i = 0; i < endPos.length; i += 3) euv.push(endPos[i + 2] / 4, endPos[i + 1] / 4);
+      eg.setAttribute('uv', new THREE.Float32BufferAttribute(euv, 2));
+      eg.setIndex(endIdx);
+      eg.computeVertexNormals();
+      // lamiera argento a doghe verticali (ogni 0,5 m), con le giunte orizzontali ogni 4 m
+      const dc2 = document.createElement('canvas'); dc2.width = dc2.height = 256;
+      const dx2 = dc2.getContext('2d');
+      dx2.fillStyle = '#c4c9ce'; dx2.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 8; i++) {
+        const x = i * 32, g = dx2.createLinearGradient(x, 0, x + 32, 0);
+        g.addColorStop(0, '#a9afb5'); g.addColorStop(0.18, '#d7dbdf'); g.addColorStop(0.55, '#c7ccd1'); g.addColorStop(1, '#b3b9bf');
+        dx2.fillStyle = g; dx2.fillRect(x, 0, 32, 256);
+      }
+      dx2.fillStyle = 'rgba(70,76,84,.55)'; dx2.fillRect(0, 0, 256, 3);
+      const etex = new THREE.CanvasTexture(dc2);
+      etex.wrapS = etex.wrapT = THREE.RepeatWrapping; etex.colorSpace = THREE.SRGBColorSpace; etex.anisotropy = 8;
+      own.push(etex);
+      const em = new THREE.MeshStandardMaterial({ map: etex, roughness: 0.4, metalness: 0.45, side: THREE.DoubleSide });
+      const wm = new THREE.MeshStandardMaterial({ color: 0x2b333c, roughness: 0.3, metalness: 0.4, emissive: 0xffd7a0, emissiveIntensity: 0 });
+      own.push(eg, em, wm);
+      nightGlow.push([wm, 0, 0.6]);
+      group.add(new THREE.Mesh(eg, em));
+      inst(wm, endWins);
+    }
+    if (clearPos.length) {
+      const cg = new THREE.BufferGeometry();
+      cg.setAttribute('position', new THREE.Float32BufferAttribute(clearPos, 3));
+      cg.setIndex(clearIdx.flat());
+      cg.computeVertexNormals();
+      // lastre traslucide: di giorno lasciano passare la luce (chiare anche viste da sotto), di notte si spengono
+      const cm = new THREE.MeshStandardMaterial({ color: 0xf2f6fa, emissive: 0xffffff, emissiveIntensity: 1.1, transparent: true, opacity: 0.93, roughness: 0.25, metalness: 0.1, side: THREE.DoubleSide, depthWrite: false });
+      group.add(new THREE.Mesh(cg, cm));
+      own.push(cg, cm);
+      nightGlow.push([cm, 1.1, 0.15]);
+    }
+    if (anf && anfSides.length) {
+      // Anfield: lungo il davanti di ogni tribuna la grande trave reticolare a sezione triangolare sopra il tetto, dove
+      // finiscono le lastre traslucide. Sulla tribuna più alta (Main Stand) è enorme, va oltre le curve e alle due
+      // estremità scende a terra con due grandi gambe a traliccio inclinate (fuori dallo stadio); sulle altre è più bassa
+      // e alle estremità scende sul tetto
+      const hMax = Math.max(...anfSides.map(a => a.hI));
+      for (const A of anfSides) {
+        const main = A.hI > hMax - 0.5 && A.len > 30 && A.sd % 2 === 0;
+        const d = A.d0 + A.span * (main ? 0.3 : 0.26), w = main ? 2.6 : 1.4, Ht = main ? 9 : 4;
+        const [tx, tz] = tangentAt(A.side, A.sc, A.len / 2, d);
+        const at = (u, dd) => {
+          // oltre le estremità del tratto si prosegue dritto
+          const uu = Math.min(A.len, Math.max(0, u)), [x, z] = pointAt(A.side, A.sc, uu, dd);
+          return [x + tx * (u - uu), z + tz * (u - uu)];
+        };
+        // la Main Stand va fin sopra i muri delle curve; gli altri si fermano sul loro tetto
+        const ext = main ? Math.max(4, (A.sd === 0 || A.sd === 2 ? shape.a : shape.b) + (shape.outer + 3) - (A.len / 2)) : 0;
+        const u0 = -ext, u1 = A.len + ext, n = Math.max(4, Math.round((u1 - u0) / (main ? 5.5 : 4.5))), roofAt = (u, dd) => (u < 0 || u > A.len ? null : A.yb(dd) + 0.3);
+        const th = main ? 0.55 : 0.34, tm = main ? 0.28 : 0.17, yb0 = A.yb(d) + 0.3, ytop = yb0 + Ht;
+        // estremità degli altri: la trave scende sul tetto (sagoma a trapezio)
+        const topAt = (u) => (main ? ytop : yb0 + Ht * Math.min(1, Math.min(u - u0, u1 - u) / 6));
+        let prev = null;
+        for (let k = 0; k <= n; k++) {
+          const u = u0 + (u1 - u0) * k / n, [xt, zt] = at(u, d), [xa, za] = at(u, d - w), [xb, zb] = at(u, d + w), yt = topAt(u);
+          const ya = main ? (roofAt(u, d - w) ?? yb0) : roofAt(u, d - w) ?? yb0, ybb = main ? (roofAt(u, d + w) ?? yb0) : roofAt(u, d + w) ?? yb0;
+          beam(girderBeams, xa, ya, za, xt, yt, zt, tm); beam(girderBeams, xb, ybb, zb, xt, yt, zt, tm); beam(girderBeams, xa, ya, za, xb, ybb, zb, tm);
+          if (prev) {
+            beam(girderBeams, ...prev.t, xt, yt, zt, th); beam(girderBeams, ...prev.a, xa, ya, za, th); beam(girderBeams, ...prev.b, xb, ybb, zb, th);
+            if (k % 2) { beam(girderBeams, ...prev.a, xt, yt, zt, tm); beam(girderBeams, ...prev.b, xt, yt, zt, tm); }
+            else { beam(girderBeams, ...prev.t, xa, ya, za, tm); beam(girderBeams, ...prev.t, xb, ybb, zb, tm); }
+          }
+          prev = { t: [xt, yt, zt], a: [xa, ya, za], b: [xb, ybb, zb] };
+        }
+        if (!main) continue;
+        // gambe a traliccio: dalla trave a ogni estremità scendono a terra inclinate verso fuori (quattro montanti che si
+        // allargano verso il basso, con i traversi e le diagonali)
+        for (const [u, sgn] of [[u0, -1], [u1, 1]]) {
+          const [xt, zt] = at(u, d), [xf, zf] = at(u + sgn * 7, d + 3), hw0 = 1.6, hw1 = 2.6, nx = tz, nz = -tx;
+          const ring = (cx, cz, y, hw) => [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a2, b2]) => [cx + tx * a2 * hw + nx * b2 * hw, y, cz + tz * a2 * hw + nz * b2 * hw]);
+          const lv = 7, rings = Array.from({ length: lv + 1 }, (_, j) => { const f = j / lv; return ring(xf + (xt - xf) * f, zf + (zt - zf) * f, (ytop + 0.5) * f, hw1 + (hw0 - hw1) * f); });
+          for (let j = 0; j < lv; j++) for (let c = 0; c < 4; c++) {
+            const A0 = rings[j][c], A1 = rings[j + 1][c], B1 = rings[j + 1][(c + 1) % 4];
+            beam(girderBeams, ...A0, ...A1, 0.42); beam(girderBeams, ...A1, ...B1, 0.2); beam(girderBeams, ...A0, ...B1, 0.16);
+          }
+        }
+      }
+    }
     // piloni tubolari agli angoli, fuori dagli spalti, con i tiranti verso le travi dei due tetti vicini e il puntone dietro
-    const M = mastsOf(shape, st);
+    const M = anf ? [] : mastsOf(shape, st);
     for (const m of M) {
       const near = covered.filter(c => c.side === m.long || c.side === m.end);
       if (!near.length) continue;
@@ -6882,7 +7089,8 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     }
   }
 
-  if (st.facade === 'cladding') {
+  if (isClad(st.facade)) {
+    const anf = st.facade === 'brick'; // Anfield: basamento di mattoni rossi, niente manifesti né torri d'angolo
     // stile inglese (Stamford Bridge): sopra la parete chiara a pannelli con i nastri di vetrate tra un anello e l'altro e il
     // cornicione colorato con la riga luminosa; sotto il basamento sporgente con la terrazza, le vetrine al piano terra, i
     // manifesti tra le pinne colorate e i tornelli; torri cilindriche agli angoli e l'ingresso principale al centro della
@@ -6890,29 +7098,56 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     const rect = (d0, d1, h0, h1, m) => [[d0, h0], [d1, h0], [d1, h1], [d0, h1]].map(([d, h]) => ({ d, h, m }));
     const pos = [], idx = [[], [], []], winPos = [], winIdx = [[], [], []], poster = { pos: [], uv: [], idx: [] };
     const panelFace = { pos: [], uv: [], idx: [] }, stoneFace = { pos: [], uv: [], idx: [] }, glassFace = { pos: [], uv: [], idx: [] };
-    const accentBoxes = [], whiteBoxes = [], winBoxes = [], paveBoxes = [], flatLamps = [], drumBody = [], drumWin = [], drumTop = [], cladEnds = [];
+    const accentBoxes = [], whiteBoxes = [], winBoxes = [], paveBoxes = [], flatLamps = [], drumBody = [], drumWin = [], drumTop = [], cladEnds = [], brickPiers = [], mullions = [];
+    const deckFace = { pos: [], uv: [], idx: [] }, stairBoxes = [], cornerWins = [], cornerCaps = [], BTc = anf ? wallTexture('brick') : null;
+    let cornerGeo = null; // Anfield: pavimento chiaro della terrazza rialzata e scalinate
     // ingresso principale: centro del lato lungo verso z+ (davanti al basamento)
-    const E = entranceOf(shape), mid = E && E.run, z0 = E ? E.z0 : 0;
+    const E = entranceOf(shape, st), mid = E && E.run, z0 = E ? E.z0 : 0;
     const inEntrance = (x, z) => mid && z > 0 && Math.abs(x) < CLAD_ENTRANCE / 2 + 2.5 && Math.abs(z - z0) < 3;
+    const Hmain = Math.max(...shape.runs.map(wallTopOf));
     for (const run of shape.runs) {
-      const o = runOuter(run), H = wallTopOf(run), PH = cladPodium(H), CH = cladCornice(H), W = o + CLAD_PODIUM_W;
-      extrude(THREE, run, rect(o - 0.1, o + 0.3, 0, H, 0), pos, idx);                          // parete chiara
-      extrude(THREE, run, rect(o + 0.3, o + 0.6, H - CH, H, 1), pos, idx);                     // cornicione
-      extrude(THREE, run, rect(o + 0.6, o + 0.68, H - CH - 1, H - CH - 0.1, 0), glowPos, glowIdx);
-      for (const [h0, h1] of cladBands(run.tiers)) {
+      const o = runOuter(run), H = wallTopOf(run), PH = cladPodium(H, st), CH = cladCornice(H), W = o + CLAD_PODIUM_W;
+      // Anfield, Main Stand (la più alta, su un lato lungo): mattoni fin quasi in cima, con i pilastri alti e il nastro
+      // vetrato sotto il cornicione; le altre tribune hanno sopra il basamento la parete bianca con le vetrate
+      const mainBrick = anf && H > Hmain - 0.5 && run.pts.some(p => onLongSide(p) && Math.abs(p.x) < 3), HB = H - CH - 3.4;
+      // sotto il tetto della tribuna (Anfield: il muro sale fino al tetto, niente buco tra muro e copertura)
+      const Rr = anf && isStands(st.roof) ? standsRoofOf(shape, st, run) : null, roofUnder = (d) => (Rr ? Rr.h(Math.min(d, Rr.dOut)) - 0.28 : H);
+      // Main Stand: in alto la galleria vetrata inclinata verso fuori fin sotto il tetto (con i montanti grigi)
+      const HG = mainBrick ? Math.max(PH + 8, H - 9) : H, GO = 3.4, hG = roofUnder(o + 0.3 + GO);
+      extrude(THREE, run, rect(o - 0.1, o + 0.3, 0, Math.max(H, anf ? roofUnder(o + 0.3) : H), 0), pos, idx);   // parete chiara
+      if (mainBrick) {
+        // la galleria solo sul fronte lungo (fino all'angolo); sulle testate c'è la parete grigia del tetto
+        const sz0 = Math.sign(run.pts.find(q => onLongSide(q)).z) || 1;
+        const gal = subRuns(run, (q) => Math.sign(q.z) === sz0 && (onLongSide(q) || Math.abs(q.mx * q.mz) > 0.3))[0] || run;
+        extrude(THREE, gal, [[o + 0.3, HG], [o + 0.3 + GO, hG], [o + 0.42 + GO, hG], [o + 0.42, HG]].map(([d, h]) => ({ d, h, m: 0 })), winPos, winIdx);
+        stripUV(gal, [{ d: o + 0.44, h: HG }, { d: o + 0.44 + GO, h: hG }], glassFace, GLASS_TILE, Math.hypot(GO, hG - HG));
+        extrude(THREE, run, rect(o + 0.3, o + 0.9, HG - 0.6, HG, 0), pos, idx);                // davanzale chiaro
+        const mc = runLengths(gal);
+        // montanti a V (come ad Anfield): da un piede in basso salgono in diagonale ai due nodi in alto vicini
+        const st2 = stations(gal, mc, 6, o + 0.5), tot = mc[mc.length - 1];
+        for (const u of st2) for (const k of [-1, 1]) {
+          const ut = Math.min(tot, Math.max(0, u + k * 3));
+          const [x0, z0] = pointAt(gal, mc, u, o + 0.48), [x1, z1] = pointAt(gal, mc, ut, o + 0.48 + GO);
+          beam(mullions, x0, HG, z0, x1, hG, z1, 0.22);
+        }
+        extrude(THREE, gal, rect(o + 0.3 + GO - 0.2, o + 0.45 + GO, hG - 0.5, hG, 0), pos, idx);   // trave in cima alla galleria
+      } else extrude(THREE, run, rect(o + 0.3, o + 0.6, H - CH, H, anf ? 0 : 1), pos, idx);     // cornicione
+      if (!anf) extrude(THREE, run, rect(o + 0.6, o + 0.68, H - CH - 1, H - CH - 0.1, 0), glowPos, glowIdx);
+      for (const [h0, h1] of mainBrick ? [] : cladBands(run.tiers)) {
         if (h0 <= PH + 1) continue;
         extrude(THREE, run, rect(o + 0.3, o + 0.4, h0, h1, 0), winPos, winIdx);
         stripUV(run, [{ d: o + 0.41, h: h0 }, { d: o + 0.41, h: h1 }], glassFace, GLASS_TILE, h1 - h0);
       }
       extrude(THREE, run, rect(o + 0.3, W, 0, PH, 2), pos, idx);                               // basamento
-      extrude(THREE, run, rect(W - 0.3, W + 0.05, PH, PH + 1.1, 0), pos, idx);                 // parapetto della terrazza
+      extrude(THREE, run, rect(W - 0.3, W + 0.05, PH, PH + 1.1, anf ? 1 : 0), pos, idx);        // parapetto della terrazza
       extrude(THREE, run, rect(W, W + 0.15, 3.6, 4.2, 1), pos, idx);                           // fascia tra i due piani
       extrude(THREE, run, rect(W, W + 0.06, 0.5, 3.6, 0), winPos, winIdx);                     // vetrine al piano terra
       // facce con le texture: pannelli della parete, pietra del basamento (fronte, zoccolo e terrazza), vetrine
-      stripUV(run, [{ d: o + 0.32, h: PH }, { d: o + 0.32, h: H - CH }], panelFace, CLAD_TILE[0], CLAD_TILE[1]);
+      if (mainBrick) stripUV(run, [{ d: o + 0.32, h: PH }, { d: o + 0.32, h: HG }], stoneFace, STONE_TILE, STONE_TILE);
+      else stripUV(run, [{ d: o + 0.32, h: PH }, { d: o + 0.32, h: anf ? roofUnder(o + 0.3) : H - CH }], panelFace, CLAD_TILE[0], CLAD_TILE[1]);
       stripUV(run, [{ d: W + 0.01, h: 4.2 }, { d: W + 0.01, h: PH }], stoneFace, STONE_TILE, STONE_TILE);
       stripUV(run, [{ d: W + 0.01, h: 0 }, { d: W + 0.01, h: 0.5 }], stoneFace, STONE_TILE, STONE_TILE);
-      stripUV(run, [{ d: o + 0.3, h: PH + 0.01 }, { d: W - 0.3, h: PH + 0.01 }], stoneFace, STONE_TILE, STONE_TILE);
+      stripUV(run, [{ d: o + 0.3, h: PH + 0.01 }, { d: W - 0.3, h: PH + 0.01 }], anf ? deckFace : stoneFace, STONE_TILE, STONE_TILE);
       stripUV(run, [{ d: W + 0.07, h: 0.5 }, { d: W + 0.07, h: 3.6 }], glassFace, GLASS_TILE, 3.1);
       // moduli del basamento: pinna colorata ogni CLAD_MODULE metri, manifesto al centro e tornelli un modulo sì e uno no
       // (solo dove il basamento è dritto: non sugli spigoli degli angoli)
@@ -6926,6 +7161,22 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       for (let k = 0; k <= (run.closed ? n - 1 : n); k++) {
         const u = k * step, [x, z] = pointAt(front, cum, u, 0), [tx, tz] = tangentAt(front, cum, u, 0), nx = tz, nz = -tx;
         if (!flat(u, 1) || inEntrance(x, z)) continue;
+        if (anf) {
+          // Anfield: pilastri di mattoni sporgenti sul basamento; sulla Main Stand salgono fin sotto il nastro vetrato,
+          // a coppie con la fessura scura in mezzo
+          boxAt(brickPiers, x + nx * 0.35, (PH + 0.6) / 2, z + nz * 0.35, [tx * 1.4, 0, tz * 1.4], [0, PH + 0.6, 0], [-tz * 0.7, 0, tx * 0.7]);
+          if (mainBrick) {
+            // pilastri alti a coppie (sporgono di 1,2 m) con in mezzo la fessura vetrata, rossa in alto; tra un modulo e
+            // l'altro, a metà, i pannelli di vetro rosso nella parte alta del muro
+            const back = CLAD_PODIUM_W - 0.9, h0 = PH + 1.1, hm = h0 + (HG - h0) * 0.45;
+            for (const k2 of [-1, 1]) boxAt(brickPiers, x - nx * back + tx * k2 * 0.9, (h0 + HG) / 2, z - nz * back + tz * k2 * 0.9, [tx * 1.1, 0, tz * 1.1], [0, HG - h0, 0], [-tz * 1.2, 0, tx * 1.2]);
+            boxAt(winBoxes, x - nx * (back + 0.4), (h0 + hm) / 2, z - nz * (back + 0.4), [tx * 0.7, 0, tz * 0.7], [0, hm - h0, 0], [-tz * 0.3, 0, tx * 0.3]);
+            boxAt(accentBoxes, x - nx * (back + 0.4), (hm + HG) / 2, z - nz * (back + 0.4), [tx * 0.7, 0, tz * 0.7], [0, HG - hm, 0], [-tz * 0.3, 0, tx * 0.3]);
+            const [mx2, mz2] = pointAt(front, cum, u + step / 2, 0), [ttx, ttz] = tangentAt(front, cum, u + step / 2, 0), nnx = ttz, nnz = -ttx;
+            if (flat(u + step / 2, 3)) boxAt(accentBoxes, mx2 - nnx * (CLAD_PODIUM_W - 0.32), (hm + HG - 0.6) / 2, mz2 - nnz * (CLAD_PODIUM_W - 0.32), [ttx * (step - 4.6), 0, ttz * (step - 4.6)], [0, HG - 0.6 - hm, 0], [-ttz * 0.08, 0, ttx * 0.08]);
+          }
+          continue;
+        }
         boxAt(accentBoxes, x + nx * 0.45, (PH + 0.6) / 2, z + nz * 0.45, [tx * 0.7, 0, tz * 0.7], [0, PH + 0.6, 0], [-tz * 0.9, 0, tx * 0.9]);
         // ogni due pinne una lesena colorata sale sulla parete chiara fino al cornicione
         const back = CLAD_PODIUM_W - 0.55, h0 = PH + 1.1, h1 = H - CH;
@@ -6935,7 +7186,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         const u = (k + 0.5) * step, [x, z] = pointAt(front, cum, u, 0), [tx, tz] = tangentAt(front, cum, u, 0);
         if (!flat(u, 3.5) || inEntrance(x, z)) continue;
         const nx = tz, nz = -tx; // verso fuori (da fuori la destra è verso -t)
-        if (PH > 6.5) {
+        if (PH > 6.5 && !anf) {
           const w = Math.min(step - 2.6, 7.5) / 2, h0 = 4.6, h1 = PH - 0.5, v = k % 3, b = poster.pos.length / 3, d = 0.05;
           for (const [s, h] of [[-w, h0], [w, h0], [w, h1], [-w, h1]]) poster.pos.push(x + tx * s + nx * d, h, z + tz * s + nz * d);
           poster.uv.push((v + 1) / 3, 0, v / 3, 0, v / 3, 1, (v + 1) / 3, 1);
@@ -6947,11 +7198,65 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         }
       }
     }
+    if (anf && mid) {
+      // Main Stand: dalla terrazza rialzata scendono a terra, verso le due estremità, due grandi scalinate parallele alla
+      // facciata, coi muretti rossi ai lati e il pianerottolo a metà
+      const PHm = E.PH, zf = z0, w = 5.5, L = PHm / 0.17 * 0.3 / 2;
+      for (const sgn of [-1, 1]) {
+        const xs = sgn * (shape.a - 14);
+        for (let j = 0; j < 2; j++) {
+          const n2 = Math.round(PHm / 2 / 0.17), x0 = xs + sgn * j * (L + 2.5);
+          for (let k = 0; k < n2; k++) {
+            const hTop = PHm - (j * PHm / 2) - k * PHm / 2 / n2, xm = x0 + sgn * (k + 0.5) * 0.3;
+            boxAt(stairBoxes, xm, hTop / 2, zf + w / 2 + 0.3, [0.3, 0, 0], [0, hTop, 0], [0, 0, w]);
+          }
+          const xe = x0 + sgn * L, hA = PHm - j * PHm / 2, hB = hA - PHm / 2;
+          for (const zz of [zf + 0.15, zf + w + 0.45]) beam(accentBoxes, x0, hA + 0.5, zz, xe, hB + 0.5, zz, 0.3);
+          if (j === 0) boxAt(stairBoxes, xe + sgn * 1.25, hB / 2, zf + w / 2 + 0.3, [2.5, 0, 0], [0, hB, 0], [0, 0, w]);
+        }
+      }
+    }
+    if (anf) {
+      // blocchi di mattoni sugli spigoli della Main Stand, con la faccia smussata a 45° e le finestre alte scure
+      const bp = [], buv = [], bi = [];
+      for (const K of anfCornersOf(shape, st)) {
+        const P = K.poly, N = P.length;
+        let acc = 0;
+        for (let i = 0; i < N; i++) {
+          const [ax, az] = P[i], [bx, bz] = P[(i + 1) % N], l = Math.hypot(bx - ax, bz - az), k = bp.length / 3;
+          bp.push(ax, 0, az, bx, 0, bz, bx, K.HB, bz, ax, K.HB, az);
+          buv.push(acc, 0, acc + l, 0, acc + l, K.HB, acc, K.HB);
+          bi.push(k, k + 1, k + 2, k, k + 2, k + 3);
+          acc += l;
+          // finestre alte scure sulle facce di fuori (non su quella smussata, che ha lo stemma)
+          const nx = (bz - az) / l, nz = -(bx - ax) / l, out = (nx * K.sx > 0.5 || nz * K.sz > 0.5) && l > 7;
+          if (out) for (const f of [0.3, 0.7]) boxAt(cornerWins, ax + (bx - ax) * f + nx * 0.05 * K.sx * K.sx, (K.PH + K.HB) / 2, az + (bz - az) * f + nz * 0.05, [(bx - ax) / l * 1.4, 0, (bz - az) / l * 1.4], [0, K.HB - K.PH - 3, 0], [nx * 0.2, 0, nz * 0.2]);
+        }
+        const tris = THREE.ShapeUtils.triangulateShape(P.map(([x, z]) => new THREE.Vector2(x, z)), []), k0 = bp.length / 3;
+        P.forEach(([x, z]) => { bp.push(x, K.HB, z); buv.push(x, z); });
+        // cornicione grigio scuro in cima al blocco (lo stacco tra i mattoni e la copertura)
+        for (let i = 0; i < N; i++) {
+          const [ax, az] = P[i], [bx, bz] = P[(i + 1) % N], l = Math.hypot(bx - ax, bz - az);
+          if (l < 0.5) continue;
+          const nx = (bz - az) / l, nz = -(bx - ax) / l;
+          boxAt(cornerCaps, (ax + bx) / 2 + nx * 0.15 * K.sx * K.sz, K.HB + 0.6, (az + bz) / 2 + nz * 0.15 * K.sx * K.sz, [(bx - ax) + (bx - ax) / l * 0.3, 0, (bz - az) + (bz - az) / l * 0.3], [0, 1.2, 0], [nx * 0.5, 0, nz * 0.5]);
+        }
+        tris.forEach(([a, b, c]) => bi.push(k0 + a, k0 + b, k0 + c));
+      }
+      if (bp.length) {
+        const bg = new THREE.BufferGeometry();
+        bg.setAttribute('position', new THREE.Float32BufferAttribute(bp, 3));
+        bg.setAttribute('uv', new THREE.Float32BufferAttribute(buv.map((v, i) => v / (i % 2 ? BTc.tileV : BTc.tileU)), 2));
+        bg.setIndex(bi); bg.computeVertexNormals();
+        bg.userData.sq = true;
+        cornerGeo = bg;
+      }
+    }
     // dove una tribuna più alta finisce su un settore più basso il gradino non resta a spigolo vivo: un mezzo cilindro
     // chiude la parete (con il cornicione) e uno il basamento
-    for (const run of shape.runs) {
+    for (const run of anf ? [] : shape.runs) {
       if (run.closed) continue;
-      const o = runOuter(run), H = wallTopOf(run), PH = cladPodium(H), CH = cladCornice(H);
+      const o = runOuter(run), H = wallTopOf(run), PH = cladPodium(H, st), CH = cladCornice(H);
       for (const p of [run.pts[0], run.pts[run.pts.length - 1]]) {
         const low = shape.runs.filter(r => r !== run && r.pts.includes(p) && runOuter(r) < o - 0.5);
         if (!low.length) continue;
@@ -6965,10 +7270,10 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       }
     }
     // torri cilindriche agli angoli (scale e ingressi): sabbia, due nastri di vetrate e l'anello colorato in cima
-    for (const [sx, sz] of [[1, 1], [-1, 1], [-1, -1], [1, -1]]) {
+    for (const [sx, sz] of anf ? [] : [[1, 1], [-1, 1], [-1, -1], [1, -1]]) {
       const p = diagonalPoint(shape, sx, sz), runs = shape.runs.filter(r => r.pts.includes(p));
       if (!runs.length) continue;
-      const run = runs.reduce((m, r) => (runOuter(r) > runOuter(m) ? r : m)), o = runOuter(run), PH = cladPodium(wallTopOf(run));
+      const run = runs.reduce((m, r) => (runOuter(r) > runOuter(m) ? r : m)), o = runOuter(run), PH = cladPodium(wallTopOf(run), st);
       const x = p.x + p.mx * (o + 2.4), z = p.z + p.mz * (o + 2.4), R = CLAD_DRUM_R, Hd = PH + 6;
       boxAt(drumBody, x, Hd / 2, z, [R, 0, 0], [0, Hd, 0], [0, 0, R]);
       for (const [y, h] of [[PH - 2, 2.6], [PH + 3, 2]]) boxAt(drumWin, x, y, z, [R + 0.06, 0, 0], [0, h, 0], [0, 0, R + 0.06]);
@@ -7070,7 +7375,10 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     const panelMat = (rep) => new THREE.MeshStandardMaterial({ map: tex(pc, true, rep), bumpMap: tex(pb, false, rep), bumpScale: 0.7, roughness: 0.45, metalness: 0.1, side: THREE.DoubleSide });
     const stoneMat = (rep) => new THREE.MeshStandardMaterial({ map: tex(sc, true, rep), bumpMap: tex(sb, false, rep), bumpScale: 0.8, roughness: 0.85, side: THREE.DoubleSide });
     const glassMat = (rep) => new THREE.MeshStandardMaterial({ map: tex(gc, true, rep), emissive: 0xffffff, emissiveMap: tex(ge, true, rep), roughness: 0.12, metalness: 0.5, side: THREE.DoubleSide });
-    const faces = [[panelFace, panelMat([1, 1]), 'cladding'], [stoneFace, stoneMat([1, 1]), 'podium'], [glassFace, glassMat([1, 1]), null]];
+    // Anfield: il basamento è di mattoni (texture del muro "Mattoni", tinta col colore del basamento)
+    const BT = anf ? wallTexture('brick') : null;
+    const brickMat = (rep) => new THREE.MeshStandardMaterial({ map: tex(BT.canvas, true, rep), normalMap: tex(BT.normal, false, rep), roughness: 0.9, side: THREE.DoubleSide });
+    const faces = [[panelFace, panelMat([1, 1]), 'cladding'], [stoneFace, anf ? brickMat([STONE_TILE / BT.tileU, STONE_TILE / BT.tileV]) : stoneMat([1, 1]), 'podium'], [glassFace, glassMat([1, 1]), null]];
     for (const [acc, mat, key] of faces) {
       const fg = uvGeometry(THREE, acc);
       own.push(mat);
@@ -7089,6 +7397,21 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     inst(drumGlass, drumWin, cylinder);
     inst(accent, drumTop, cylinder);
     inst(endPanels, cladEnds, cylinder);
+    if (brickPiers.length) { const pm = brickMat([0.4, 3]); own.push(pm); tints.push([pm, 'podium']); inst(pm, brickPiers); }
+    if (mullions.length) inst(steel, mullions);
+    if (cornerGeo) {
+      const cm2 = brickMat([1, 1]); own.push(cm2, cornerGeo); tints.push([cm2, 'podium']);
+      const cmesh = new THREE.Mesh(cornerGeo, cm2); cmesh.castShadow = cmesh.receiveShadow = true; group.add(cmesh);
+    }
+    if (cornerCaps.length) { const cc = new THREE.MeshStandardMaterial({ color: 0x4a4f56, roughness: 0.6, metalness: 0.3 }); own.push(cc); const im = inst(cc, cornerCaps); if (im) im.userData.noSq = true; }
+    if (cornerWins.length) { const im = inst(winMat, cornerWins); if (im) im.userData.noSq = true; }
+    if (stairBoxes.length) { const sm2 = new THREE.MeshStandardMaterial({ color: 0xb4554a, roughness: 0.85 }); own.push(sm2); inst(sm2, stairBoxes); }
+    if (deckFace.pos.length) {
+      const dm = stoneMat([1, 1]), fg = uvGeometry(THREE, deckFace);
+      dm.color.set(0xe2d6c2);
+      own.push(dm);
+      if (fg) { const m = new THREE.Mesh(fg, dm); m.receiveShadow = true; group.add(m); own.push(fg); }
+    }
   }
 
   if (st.facade === 'panels') {
@@ -7985,6 +8308,75 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
   inst(girderMat, girderBeams);
   inst([steel, steel, steel, steel, lamp, steel], lamps); // la faccia +z del proiettore è quella accesa
 
+  // Anfield, Main Stand: da un'estremità (a sinistra guardando da fuori) il bordo esterno del tetto parte all'altezza del
+  // muro e sale in diagonale fino alla sua altezza piena, poi corre parallelo al muro; in mezzo la galleria vetrata
+  // scura (che lì si assottiglia fino a sparire). Si piega tutto quello che sta sopra il muro di quella tribuna.
+  if (st.roof === 'anfield') {
+    const mr = roofRuns.find(r => standsRoofOf(shape, st, r).main);
+    if (mr) {
+      const R = standsRoofOf(shape, st, mr), sz = Math.sign(mr.pts.find(q => onLongSide(q)).z) || 1, H0 = wallTopOf(mr);
+      const HG0 = st.facade === 'brick' ? Math.max(cladPodium(H0, st) + 8, H0 - 9) : H0;
+      // la salita sta tutta nello spigolo: l'angolo della Main Stand è un piccolo lato in più, a 45° (come un esagono)
+      // il tetto arriva fin oltre i blocchi d'angolo; in pianta il suo bordo è parallelo al muro smussato (davanti, lato a
+      // 45°, fianco) e la salita va dal fianco (basso, sopra i mattoni) lungo il lato smussato fino al davanti
+      const o0 = runOuter(mr), T0 = CLAD_PODIUM_W, Cb = 9, vMax = R.dOut - o0, g = Math.max(1, vMax - T0), cLine = 2 * T0 - Cb + g * Math.SQRT2;
+      const xE = shape.a + o0 + ANF_END, CH = ANF_CHAMFER, ramp = Math.max(4, ANF_END - (cLine - vMax)), Efull = R.h(R.dOut), Eend = HG0 + 6; // (sul fianco il tetto resta staccato dal muro: in mezzo il sotto scuro)
+      // la parte verso il campo (fino alla grande trave reticolare, compresa) resta dritta: scende solo quella verso fuori
+      const d0 = R.dIn + 0.6, dT = d0 + (R.dOut - 0.5 - d0) * 0.3 + 3.1;
+      const yLo = HG0, yHi = R.h(R.dIn) - 2, cl = (v) => Math.min(1, Math.max(0, v));
+      const delta = (x, y, z) => {
+        const d = z * sz - shape.b;
+        if (d < dT || y <= yLo) return 0;
+        // la salita parte dal fianco, dal suo capo verso il campo (subito fuori dalla trave reticolare), corre lungo il
+        // fianco e il lato smussato e arriva all'altezza piena dove comincia il davanti: p = strada fatta lungo il bordo
+        const u = x * sz + xE, v = d - dT, Ltot = (R.dOut - dT) + ramp;
+        if (u >= Ltot) return 0;
+        const t = cl((v + Math.max(0, u)) / Ltot), E = Eend + (Efull - Eend) * t;
+        const w = cl((d - dT) / 7), ws = w * w * (3 - 2 * w); // dalla trave reticolare (dritta) il tetto scende morbido
+        return (E - Efull) * ws * cl((y - yLo) / (yHi - yLo));
+      };
+      const e = 0.05;
+      warpGroup(group, { at: (x, y, z) => {
+        const dy = delta(x, y, z);
+        if (!dy) return [0, 0, 0, 0];
+        return [dy, (delta(x + e, y, z) - delta(x - e, y, z)) / (2 * e), (delta(x, y + e, z) - delta(x, y - e, z)) / (2 * e), (delta(x, y, z + e) - delta(x, y, z - e)) / (2 * e)];
+      } }, null);
+      // spigoli smussati: oltre il muro (galleria, sporgenza del tetto, testate) la profondità si riduce verso le due
+      // estremità, così il bordo esterno in pianta gira l'angolo con un lato a 45°
+      const oW = runOuter(mr) + 1.6, PHs = cladPodium(H0, st) + 1.2;
+      const squeeze = (x, y, z) => {
+        const d = z * sz - shape.b, u = Math.abs(x) - (shape.a + o0), vW = oW - o0;
+        if (d <= oW || y < PHs) return z;
+        const V = Math.min(vMax + 0.4, cLine - u);
+        if (V >= vMax + 0.4) return z;
+        const f = Math.max(0.05, (V - vW) / (vMax + 0.4 - vW));
+        return sz * (shape.b + oW + (d - oW) * f);
+      };
+      group.traverse(o => {
+        if (o.userData.noSq) return;
+        if (o.isInstancedMesh) {
+          const a = o.instanceMatrix.array;
+          for (let i = 0; i < o.count; i++) {
+            const b = i * 16;
+            let L = -1, m = 0;
+            for (let c = 0; c < 3; c++) { const l = Math.hypot(a[b + c * 4], a[b + c * 4 + 1], a[b + c * 4 + 2]); if (l > L) { L = l; m = c; } }
+            const cx = a[b + 12], cy = a[b + 13], cz = a[b + 14], vx = a[b + m * 4] / 2, vy = a[b + m * 4 + 1] / 2, vz = a[b + m * 4 + 2] / 2;
+            const z1 = squeeze(cx - vx, cy - vy, cz - vz), z2 = squeeze(cx + vx, cy + vy, cz + vz);
+            if (z1 === cz - vz && z2 === cz + vz) continue;
+            a[b + m * 4 + 2] = z2 - z1; a[b + 14] = (z1 + z2) / 2;
+          }
+          o.instanceMatrix.needsUpdate = true;
+        } else if (o.isMesh && o.geometry) {
+          const P = o.geometry.getAttribute('position');
+          if (!P || o.geometry.userData.sq) return;
+          o.geometry.userData.sq = true;
+          let ch = false;
+          for (let i = 0; i < P.count; i++) { const z = P.getZ(i), z2 = squeeze(P.getX(i), P.getY(i), z); if (z2 !== z) { P.setZ(i, z2); ch = true; } }
+          if (ch) { P.needsUpdate = true; o.geometry.computeVertexNormals(); o.geometry.computeBoundingSphere(); o.geometry.computeBoundingBox(); }
+        }
+      });
+    }
+  }
   return { group, steel, deckMat, shellMat, lamp, accent, dark, girder: girderMat, spots, screen, roofDecor, glow: glowMat, nightGlow, repaint, tints, badge, wallMat, panelSkinMat, stoneLight, stoneDark, tentGlass, entrance, lawn, roofType: st.roof, towersAt, shellClear, cubePanel, cubeDiscs };
 }
 

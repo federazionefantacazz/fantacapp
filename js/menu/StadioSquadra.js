@@ -12,7 +12,7 @@ import {
 } from '../components/Stadium3D.js';
 
 /** Nomi corti delle coperture nella scelta settore per settore. */
-const MIX_LABELS = { none: 'No', membrane: 'Moderna', truss: 'Reticolare', stands: 'Tribuna', dragon: 'Drago', sliding: 'Wembley' };
+const MIX_LABELS = { none: 'No', membrane: 'Moderna', truss: 'Reticolare', stands: 'Tribuna', anfield: 'Anfield', dragon: 'Drago', sliding: 'Wembley' };
 import { injectStyle, parseColor, SWATCHES, phaseStrip, syncPhaseStrip, phaseNav } from './DivisaSquadra.js';
 import { esc } from './menuUtils.js';
 import { BackNav } from '../services/backNav.js';
@@ -411,6 +411,7 @@ export const StadioSquadra = {
         membrane: 'Tetto chiaro e liscio, con le costole sotto.',
         girders: 'Tetto chiaro a botti con la struttura scura sotto, appeso a quattro grandi travi reticolari che poggiano su quattro torri agli angoli.',
         stands: 'Ogni tribuna ha il suo tetto alla sua altezza, come a Stamford Bridge: sopra lamiera con le travi reticolari a vista, davanti la fascia chiara con la riga colorata e le luci, agli angoli i piloni con i tiranti.',
+        anfield: 'Come ad Anfield: ogni tribuna ha il suo tetto chiaro con la fascia di lastre traslucide davanti e la grande trave reticolare a sezione triangolare lungo il davanti; sulla tribuna più alta (la Main Stand) il tetto è liscio e la trave poggia su due piloni a traliccio da terra.',
         wave: 'Copertura bianca quasi tonda a cuscini radiali, alta sopra le curve e più bassa sui lati lunghi, con le travi d\'acciaio sotto. Fuori una fascia bianca che sui lati lunghi scende quasi a terra; sulle curve resta alta, sotto si vedono i piani in cemento e al centro di una curva c\'è l\'ingresso principale con la vetrata a lamelle e gli schermi.',
         dome: 'Cupola bianca a raggiera che sale dal basso fino all\'apertura, con i denti a punta tutto attorno alla base.',
         tent: 'Membrana a rete mezza trasparente tirata su da tre pennoni altissimi (su uno l\'anello panoramico): in basso scende fino a terra con una fila di grandi archi, sotto si vede la struttura vetrata. Di notte si illumina del colore scelto.',
@@ -453,10 +454,10 @@ export const StadioSquadra = {
       ${this._colorRow(['shell', 'tent', 'petals'].includes(s.roof) ? 'Involucro' : s.roof === 'dragon' ? 'Pannelli solari' : s.roof === 'crown' ? 'Vele' : s.roof === 'blades' ? 'Lame d\'acciaio (tetto e facciata)' : 'Tetto', 'colors.roof', s.colors.roof)}
       ${['shell', 'tent', 'petals'].includes(s.roof) ? this._colorRow(s.roof === 'tent' ? 'Luce della tenda e delle vetrate di notte' : 'Luce dell\'involucro di notte', 'colors.glow', s.colors.glow) : ''}
       ${ROOF_GLOWS[s.roof] ? this._colorRow('Luce della copertura di notte', 'colors.roofLight', s.colors.roofLight || ROOF_GLOWS[s.roof]) : ''}
-      ${s.roof === 'stands' ? this._colorRow('Righe luminose (accese di notte)', 'colors.glow', s.colors.glow) : ''}
-      ${this._colorRow(s.roof === 'dragon' ? 'Acciaio (tubi a spirale e tralicci)' : s.roof === 'crown' ? 'Acciaio (colonne, anelli, passerella)' : s.roof === 'stands' ? 'Acciaio (piloni e tiranti)' : s.roof === 'blades' || s.roof === 'sliding' || s.roof === 'retract' ? 'Travi sotto il tetto' : 'Acciaio (tralicci, pilastri, piloni)', 'colors.steel', s.colors.steel)}
+      ${s.roof === 'stands' || s.roof === 'anfield' ? this._colorRow('Righe luminose (accese di notte)', 'colors.glow', s.colors.glow) : ''}
+      ${this._colorRow(s.roof === 'dragon' ? 'Acciaio (tubi a spirale e tralicci)' : s.roof === 'crown' ? 'Acciaio (colonne, anelli, passerella)' : s.roof === 'stands' ? 'Acciaio (piloni e tiranti)' : s.roof === 'anfield' ? 'Acciaio (piloni a traliccio)' : s.roof === 'blades' || s.roof === 'sliding' || s.roof === 'retract' ? 'Travi sotto il tetto' : 'Acciaio (tralicci, pilastri, piloni)', 'colors.steel', s.colors.steel)}
       ${s.roof === 'girders' ? this._colorRow('Reticolato sopra il tetto (travi e sbalzi)', 'colors.girder', s.colors.girder) : ''}
-      ${s.roof === 'stands' ? this._colorRow('Travi sopra il tetto e fascia davanti', 'colors.girder', s.colors.girder) : ''}
+      ${s.roof === 'stands' || s.roof === 'anfield' ? this._colorRow('Travi sopra il tetto e fascia davanti', 'colors.girder', s.colors.girder) : ''}
       ${s.roof === 'sliding' ? this._colorRow('Travi sopra il tetto, corona e pannelli scorrevoli', 'colors.girder', s.colors.girder) : ''}
       ${s.roof === 'retract' ? this._colorRow('Travi ad arco, piloni e trave intorno all\'apertura', 'colors.girder', s.colors.girder) : ''}
       </div>` : ''}
@@ -531,6 +532,7 @@ export const StadioSquadra = {
       ${this._opts('wallTexture', WALL_TEXTURES, s.wallTexture)}
       ${this._colorRow('Colore del muro esterno', 'colors.wall', s.colors.wall || s.colors.structure)}` : ''}
       ${s.facade === 'cladding' ? `${this._colorRow('Pannelli della facciata', 'colors.cladding', s.colors.cladding)}${this._colorRow('Basamento e torri d\'angolo', 'colors.podium', s.colors.podium)}${this._colorRow('Righe luminose (accese di notte)', 'colors.glow', s.colors.glow)}` : ''}
+      ${s.facade === 'brick' ? `<div class="std-desc">Come ad Anfield: in basso il basamento di mattoni con i pilastri sporgenti, le vetrine e i tornelli, sopra la parete bianca liscia con i nastri di vetrate tra un anello e l'altro e il cornicione; al centro della tribuna vicina l'ingresso principale vetrato.</div>${this._colorRow('Parete e cornicione', 'colors.cladding', s.colors.cladding)}${this._colorRow('Mattoni del basamento', 'colors.podium', s.colors.podium)}${this._colorRow('Tornelli e portale', 'colors.accent', s.colors.accent)}` : ''}
       ${s.facade === 'struts' || s.facade === 'panels' || s.facade === 'cladding' ? this._colorRow({ panels: 'Rivestimento esterno', cladding: 'Cornicione, pinne, tornelli e portale' }[s.facade] || 'Fasce del basamento', 'colors.accent', s.colors.accent) : ''}
       </div>
       <div class="std-group">
