@@ -637,7 +637,6 @@ export const DivisaSquadra = {
       ${this._group('Decorazioni', 'sleeve', `
         <div class="kit-grid">${SLEEVE_DECO.map(d => this._opt('sleeveDeco', d.id, this._thumb({ ...base, sleeveDeco: d.id }), d.label, k.sleeveDeco === d.id)).join('')}</div>
         ${stripes ? this._step('sleeveDecoN', 'Numero di strisce', k.sleeveDecoN, 1, SLEEVE_STRIPES_MAX) : ''}
-        ${stripes && !raglan ? this._seg([['0', 'Solo sulla manica', !k.sleeveDecoShoulder], ['1', 'Dal colletto al polsino', k.sleeveDecoShoulder]], 'data-act="stripes-reach"') : ''}
         ${k.sleeveDeco !== 'none' ? this._colorRow('Colore delle decorazioni', 'trim') : ''}
         ${onShoulder ? `
         ${this._range('sleeveTf.scale', 'Spessore', k.sleeveTf.scale, 40, 200, '%')}

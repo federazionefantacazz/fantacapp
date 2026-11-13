@@ -17,7 +17,7 @@ export { COLLAR_SHAPES };
  *   shoulders: { shape: 'none'|'raglan'|'yoke', size, match },  // spalle colorate; match: colore delle maniche
  *   sleeveDecoN,                                            // numero di strisce delle maniche (decorazione 'stripes')
  *   collarStripes,                                          // righe del colletto 'striped': 1, 2 o 3
- *   sleeveDecoShoulder,                                     // strisce delle maniche che partono dal colletto (spalla + manica)
+ *   sleeveDecoShoulder,                                     // (non più usato: strisce dal colletto al polsino tolte, sempre false)
  *   layers: [{ type, color, opacity, scale, flipX, flipY, x, y, rot, zone }],  // type: disegno integrato, 'png:<id>' (dal Patron)
  *                                                           // motivi ('m-...'): anche count, size, gap, dir, amp, len, shape, fill, stagger (vedi motifParams)
  *                                                           // o 'img' (PNG caricato dal giocatore: url, mono = tinta unica); zone: body | all | sleeves
@@ -480,7 +480,7 @@ export function normalizeKit(raw) {
     sleeveDecoN: Math.round(clamp(k.sleeveDecoN || (k.sleeveDeco === 'stripes2' ? 2 : 3), 1, SLEEVE_STRIPES_MAX)),
     collarBig: !!k.collarBig || k.collarShape === 'big', // 'big' era una forma: ora è il girocollo grosso
     collarStripes: [1, 2, 3].includes(Number(k.collarStripes)) ? Number(k.collarStripes) : 3,
-    sleeveDecoShoulder: !!k.sleeveDecoShoulder,
+    sleeveDecoShoulder: false, // strisce "dal colletto al polsino" tolte (per quelle si usa la raglan)
     sleeveTf: { ...d.sleeveTf, ...(k.sleeveTf || {}) },
     colors: { ...d.colors, ...(k.colors || {}) },
     shoulders: { ...d.shoulders, ...(k.shoulders || {}), shape: SHOULDER_SHAPES.some(x => x.id === (k.shoulders || {}).shape) ? k.shoulders.shape : 'none' },
@@ -1126,7 +1126,10 @@ export async function paintKitTexture(rawKit, opts = {}) {
   }));
   if (k.sleeveDeco === 'side') ['front', 'back'].forEach(p => inPart(p, (x, r) => {
     const f = clamp(k.sleeveTf.scale, 40, 200) / 100;
-    x.fillStyle = trim; x.fillRect(r.x, r.y, r.w * .045 * f, r.h); x.fillRect(r.x + r.w * (1 - .045 * f), r.y, r.w * .045 * f, r.h);
+    // classica: solo sotto il braccio (dall'ascella in giù); più in alto il bordo del pezzo è il giro manica e la banda
+    // saliva sulla spalla come un triangolo
+    const top = raglan ? r.y : r.y + r.h * (p === 'front' ? .36 : .38);
+    x.fillStyle = trim; x.fillRect(r.x, top, r.w * .045 * f, r.y + r.h - top); x.fillRect(r.x + r.w * (1 - .045 * f), top, r.w * .045 * f, r.y + r.h - top);
   }));
 
   // 4. colletto (striscia intorno al collo) ed eventuale bordo sul petto e sulla schiena
