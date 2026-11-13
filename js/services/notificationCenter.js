@@ -106,7 +106,7 @@ export const NotificationCenter = {
   openTarget(page) {
     if (!this.STATE || !this.STATE.booted) return;
     if (page && typeof window.goPage === 'function') {
-      if (typeof window.closeMenuPanel === 'function') window.closeMenuPanel();
+      if (typeof window.closeMenuPanel === 'function') window.closeMenuPanel({ all: true });
       window.goPage(page === 'formazione' && this.STATE.live ? 'live' : page);
     } else if (typeof window.openMenuPage === 'function') {
       window.openMenuPage('notifiche');

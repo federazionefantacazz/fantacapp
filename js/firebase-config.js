@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, onValue, set, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA6-PybCz_csan8tcrOEfgP8v3WKg1SIWY",
@@ -22,4 +22,4 @@ export const auth = getAuth(fapp);
 export const app = fapp; // serve a Cloud Messaging (js/services/pushService.js)
 
 // Esportiamo anche le funzioni di Firebase che usi più spesso per accorciare gli import nelle altre pagine
-export { ref, onValue, set, update, get, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut };
+export { ref, onValue, set, update, get, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail };

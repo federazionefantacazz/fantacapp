@@ -1,8 +1,9 @@
 /**
  * Stadio 3D (three.js, in vendor/three), costruito tutto via codice: nessun modello da scaricare.
- * C'è solo l'interno: campo, pista d'atletica, spalti da 1 a 3 anelli e seggiolini (l'esterno non si disegna).
+ * Campo, pista d'atletica, spalti da 1 a 3 anelli, seggiolini, coperture, facciate, ingressi, fari, tifo.
+ * Mappa del file e regole: docs/stadio3d.md.
  *
- * - createStadiumViewer(container, { zoom }): stadio ruotabile col dito (editor).
+ * - createStadiumViewer(container, { zoom }): stadio ruotabile col dito (editor), con focus() sulle parti.
  * - renderStadiumImage(stadium, opts): foto PNG (data URL) dello stadio, per il salvataggio.
  * - stadiumCapacity(stadium): numero di seggiolini (capienza).
  * - normalizeStadium / defaultStadium: dati dello stadio (team.stadium).
@@ -9073,7 +9074,9 @@ function buildStadium(L, st) {
 }
 
 // inquadrature: [rotazione orizzontale, inclinazione dalla verticale, distanza relativa]
-const VIEWS = { aerial: [35, 56, 1], top: [0, 1, 0.92], stand: [0, 66, 1], outside: [28, 83, 0.62] };
+const VIEWS = { aerial: [35, 56, 1], top: [0, 1, 0.92], stand: [0, 66, 1], outside: [28, 83, 0.62],
+  // inquadrature delle parti per l'editor (non hanno un pulsante): campo da vicino e copertura
+  pitch: [20, 34, 0.62], roof: [35, 48, 0.95] };
 const FOV = 35, STAND_FOV = 58;
 
 class Stage {
@@ -9135,6 +9138,8 @@ class Stage {
       let idle = 0;
       c.addEventListener('start', () => {
         clearTimeout(idle);
+        // il dito ferma il movimento verso un'inquadratura: si parte da dove si è
+        if (this._tween) { cancelAnimationFrame(this._tween); this._tween = 0; this.setView(this.view, this.viewYaw); }
         if (this.fullRatio > low && this.renderer.getPixelRatio() !== low) { this.renderer.setPixelRatio(low); this.render(); }
       });
       c.addEventListener('end', () => {
@@ -9206,7 +9211,39 @@ class Stage {
       this.controls.minDistance = this.dist * 0.12;
       this.controls.maxDistance = this.dist * 1.5;
     }
-    if (this.pitchFrame) this.framePitch(this.pitchOpts); else this.setView(this.view);
+    if (this.pitchFrame) this.framePitch(this.pitchOpts); else this.setView(this.view, this.viewYaw);
+  }
+
+  /**
+   * Come setView ma con un movimento morbido (editor: ogni fase inquadra la sua parte dello stadio). Il punto guardato
+   * resta sempre sull'asse dello stadio: girando col dito lo stadio ruota intorno al suo centro.
+   */
+  focus(name, yawDeg = null, ms = 650) {
+    const { THREE } = this.L, cam = this.camera, c = this.controls;
+    if (!this.built) return;
+    const t0 = (c ? c.target : this.target).clone(), s0 = new THREE.Spherical().setFromVector3(cam.position.clone().sub(t0)), fov0 = cam.fov;
+    this.setView(name, yawDeg); // posizione finale
+    if (ms <= 0) return;
+    const t1 = (c ? c.target : this.target).clone(), s1 = new THREE.Spherical().setFromVector3(cam.position.clone().sub(t1)), fov1 = cam.fov;
+    let dt = s1.theta - s0.theta; dt = Math.atan2(Math.sin(dt), Math.cos(dt)); // giro più corto
+    const start = performance.now(), sph = new THREE.Spherical(), t = new THREE.Vector3();
+    const step = (now) => {
+      const p = Math.min(1, (now - start) / ms), e = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+      if (p >= 1) { this._tween = 0; this.setView(name, yawDeg); this.render(); return; }
+      t.copy(t0).lerp(t1, e);
+      sph.set(s0.radius + (s1.radius - s0.radius) * e, s0.phi + (s1.phi - s0.phi) * e, s0.theta + dt * e);
+      cam.fov = fov0 + (fov1 - fov0) * e; cam.updateProjectionMatrix();
+      cam.position.setFromSpherical(sph).add(t);
+      cam.lookAt(t);
+      if (c) c.target.copy(t); // niente c.update(): i limiti della vista finale bloccherebbero il movimento
+      this.render();
+      this._tween = requestAnimationFrame(step);
+    };
+    // posizione di partenza (setView ha già messo la camera in quella finale)
+    cam.fov = fov0; cam.updateProjectionMatrix();
+    cam.position.setFromSpherical(s0).add(t0); cam.lookAt(t0);
+    if (c) c.target.copy(t0);
+    this._tween = requestAnimationFrame(step);
   }
 
   /**
@@ -9308,20 +9345,25 @@ class Stage {
     return { x: (v.x + 1) / 2 * el.clientWidth, y: (1 - v.y) / 2 * el.clientHeight, ok: v.z > -1 && v.z < 1 };
   }
 
-  setView(name) {
+  /** yawDeg: lato da cui guardare al posto di quello della vista (es. l'ingresso), resta anche quando lo stadio si ricostruisce. */
+  setView(name, yawDeg = null) {
     const { THREE } = this.L;
+    if (this._tween) { cancelAnimationFrame(this._tween); this._tween = 0; }
     this.pitchFrame = false;
     this.view = VIEWS[name] ? name : 'aerial';
-    const [yaw, polar, f] = VIEWS[this.view];
+    this.viewYaw = yawDeg;
+    const [yaw0, polar, f] = VIEWS[this.view];
+    const yaw = yawDeg == null ? yaw0 : yawDeg;
     const sph = new THREE.Spherical(this.dist * f, THREE.MathUtils.degToRad(polar), THREE.MathUtils.degToRad(yaw));
     let target = this.target;
+    if (this.view === 'pitch') target = new THREE.Vector3(0, 0, 0);
     if (this.view === 'stand') {
       // tribuna: la camera sta sopra il primo anello del lato lungo (davanti a quelli superiori), non fuori dallo stadio,
       // e guarda gli spalti di fronte con un obiettivo più largo (si vedono anche tetto e fari)
       const { b, tiers } = this.built.shape;
       target = new THREE.Vector3(0, this.built.height * 0.28, 0);
       const horiz = b + tiers[0].back * 0.45, up = tiers[0].top + 6 - target.y;
-      sph.set(Math.hypot(horiz, up), Math.atan2(horiz, up), 0);
+      sph.set(Math.hypot(horiz, up), Math.atan2(horiz, up), yawDeg == null ? 0 : THREE.MathUtils.degToRad(yawDeg));
     }
     if (this.view === 'outside') {
       // esterno: dalla strada, guardando la facciata e il tetto
@@ -9415,6 +9457,7 @@ class Stage {
 
   dispose() {
     if (this._raf) cancelAnimationFrame(this._raf);
+    if (this._tween) cancelAnimationFrame(this._tween);
     if (this.markerGeo) { Object.values(this.markerGeo).forEach(g => g.dispose()); this.markerMats.forEach(m => m.dispose()); }
     if (this.controls) this.controls.dispose();
     this.controls = null;
@@ -9439,7 +9482,7 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
   canvas.style.cssText = `width:100%; height:100%; display:block; touch-action:${zoom ? 'none' : 'pan-y'}; cursor:grab;`;
   container.innerHTML = '';
   container.appendChild(canvas);
-  let stage = null, disposed = false, night = false, outside = true, token = 0, markers = null, onFrame = null, crowd = null, anim = null, tifoImgs = new Map(), scrLogos = null, scrToken = 0;
+  let stage = null, disposed = false, night = false, outside = true, token = 0, markers = null, onFrame = null, crowd = null, anim = null, tifoImgs = new Map(), scrLogos = null, scrToken = 0, pendingFocus = null;
   const ready = loadLib().then(L => {
     if (disposed) return null;
     const r = container.getBoundingClientRect();
@@ -9475,6 +9518,7 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
       if (disposed || my !== token) return 0;
       fitBox();
       const capacity = s.setStadium(n, lc, ec, cc);
+      if (pendingFocus) { const [v, y] = pendingFocus; pendingFocus = null; s.setView(v, y); }
       s.render();
       return capacity;
     },
@@ -9482,6 +9526,16 @@ export function createStadiumViewer(container, { zoom = false } = {}) {
       if (!stage || !stage.built) return;
       stage.setView(view);
       stage.render();
+    },
+    /**
+     * Inquadra una parte dello stadio con un movimento morbido (vedi STADIUM_FOCUS): 'aerial', 'pitch', 'roof', 'stand',
+     * 'outside'; yaw (gradi) = lato da cui guardare (0 tribuna vicina, 90 curva destra, 180 tribuna di fronte, -90 curva sinistra).
+     * Se lo stadio non è ancora pronto si applica appena è costruito.
+     */
+    focus(view, yaw = null) {
+      if (!stage || !stage.built) { pendingFocus = [view, yaw]; return; }
+      pendingFocus = null;
+      stage.focus(view, yaw);
     },
     /** Giorno / notte (solo anteprima, non si salva). */
     setNight(on) {
@@ -9577,7 +9631,7 @@ export const STADIUM_VIEWS = [['aerial', 'Aerea'], ['top', "Dall'alto"], ['stand
 
 /**
  * Stadio a tutto schermo: ruota in ogni direzione, zoom (due dita, rotella o + / −), inquadrature, notte e esterno
- * nascosto (per guardare dentro). opts: { logo, night, hideExterior, onExterior(hide), zIndex, onClose }. Restituisce { close() }.
+ * nascosto (per guardare dentro). opts: { logo, night, hideExterior, onExterior(hide), zIndex, view, onClose }. Restituisce { close() }.
  */
 export function openStadiumOverlay(st, opts = {}) {
   injectZoomStyle();
@@ -9599,7 +9653,11 @@ export function openStadiumOverlay(st, opts = {}) {
   document.body.appendChild(el);
   const viewer = createStadiumViewer(el.querySelector('.kit-zoom-stage > div'), { zoom: true });
   viewer.setExterior(!hideExt);
-  viewer.update(st, { logo: opts.logo || '' }).then(() => viewer.setNight(night)).catch(err => console.error('Stadio:', err));
+  viewer.update(st, { logo: opts.logo || '' }).then(() => {
+    viewer.setNight(night);
+    // opts.view: si apre sulla parte che si stava modificando ('pitch', 'roof', 'outside@90', ...)
+    if (opts.view) { const [v, y] = String(opts.view).split('@'); viewer.focus(v, y == null ? null : Number(y)); }
+  }).catch(err => console.error('Stadio:', err));
   let closed = false;
   const close = () => {
     if (closed) return;
