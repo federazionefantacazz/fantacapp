@@ -97,6 +97,8 @@ L'utente vuole il colletto con la sua forma pulita e originale, non deformato, e
   - le patch **campione** hanno posizione, dimensione e x/y (non sulla manica sinistra).
 - **Fascia da capitano**: modello 3D vero, da sola o indossata sulla manica sinistra sotto la patch (`setArmband`, `_bandRing`, `_sleeveRing`, `_wornBand`, `BAND_RING_ASPECT`). Ha livelli, immagini, "C" personalizzabile e si sceglie chi la porta in Formazione e Live.
 - **Inquadrature** `FOCUS` in Kit3D.js (`collar`, `shoulder`, `sleevePatch`, `bandArm`, ...); `focus()` accetta anche `pitch`.
+  Il punto guardato resta **sempre sull'asse della maglia** (si usa solo `y`): per le parti di lato si gira la maglia
+  (`yaw`) e ci si avvicina (`d`). Con `x`/`z` il centro della rotazione finiva sulla spalla (vedi [editor.md](editor.md)).
 
 ## 6. Lezioni imparate (cosa NON rifare)
 - **Deformare la costina** per farle prendere la forma dell'altro scollo: l'utente la vuole come nel modello originale. Va messa rigida e si muove la stoffa.

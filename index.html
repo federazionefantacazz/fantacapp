@@ -647,6 +647,7 @@ html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75re
         <button type="button" class="pw-toggle" onclick="window.togglePassword('loginPassword', this)" aria-label="Mostra password" aria-pressed="false"><i class="ri-eye-line"></i></button>
       </div>
       <button type="submit" class="btn btn-green">Accedi</button>
+      <button type="button" class="link-toggle" onclick="window.doPasswordReset()">Password dimenticata?</button>
       <button type="button" class="link-toggle" onclick="window.toggleAuthBoxes('register')">Non hai un account? Registrati</button>
     </form>
 
@@ -734,7 +735,7 @@ html:not(.booted) #offline-banner{top:calc(env(safe-area-inset-top, 0px) + .75re
 </div>
 
 <script type="module">
-import { db, auth, ref, onValue, set, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from './js/firebase-config.js';
+import { db, auth, ref, onValue, set, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from './js/firebase-config.js';
 import { isPatron } from './js/services/roleService.js';
 import { patronExists, registerAccount, getAccessStatus, watchAccessStatus, watchAccountRequests, ensurePatronFlag, notifyNewRequest, STATUS_APPROVED, STATUS_REJECTED } from './js/services/accountService.js';
 import { applyThemeVars, applyThemeCss, applyBackground, cacheUserTheme, getCachedUserTheme, syncStatusBarColor, compThemeSource, LAST_UID_KEY } from './js/services/themeService.js';
@@ -1185,6 +1186,24 @@ window.doFirebaseLogin = function() {
     .finally(() => setBusy(btn, false));
 };
 
+// Password dimenticata: Firebase manda un'email con il link per sceglierne una nuova
+window.doPasswordReset = function() {
+  const email = (document.getElementById('loginEmail').value || '').trim();
+  if (!email) {
+    window.showToast('Scrivi la tua email qui sopra, poi tocca di nuovo "Password dimenticata?"', 'err');
+    document.getElementById('loginEmail').focus();
+    return;
+  }
+  sendPasswordResetEmail(auth, email)
+    // stesso messaggio anche se l'email non esiste: non si rivela chi è registrato
+    .then(() => window.showToast('Se l\'email è registrata, ti arriverà un link per scegliere una nuova password (guarda anche nello spam)', 'ok'))
+    .catch(error => {
+      if (error && error.code === 'auth/user-not-found') { window.showToast('Se l\'email è registrata, ti arriverà un link per scegliere una nuova password (guarda anche nello spam)', 'ok'); return; }
+      console.error(error);
+      window.showToast(authErrorMessage(error, 'Non è stato possibile inviare l\'email: riprova'), 'err');
+    });
+};
+
 window.doFirebaseRegister = function() {
   const email = document.getElementById('registerEmail').value;
   const pass = document.getElementById('registerPassword').value;
@@ -1249,12 +1268,12 @@ const MENU_VIEWS = {
   notifiche: NotificheView
 };
 
-window.openMenuPage = function(name) {
+window.openMenuPage = function(name, opts) {
   const view = MENU_VIEWS[name];
   window.closeSideMenu();
-  if (view) MenuPanel.open(view, name);
+  if (view) MenuPanel.open(view, name, opts);
 };
-window.closeMenuPanel = () => MenuPanel.close();
+window.closeMenuPanel = (opts) => MenuPanel.close(opts);
 
 /* ─── Impostazioni utente (settings/{uid} + cache locale) ───────────────── */
 // Lo sfondo della competizione si vede solo se l'utente non l'ha disattivato

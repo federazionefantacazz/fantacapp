@@ -54,7 +54,7 @@ function highlight(sel) {
 function closeAll() {
   document.querySelector('.cs-overlay')?.click();
   window.closeSideMenu && window.closeSideMenu();
-  MenuPanel.close();
+  MenuPanel.close({ all: true });
   if (document.getElementById('pc-overlay')?.classList.contains('open')) PlayerCard.close();
   document.getElementById('match-viewer')?.remove();
   document.getElementById('update-banner')?.classList.remove('show');

@@ -14,6 +14,13 @@ PWA senza build step (HTML + JS moduli ES), pubblicata con GitHub Pages da `main
   togliere righe di debug (`window.__stage = stage; // DEBUG`) e i file di prova nella radice (`_test_*.html`, `_dump.html`).
 - Nessun identificativo del modello AI nei commit o nelle PR.
 
+## Documentazione
+Indice in **[docs/README.md](docs/README.md)**: architettura e dati ([docs/architettura.md](docs/architettura.md)), editor
+della maglia e dello stadio con barra delle fasi e zoom sulle parti ([docs/editor.md](docs/editor.md)), stadio 3D
+([docs/stadio3d.md](docs/stadio3d.md)), bug noti e idee ([docs/bug-e-idee.md](docs/bug-e-idee.md)), guida per l'utente
+([docs/guida-utente.md](docs/guida-utente.md)). Leggere il documento giusto prima di lavorare e aggiornarlo nello
+stesso commit quando cambia qualcosa di importante.
+
 ## Maglie 3D (editor "Divisa squadra")
 Tutto quello che serve per costruire e modificare maglie, colletti, bordini, righe, colletto grosso, patch e fascia da
 capitano è in **[docs/kit3d.md](docs/kit3d.md)**: leggilo prima di toccare `js/components/Kit3D.js`,

@@ -55,7 +55,7 @@ export const NotificheView = {
         this._render(window.STATE);
         return;
       }
-      if (act && act.dataset.act === 'settings') { window.openMenuPage('settings'); return; }
+      if (act && act.dataset.act === 'settings') { window.openMenuPage('settings', { stack: true }); return; }
       const item = e.target.closest('.nf-item');
       if (item && item.dataset.page) NotificationCenter.openTarget(item.dataset.page);
     });

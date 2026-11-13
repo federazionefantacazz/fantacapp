@@ -5,6 +5,7 @@ import { createKitViewer, renderKitImage, renderBandImage, kitImageHTML, dataUrl
 import { getCutout } from '../services/imageCutout.js';
 import { getPngPatterns, getPngBrands, getChampPatches, getCompPatches, getCompPatchesOf, getPngSymbols, onKitAssetsChange } from '../services/kitAssets.js';
 import { esc } from './menuUtils.js';
+import { BackNav } from '../services/backNav.js';
 import { captainBandSVG, bandRaster, normalizeBand, BAND_FONTS, BAND_MAX_TEXT, BAND_MAX_LAYERS } from '../components/CaptainBand.js';
 import {
   normalizeKit, defaultKit, patternLabel, motifParams, motifMax, shapePath, compPatchTf,
@@ -77,6 +78,46 @@ const MAX_FILE_MB = 8;
 
 export const SWATCHES = ['#ffffff', '#000000', '#c62828', '#7a1f1f', '#e65100', '#ffd400', '#f5a623', '#2e7d32',
   '#0b5d3b', '#00bcd4', '#1e88e5', '#1e5bb8', '#0d1b4c', '#6a1b9a', '#ec407a', '#9e9e9e'];
+
+/**
+ * Barra delle fasi (sotto l'anteprima, sempre visibile): un tocco apre la fase senza tornare su a cercarla.
+ * sections = [[chiave, titolo, nome corto], ...]. Usata anche dall'editor dello stadio.
+ */
+export function phaseStrip(sections, open) {
+  return `<div class="kd-phases" role="tablist">${sections.map(([key, , short], i) =>
+    `<button role="tab" data-act="phase" data-sec="${key}" class="${open === key ? 'on' : ''}" aria-selected="${open === key}"><b>${i + 1}</b> ${esc(short)}</button>`).join('')}</div>`;
+}
+
+/** Evidenzia nella barra la fase aperta e la porta in vista (scorrendo solo la barra, non la pagina). */
+export function syncPhaseStrip(root, open) {
+  const bar = root && root.querySelector('.kd-phases');
+  if (!bar) return;
+  let on = null;
+  bar.querySelectorAll('button').forEach(b => { const v = b.dataset.sec === open; b.classList.toggle('on', v); b.setAttribute('aria-selected', String(v)); if (v) on = b; });
+  if (on) bar.scrollTo({ left: Math.max(0, on.offsetLeft - (bar.clientWidth - on.offsetWidth) / 2), behavior: 'smooth' });
+}
+
+/** In fondo alla fase aperta: fase precedente e successiva. */
+export function phaseNav(sections, open) {
+  const i = sections.findIndex(s => s[0] === open);
+  if (i < 0) return '';
+  const prev = sections[i - 1], next = sections[i + 1];
+  return `<div class="kd-phase-nav">
+    ${prev ? `<button class="mp-btn ghost" data-act="phase" data-sec="${prev[0]}"><i class="ri-arrow-left-s-line"></i> ${esc(prev[2])}</button>` : '<span></span>'}
+    ${next ? `<button class="mp-btn" data-act="phase" data-sec="${next[0]}">${esc(next[2])} <i class="ri-arrow-right-s-line"></i></button>` : '<span></span>'}
+  </div>`;
+}
+
+const SECTIONS = [
+  ['model',   'FASE 1: Busto, colletto e maniche', 'Busto e maniche'],
+  ['styles',  'FASE 2: Stili rapidi', 'Stili'],
+  ['design',  'FASE 3: Disegni a livelli', 'Disegni'],
+  ['sponsor', 'FASE 4: Scelta dello SPONSOR', 'Sponsor'],
+  ['back',    'FASE 5: Retro: nome, numero e sponsor', 'Retro'],
+  ['brand',   'FASE 6: Stemma e marchio tecnico', 'Stemma'],
+  ['patches', 'FASE 7: Scelta delle PATCH', 'Patch'],
+  ['band',    'FASE 8: Fascia da capitano', 'Fascia']
+];
 
 const STYLE_ID = 'kit-editor-style';
 /** Stile dell'editor (usato anche dall'editor dello stadio). */
@@ -185,7 +226,16 @@ export function injectStyle() {
     .kit-upload-thumb { width: 90px; height: 50px; object-fit: contain; background: var(--bg3); border-radius: 8px; border: 1px solid var(--border); }
 
     /* editor della divisa: viste sotto l'anteprima (non coprono la maglia), gruppi, segmenti, cursori e menu a livelli */
-    .kd-editor.has-open .kit-preview { height: 30vh; min-height: 180px; }
+    .kd-editor.has-open .kit-preview { height: 28vh; min-height: 170px; }
+    /* barra delle fasi (anche nell'editor dello stadio): scorre in orizzontale, la fase aperta è evidenziata */
+    .kd-phases { display: flex; gap: .35rem; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; margin: .55rem -1rem 0; padding: 0 1rem .1rem; }
+    .kd-phases::-webkit-scrollbar { display: none; }
+    .kd-phases button { flex: 0 0 auto; background: var(--bg2); color: var(--text2); border: 1px solid var(--border); border-radius: 999px; padding: .38rem .75rem;
+      font-family: var(--font-btn, inherit); font-size: .74rem; font-weight: 700; cursor: pointer; white-space: nowrap; min-height: 34px; }
+    .kd-phases button b { opacity: .6; margin-right: .1rem; }
+    .kd-phases button.on { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--bg2)); }
+    .kd-phase-nav { display: flex; justify-content: space-between; gap: .5rem; margin-top: 1.1rem; padding-top: .8rem; border-top: 1px solid var(--border); }
+    .kd-phase-nav .mp-btn { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .kd-viewbar { display: flex; align-items: center; justify-content: space-between; gap: .4rem; margin-top: .35rem; }
     .kd-hint { font-size: .65rem; color: var(--text3); font-family: var(--font-text3, inherit); }
     .kd-views { display: flex; gap: .3rem; }
@@ -312,6 +362,14 @@ export const DivisaSquadra = {
     this._unwatch = onKitAssetsChange(() => { if (this._root) { this._renderPreview(); this._renderSection(); } });
   },
 
+  /** Uscita dall'editor (freccia o tasto Indietro): con modifiche non salvate si chiede prima. */
+  confirmClose() {
+    if (!this._kit) return true;
+    const draftDirty = Object.entries(this._drafts || {}).some(([slot, d]) => Number(slot) !== this._slot && d && JSON.stringify(d.kit) !== d.saved);
+    if (!this._dirty() && !draftDirty) return true;
+    return window.confirm('Ci sono modifiche non salvate alla divisa. Uscire senza salvare?');
+  },
+
   refresh() {
     // lo stemma può cambiare (Configurazione squadra): aggiorno solo l'anteprima, senza toccare le modifiche
     if (this._root && this._kit) { this._renderSlots(); this._renderPreview(); }
@@ -393,16 +451,7 @@ export const DivisaSquadra = {
   _thumb(kit, plain = true) { return kitImageHTML(kit, { crestUrl: this._crest(), width: 180, textureSize: 512, plain, live: true }); },
 
   _renderAll() {
-    const sections = [
-      ['model',   'FASE 1: Busto, colletto e maniche'],
-      ['styles',  'FASE 2: Stili rapidi'],
-      ['design',  'FASE 3: Disegni a livelli'],
-      ['sponsor', 'FASE 4: Scelta dello SPONSOR'],
-      ['back',    'FASE 5: Retro: nome, numero e sponsor'],
-      ['brand',   'FASE 6: Stemma e marchio tecnico'],
-      ['patches', 'FASE 7: Scelta delle PATCH'],
-      ['band',    'FASE 8: Fascia da capitano']
-    ];
+    const sections = SECTIONS;
     this._root.innerHTML = `
       <div class="kit-stage">
         <div class="kit-slots" id="kit-slots"></div>
@@ -420,6 +469,7 @@ export const DivisaSquadra = {
           <button class="mp-btn ghost" data-act="undo"><i class="ri-arrow-go-back-line"></i> Annulla modifiche</button>
           <button class="mp-btn" data-act="save"><i class="ri-save-3-line"></i> Salva divisa</button>
         </div>
+        ${phaseStrip(sections, this._open)}
       </div>
       ${sections.map(([key, label]) => `
         <div class="kit-acc ${this._open === key ? 'open' : ''}" data-sec="${key}">
@@ -476,6 +526,7 @@ export const DivisaSquadra = {
   _renderSection() {
     if (!this._root) return;
     this._root.classList.toggle('has-open', !!this._open);
+    syncPhaseStrip(this._root, this._open);
     this._root.querySelectorAll('.kit-acc-body').forEach(b => { b.innerHTML = ''; });
     const key = this._open;
     const box = key && this._root.querySelector(`#kit-sec-${key}`);
@@ -484,7 +535,7 @@ export const DivisaSquadra = {
       model: this._secModel, styles: this._secStyles, design: this._secDesign, band: this._secBand,
       sponsor: this._secSponsor, back: this._secBack, brand: this._secBrand, patches: this._secPatches
     }[key];
-    box.innerHTML = fn.call(this);
+    box.innerHTML = fn.call(this) + phaseNav(SECTIONS, key);
     box.querySelectorAll('img[data-cut]').forEach(img => getCutout(img.dataset.cut).then(u => { if (u) img.src = u; }));
   },
 
@@ -1071,8 +1122,14 @@ export const DivisaSquadra = {
       </div>`;
     document.body.appendChild(el);
     const viewer = createKitViewer(el.querySelector('.kit-zoom-stage > div'), { zoom: true });
-    viewer.update(this._kit, { crestUrl: this._crest(), ...this._compPatchOpts() }).catch(err => console.error('Divisa:', err));
-    const close = () => { viewer.dispose(); el.remove(); this._zoom = null; };
+    // si apre sulla parte che si sta modificando (come l'anteprima piccola)
+    const part = this._focusName;
+    viewer.update(this._kit, { crestUrl: this._crest(), ...this._compPatchOpts() })
+      .then(() => { if (part && part !== 'front' && !part.startsWith('band')) viewer.focus(part); })
+      .catch(err => console.error('Divisa:', err));
+    // tasto Indietro del telefono: chiude solo la vista grande (prima chiudeva tutto l'editor)
+    const close = (fromBack = false) => { viewer.dispose(); el.remove(); this._zoom = null; if (!fromBack) BackNav.pop('kit-zoom'); };
+    BackNav.push('kit-zoom', () => close(true));
     el.addEventListener('click', (e) => {
       const b = e.target.closest('[data-z]');
       if (!b) return;
@@ -1082,7 +1139,7 @@ export const DivisaSquadra = {
       else if (z === 'out') viewer.zoomBy(1 / .75);
       else viewer.setView(z);
     });
-    this._zoom = { close };
+    this._zoom = { close: () => close() };
   },
 
   _onClick(e) {
@@ -1094,6 +1151,9 @@ export const DivisaSquadra = {
     const k = this._kit;
 
     switch (act) {
+      case 'phase': // barra delle fasi e "fase successiva": apre (non chiude) la fase
+        if (this._open === btn.dataset.sec) { this._scrollToOpen(); return; }
+        // falls through
       case 'toggle':
         this._picker = null;
         const wasPatches = this._open === 'patches', wasBand = this._isBand();
