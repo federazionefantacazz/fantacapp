@@ -111,7 +111,7 @@ export function injectStyle() {
 
     .kit-acc { background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: .6rem; overflow: hidden; }
     .kit-acc-head { width: 100%; display: flex; align-items: center; gap: .5rem; padding: .85rem 1rem; background: none; border: none;
-      color: var(--title, var(--accent)); font-family: var(--font-title, inherit); font-size: .8rem; font-weight: 700; text-align: left; cursor: pointer; }
+      color: #ffffff; /* titoli delle fasi sempre bianchi (solo negli editor: maglia e stadio) */ font-family: var(--font-title, inherit); font-size: .8rem; font-weight: 700; text-align: left; cursor: pointer; }
     .kit-acc-head span { flex: 1; }
     .kit-acc-head i { font-size: 1.2rem; transition: transform .2s; }
     .kit-acc.open .kit-acc-head i { transform: rotate(180deg); }
