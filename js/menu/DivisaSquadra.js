@@ -149,6 +149,7 @@ export function injectStyle() {
     .kit-slots .lv-chip { position: relative; }
     .kit-slots .lv-chip.dirty::after { content: ''; position: absolute; top: 2px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--gold); }
     .kit-dirty { font-size: .7rem; color: var(--gold); text-align: center; margin-top: .3rem; min-height: 1em; }
+    .kit-dirty:empty { min-height: 0; margin-top: 0; } /* senza modifiche non lascia una riga vuota sopra i pulsanti */
 
     .kit-acc { background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: .6rem; overflow: hidden; }
     .kit-acc-head { width: 100%; display: flex; align-items: center; gap: .5rem; padding: .85rem 1rem; background: none; border: none;
@@ -228,7 +229,7 @@ export function injectStyle() {
     /* editor della divisa: viste sotto l'anteprima (non coprono la maglia), gruppi, segmenti, cursori e menu a livelli */
     .kd-editor.has-open .kit-preview { height: 28vh; min-height: 170px; }
     /* barra delle fasi (anche nell'editor dello stadio): scorre in orizzontale, la fase aperta è evidenziata */
-    .kd-phases { display: flex; gap: .35rem; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; margin: .55rem -1rem 0; padding: 0 1rem .1rem; }
+    .kd-phases { display: flex; gap: .35rem; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; margin: .95rem -1rem 0; padding: 0 1rem .1rem; }
     .kd-phases::-webkit-scrollbar { display: none; }
     .kd-phases button { flex: 0 0 auto; background: var(--bg2); color: var(--text2); border: 1px solid var(--border); border-radius: 999px; padding: .38rem .75rem;
       font-family: var(--font-btn, inherit); font-size: .74rem; font-weight: 700; cursor: pointer; white-space: nowrap; min-height: 34px; }

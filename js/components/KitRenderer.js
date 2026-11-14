@@ -978,6 +978,7 @@ export async function paintKitTexture(rawKit, opts = {}) {
   // lato del pezzo → manica vicina: davanti sinistra = manica L, dietro sinistra = manica R (visto da dietro)
   const sideSleeve = (part, side) => (part === 'front') === (side === 'left') ? 'sleeveL' : 'sleeveR';
   const sh = k.shoulders;
+  const NECK_IN = .06;
   // sulla raglan le spalle sono già parte delle maniche (colore delle maniche)
   if (sh.shape !== 'none' && !raglan && mask && mask.shoulder) {
     const f = clamp(sh.size, 50, 160) / 100;
@@ -987,7 +988,9 @@ export async function paintKitTexture(rawKit, opts = {}) {
       x.fillStyle = sh.match ? sleeveColor(sideSleeve(p, side)) : safeColor(c.shoulders);
       const dir = side === 'left' ? 1 : -1;                   // verso il centro del pezzo
       const ox = side === 'left' ? r.x - 4 : r.x + r.w + 4;   // bordo esterno
-      const neckX = r.x + (side === 'left' ? m.neckL : m.neckR) * r.w;
+      // angolo del colletto un po' più verso il centro: la stoffa che col girocollo (e vicino alla costina) sale fino al
+      // colletto sta oltre l'angolo misurato sulla maschera, e restava del colore del busto (triangolini sulla spalla)
+      const neckX = r.x + (side === 'left' ? m.neckL : m.neckR) * r.w + dir * r.w * NECK_IN;
       x.beginPath();
       if (sh.shape === 'raglan') {
         // dall'angolo del colletto scende in diagonale fino all'ascella

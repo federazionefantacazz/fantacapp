@@ -100,6 +100,8 @@ L'utente vuole il colletto con la sua forma pulita e originale, non deformato, e
   Il punto guardato resta **sempre sull'asse della maglia** (si usa solo `y`): per le parti di lato si gira la maglia
   (`yaw`) e ci si avvicina (`d`). Con `x`/`z` il centro della rotazione finiva sulla spalla (vedi [editor.md](editor.md)).
 
+- **Spalle colorate sulla classica** (`shoulders.shape` raglan / sella): partono dall'angolo del colletto spostato verso il centro del 6% (`NECK_IN` in KitRenderer.js). L'angolo misurato sulla maschera è più esterno della stoffa che sale fino al colletto (soprattutto col girocollo), e lì restavano triangolini del colore del busto.
+
 ## 6. Lezioni imparate (cosa NON rifare)
 - **Deformare la costina** per farle prendere la forma dell'altro scollo: l'utente la vuole come nel modello originale. Va messa rigida e si muove la stoffa.
 - **Bordo della stoffa con spostamento relativo** o con i punti delle cuciture delle spalle presi come collo: viene ondulato. Ogni punto del bordo va **esattamente** sulla linea (`target - P`); il collo si riconosce per vicinanza alla costina originale (`on_neck`, ≤ 2,5 mm, non 4 mm, se no si prendono punti delle cuciture).
