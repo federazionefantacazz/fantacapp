@@ -7250,6 +7250,21 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       extrude(THREE, run, rect(W, W + 0.15, 3.6, 4.2, 1), pos, idx);                           // fascia tra i due piani
       extrude(THREE, run, rect(W, W + 0.06, 0.5, 3.6, 0), winPos, winIdx);                     // vetrine al piano terra
       // facce con le texture: pannelli della parete, pietra del basamento (fronte, zoccolo e terrazza), vetrine
+      // Anfield, tribuna di fronte (Sir Kenny Dalglish Stand): parete bianca liscia con le grandi torri di mattoni rossi
+      // (scale) che sporgono dal muro, da terra fin quasi sotto il tetto, con la fessura vetrata scura in mezzo
+      const opp = anf && !mainBrick && run.pts.some(p => onLongSide(p) && Math.abs(p.x) < 3) && run.pts.find(p => onLongSide(p) && Math.abs(p.x) < 3).z * (shape.runs.find(r => wallTopOf(r) > Hmain - 0.5)?.pts.find(q => onLongSide(q))?.z || 1) < 0;
+      if (opp) {
+        const sp = run.pts.find(p => onLongSide(p) && Math.abs(p.x) < 3), szO = Math.sign(sp.z), zw = szO * (shape.b + o), Ht = H + 1.2;
+        const half = Math.min(...run.pts.filter(p => onLongSide(p)).map(p => Math.abs(p.x)).concat([shape.a])) ;
+        const xs = [-0.78, -0.3, 0.3, 0.78].map(f => f * Math.max(...run.pts.filter(q => onLongSide(q)).map(q => Math.abs(q.x))));
+        void half;
+        for (const x of xs) {
+          const w = 9, dz = CLAD_PODIUM_W + 2.5;
+          boxAt(brickPiers, x, Ht / 2, zw + szO * dz / 2, [w, 0, 0], [0, Ht, 0], [0, 0, dz]);
+          boxAt(winBoxes, x, (PH + Ht - 2) / 2 + 1, zw + szO * (dz + 0.03), [1.1, 0, 0], [0, Ht - PH - 3, 0], [0, 0, 0.1]);
+          boxAt(accentBoxes, x, Ht + 0.3, zw + szO * dz / 2, [w + 0.3, 0, 0], [0, 0.6, 0], [0, 0, dz + 0.3]);
+        }
+      }
       if (mainBrick) stripUV(run, [{ d: o + 0.32, h: PH }, { d: o + 0.32, h: HG }], stoneFace, STONE_TILE, STONE_TILE);
       else stripUV(run, [{ d: o + 0.32, h: PH }, { d: o + 0.32, h: anf ? roofUnder(o + 0.3) : H - CH }], panelFace, CLAD_TILE[0], CLAD_TILE[1]);
       stripUV(run, [{ d: W + 0.01, h: 4.2 }, { d: W + 0.01, h: PH }], stoneFace, STONE_TILE, STONE_TILE);
