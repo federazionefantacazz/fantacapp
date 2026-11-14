@@ -149,6 +149,7 @@ export function injectStyle() {
     .kit-slots .lv-chip { position: relative; }
     .kit-slots .lv-chip.dirty::after { content: ''; position: absolute; top: 2px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--gold); }
     .kit-dirty { font-size: .7rem; color: var(--gold); text-align: center; margin-top: .3rem; min-height: 1em; }
+    .kit-dirty:empty { min-height: 0; margin-top: 0; } /* senza modifiche non lascia una riga vuota sopra i pulsanti */
 
     .kit-acc { background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: .6rem; overflow: hidden; }
     .kit-acc-head { width: 100%; display: flex; align-items: center; gap: .5rem; padding: .85rem 1rem; background: none; border: none;
@@ -228,7 +229,7 @@ export function injectStyle() {
     /* editor della divisa: viste sotto l'anteprima (non coprono la maglia), gruppi, segmenti, cursori e menu a livelli */
     .kd-editor.has-open .kit-preview { height: 28vh; min-height: 170px; }
     /* barra delle fasi (anche nell'editor dello stadio): scorre in orizzontale, la fase aperta è evidenziata */
-    .kd-phases { display: flex; gap: .35rem; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; margin: .55rem -1rem 0; padding: 0 1rem .1rem; }
+    .kd-phases { display: flex; gap: .35rem; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; margin: .95rem -1rem 0; padding: 0 1rem .1rem; }
     .kd-phases::-webkit-scrollbar { display: none; }
     .kd-phases button { flex: 0 0 auto; background: var(--bg2); color: var(--text2); border: 1px solid var(--border); border-radius: 999px; padding: .38rem .75rem;
       font-family: var(--font-btn, inherit); font-size: .74rem; font-weight: 700; cursor: pointer; white-space: nowrap; min-height: 34px; }
@@ -250,7 +251,9 @@ export function injectStyle() {
     .kd-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; }
     #menu-panel .kd-opts .lv-chip, .kd-opts .lv-chip { width: 100%; border-radius: 10px; padding: .45rem .5rem; text-align: center; line-height: 1.2; white-space: normal; }
     .kd-desc { font-size: .72rem; color: var(--text2); font-family: var(--font-sub, inherit); line-height: 1.35; margin-top: .45rem; background: var(--bg2); border-radius: 10px; padding: .45rem .6rem; }
-    .kd-range { display: grid; grid-template-columns: minmax(0, 5.6rem) 30px minmax(0, 1fr) 30px 2.7rem; gap: .35rem; align-items: center; margin: .5rem 0; }
+    .kd-range { display: grid; grid-template-columns: minmax(0, 5.6rem) 30px minmax(0, 1fr) 30px 2.7rem 30px; gap: .35rem; align-items: center; margin: .5rem 0; }
+    .kd-range .kd-reset { font-size: .9rem; font-weight: 400; color: var(--text2); }
+    .kd-range .kd-reset:disabled { opacity: .3; }
     .kd-range button { height: 30px; border-radius: 8px; background: var(--bg2); border: 1px solid var(--border); color: var(--text); font-size: 1.05rem; font-weight: 700; line-height: 1;
       padding: 0; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; font-family: inherit; }
     .kd-range button:active { border-color: var(--accent); color: var(--accent); }
@@ -579,10 +582,16 @@ export const DivisaSquadra = {
     return `<button class="lv-chip ${on ? 'on' : ''}" data-act="${act}" data-v="${esc(value)}">${esc(label)}</button>`;
   },
 
-  /** Cursore con − e + ai lati (per i ritocchi di un passo; tenendo premuto corre). */
-  _range(path, label, value, min, max, unit = '') {
+  /**
+   * Cursore con − e + ai lati (per i ritocchi di un passo; tenendo premuto corre) e ↺ per tornare al valore di partenza
+   * (`def`; se manca: 0 per spostamenti e rotazione, 100 per dimensioni e opacità).
+   */
+  _range(path, label, value, min, max, unit = '', def) {
     const btn = (d, t) => `<button type="button" data-step="${path}" data-d="${d}" data-min="${min}" data-max="${max}" aria-label="${d < 0 ? 'Meno' : 'Più'}">${t}</button>`;
-    return `<div class="kd-range"><span class="nm">${label}</span>${btn(-1, '−')}<input type="range" min="${min}" max="${max}" value="${value}" data-range="${path}" data-unit="${unit}" aria-label="${esc(String(label))}">${btn(1, '+')}<b class="val">${value}${unit}</b></div>`;
+    const key = path.split('.').pop();
+    const d0 = def != null ? def : /^(x|y|rot|textX|textY)$/.test(key) ? 0 : 100;
+    const reset = `<button type="button" class="kd-reset" data-act="range-reset" data-path="${path}" data-def="${d0}" ${Number(value) === d0 ? 'disabled' : ''} title="Ripristina" aria-label="Ripristina ${esc(String(label))}"><i class="ri-arrow-go-back-line"></i></button>`;
+    return `<div class="kd-range"><span class="nm">${label}</span>${btn(-1, '−')}<input type="range" min="${min}" max="${max}" value="${value}" data-range="${path}" data-unit="${unit}" aria-label="${esc(String(label))}">${btn(1, '+')}<b class="val">${value}${unit}</b>${reset}</div>`;
   },
 
   /** Numero con − e + (tenendo premuto corre) e cursore per i salti grandi. */
@@ -820,7 +829,7 @@ export const DivisaSquadra = {
         ${par.includes('shape') ? this._shapePicker(sel, m) : ''}
         ${par.includes('all') ? this._seg([['0', 'Numero a scelta', !m.all], ['1', 'Riempi tutta la maglia', m.all]], 'data-act="layer-param" data-k="all"') : ''}
         ${m.all ? '' : this._step(`${path}.count`, ui.count, m.count, 1, motifMax(l.type))}
-        ${['size', 'gap', 'amp', 'len'].filter(key => par.includes(key)).map(key => this._range(`${path}.${key}`, ui[key], m[key], ...lim(key))).join('')}
+        ${['size', 'gap', 'amp', 'len'].filter(key => par.includes(key)).map(key => this._range(`${path}.${key}`, ui[key], m[key], ...lim(key), '', motifParams({ type: l.type })[key])).join('')}
         ${par.includes('dir') && !(m.all && l.type === 'm-shape') ? this._seg(ui.dir.map(([v, t]) => [v, t, m.dir === v]), 'data-act="layer-param" data-k="dir"') : ''}
         ${par.includes('fill') && m.shape !== 'png' ? this._seg([['solid', 'Piene', m.fill === 'solid'], ['line', 'Solo contorno', m.fill === 'line']], 'data-act="layer-param" data-k="fill"') : ''}
         ${par.includes('stagger') && (m.dir === 'grid' || m.all) ? this._seg([['0', 'Allineate', !m.stagger], ['1', 'Sfalsate', m.stagger]], 'data-act="layer-param" data-k="stagger"') : ''}
@@ -1182,6 +1191,12 @@ export const DivisaSquadra = {
       case 'view':
         this._focusTo(v, true);
         return;
+      case 'range-reset': {
+        // ↺ di un cursore: torna al valore di partenza
+        const path = btn.dataset.path, def = Number(btn.dataset.def);
+        this._update(() => { this._set(path, def); });
+        return;
+      }
       case 'layer-reset':
         this._update(kit => { const l = this._L()[Math.min(this._layer, this._L().length - 1)]; if (l) Object.assign(l, { x: 0, y: 0, rot: 0, scale: 100 }); });
         return;
