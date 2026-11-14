@@ -65,7 +65,7 @@ L'anteprima 3D si gira da sola verso la parte che si sta modificando.
 4. Controllare che la barra delle fasi non diventi troppo lunga (nomi corti di una parola).
 
 ## 4. Aggiungere una voce dentro una fase
-- **Maglia**: usare gli helper (`_group`, `_opt`, `_chip`, `_seg`, `_range` con − e +, `_step`, `_colorPicker`,
+- **Maglia**: usare gli helper (`_group`, `_opt`, `_chip`, `_seg`, `_range` con − e + e ↺ per tornare al valore di partenza (argomento `def`; se manca 0 per spostamenti e rotazione, 100 per dimensioni e opacità), `_step`, `_colorPicker`,
   `_modal`, `_nav`). Cambiare i dati sempre con `this._update(kit => { ... })` (aggiorna anteprima e sezione).
 - **Stadio**: `_chip`, `_opts` (griglia a 2 colonne), `_seg`, `_range`, `_colorRow`; un titolo `<div class="kit-sub">`
   sopra ogni voce (serve anche per lo zoom automatico). Dati con `this._update(st => { ... })` o `this._set(path, v)`.
