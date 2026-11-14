@@ -486,7 +486,7 @@ export const PRESETS = [
     id: 'anfield', label: 'Stile Anfield',
     desc: 'Quattro tribune squadrate attaccate al campo con gli angoli chiusi e seggiolini rossi; ogni tribuna ha il suo tetto bianco con davanti la larga fascia di lastre traslucide e sopra la grande trave reticolare triangolare. La Main Stand a tre anelli è la più alta: la sua trave enorme va oltre le curve e scende a terra con due gambe a traliccio, il muro è di mattoni rossi con i pilastri alti e il nastro vetrato in cima; la Kop è un anello solo, ripido, con la reticolare sopra il tetto; fuori le altre tribune hanno il basamento di mattoni e la parete bianca con le vetrate.',
     st: {
-      rings: 2, ringsEnds: 0, ringsSides: [3, 2, 2, 1], rakeEach: true, rakeSides: [100, 105, 100, 125], track: false, shape: 'rect', corners: 'closed', mowing: 'stripes',
+      rings: 2, ringsEnds: 0, ringsSides: [3, 2, 2, 1], rakeEach: true, rakeSides: [100, 105, 100, 125], track: false, shape: 'rect', corners: 'open', cornerGap: 10, mowing: 'stripes',
       seatMode: 'single', seatMosaic: 'none', roof: 'anfield', roofCover: 'all', roofReach: 'normal', lights: 'roof', facade: 'brick', ramps: false, boxes: true,
       screen: 'none', adBoards: 'both', standGap: 0, endGap: 0,
       colors: {
@@ -7138,7 +7138,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     const pos = [], idx = [[], [], []], winPos = [], winIdx = [[], [], []], poster = { pos: [], uv: [], idx: [] };
     const panelFace = { pos: [], uv: [], idx: [] }, stoneFace = { pos: [], uv: [], idx: [] }, glassFace = { pos: [], uv: [], idx: [] };
     const accentBoxes = [], whiteBoxes = [], winBoxes = [], paveBoxes = [], flatLamps = [], drumBody = [], drumWin = [], drumTop = [], cladEnds = [], brickPiers = [], mullions = [];
-    const recessPos = [], recessIdx = [[], [], []], rafters = []; // Anfield: giuntura scura tra muro e copertura
+    const recessPos = [], recessIdx = [[], [], []], rafters = [], fillPos = [], fillUv = [], fillIdx = []; // Anfield: giuntura scura tra muro e copertura
     const deckFace = { pos: [], uv: [], idx: [] }, stairBoxes = [], cornerWins = [], cornerCaps = [], BTc = anf ? wallTexture('brick') : null;
     let cornerGeo = null; // Anfield: pavimento chiaro della terrazza rialzata e scalinate
     // ingresso principale: centro del lato lungo verso z+ (davanti al basamento)
@@ -7240,6 +7240,38 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
           boxAt(flatLamps, x + nx * 0.25, 3.35, z + nz * 0.25, [tx * 3.2, 0, tz * 3.2], [0, 0.4, 0], [-nx * 0.3, 0, -nz * 0.3]);
         }
       }
+    }
+    if (anf && st.corners === 'open') {
+      // spalti staccati agli angoli (tagliati in diagonale, come ad Anfield): fuori il muro resta chiuso, con un
+      // blocco di mattoni (basamento e parete) che unisce le due tribune vicine
+      const R2 = shape.runs.filter(r => !r.closed), endsAll = R2.flatMap(r => [[r, r.pts[0]], [r, r.pts[r.pts.length - 1]]]);
+      [[1, 1], [-1, 1], [-1, -1], [1, -1]].forEach(([sx, sz]) => {
+        // le due estremità (di tribune diverse) più vicine a questo angolo
+        const cx = sx * shape.a, cz = sz * shape.b, near = endsAll.filter(([, q]) => Math.sign(q.x) === sx && Math.sign(q.z) === sz)
+          .sort((u, v) => Math.hypot(u[1].x - cx, u[1].z - cz) - Math.hypot(v[1].x - cx, v[1].z - cz));
+        if (near.length < 2 || near[0][0] === near[1][0]) return;
+        const [ra, pa] = near[0], [rb, pb] = near[1], oa = runOuter(ra), ob = runOuter(rb);
+        const Ha = cladPodium(wallTopOf(ra), st), Hb = cladPodium(wallTopOf(rb), st), Hw = Math.min(wallTopOf(ra), wallTopOf(rb)) * 0.55;
+        const W2 = CLAD_PODIUM_W;
+        const A = [pa.x + pa.mx * (oa + W2), pa.z + pa.mz * (oa + W2)], B = [pb.x + pb.mx * (ob + W2), pb.z + pb.mz * (ob + W2)];
+        const A0 = [pa.x + pa.mx * (oa - 2), pa.z + pa.mz * (oa - 2)], B0 = [pb.x + pb.mx * (ob - 2), pb.z + pb.mz * (ob - 2)];
+        // pianta: dal muro di una al muro dell'altra, passando per lo spigolo esterno
+        const C = diagonalPoint(shape, sx, sz);
+        const dc = Math.max(oa, ob) + W2, Cc = [C.x + C.mx * dc, C.z + C.mz * dc];
+        const poly = [A0, A, Cc, B, B0];
+        const hTop = Math.max(Ha, Hb, Hw);
+        const k0 = fillPos.length / 3, N = poly.length;
+        for (let j = 0; j < N; j++) {
+          const [ax, az] = poly[j], [bx, bz] = poly[(j + 1) % N], k = fillPos.length / 3, l = Math.hypot(bx - ax, bz - az);
+          fillPos.push(ax, 0, az, bx, 0, bz, bx, hTop, bz, ax, hTop, az);
+          fillUv.push(0, 0, l, 0, l, hTop, 0, hTop);
+          fillIdx.push(k, k + 1, k + 2, k, k + 2, k + 3);
+        }
+        const tris = THREE.ShapeUtils.triangulateShape(poly.map(([x, z]) => new THREE.Vector2(x, z)), []), kt = fillPos.length / 3;
+        poly.forEach(([x, z]) => { fillPos.push(x, hTop, z); fillUv.push(x, z); });
+        tris.forEach(([a2, b2, c2]) => fillIdx.push(kt + a2, kt + b2, kt + c2));
+        void k0;
+      });
     }
     if (anf && mid) {
       // Main Stand: dalla terrazza rialzata scendono a terra, verso le due estremità, due grandi scalinate parallele alla
@@ -7442,6 +7474,14 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     inst(endPanels, cladEnds, cylinder);
     if (brickPiers.length) { const pm = brickMat([0.4, 3]); own.push(pm); tints.push([pm, 'podium']); inst(pm, brickPiers); }
     if (mullions.length) inst(steel, mullions);
+    if (fillPos.length) {
+      const fg2 = new THREE.BufferGeometry();
+      fg2.setAttribute('position', new THREE.Float32BufferAttribute(fillPos, 3));
+      fg2.setAttribute('uv', new THREE.Float32BufferAttribute(fillUv.map((v, i) => v / (i % 2 ? BTc.tileV : BTc.tileU)), 2));
+      fg2.setIndex(fillIdx); fg2.computeVertexNormals(); fg2.userData.sq = true;
+      const fm2 = brickMat([1, 1]); own.push(fm2, fg2); tints.push([fm2, 'podium']);
+      const fmesh = new THREE.Mesh(fg2, fm2); fmesh.castShadow = fmesh.receiveShadow = true; group.add(fmesh);
+    }
     if (cornerGeo) {
       const cm2 = brickMat([1, 1]); own.push(cm2, cornerGeo); tints.push([cm2, 'podium']);
       const cmesh = new THREE.Mesh(cornerGeo, cm2); cmesh.castShadow = cmesh.receiveShadow = true; group.add(cmesh);
