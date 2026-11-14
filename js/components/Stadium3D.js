@@ -1719,7 +1719,7 @@ function standsRoofOf(shape, st, run) {
   const hIn = R.h(R.dIn);
   return { ...R, main: true, h: (d) => hIn + Math.max(0, d - R.dIn) * ANF_RISE };
 }
-const ANF_OVER = 9, ANF_RISE = 0.17, ANF_CHAMFER = 13, ANF_END = 9; // ANF_END: il tetto della Main Stand va oltre le sue estremità // Main Stand di Anfield: sporgenza del tetto oltre il muro (m) e salita verso fuori
+const ANF_OVER = 9, ANF_RISE = 0.17, ANF_CHAMFER = 13, ANF_END = 9, ANF_HIP = 20; // ANF_END: il tetto della Main Stand va oltre le sue estremità // Main Stand di Anfield: sporgenza del tetto oltre il muro (m) e salita verso fuori
 
 /** Piloni del tetto per tribuna: uno per angolo, fuori dagli spalti sulla diagonale, più alti del tetto più alto. */
 function mastsOf(shape, st) {
@@ -8375,16 +8375,22 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       // la parte verso il campo (fino alla grande trave reticolare, compresa) resta dritta: scende solo quella verso fuori
       const d0 = R.dIn + 0.6, dT = d0 + (R.dOut - 0.5 - d0) * 0.3 + 3.1;
       const yLo = HG0, yHi = R.h(R.dIn) - 2, cl = (v) => Math.min(1, Math.max(0, v));
+      // tetto a padiglione (come ad Anfield, visto anche da dentro): alle due estremità tutto il tetto, dal davanti al
+      // bordo di fuori, scende inclinato verso l'angolo; in mezzo resta dritto
+      const hip = (R2, yLo2, L, k) => (u, d, y, uEnd) => {
+        if (d < R2.dIn - 1 || y <= yLo2) return 0;
+        const t = cl((Math.abs(u) - (uEnd - L)) / L);
+        if (!t) return 0;
+        return -(R2.h(Math.min(d, R2.dOut)) - yLo2) * k * t * cl((y - yLo2) / 3);
+      };
+      const hipMain = hip(R, Eend - 4, ANF_HIP, 0.42);
+      const lr = roofRuns.find(r => standsRoofOf(shape, st, r).lite), RL = lr ? standsRoofOf(shape, st, lr) : null;
+      const sxL = lr ? Math.sign(lr.pts.find(q => !onLongSide(q)).x) || 1 : 1, zEndL = shape.b + (lr ? runOuter(lr) : 0) + 1;
+      const hipLite = RL ? hip(RL, wallTopOf(lr) - 1, ANF_HIP * 0.8, 0.32) : null;
       const delta = (x, y, z) => {
-        const d = z * sz - shape.b;
-        if (d < dT || y <= yLo) return 0;
-        // la salita parte dal fianco, dal suo capo verso il campo (subito fuori dalla trave reticolare), corre lungo il
-        // fianco e il lato smussato e arriva all'altezza piena dove comincia il davanti: p = strada fatta lungo il bordo
-        const u = x * sz + xE, v = d - dT, Ltot = (R.dOut - dT) + ramp;
-        if (u >= Ltot) return 0;
-        const t = cl((v + Math.max(0, u)) / Ltot), E = Eend + (Efull - Eend) * t;
-        const w = cl((d - dT) / 7), ws = w * w * (3 - 2 * w); // dalla trave reticolare (dritta) il tetto scende morbido
-        return (E - Efull) * ws * cl((y - yLo) / (yHi - yLo));
+        let dy = hipMain(x, z * sz - shape.b, y, xE);
+        if (hipLite) dy += hipLite(z, x * sxL - shape.a, y, zEndL);
+        return dy;
       };
       const e = 0.05;
       warpGroup(group, { at: (x, y, z) => {
