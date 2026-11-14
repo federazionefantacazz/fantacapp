@@ -7099,6 +7099,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     const pos = [], idx = [[], [], []], winPos = [], winIdx = [[], [], []], poster = { pos: [], uv: [], idx: [] };
     const panelFace = { pos: [], uv: [], idx: [] }, stoneFace = { pos: [], uv: [], idx: [] }, glassFace = { pos: [], uv: [], idx: [] };
     const accentBoxes = [], whiteBoxes = [], winBoxes = [], paveBoxes = [], flatLamps = [], drumBody = [], drumWin = [], drumTop = [], cladEnds = [], brickPiers = [], mullions = [];
+    const recessPos = [], recessIdx = [[], [], []], rafters = []; // Anfield: giuntura scura tra muro e copertura
     const deckFace = { pos: [], uv: [], idx: [] }, stairBoxes = [], cornerWins = [], cornerCaps = [], BTc = anf ? wallTexture('brick') : null;
     let cornerGeo = null; // Anfield: pavimento chiaro della terrazza rialzata e scalinate
     // ingresso principale: centro del lato lungo verso z+ (davanti al basamento)
@@ -7114,23 +7115,24 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       const Rr = anf && isStands(st.roof) ? standsRoofOf(shape, st, run) : null, roofUnder = (d) => (Rr ? Rr.h(Math.min(d, Rr.dOut)) - 0.28 : H);
       // Main Stand: in alto la galleria vetrata inclinata verso fuori fin sotto il tetto (con i montanti grigi)
       const HG = mainBrick ? Math.max(PH + 8, H - 9) : H, GO = 3.4, hG = roofUnder(o + 0.3 + GO);
-      extrude(THREE, run, rect(o - 0.1, o + 0.3, 0, Math.max(H, anf ? roofUnder(o + 0.3) : H), 0), pos, idx);   // parete chiara
+      extrude(THREE, run, rect(o - 0.1, o + 0.3, 0, mainBrick ? HG : Math.max(H, anf ? roofUnder(o + 0.3) : H), 0), pos, idx);   // parete chiara
       if (mainBrick) {
         // la galleria solo sul fronte lungo (fino all'angolo); sulle testate c'è la parete grigia del tetto
         const sz0 = Math.sign(run.pts.find(q => onLongSide(q)).z) || 1;
         const gal = subRuns(run, (q) => Math.sign(q.z) === sz0 && (onLongSide(q) || Math.abs(q.mx * q.mz) > 0.3))[0] || run;
-        extrude(THREE, gal, [[o + 0.3, HG], [o + 0.3 + GO, hG], [o + 0.42 + GO, hG], [o + 0.42, HG]].map(([d, h]) => ({ d, h, m: 0 })), winPos, winIdx);
-        stripUV(gal, [{ d: o + 0.44, h: HG }, { d: o + 0.44 + GO, h: hG }], glassFace, GLASS_TILE, Math.hypot(GO, hG - HG));
-        extrude(THREE, run, rect(o + 0.3, o + 0.9, HG - 0.6, HG, 0), pos, idx);                // davanzale chiaro
-        const mc = runLengths(gal);
-        // montanti a V (come ad Anfield): da un piede in basso salgono in diagonale ai due nodi in alto vicini
-        const st2 = stations(gal, mc, 6, o + 0.5), tot = mc[mc.length - 1];
-        for (const u of st2) for (const k of [-1, 1]) {
-          const ut = Math.min(tot, Math.max(0, u + k * 3));
-          const [x0, z0] = pointAt(gal, mc, u, o + 0.48), [x1, z1] = pointAt(gal, mc, ut, o + 0.48 + GO);
-          beam(mullions, x0, HG, z0, x1, hG, z1, 0.22);
+        // giuntura tra muro e copertura (come ad Anfield): in cima ai mattoni il cornicione grigio scuro con sopra la
+        // ringhiera di vetro; dietro, rientrato, il ballatoio aperto in ombra: la parete scura in fondo e le grandi travi
+        // inclinate scure che dal fondo salgono fino al bordo del tetto, che sporge sopra
+        const dOutR = Rr ? Rr.dOut : o + 6, top = (d) => roofUnder(Math.min(d, dOutR - 0.2));
+        extrude(THREE, gal, rect(o + 0.2, o + 1.6, HG - 0.4, HG + 0.9, 0), recessPos, recessIdx);          // cornicione scuro
+        extrude(THREE, gal, rect(o + 1.3, o + 1.36, HG + 0.9, HG + 2.0, 0), winPos, winIdx);              // ringhiera di vetro
+        extrude(THREE, gal, rect(o - 1.2, o - 0.95, HG + 0.9, top(o - 1), 0), recessPos, recessIdx);      // fondo in ombra
+        extrude(THREE, gal, rect(o - 1.2, o + 1.6, HG + 0.75, HG + 0.9, 0), recessPos, recessIdx);        // pavimento del ballatoio
+        const mc = runLengths(gal), tot = mc[mc.length - 1];
+        for (const u of stations(gal, mc, 6, o)) {
+          const [x0, z0] = pointAt(gal, mc, u, o - 0.9), [x1, z1] = pointAt(gal, mc, Math.min(tot, u), dOutR - 0.6);
+          beam(rafters, x0, HG + 1, z0, x1, top(dOutR - 0.6) - 0.2, z1, 0.55);
         }
-        extrude(THREE, gal, rect(o + 0.3 + GO - 0.2, o + 0.45 + GO, hG - 0.5, hG, 0), pos, idx);   // trave in cima alla galleria
       } else extrude(THREE, run, rect(o + 0.3, o + 0.6, H - CH, H, anf ? 0 : 1), pos, idx);     // cornicione
       if (!anf) extrude(THREE, run, rect(o + 0.6, o + 0.68, H - CH - 1, H - CH - 0.1, 0), glowPos, glowIdx);
       for (const [h0, h1] of mainBrick ? [] : cladBands(run.tiers)) {
@@ -7402,6 +7404,17 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     if (cornerGeo) {
       const cm2 = brickMat([1, 1]); own.push(cm2, cornerGeo); tints.push([cm2, 'podium']);
       const cmesh = new THREE.Mesh(cornerGeo, cm2); cmesh.castShadow = cmesh.receiveShadow = true; group.add(cmesh);
+    }
+    if (recessPos.length || rafters.length) {
+      const rmat = new THREE.MeshStandardMaterial({ color: 0x3e434a, roughness: 0.7, metalness: 0.2, side: THREE.DoubleSide });
+      own.push(rmat);
+      if (recessPos.length) {
+        const rg = new THREE.BufferGeometry();
+        rg.setAttribute('position', new THREE.Float32BufferAttribute(recessPos, 3));
+        rg.setIndex(recessIdx.flat()); rg.computeVertexNormals();
+        const rm = new THREE.Mesh(rg, rmat); rm.castShadow = rm.receiveShadow = true; group.add(rm); own.push(rg);
+      }
+      inst(rmat, rafters);
     }
     if (cornerCaps.length) { const cc = new THREE.MeshStandardMaterial({ color: 0x4a4f56, roughness: 0.6, metalness: 0.3 }); own.push(cc); const im = inst(cc, cornerCaps); if (im) im.userData.noSq = true; }
     if (cornerWins.length) { const im = inst(winMat, cornerWins); if (im) im.userData.noSq = true; }

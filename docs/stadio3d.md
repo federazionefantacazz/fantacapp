@@ -49,6 +49,16 @@ Lo stadio è costruito **tutto via codice** con three.js (nessun modello da scar
 - `visibleAt(x, y, z)`: per le etichette del live (nascoste se dietro il tetto o uno spalto).
 - `dispose()` libera anche il contesto WebGL (`forceContextLoss`): i telefoni ne tengono pochi.
 
+## Stile Anfield (copertura `anfield`, facciata `brick`)
+- `isStands(roof)` / `isClad(facade)`: Anfield riusa i tetti per tribuna (`stands`) e la facciata inglese (`cladding`)
+  con le differenze dentro `if (anf)`. `standsRoofOf(shape, st, run)` dà il tetto di ogni tribuna; la Main Stand
+  (la più alta, su un lato lungo) ha `main: true`: sale verso fuori (`ANF_RISE`) e sporge (`ANF_OVER`).
+- Main Stand: trave reticolare enorme sulle gambe a traliccio, testate in lamiera argento, spigoli smussati
+  (`anfCornersOf`: blocchi di mattoni a 45° con il cornicione scuro e lo stemma), salita del tetto dal fianco lungo lo
+  spigolo (piega fatta con `warpGroup` in fondo a `buildExterior`, poi `squeeze` per il bordo parallelo al muro).
+- Giuntura muro–copertura: cornicione scuro sui mattoni, ringhiera di vetro, ballatoio in ombra con le travi inclinate
+  scure fino al bordo del tetto (`recessPos`, `rafters`).
+
 ## 5. Foto
 `renderStadiumImage(st, opts)` → data URL PNG (anteprima nella scheda del club e nel resto dell'app).
 
