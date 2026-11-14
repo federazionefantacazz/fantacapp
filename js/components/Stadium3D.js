@@ -6825,6 +6825,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     // scura con la struttura a vista (travi reticolari a sbalzo, più alte dietro, e correnti lungo la tribuna), davanti
     // la fascia chiara con la riga colorata e le luci, sotto pannelli chiari; agli angoli i piloni con i tiranti
     const pos = [], idx = [[], [], []], under = [], underUv = [], underIdx = [], covered = [], top = { pos: [], uv: [], idx: [] };
+    const infill = { pos: [], uv: [], idx: [] }; // Anfield: tetto sopra gli spalti d'angolo della Main Stand
     const anfSides = [], clearPos = [], clearIdx = [[], [], []], roofRibs = [], endPos = [], endIdx = [], endWins = []; // Anfield: tratti dritti (travi lungo il davanti), lastre chiare e travi scure sotto
     // Anfield: la tribuna più alta (Main Stand) ha il tetto liscio, senza le travi a sbalzo sopra
     const hRoofMax = anf ? Math.max(...roofRuns.map(r => { const R2 = standsRoofOf(shape, st, r); return R2.h(R2.dIn); })) : Infinity;
@@ -6870,6 +6871,30 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         for (const u of stations(run, rc, 4.5, dc)) {
           const [x0, z0] = pointAt(run, rc, u, Rs.dIn + 0.3), [x1, z1] = pointAt(run, rc, u, dGl + 0.6);
           beam(roofRibs, x0, Rs.h(Rs.dIn + 0.3) - 0.55, z0, x1, Rs.h(dGl + 0.6) - 0.55, z1, 0.8);
+        }
+        // Main Stand: gli spalti che girano l'angolo (sui lati corti) restano coperti: il tetto chiaro continua sopra di
+        // loro, alla stessa altezza, fino al tetto della tribuna vicina, con la fascia davanti
+        if (Rs.main) {
+          const sz = run.pts[0].mz, ends = run0.pts.filter(q => Math.abs(q.mx) > 0.99 && Math.sign(q.z) === sz);
+          for (const sx of [-1, 1]) {
+            const side = ends.filter(q => Math.sign(q.x) === sx);
+            if (!side.length) continue;
+            const zIn = Math.min(...side.map(q => q.z * sz)) - 1.5, zOut = shape.b + Rs.dIn + 0.5;
+            if (zOut - zIn < 1) continue;
+            const xA = shape.a + Rs.dIn, xB = shape.a + runOuter(run0) + ANF_END - 0.3, hh = (dx) => Rs.h(Math.min(dx, Rs.dOut));
+            const quad = (q) => {
+              const k = infill.pos.length / 3;
+              q.forEach(([x, y, z], i) => { infill.pos.push(x, y, z); infill.uv.push((i === 1 || i === 2 ? 1 : 0) * 0.5, (i >= 2 ? 1 : 0) * 0.5); });
+              infill.idx.push(k, k + 1, k + 2, k, k + 2, k + 3);
+            };
+            quad([[xA, zIn], [xB, zIn], [xB, zOut], [xA, zOut]].map(([x, z]) => [sx * x, hh(x - shape.a), sz * z]));
+            // fascia bianca verso il campo e, verso la tribuna vicina (più bassa), la parete fino al suo tetto
+            const hA = hh(Rs.dIn);
+            quad([[sx * xA, hA - 0.9, sz * zIn], [sx * xA, hA - 0.9, sz * zOut], [sx * xA, hA + 0.15, sz * zOut], [sx * xA, hA + 0.15, sz * zIn]]);
+            const nb = roofRuns.find(r => r !== run0 && r.pts.some(q => !onLongSide(q) && Math.sign(q.x) === sx)), Rn = nb ? standsRoofOf(shape, st, nb) : null;
+            const hLow = Rn ? Rn.h(Rn.dIn) : hA - 6;
+            quad([[sx * xA, hLow, sz * zIn], [sx * xB, hLow, sz * zIn], [sx * xB, hh(xB - shape.a) + 0.1, sz * zIn], [sx * xA, hA + 0.1, sz * zIn]]);
+          }
         }
         // Main Stand: sotto la sporgenza oltre il muro il soffitto chiaro (dalla galleria al bordo) e la grossa fascia
         if (Rs.main) {
@@ -6957,6 +6982,11 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     const metal = canvasTex(THREE, metalC), ribs = canvasTex(THREE, roofBumpCanvas(), false);
     const topMat = new THREE.MeshStandardMaterial({ map: metal, bumpMap: ribs, bumpScale: 2, roughness: 0.45, metalness: 0.35, side: THREE.DoubleSide });
     const tg = uvGeometry(THREE, top), roofTop = new THREE.Mesh(tg, topMat);
+    if (infill.pos.length) {
+      const ig = uvGeometry(THREE, infill), im2 = new THREE.Mesh(ig, topMat);
+      im2.castShadow = im2.receiveShadow = true;
+      group.add(im2); own.push(ig);
+    }
     roofTop.receiveShadow = true;
     group.add(roof, roofTop);
     own.push(metal, ribs, topMat, tg);
@@ -7124,13 +7154,15 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         // ringhiera di vetro; dietro, rientrato, il ballatoio aperto in ombra: la parete scura in fondo e le grandi travi
         // inclinate scure che dal fondo salgono fino al bordo del tetto, che sporge sopra
         const dOutR = Rr ? Rr.dOut : o + 6, top = (d) => roofUnder(Math.min(d, dOutR - 0.2));
-        extrude(THREE, gal, rect(o + 0.2, o + 1.6, HG - 0.4, HG + 0.9, 0), recessPos, recessIdx);          // cornicione scuro
-        extrude(THREE, gal, rect(o + 1.3, o + 1.36, HG + 0.9, HG + 2.0, 0), winPos, winIdx);              // ringhiera di vetro
-        extrude(THREE, gal, rect(o - 1.2, o - 0.95, HG + 0.9, top(o - 1), 0), recessPos, recessIdx);      // fondo in ombra
-        extrude(THREE, gal, rect(o - 1.2, o + 1.6, HG + 0.75, HG + 0.9, 0), recessPos, recessIdx);        // pavimento del ballatoio
-        const mc = runLengths(gal), tot = mc[mc.length - 1];
-        for (const u of stations(gal, mc, 6, o)) {
-          const [x0, z0] = pointAt(gal, mc, u, o - 0.9), [x1, z1] = pointAt(gal, mc, Math.min(tot, u), dOutR - 0.6);
+        // (solo tra i blocchi d'angolo smussati: lì sopra i mattoni c'è il loro cornicione)
+        const galR = subRuns(gal, (q) => onLongSide(q) && Math.abs(q.x) < shape.a + o - 16.5)[0] || gal;
+        extrude(THREE, galR, rect(o + 0.2, o + 1.6, HG - 0.4, HG + 0.9, 0), recessPos, recessIdx);          // cornicione scuro
+        extrude(THREE, galR, rect(o + 1.3, o + 1.36, HG + 0.9, HG + 2.0, 0), winPos, winIdx);              // ringhiera di vetro
+        extrude(THREE, galR, rect(o - 1.2, o - 0.95, HG + 0.9, top(o - 1), 0), recessPos, recessIdx);      // fondo in ombra
+        extrude(THREE, galR, rect(o - 1.2, o + 1.6, HG + 0.75, HG + 0.9, 0), recessPos, recessIdx);        // pavimento del ballatoio
+        const mc = runLengths(galR), tot = mc[mc.length - 1];
+        for (const u of stations(galR, mc, 6, o)) {
+          const [x0, z0] = pointAt(galR, mc, u, o - 0.9), [x1, z1] = pointAt(galR, mc, Math.min(tot, u), dOutR - 0.6);
           beam(rafters, x0, HG + 1, z0, x1, top(dOutR - 0.6) - 0.2, z1, 0.55);
         }
       } else extrude(THREE, run, rect(o + 0.3, o + 0.6, H - CH, H, anf ? 0 : 1), pos, idx);     // cornicione
