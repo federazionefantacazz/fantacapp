@@ -1713,13 +1713,15 @@ function standsRoofOf(shape, st, run) {
   const endMax = Math.max(...ends.map(r => r.tiers.length)), endMin = Math.min(...ends.map(r => r.tiers.length));
   const lite = !main && endMax > endMin && run.tiers.length === endMax && ends.includes(run);
   const R = roofOf({ ...shape, tiers: run.tiers, outer: runOuter(run) + (main ? ANF_OVER - 1.2 : lite ? ANF_OVER * 0.55 - 1.2 : 0) }, 'stands', reachOf_(st));
-  if (lite) { const hL = R.h(R.dIn); return { ...R, lite: true, h: (d) => hL + Math.max(0, d - R.dIn) * ANF_RISE * 0.45 }; }
+  if (lite) { const hL = R.h(R.dIn), spL = R.dOut - R.dIn; return { ...R, lite: true, h: (d) => { const f = Math.min(1, Math.max(0, (d - R.dIn) / spL)); return hL + Math.max(0, d - R.dIn) * ANF_RISE * 0.45 + 1.5 * Math.sin(Math.PI * f); } }; }
   if (!main) return R;
   // Main Stand: il tetto sale verso fuori e sporge molto oltre il muro (sotto si vede il soffitto con le travi)
   const hIn = R.h(R.dIn);
-  return { ...R, main: true, h: (d) => hIn + Math.max(0, d - R.dIn) * ANF_RISE };
+  // (bombato: a metà profondità il tetto si gonfia un poco, come un cuscino)
+  const span = R.dOut - R.dIn;
+  return { ...R, main: true, h: (d) => { const f = Math.min(1, Math.max(0, (d - R.dIn) / span)); return hIn + Math.max(0, d - R.dIn) * ANF_RISE + 2.2 * Math.sin(Math.PI * f); } };
 }
-const ANF_OVER = 9, ANF_RISE = 0.17, ANF_CHAMFER = 13, ANF_END = 9, ANF_HIP = 20; // ANF_END: il tetto della Main Stand va oltre le sue estremità // Main Stand di Anfield: sporgenza del tetto oltre il muro (m) e salita verso fuori
+const ANF_OVER = 9, ANF_RISE = 0.17, ANF_CHAMFER = 13, ANF_END = 9, ANF_HIP = 26; // ANF_END: il tetto della Main Stand va oltre le sue estremità // Main Stand di Anfield: sporgenza del tetto oltre il muro (m) e salita verso fuori
 
 /** Piloni del tetto per tribuna: uno per angolo, fuori dagli spalti sulla diagonale, più alti del tetto più alto. */
 function mastsOf(shape, st) {
@@ -6886,7 +6888,8 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
             if (!side.length) continue;
             const zIn = Math.min(...side.map(q => q.z * sz)) - 1.5, zOut = shape.b + Rs.dIn + 0.5;
             if (zOut - zIn < 1) continue;
-            const xA = shape.a + Rs.dIn, xB = shape.a + runOuter(run0) + ANF_END - 0.3, hh = (dx) => Rs.h(Math.min(dx, Rs.dOut));
+            // (alla stessa altezza del davanti della Main Stand: sono un pezzo solo, poi il padiglione li fa scendere insieme)
+            const xA = shape.a + Rs.dIn, xB = shape.a + runOuter(run0) + ANF_END - 0.3, hh = () => Rs.h(Rs.dIn) + 0.05;
             const quad = (q) => {
               const k = infill.pos.length / 3;
               q.forEach(([x, y, z], i) => { infill.pos.push(x, y, z); infill.uv.push((i === 1 || i === 2 ? 1 : 0) * 0.5, (i >= 2 ? 1 : 0) * 0.5); });
@@ -6898,7 +6901,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
             quad([[sx * xA, hA - 0.9, sz * zIn], [sx * xA, hA - 0.9, sz * zOut], [sx * xA, hA + 0.15, sz * zOut], [sx * xA, hA + 0.15, sz * zIn]]);
             const nb = roofRuns.find(r => r !== run0 && r.pts.some(q => !onLongSide(q) && Math.sign(q.x) === sx)), Rn = nb ? standsRoofOf(shape, st, nb) : null;
             const hLow = Rn ? Rn.h(Rn.dIn) : hA - 6;
-            quad([[sx * xA, hLow, sz * zIn], [sx * xB, hLow, sz * zIn], [sx * xB, hh(xB - shape.a) + 0.1, sz * zIn], [sx * xA, hA + 0.1, sz * zIn]]);
+            void hLow;
           }
         }
         // Main Stand: sotto la sporgenza oltre il muro il soffitto chiaro (dalla galleria al bordo) e la grossa fascia
@@ -8381,9 +8384,10 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         if (d < R2.dIn - 1 || y <= yLo2) return 0;
         const t = cl((Math.abs(u) - (uEnd - L)) / L);
         if (!t) return 0;
-        return -(R2.h(Math.min(d, R2.dOut)) - yLo2) * k * t * cl((y - yLo2) / 3);
+        // curva tonda (bombata): quasi piatta all'inizio, sempre più ripida verso l'angolo
+        return -(R2.h(Math.min(d, R2.dOut)) - yLo2) * k * (1 - Math.sqrt(Math.max(0, 1 - t * t))) * cl((y - yLo2) / 3);
       };
-      const hipMain = hip(R, Eend - 4, ANF_HIP, 0.42);
+      const hipMain = hip(R, Eend - 4, ANF_HIP, 0.62);
       const lr = roofRuns.find(r => standsRoofOf(shape, st, r).lite), RL = lr ? standsRoofOf(shape, st, lr) : null;
       const sxL = lr ? Math.sign(lr.pts.find(q => !onLongSide(q)).x) || 1 : 1, zEndL = shape.b + (lr ? runOuter(lr) : 0) + 1;
       const hipLite = RL ? hip(RL, wallTopOf(lr) - 1, ANF_HIP * 0.8, 0.32) : null;
