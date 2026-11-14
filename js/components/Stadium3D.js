@@ -6832,6 +6832,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     // scura con la struttura a vista (travi reticolari a sbalzo, più alte dietro, e correnti lungo la tribuna), davanti
     // la fascia chiara con la riga colorata e le luci, sotto pannelli chiari; agli angoli i piloni con i tiranti
     const pos = [], idx = [[], [], []], under = [], underUv = [], underIdx = [], covered = [], top = { pos: [], uv: [], idx: [] };
+    const roofEnds = [];
     const infill = { pos: [], uv: [], idx: [] }, facet = { pos: [], uv: [], idx: [] }; // Anfield: tetto sopra gli spalti d'angolo della Main Stand
     const anfSides = [], clearPos = [], clearIdx = [[], [], []], roofRibs = [], endPos = [], endIdx = [], endWins = []; // Anfield: tratti dritti (travi lungo il davanti), lastre chiare e travi scure sotto
     // Anfield: la tribuna più alta (Main Stand) ha il tetto liscio, senza le travi a sbalzo sopra
@@ -6855,6 +6856,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         const pts = Array.from({ length: n2 + 1 }, (_, i) => { const x = (asc ? -1 : 1) * (-xE + 2 * xE * i / n2); return { x, z: sz * shape.b, mx: 0, mz: sz }; });
         run = { pts, closed: false, tiers: run0.tiers };
       }
+      if (anf && !run.closed) roofEnds.push({ run, Rs });
       const d0 = Rs.dIn + 0.6, span = Rs.dOut - 0.5 - d0, yb = (d) => Rs.h(d) + 0.1;
       const yt = (d) => yb(d) + 1 + 4.5 * (d - d0) / span; // sopra le travi: 1 m sulla punta, 5,5 m sull'appoggio dietro
       // lastra (bordi chiari), sopra la lamiera con la texture, e fascia davanti
@@ -6991,6 +6993,36 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       }
       if (lights === 'roof') {
         for (const u of stations(run, cum, 4)) { const [x, z] = pointAt(run, cum, Math.min(u, total - 0.01), Rs.dIn + 0.9); lampAt(lamps, x, hI - (anf ? 1.6 : STANDS_FASCIA + 0.9), z, 1.4, 0.8); }
+      }
+    }
+    if (anf) {
+      // Anfield: le coperture dei settori vicini si uniscono sopra gli angoli: tra le due testate un pezzo di tetto
+      // chiaro (dal bordo verso il campo a quello di fuori, che passa dall'altezza dell'uno a quella dell'altro) con la
+      // fascia davanti
+      const ends = roofEnds.flatMap(E => [0, E.run.pts.length - 1].map(i => ({ E, p: E.run.pts[i] })));
+      const quad = (q) => {
+        const k = infill.pos.length / 3;
+        q.forEach(([x, y, z], i) => { infill.pos.push(x, y, z); infill.uv.push((i === 1 || i === 2 ? 1 : 0) * 0.5, (i >= 2 ? 1 : 0) * 0.5); });
+        infill.idx.push(k, k + 1, k + 2, k, k + 2, k + 3);
+      };
+      for (const [sx, sz] of [[1, 1], [-1, 1], [-1, -1], [1, -1]]) {
+        const cx = sx * shape.a, cz = sz * shape.b;
+        const near = ends.filter(e => Math.sign(e.p.x) === sx && Math.sign(e.p.z) === sz).sort((u, v) => Math.hypot(u.p.x - cx, u.p.z - cz) - Math.hypot(v.p.x - cx, v.p.z - cz));
+        const A = near[0], B = near.find(e => A && e.E !== A.E);
+        if (!A || !B) continue;
+        const at = (e, d, dy = 0) => [e.p.x + e.p.mx * d, e.E.Rs.h(Math.min(d, e.E.Rs.dOut)) + 0.12 + dy, e.p.z + e.p.mz * d];
+        const ai = at(A, A.E.Rs.dIn), ao = at(A, A.E.Rs.dOut), bi = at(B, B.E.Rs.dIn), bo = at(B, B.E.Rs.dOut);
+        // dentro: il punto dove i due bordi verso il campo si incontrano (spigolo del tetto sopra l'angolo degli spalti)
+        const mi = [sx * (shape.a + B.E.Rs.dIn), (ai[1] + bi[1]) / 2, sz * (shape.b + A.E.Rs.dIn)];
+        const mo = [sx * (shape.a + Math.max(B.E.Rs.dOut, A.E.Rs.dOut) * 0.75), (ao[1] + bo[1]) / 2, sz * (shape.b + Math.max(A.E.Rs.dOut, B.E.Rs.dOut) * 0.75)];
+        quad([ai, mi, mo, ao]);
+        quad([mi, bi, bo, mo]);
+        // fascia davanti, dal bordo dell'uno a quello dell'altro passando per lo spigolo
+        quad([[ai[0], ai[1] - 0.9, ai[2]], [mi[0], mi[1] - 0.9, mi[2]], mi, ai]);
+        quad([[mi[0], mi[1] - 0.9, mi[2]], [bi[0], bi[1] - 0.9, bi[2]], bi, mi]);
+        // bordo di fuori
+        quad([[ao[0], ao[1] - 1.2, ao[2]], [mo[0], mo[1] - 1.2, mo[2]], mo, ao]);
+        quad([[mo[0], mo[1] - 1.2, mo[2]], [bo[0], bo[1] - 1.2, bo[2]], bo, mo]);
       }
     }
     const g = new THREE.BufferGeometry();
