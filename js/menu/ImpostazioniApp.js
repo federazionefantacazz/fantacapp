@@ -24,10 +24,34 @@ const SCHEMA = [
   }
 ];
 
+/** Impostazioni un po' più grandi del resto dei menu (testi, interruttori, pulsanti). */
+const STYLE_ID = 'settings-view-style';
+function injectStyle() {
+  if (document.getElementById(STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = `
+    #menu-panel[data-view="settings"] .mp-card { padding: 1.15rem; }
+    #menu-panel[data-view="settings"] .mp-card-title { font-size: .85rem; margin-bottom: .9rem; }
+    #menu-panel[data-view="settings"] .mp-row { padding: .85rem 0; gap: .9rem; }
+    #menu-panel[data-view="settings"] .mp-row-label { font-size: 1.02rem; margin-bottom: .15rem; }
+    /* righe con scelte (tema, risoluzione): testo su tutta la larghezza, scelte sotto */
+    #menu-panel[data-view="settings"] .mp-row[style*="flex-wrap"] .mp-row-main { flex-basis: 100%; }
+    #menu-panel[data-view="settings"] .mp-muted { font-size: .84rem; line-height: 1.45; }
+    #menu-panel[data-view="settings"] .mp-select { min-height: 48px; font-size: .95rem; }
+    #menu-panel[data-view="settings"] .lv-chip { font-size: .88rem; padding: .4rem 1rem; }
+    #menu-panel[data-view="settings"] .mp-switch { width: 52px; height: 30px; }
+    #menu-panel[data-view="settings"] .mp-switch span::after { width: 24px; height: 24px; }
+    #menu-panel[data-view="settings"] .mp-switch input:checked + span::after { transform: translateX(22px); }
+  `;
+  document.head.appendChild(style);
+}
+
 export const ImpostazioniApp = {
   title: 'Impostazioni',
 
   mount(body, STATE) {
+    injectStyle();
     const root = document.createElement('div');
     body.appendChild(root);
     this._root = root;

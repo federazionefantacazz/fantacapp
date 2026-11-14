@@ -170,8 +170,8 @@ export const ClassificaPage = {
       const isLastRow = idx === teamsList.length - 1;
 
       const logoHTML = t.logo
-        ? `<img src="${esc(t.logo)}" alt="Logo ${esc(t.name)}" style="width:35.75px; height:35.75px; object-fit:contain; border-radius:5px; flex-shrink:0;">`
-        : `<div style="width:35.75px; height:35.75px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:5px; font-size:1.15rem; color:var(--text3);font-family:var(--font-text3,inherit); flex-shrink:0;"><i class="ri-shield-line"></i></div>`;
+        ? `<img src="${esc(t.logo)}" alt="Logo ${esc(t.name)}" style="width:32px; height:32px; object-fit:contain; border-radius:5px; flex-shrink:0;">`
+        : `<div style="width:32px; height:32px; background:var(--bg3); display:flex; align-items:center; justify-content:center; border-radius:5px; font-size:1.15rem; color:var(--text3);font-family:var(--font-text3,inherit); flex-shrink:0;"><i class="ri-shield-line"></i></div>`;
 
       const isLast = isLastRow && teamsList.length > 5;
       const fantaPtsColor = isLast ? 'var(--accent3)' : (idx === 0 ? 'var(--accent)' : 'var(--text2)');
@@ -180,9 +180,9 @@ export const ClassificaPage = {
       // Tutta la riga è cliccabile: apre la scheda della squadra
       html += `
         <div class="row-link" data-th="cls-row" ${isMe ? 'data-me' : ''} role="button" tabindex="0" data-team-id="${esc(t.id)}" onclick="window.openTeamPage(this.dataset.teamId, 'classifica')"
-             style="padding: 0.65rem 0.8rem; ${isLastRow ? '' : 'border-bottom: 1px solid var(--border);'} ${meBg} ${customStyle}">
+             style="padding: 0.42rem 0.8rem; ${isLastRow ? '' : 'border-bottom: 1px solid var(--border);'} ${meBg} ${customStyle}">
           <!-- RIGA 1: POSIZIONE + LOGO + NOME SQUADRA -->
-          <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.35rem;">
+          <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.1rem;">
             <span data-th="cls-pos" style="font-weight: 700; color: var(--text2); font-family: var(--font-sub, inherit); font-size: 0.95rem; min-width: 18px; text-align: center;">${idx + 1}</span>
             ${logoHTML}
             <span data-th="cls-team" style="font-weight: 600; color: var(--text); font-size: 0.9rem; overflow-wrap: anywhere; flex: 1; min-width: 0;">${esc(t.name)}</span>

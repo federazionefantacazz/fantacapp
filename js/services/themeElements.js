@@ -171,7 +171,7 @@ export const THEME_SECTIONS = [
       { key: 'arrow',       label: 'Freccia',               kind: 'icon',  props: ['color'], sel: th('t-arrow') },
       { key: 'detailTitle', label: 'Scheda · nome squadra', kind: 'text',  sel: '#team-detail-title' },
       { key: 'backBtn',     label: 'Scheda · pulsante Indietro', kind: 'button', sel: '#team-detail-view > div:first-child .btn-outline' },
-      { key: 'infoBtn',     label: 'Scheda · pulsante Info Club', kind: 'button', sel: '#btn-info-club' },
+      { key: 'infoBtn',     label: 'Scheda · pulsanti Info Club e Lista', kind: 'button', sel: '#btn-info-club, #btn-team-back' },
       { key: 'roleTitle',   label: 'Scheda · titoli dei ruoli', kind: 'text', sel: '#team-roster-container .label' },
       ...playerCards('#team-roster-container', 'Rosa'),
       { key: 'price',       label: 'Rosa · prezzo',         kind: 'text',  sel: '#team-roster-container .price' },
