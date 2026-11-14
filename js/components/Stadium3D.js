@@ -1708,7 +1708,12 @@ function diagonalPoint(shape, sx, sz) {
 function standsRoofOf(shape, st, run) {
   if (st.roof !== 'anfield') return roofOf({ ...shape, tiers: run.tiers }, 'stands', reachOf_(st));
   const most = Math.max(...shape.runs.map(r => r.tiers.length)), main = run.tiers.length === most && run.pts.some(p => onLongSide(p) && Math.abs(p.x) < 3);
-  const R = roofOf({ ...shape, tiers: run.tiers, outer: runOuter(run) + (main ? ANF_OVER - 1.2 : 0) }, 'stands', reachOf_(st));
+  // Anfield Road (la curva più alta delle due): stessa forma della Main Stand, con la salita meno accentuata
+  const ends = shape.runs.filter(r => !r.pts.some(p => onLongSide(p) && Math.abs(p.x) < 3));
+  const endMax = Math.max(...ends.map(r => r.tiers.length)), endMin = Math.min(...ends.map(r => r.tiers.length));
+  const lite = !main && endMax > endMin && run.tiers.length === endMax && ends.includes(run);
+  const R = roofOf({ ...shape, tiers: run.tiers, outer: runOuter(run) + (main ? ANF_OVER - 1.2 : lite ? ANF_OVER * 0.55 - 1.2 : 0) }, 'stands', reachOf_(st));
+  if (lite) { const hL = R.h(R.dIn); return { ...R, lite: true, h: (d) => hL + Math.max(0, d - R.dIn) * ANF_RISE * 0.45 }; }
   if (!main) return R;
   // Main Stand: il tetto sale verso fuori e sporge molto oltre il muro (sotto si vede il soffitto con le travi)
   const hIn = R.h(R.dIn);
@@ -6955,7 +6960,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         const sc = runLengths(side), len = sc[sc.length - 1];
         // Anfield: la reticolare a sbalzo sopra il tetto solo sulle curve (Kop e Anfield Road), sulle tribune il tetto è liscio
         const sd = sideOfPoint(side.pts[Math.floor(side.pts.length / 2)]);
-        if (!(anf && (hI > hRoofMax - 0.5 || sd % 2 === 0))) for (const u of stations(side, sc, anf ? 6 : 9)) { const [x, z] = pointAt(side, sc, u, 0); if (!onLogo(x, z)) across(side, sc, u); }
+        if (!(anf && (hI > hRoofMax - 0.5 || sd % 2 === 0 || Rs.lite))) for (const u of stations(side, sc, anf ? 6 : 9)) { const [x, z] = pointAt(side, sc, u, 0); if (!onLogo(x, z)) across(side, sc, u); }
         covered.push({ side: sideOfPoint(side.pts[Math.floor(side.pts.length / 2)]), Rs, d0, span, yt });
         if (anf) anfSides.push({ side, sc, len, Rs, d0, span, yb, hI, sd: sideOfPoint(side.pts[Math.floor(side.pts.length / 2)]) });
         if (lights === 'roof') for (const f of [0.25, 0.75]) { const [x, z] = pointAt(side, sc, len * f, Rs.dIn); spots.push([x, hI - 3, z]); }
@@ -7062,8 +7067,8 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       // e alle estremità scende sul tetto
       const hMax = Math.max(...anfSides.map(a => a.hI));
       for (const A of anfSides) {
-        const main = A.hI > hMax - 0.5 && A.len > 30 && A.sd % 2 === 0;
-        const d = A.d0 + A.span * (main ? 0.3 : 0.26), w = main ? 2.6 : 1.4, Ht = main ? 9 : 4;
+        const main = A.hI > hMax - 0.5 && A.len > 30 && A.sd % 2 === 0, lite = !!A.Rs.lite;
+        const d = A.d0 + A.span * (main ? 0.3 : 0.26), w = main ? 2.6 : lite ? 2 : 1.4, Ht = main ? 9 : lite ? 6.5 : 4;
         const [tx, tz] = tangentAt(A.side, A.sc, A.len / 2, d);
         const at = (u, dd) => {
           // oltre le estremità del tratto si prosegue dritto
@@ -7071,11 +7076,12 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
           return [x + tx * (u - uu), z + tz * (u - uu)];
         };
         // la Main Stand va fin sopra i muri delle curve; gli altri si fermano sul loro tetto
-        const ext = main ? Math.max(4, (A.sd === 0 || A.sd === 2 ? shape.a : shape.b) + (shape.outer + 3) - (A.len / 2)) : 0;
+        // (la Main Stand ha già il tetto dritto fin oltre gli angoli: la trave finisce lì, dentro la copertura)
+        const ext = 0;
         const u0 = -ext, u1 = A.len + ext, n = Math.max(4, Math.round((u1 - u0) / (main ? 5.5 : 4.5))), roofAt = (u, dd) => (u < 0 || u > A.len ? null : A.yb(dd) + 0.3);
-        const th = main ? 0.55 : 0.34, tm = main ? 0.28 : 0.17, yb0 = A.yb(d) + 0.3, ytop = yb0 + Ht;
-        // estremità degli altri: la trave scende sul tetto (sagoma a trapezio)
-        const topAt = (u) => (main ? ytop : yb0 + Ht * Math.min(1, Math.min(u - u0, u1 - u) / 6));
+        const th = main ? 0.55 : lite ? 0.45 : 0.34, tm = main ? 0.28 : lite ? 0.22 : 0.17, yb0 = A.yb(d) + 0.3, ytop = yb0 + Ht;
+        // alle estremità la trave scende fin dentro la copertura (sagoma a trapezio, più lunga sulle travi grandi)
+        const slope = main ? 14 : lite ? 10 : 6, topAt = (u) => yb0 + Ht * Math.min(1, Math.min(u - u0, u1 - u) / slope);
         let prev = null;
         for (let k = 0; k <= n; k++) {
           const u = u0 + (u1 - u0) * k / n, [xt, zt] = at(u, d), [xa, za] = at(u, d - w), [xb, zb] = at(u, d + w), yt = topAt(u);
@@ -7088,7 +7094,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
           }
           prev = { t: [xt, yt, zt], a: [xa, ya, za], b: [xb, ybb, zb] };
         }
-        if (!main) continue;
+        if (true) continue; // (niente più gambe a terra: la trave finisce nella copertura)
         // gambe a traliccio: dalla trave a ogni estremità scendono a terra inclinate verso fuori (quattro montanti che si
         // allargano verso il basso, con i traversi e le diagonali)
         for (const [u, sgn] of [[u0, -1], [u1, 1]]) {
