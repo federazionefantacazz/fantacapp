@@ -29,7 +29,7 @@ export const TeamsPage = {
 
         <div id="team-detail-view" style="display:none; animation: fadeIn 0.25s ease-out;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; gap:1rem;">
-            <button class="btn btn-outline" onclick="window.teamDetailBack()" style="width:auto; padding:.5rem 1rem; font-size:.8rem; display:inline-flex; align-items:center; gap:.4rem; margin:0;">
+            <button class="btn btn-green" id="btn-team-back" onclick="window.teamDetailBack()" style="width:auto; padding:.5rem 1rem; font-size:.8rem; display:inline-flex; align-items:center; gap:.4rem; margin:0;">
               <svg viewBox="0 0 24 24" style="width:16px; height:16px; stroke:currentColor; stroke-width:2; fill:none;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
               <span id="team-detail-back-label">Lista</span>
             </button>
@@ -44,8 +44,8 @@ export const TeamsPage = {
           <div id="team-roster-container"></div>
         </div>
 
-        <div id="club-info-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--overlay-bg, rgba(10,15,30,0.85)); backdrop-filter:blur(8px); z-index:2000; padding:2rem 1.5rem; box-sizing:border-box; align-items:center; justify-content:center;">
-          <div class="card" style="width:100%; max-width:450px; max-height:85vh; overflow-y:auto; position:relative; background:var(--card); border:1px solid var(--border); animation: fadeIn 0.2s ease-out;">
+        <div id="club-info-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--overlay-bg, rgba(10,15,30,0.85)); backdrop-filter:blur(8px); z-index:2000; padding:calc(.7rem + env(safe-area-inset-top, 0px)) .6rem calc(.7rem + env(safe-area-inset-bottom, 0px)); box-sizing:border-box; align-items:center; justify-content:center;">
+          <div class="card" style="width:100%; max-width:560px; max-height:100%; overflow-y:auto; position:relative; background:var(--card); border:1px solid var(--border); animation: fadeIn 0.2s ease-out;">
             <button class="btn btn-outline" id="close-info-modal" style="position:absolute; top:1rem; right:1rem; width:auto; padding:.4rem .6rem; font-size:.75rem;">Chiudi</button>
             <div id="club-info-content" style="margin-top:1.5rem;"></div>
           </div>
