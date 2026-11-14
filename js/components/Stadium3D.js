@@ -7202,7 +7202,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     const pos = [], idx = [[], [], []], winPos = [], winIdx = [[], [], []], poster = { pos: [], uv: [], idx: [] };
     const panelFace = { pos: [], uv: [], idx: [] }, stoneFace = { pos: [], uv: [], idx: [] }, glassFace = { pos: [], uv: [], idx: [] };
     const accentBoxes = [], whiteBoxes = [], winBoxes = [], paveBoxes = [], flatLamps = [], drumBody = [], drumWin = [], drumTop = [], cladEnds = [], brickPiers = [], mullions = [];
-    const recessPos = [], recessIdx = [[], [], []], rafters = [], fillPos = [], fillUv = [], fillIdx = []; // Anfield: giuntura scura tra muro e copertura
+    const recessPos = [], recessIdx = [[], [], []], rafters = [], fillPos = [], fillUv = [], fillIdx = [], whiteFill = { pos: [], idx: [] }; // Anfield: giuntura scura tra muro e copertura
     const deckFace = { pos: [], uv: [], idx: [] }, stairBoxes = [], cornerWins = [], cornerCaps = [], BTc = anf ? wallTexture('brick') : null;
     let cornerGeo = null; // Anfield: pavimento chiaro della terrazza rialzata e scalinate
     // ingresso principale: centro del lato lungo verso z+ (davanti al basamento)
@@ -7240,7 +7240,15 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         }
       } else extrude(THREE, run, rect(o + 0.3, o + 0.6, H - CH, H, anf ? 0 : 1), pos, idx);     // cornicione
       if (!anf) extrude(THREE, run, rect(o + 0.6, o + 0.68, H - CH - 1, H - CH - 0.1, 0), glowPos, glowIdx);
-      for (const [h0, h1] of mainBrick ? [] : cladBands(run.tiers)) {
+      // Anfield Road (curva a due anelli): sopra il basamento la grande vetrata scura a nastro, sopra il box bianco
+      const liteRun = anf && isStands(st.roof) && !!standsRoofOf(shape, st, run).lite;
+      if (liteRun) {
+        const g0 = PH + 0.8, g1 = Math.min(PH + 6.5, H - 4);
+        extrude(THREE, run, rect(o + 0.3, o + 0.45, g0, g1, 0), winPos, winIdx);
+        stripUV(run, [{ d: o + 0.46, h: g0 }, { d: o + 0.46, h: g1 }], glassFace, GLASS_TILE, g1 - g0);
+        extrude(THREE, run, rect(o + 0.3, o + 0.9, g1, g1 + 0.5, 0), recessPos, recessIdx);
+      }
+      for (const [h0, h1] of mainBrick || liteRun ? [] : cladBands(run.tiers)) {
         if (h0 <= PH + 1) continue;
         extrude(THREE, run, rect(o + 0.3, o + 0.4, h0, h1, 0), winPos, winIdx);
         stripUV(run, [{ d: o + 0.41, h: h0 }, { d: o + 0.41, h: h1 }], glassFace, GLASS_TILE, h1 - h0);
@@ -7310,6 +7318,8 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         const u = (k + 0.5) * step, [x, z] = pointAt(front, cum, u, 0), [tx, tz] = tangentAt(front, cum, u, 0);
         if (!flat(u, 3.5) || inEntrance(x, z)) continue;
         const nx = tz, nz = -tx; // verso fuori (da fuori la destra è verso -t)
+        // Anfield Road: i grandi striscioni rossi sul basamento
+        if (anf && standsRoofOf(shape, st, run).lite && isStands(st.roof)) boxAt(accentBoxes, x + nx * 0.08, PH / 2 + 0.4, z + nz * 0.08, [tx * Math.min(step - 3, 6), 0, tz * Math.min(step - 3, 6)], [0, PH - 1.2, 0], [nx * 0.1, 0, nz * 0.1]);
         if (PH > 6.5 && !anf) {
           const w = Math.min(step - 2.6, 7.5) / 2, h0 = 4.6, h1 = PH - 0.5, v = k % 3, b = poster.pos.length / 3, d = 0.05;
           for (const [s, h] of [[-w, h0], [w, h0], [w, h1], [-w, h1]]) poster.pos.push(x + tx * s + nx * d, h, z + tz * s + nz * d);
@@ -7342,16 +7352,24 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         const poly = [A0, A, Cc, B, B0];
         // (alto quanto il muro più basso dei due: il lato resta pieno fino all'angolo)
         const hTop = Math.max(Ha, Hb, Hw, Math.min(wallTopOf(ra), wallTopOf(rb)));
-        const k0 = fillPos.length / 3, N = poly.length;
+        // mattoni fino al basamento, sopra la parete bianca (come le tribune ai lati)
+        const hBr = Math.min(Ha, Hb, hTop), k0 = fillPos.length / 3, N = poly.length;
         for (let j = 0; j < N; j++) {
           const [ax, az] = poly[j], [bx, bz] = poly[(j + 1) % N], k = fillPos.length / 3, l = Math.hypot(bx - ax, bz - az);
-          fillPos.push(ax, 0, az, bx, 0, bz, bx, hTop, bz, ax, hTop, az);
-          fillUv.push(0, 0, l, 0, l, hTop, 0, hTop);
+          fillPos.push(ax, 0, az, bx, 0, bz, bx, hBr, bz, ax, hBr, az);
+          fillUv.push(0, 0, l, 0, l, hBr, 0, hBr);
           fillIdx.push(k, k + 1, k + 2, k, k + 2, k + 3);
+          if (hTop > hBr + 0.1) {
+            const kw = whiteFill.pos.length / 3;
+            whiteFill.pos.push(ax, hBr, az, bx, hBr, bz, bx, hTop, bz, ax, hTop, az);
+            whiteFill.idx.push(kw, kw + 1, kw + 2, kw, kw + 2, kw + 3);
+          }
         }
         const tris = THREE.ShapeUtils.triangulateShape(poly.map(([x, z]) => new THREE.Vector2(x, z)), []), kt = fillPos.length / 3;
-        poly.forEach(([x, z]) => { fillPos.push(x, hTop, z); fillUv.push(x, z); });
-        tris.forEach(([a2, b2, c2]) => fillIdx.push(kt + a2, kt + b2, kt + c2));
+        const kw2 = whiteFill.pos.length / 3;
+        poly.forEach(([x, z]) => { whiteFill.pos.push(x, hTop, z); });
+        tris.forEach(([a2, b2, c2]) => whiteFill.idx.push(kw2 + a2, kw2 + b2, kw2 + c2));
+        void kt;
         void k0;
       });
     }
@@ -7556,6 +7574,13 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     inst(endPanels, cladEnds, cylinder);
     if (brickPiers.length) { const pm = brickMat([0.4, 3]); own.push(pm); tints.push([pm, 'podium']); inst(pm, brickPiers); }
     if (mullions.length) inst(steel, mullions);
+    if (whiteFill.pos.length) {
+      const wg2 = new THREE.BufferGeometry();
+      wg2.setAttribute('position', new THREE.Float32BufferAttribute(whiteFill.pos, 3));
+      wg2.setIndex(whiteFill.idx); wg2.computeVertexNormals(); wg2.userData.sq = true;
+      own.push(wg2);
+      const wm2 = new THREE.Mesh(wg2, cladMat); wm2.castShadow = wm2.receiveShadow = true; group.add(wm2);
+    }
     if (fillPos.length) {
       const fg2 = new THREE.BufferGeometry();
       fg2.setAttribute('position', new THREE.Float32BufferAttribute(fillPos, 3));
