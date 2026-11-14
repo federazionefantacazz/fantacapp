@@ -7256,7 +7256,9 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
       if (opp) {
         const sp = run.pts.find(p => onLongSide(p) && Math.abs(p.x) < 3), szO = Math.sign(sp.z), zw = szO * (shape.b + o), Ht = H + 1.2;
         const half = Math.min(...run.pts.filter(p => onLongSide(p)).map(p => Math.abs(p.x)).concat([shape.a])) ;
-        const xs = [-0.78, -0.3, 0.3, 0.78].map(f => f * Math.max(...run.pts.filter(q => onLongSide(q)).map(q => Math.abs(q.x))));
+        // fino agli angoli: l'ultima torre sta sullo spigolo del muro
+        const xMax = Math.max(...run.pts.filter(q => onLongSide(q)).map(q => Math.abs(q.x))) + o * 0.6;
+        const xs = [-1, -0.6, -0.2, 0.2, 0.6, 1].map(f => f * (xMax - 4.5));
         void half;
         for (const x of xs) {
           const w = 9, dz = CLAD_PODIUM_W + 2.5;
@@ -7338,7 +7340,8 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         const C = diagonalPoint(shape, sx, sz);
         const dc = Math.max(oa, ob) + W2, Cc = [C.x + C.mx * dc, C.z + C.mz * dc];
         const poly = [A0, A, Cc, B, B0];
-        const hTop = Math.max(Ha, Hb, Hw);
+        // (alto quanto il muro più basso dei due: il lato resta pieno fino all'angolo)
+        const hTop = Math.max(Ha, Hb, Hw, Math.min(wallTopOf(ra), wallTopOf(rb)));
         const k0 = fillPos.length / 3, N = poly.length;
         for (let j = 0; j < N; j++) {
           const [ax, az] = poly[j], [bx, bz] = poly[(j + 1) % N], k = fillPos.length / 3, l = Math.hypot(bx - ax, bz - az);
