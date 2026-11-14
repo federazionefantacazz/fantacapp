@@ -6832,7 +6832,7 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     // scura con la struttura a vista (travi reticolari a sbalzo, più alte dietro, e correnti lungo la tribuna), davanti
     // la fascia chiara con la riga colorata e le luci, sotto pannelli chiari; agli angoli i piloni con i tiranti
     const pos = [], idx = [[], [], []], under = [], underUv = [], underIdx = [], covered = [], top = { pos: [], uv: [], idx: [] };
-    const infill = { pos: [], uv: [], idx: [] }; // Anfield: tetto sopra gli spalti d'angolo della Main Stand
+    const infill = { pos: [], uv: [], idx: [] }, facet = { pos: [], uv: [], idx: [] }; // Anfield: tetto sopra gli spalti d'angolo della Main Stand
     const anfSides = [], clearPos = [], clearIdx = [[], [], []], roofRibs = [], endPos = [], endIdx = [], endWins = []; // Anfield: tratti dritti (travi lungo il davanti), lastre chiare e travi scure sotto
     // Anfield: la tribuna più alta (Main Stand) ha il tetto liscio, senza le travi a sbalzo sopra
     const hRoofMax = anf ? Math.max(...roofRuns.map(r => { const R2 = standsRoofOf(shape, st, r); return R2.h(R2.dIn); })) : Infinity;
@@ -6878,6 +6878,23 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
         for (const u of stations(run, rc, 4.5, dc)) {
           const [x0, z0] = pointAt(run, rc, u, Rs.dIn + 0.3), [x1, z1] = pointAt(run, rc, u, dGl + 0.6);
           beam(roofRibs, x0, Rs.h(Rs.dIn + 0.3) - 0.55, z0, x1, Rs.h(dGl + 0.6) - 0.55, z1, 0.8);
+        }
+        // Main Stand: alle due estremità l'ultimo tratto del tetto (la falda che scende verso l'angolo) è di lastre
+        // traslucide grigie con i montanti, come ad Anfield; il padiglione (in fondo a buildExterior) la piega insieme al tetto
+        if (Rs.main) {
+          const sz = run.pts[0].mz, xEnd = shape.a + runOuter(run0) + ANF_END, L = ANF_HIP * 0.85, NU = 10, ND = 8;
+          for (const sx of [-1, 1]) {
+            const k0 = facet.pos.length / 3;
+            for (let i = 0; i <= NU; i++) for (let j = 0; j <= ND; j++) {
+              const x = sx * (xEnd - L + L * i / NU), d = Rs.dIn + 0.3 + (Rs.dOut - Rs.dIn - 0.3) * j / ND;
+              facet.pos.push(x, Rs.h(d) + 0.18, sz * (shape.b + d));
+              facet.uv.push(L * i / NU / 3, (Rs.dOut - Rs.dIn) * j / ND / 3);
+            }
+            for (let i = 0; i < NU; i++) for (let j = 0; j < ND; j++) {
+              const a = k0 + i * (ND + 1) + j, b = a + ND + 1;
+              facet.idx.push(a, b, b + 1, a, b + 1, a + 1);
+            }
+          }
         }
         // Main Stand: gli spalti che girano l'angolo (sui lati corti) restano coperti: il tetto chiaro continua sopra di
         // loro, alla stessa altezza, fino al tetto della tribuna vicina, con la fascia davanti
@@ -6990,6 +7007,21 @@ function buildExterior(THREE, shape, st, structMat, parapetMat, own, roofOnly = 
     const metal = canvasTex(THREE, metalC), ribs = canvasTex(THREE, roofBumpCanvas(), false);
     const topMat = new THREE.MeshStandardMaterial({ map: metal, bumpMap: ribs, bumpScale: 2, roughness: 0.45, metalness: 0.35, side: THREE.DoubleSide });
     const tg = uvGeometry(THREE, top), roofTop = new THREE.Mesh(tg, topMat);
+    if (facet.pos.length) {
+      // lastre grigie traslucide a riquadri (3 x 3 m) con i montanti scuri
+      const gc = document.createElement('canvas'); gc.width = gc.height = 128;
+      const gx = gc.getContext('2d');
+      const gg = gx.createLinearGradient(0, 0, 128, 128); gg.addColorStop(0, '#aeb6be'); gg.addColorStop(1, '#8f99a3');
+      gx.fillStyle = gg; gx.fillRect(0, 0, 128, 128);
+      gx.fillStyle = 'rgba(255,255,255,.25)'; gx.fillRect(8, 8, 50, 112);
+      gx.fillStyle = '#4a525b'; gx.fillRect(0, 0, 128, 7); gx.fillRect(0, 0, 7, 128);
+      const gt = new THREE.CanvasTexture(gc); gt.wrapS = gt.wrapT = THREE.RepeatWrapping; gt.colorSpace = THREE.SRGBColorSpace; gt.anisotropy = 8;
+      const fm = new THREE.MeshStandardMaterial({ map: gt, roughness: 0.2, metalness: 0.4, transparent: true, opacity: 0.9, side: THREE.DoubleSide, emissive: 0xffffff, emissiveMap: gt, emissiveIntensity: 0.05 });
+      const fgeo = uvGeometry(THREE, facet);
+      own.push(gt, fm, fgeo);
+      nightGlow.push([fm, 0.05, 0.5]);
+      group.add(new THREE.Mesh(fgeo, fm));
+    }
     if (infill.pos.length) {
       const ig = uvGeometry(THREE, infill), im2 = new THREE.Mesh(ig, topMat);
       im2.castShadow = im2.receiveShadow = true;
