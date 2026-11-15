@@ -563,7 +563,7 @@ const ASSET_BASE = 'icons/kit3d/';
 export const KIT3D_FILES = {
   model: ASSET_BASE + 'shirt.glb', collarPolo: ASSET_BASE + 'collar-polo.glb', neckPolo: ASSET_BASE + 'neck-polo.bin', mask: ASSET_BASE + 'mask.png', seams: ASSET_BASE + 'seams.jpg',
   neckCrewSetin: ASSET_BASE + 'neck-crew-setin.bin', neckVRaglan: ASSET_BASE + 'neck-v-raglan.bin', neckCutVRaglan: ASSET_BASE + 'neck-cutv-raglan.bin',
-  neckBands: ASSET_BASE + 'neck-bands.json',
+  neckBands: ASSET_BASE + 'neck-bands.json', sideBands: ASSET_BASE + 'side-bands.json',
   raglan: ASSET_BASE + 'shirt-raglan.glb', raglanMask: ASSET_BASE + 'mask-raglan.png', raglanSeams: ASSET_BASE + 'seams-raglan.jpg',
   collarPoloRaglan: ASSET_BASE + 'collar-polo-raglan.glb', neckCutRaglan: ASSET_BASE + 'neck-cut-raglan.bin',
   neckPoloRaglan: ASSET_BASE + 'neck-polo-raglan.bin'
@@ -795,6 +795,30 @@ async function drawBackPrint(ctx, bp, r) {
 }
 
 /* --------------------------------------------- maschera e scollo del modello */
+let sideBandsJob = null;
+/** Bande laterali della classica (tools/kit3d/side_bands.py): per pezzo i triangoli vicino alle cuciture laterali con la
+ * distanza vera (mm) dalla cucitura; si colora la parte entro `half` × dimensione. */
+function loadSideBands() {
+  if (!sideBandsJob) sideBandsJob = fetch(KIT3D_FILES.sideBands).then(r => (r.ok ? r.json() : null)).catch(() => null);
+  return sideBandsJob;
+}
+/** Disegna su x la parte dei triangoli (v: [u, v, mm, …], t) con distanza < W mm. */
+function fillDistBand(x, S, { v, t }, W) {
+  x.beginPath();
+  for (let i = 0; i < t.length; i += 3) {
+    const poly = [];
+    for (let j = 0; j < 3; j++) {
+      const a = t[i + j] * 3, b = t[i + (j + 1) % 3] * 3, fa = v[a + 2] - W, fb = v[b + 2] - W;
+      if (fa < 0) poly.push(v[a], v[a + 1]);
+      if ((fa < 0) !== (fb < 0)) { const q = fa / (fa - fb); poly.push(v[a] + (v[b] - v[a]) * q, v[a + 1] + (v[b + 1] - v[a + 1]) * q); }
+    }
+    if (poly.length < 6) continue;
+    x.moveTo(poly[0] * S, poly[1] * S);
+    for (let j = 2; j < poly.length; j += 2) x.lineTo(poly[j] * S, poly[j + 1] * S);
+    x.closePath();
+  }
+  x.fill();
+}
 let neckBandsJob = null;
 /** Dati del bordino (icons/kit3d/neck-bands.json): per maglia e scollo { rows, pts } (fascetta 3D) o { tex: [{ part, top, bot }] }. */
 function loadNeckBands() {
@@ -869,6 +893,8 @@ export async function paintKitTexture(rawKit, opts = {}) {
   const model = kitModel(k), raglan = model === MODELS.raglan;
   const R = (part) => { const r = model.uv[part]; return { x: r.x * S, y: r.y * S, w: r.w * S, h: r.h * S }; };
   const mask = await loadMask(model);
+  // classica con le bande laterali: banda di larghezza costante a cavallo delle cuciture, continua sotto l'ascella
+  const sideBands = k.sleeveDeco === 'side' && !raglan ? await loadSideBands() : null;
   const seams = await loadCleanImage(model.seams);
 
   const out = canvasOf(S, S);
@@ -1115,7 +1141,13 @@ export async function paintKitTexture(rawKit, opts = {}) {
           x.beginPath(); x.moveTo(r.x + r.w * .3, y - r.h * .08); x.lineTo(r.x + r.w / 2, y); x.lineTo(r.x + r.w * .7, y - r.h * .08); x.stroke();
         }
         break;
-      case 'side': x.fillRect(r.x - r.w, r.y - r.h, r.w * (1 + .07 * f), r.h * 3); x.fillRect(r.x + r.w * (1 - .07 * f), r.y - r.h, r.w * (1 + .07 * f), r.h * 3); break;
+      case 'side':
+        if (sideBands && sideBands.parts[p]) {   // classica: sotto la manica, larga uguale (spostamento e rotazione non si applicano)
+          x.restore(); x.save();
+          fillDistBand(x, S, sideBands.parts[p], sideBands.half * f);
+          break;
+        }
+        x.fillRect(r.x - r.w, r.y - r.h, r.w * (1 + .07 * f), r.h * 3); x.fillRect(r.x + r.w * (1 - .07 * f), r.y - r.h, r.w * (1 + .07 * f), r.h * 3); break;
     }
     x.restore();
     // polsino: in fondo al pezzo della manica
@@ -1129,10 +1161,10 @@ export async function paintKitTexture(rawKit, opts = {}) {
   }));
   if (k.sleeveDeco === 'side') ['front', 'back'].forEach(p => inPart(p, (x, r) => {
     const f = clamp(k.sleeveTf.scale, 40, 200) / 100;
-    // classica: solo sotto il braccio (dall'ascella in giù); più in alto il bordo del pezzo è il giro manica e la banda
-    // saliva sulla spalla come un triangolo
-    const top = raglan ? r.y : r.y + r.h * (p === 'front' ? .36 : .38);
-    x.fillStyle = trim; x.fillRect(r.x, top, r.w * .045 * f, r.y + r.h - top); x.fillRect(r.x + r.w * (1 - .045 * f), top, r.w * .045 * f, r.y + r.h - top);
+    x.fillStyle = trim;
+    // classica: banda di larghezza costante misurata sulla maglia (side-bands.json), dall'ascella all'orlo
+    if (sideBands && sideBands.parts[p]) { fillDistBand(x, S, sideBands.parts[p], sideBands.half * f); return; }
+    x.fillRect(r.x, r.y, r.w * .045 * f, r.h); x.fillRect(r.x + r.w * (1 - .045 * f), r.y, r.w * .045 * f, r.h);
   }));
 
   // 4. colletto (striscia intorno al collo) ed eventuale bordo sul petto e sulla schiena
