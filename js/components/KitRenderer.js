@@ -803,8 +803,18 @@ function loadCuffBands() {
   return cuffBandsJob;
 }
 /** Fasce del polsino in frazioni dell'altezza, dall'alto (0, attacco con la manica) al basso (1, orlo): [inizio, altezza]. */
-const cuffBandsOf = (k) => k.cuffs === 'band' ? [[0, 1]] : k.cuffs === 'thin' ? [[0, .22]]
-  : k.cuffs === 'double' ? ({ 1: [[.3, .4]], 2: [[0, .375], [.565, .435]], 3: [[0, .24], [.38, .24], [.76, .24]] }[k.cuffStripes] || []) : [];
+// 'Con righe' come le righe del colletto: polsino pieno con 1, 2 o 3 righe interne del colore della manica (le fasce
+// colorate sono gli spazi tra le righe)
+const CUFF_LINES = { 1: [[.42, .16]], 2: [[.29, .13], [.58, .13]], 3: [[.2, .1], [.45, .1], [.7, .1]] };
+const cuffBandsOf = (k) => {
+  if (k.cuffs === 'band') return [[0, 1]];
+  if (k.cuffs === 'thin') return [[0, .22]];
+  if (k.cuffs !== 'double') return [];
+  const out = []; let t = 0;
+  (CUFF_LINES[k.cuffStripes] || CUFF_LINES[2]).forEach(([y, h]) => { out.push([t, y - t]); t = y + h; });
+  out.push([t, 1 - t]);
+  return out;
+};
 let sideBandsJob = null;
 /** Bande laterali della classica (tools/kit3d/side_bands.py): per pezzo i triangoli vicino alle cuciture laterali con la
  * distanza vera (mm) dalla cucitura; si colora la parte entro `half` × dimensione. */
