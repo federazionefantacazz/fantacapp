@@ -33,6 +33,9 @@ rm _dump.html
 | adattamento della V | `python3 tools/kit3d/vfit3.py 0.3 0` | trova `V_FIT` (peso 0.3 sul petto, abbassamento dietro 0: quello lo fa `V_BEND`); **copiare i numeri in `V_FIT` in Kit3D.js** e rigenerare i due `.bin` e `neck-bands.json` |
 | `neck-bands.json` | `python3 tools/kit3d/neck_bands_tex.py && python3 tools/kit3d/neck_bands.py` | bordino: fascetta 3D per tre maglie, contorno nella texture per la classica a V. **Va rigenerato ogni volta che cambiano i `.bin` dei colli o `V_FIT`/`CREW_FIT`** (le costine sono ricostruite dentro `neck_bands.py`: `setin_v_rib` legge `vfit3.npy` + `v_bend`, `raglan_crew_rib` ha i numeri di `CREW_FIT`) |
 
+| `side-bands.json` | `python3 tools/kit3d/side_bands.py` | bande laterali della classica (distanza dalle cuciture laterali) |
+| `cuff-bands.json` | `python3 tools/kit3d/cuff_bands.py` | polsini della classica (distanza dalla piega dell'orlo) |
+
 Verifica: con i file attuali i comandi riproducono byte per byte i file del repo.
 Gli script stampano i controlli: triangoli rovesciati/schiacciati (devono essere 0), spostamento massimo, distanza delle cuciture, larghezza del bordino.
 

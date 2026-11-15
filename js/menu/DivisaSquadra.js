@@ -710,6 +710,7 @@ export const DivisaSquadra = {
         ${k.sleeveDeco !== 'none' && collarTrim ? '<div class="kd-desc">Lo stesso colore vale anche per righe e bordino del colletto.</div>' : ''}`)}
       ${this._group('Polsini', 'cuff', `
         <div class="kit-grid">${CUFFS.map(c => this._opt('cuffs', c.id, this._thumb({ ...base, cuffs: c.id }), c.label, k.cuffs === c.id)).join('')}</div>
+        ${k.cuffs === 'double' ? this._seg([['1', '1 riga', k.cuffStripes === 1], ['2', '2 righe', k.cuffStripes === 2], ['3', '3 righe', k.cuffStripes === 3]], 'data-act="cuff-stripes"') : ''}
         ${k.cuffs !== 'none' ? this._colorRow('Colore dei polsini', 'cuffs') : ''}`)}`)}
       <div class="kd-desc" style="margin-top:.9rem;">Tocca una parte e la maglia la inquadra da vicino. I colori di ogni pezzo sono sotto le sue scelte.</div>`;
   },
@@ -1233,6 +1234,9 @@ export const DivisaSquadra = {
         return;
       case 'collar-big':
         this._update(kit => { kit.collarBig = !kit.collarBig; });
+        return;
+      case 'cuff-stripes':
+        this._update(kit => { kit.cuffStripes = Number(v) || 2; });
         return;
       case 'collar-stripes':
         this._update(kit => { kit.collarStripes = Number(v) || 3; });

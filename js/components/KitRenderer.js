@@ -417,7 +417,7 @@ export const COLLARS = [
 export const CUFFS = [
   { id: 'none',   label: 'Nessuno' },
   { id: 'band',   label: 'Fascia' },
-  { id: 'double', label: 'Doppia riga' },
+  { id: 'double', label: 'Con righe' },   // righe: kit.cuffStripes = 1, 2 o 3
   { id: 'thin',   label: 'Profilo sottile' }
 ];
 
@@ -446,7 +446,7 @@ export const SLEEVE_DECO = [
 
 export function defaultKit() {
   return {
-    collarShape: 'v', sleeveCut: 'setin', collar: 'plain', collarBig: false, collarStripes: 3, cuffs: 'band', sleeveDeco: 'none', sleeveDecoN: 3, sleeveDecoShoulder: false,
+    collarShape: 'v', sleeveCut: 'setin', collar: 'plain', collarBig: false, collarStripes: 3, cuffs: 'band', cuffStripes: 2, sleeveDeco: 'none', sleeveDecoN: 3, sleeveDecoShoulder: false,
     sleeveTf: { x: 0, y: 0, scale: 100, rot: 0 },
     colors: { base: '#1e5bb8', sleeves: '#1e5bb8', sleevesR: '', shoulders: '#ffffff', collar: '#ffffff', cuffs: '#ffffff', trim: '#ffffff' },
     shoulders: { shape: 'none', size: 100, match: true },
@@ -475,6 +475,7 @@ export function normalizeKit(raw) {
     sleeveCut: SLEEVE_CUTS.some(c => c.id === k.sleeveCut) ? k.sleeveCut : d.sleeveCut,
     collar: k.collar === 'wide' ? 'trim' : COLLARS.some(c => c.id === k.collar) ? k.collar : d.collar, // 'wide' (bordo largo) non c'è più
     cuffs: CUFFS.some(c => c.id === k.cuffs) ? k.cuffs : d.cuffs,
+    cuffStripes: [1, 2, 3].includes(Number(k.cuffStripes)) ? Number(k.cuffStripes) : 2, // 2 = la vecchia "doppia riga"
     // tre / due strisce di prima: ora una sola decorazione "Strisce" con il numero di strisce
     sleeveDeco: /^stripes[23]$/.test(k.sleeveDeco) ? 'stripes' : SLEEVE_DECO.some(c => c.id === k.sleeveDeco) ? k.sleeveDeco : d.sleeveDeco,
     sleeveDecoN: Math.round(clamp(k.sleeveDecoN || (k.sleeveDeco === 'stripes2' ? 2 : 3), 1, SLEEVE_STRIPES_MAX)),
@@ -563,7 +564,7 @@ const ASSET_BASE = 'icons/kit3d/';
 export const KIT3D_FILES = {
   model: ASSET_BASE + 'shirt.glb', collarPolo: ASSET_BASE + 'collar-polo.glb', neckPolo: ASSET_BASE + 'neck-polo.bin', mask: ASSET_BASE + 'mask.png', seams: ASSET_BASE + 'seams.jpg',
   neckCrewSetin: ASSET_BASE + 'neck-crew-setin.bin', neckVRaglan: ASSET_BASE + 'neck-v-raglan.bin', neckCutVRaglan: ASSET_BASE + 'neck-cutv-raglan.bin',
-  neckBands: ASSET_BASE + 'neck-bands.json',
+  neckBands: ASSET_BASE + 'neck-bands.json', sideBands: ASSET_BASE + 'side-bands.json', cuffBands: ASSET_BASE + 'cuff-bands.json',
   raglan: ASSET_BASE + 'shirt-raglan.glb', raglanMask: ASSET_BASE + 'mask-raglan.png', raglanSeams: ASSET_BASE + 'seams-raglan.jpg',
   collarPoloRaglan: ASSET_BASE + 'collar-polo-raglan.glb', neckCutRaglan: ASSET_BASE + 'neck-cut-raglan.bin',
   neckPoloRaglan: ASSET_BASE + 'neck-polo-raglan.bin'
@@ -795,6 +796,61 @@ async function drawBackPrint(ctx, bp, r) {
 }
 
 /* --------------------------------------------- maschera e scollo del modello */
+let cuffBandsJob = null;
+/** Polsini della classica (tools/kit3d/cuff_bands.py): triangoli vicino all'orlo con la distanza (mm) dalla piega. */
+function loadCuffBands() {
+  if (!cuffBandsJob) cuffBandsJob = fetch(KIT3D_FILES.cuffBands).then(r => (r.ok ? r.json() : null)).catch(() => null);
+  return cuffBandsJob;
+}
+/** Fasce del polsino in frazioni dell'altezza, dall'alto (0, attacco con la manica) al basso (1, orlo): [inizio, altezza]. */
+const cuffBandsOf = (k) => k.cuffs === 'band' ? [[0, 1]] : k.cuffs === 'thin' ? [[0, .22]]
+  : k.cuffs === 'double' ? ({ 1: [[.3, .4]], 2: [[0, .375], [.565, .435]], 3: [[0, .24], [.38, .24], [.76, .24]] }[k.cuffStripes] || []) : [];
+let sideBandsJob = null;
+/** Bande laterali della classica (tools/kit3d/side_bands.py): per pezzo i triangoli vicino alle cuciture laterali con la
+ * distanza vera (mm) dalla cucitura; si colora la parte entro `half` × dimensione. */
+function loadSideBands() {
+  if (!sideBandsJob) sideBandsJob = fetch(KIT3D_FILES.sideBands).then(r => (r.ok ? r.json() : null)).catch(() => null);
+  return sideBandsJob;
+}
+/** Disegna su x la parte dei triangoli (v: [u, v, mm, …], t) con distanza < W mm (o tra lo e W). */
+function fillDistBand(x, S, { v, t }, W, lo = -Infinity) {
+  const clip = (poly, f) => {   // poly: [[u, v, d], …]; tiene la parte con f(d) < 0
+    const out = [];
+    for (let j = 0; j < poly.length; j++) {
+      const a = poly[j], b = poly[(j + 1) % poly.length], fa = f(a[2]), fb = f(b[2]);
+      if (fa < 0) out.push(a);
+      if ((fa < 0) !== (fb < 0)) { const q = fa / (fa - fb); out.push([a[0] + (b[0] - a[0]) * q, a[1] + (b[1] - a[1]) * q, a[2] + (b[2] - a[2]) * q]); }
+    }
+    return out;
+  };
+  if (lo > -Infinity) {
+    x.beginPath();
+    for (let i = 0; i < t.length; i += 3) {
+      let poly = [0, 1, 2].map(j => { const a = t[i + j] * 3; return [v[a], v[a + 1], v[a + 2]]; });
+      poly = clip(clip(poly, d => d - W), d => lo - d);
+      if (poly.length < 3) continue;
+      x.moveTo(poly[0][0] * S, poly[0][1] * S);
+      for (let j = 1; j < poly.length; j++) x.lineTo(poly[j][0] * S, poly[j][1] * S);
+      x.closePath();
+    }
+    x.fill();
+    return;
+  }
+  x.beginPath();
+  for (let i = 0; i < t.length; i += 3) {
+    const poly = [];
+    for (let j = 0; j < 3; j++) {
+      const a = t[i + j] * 3, b = t[i + (j + 1) % 3] * 3, fa = v[a + 2] - W, fb = v[b + 2] - W;
+      if (fa < 0) poly.push(v[a], v[a + 1]);
+      if ((fa < 0) !== (fb < 0)) { const q = fa / (fa - fb); poly.push(v[a] + (v[b] - v[a]) * q, v[a + 1] + (v[b + 1] - v[a + 1]) * q); }
+    }
+    if (poly.length < 6) continue;
+    x.moveTo(poly[0] * S, poly[1] * S);
+    for (let j = 2; j < poly.length; j += 2) x.lineTo(poly[j] * S, poly[j + 1] * S);
+    x.closePath();
+  }
+  x.fill();
+}
 let neckBandsJob = null;
 /** Dati del bordino (icons/kit3d/neck-bands.json): per maglia e scollo { rows, pts } (fascetta 3D) o { tex: [{ part, top, bot }] }. */
 function loadNeckBands() {
@@ -869,6 +925,9 @@ export async function paintKitTexture(rawKit, opts = {}) {
   const model = kitModel(k), raglan = model === MODELS.raglan;
   const R = (part) => { const r = model.uv[part]; return { x: r.x * S, y: r.y * S, w: r.w * S, h: r.h * S }; };
   const mask = await loadMask(model);
+  // classica con le bande laterali: banda di larghezza costante a cavallo delle cuciture, continua sotto l'ascella
+  const sideBands = k.sleeveDeco === 'side' && !raglan ? await loadSideBands() : null;
+  const cuffBands = k.cuffs !== 'none' && !raglan ? await loadCuffBands() : null;
   const seams = await loadCleanImage(model.seams);
 
   const out = canvasOf(S, S);
@@ -1115,24 +1174,34 @@ export async function paintKitTexture(rawKit, opts = {}) {
           x.beginPath(); x.moveTo(r.x + r.w * .3, y - r.h * .08); x.lineTo(r.x + r.w / 2, y); x.lineTo(r.x + r.w * .7, y - r.h * .08); x.stroke();
         }
         break;
-      case 'side': x.fillRect(r.x - r.w, r.y - r.h, r.w * (1 + .07 * f), r.h * 3); x.fillRect(r.x + r.w * (1 - .07 * f), r.y - r.h, r.w * (1 + .07 * f), r.h * 3); break;
+      case 'side':
+        if (sideBands && sideBands.parts[p]) {   // classica: sotto la manica, larga uguale (spostamento e rotazione non si applicano)
+          x.restore(); x.save();
+          fillDistBand(x, S, sideBands.parts[p], sideBands.half * f);
+          break;
+        }
+        x.fillRect(r.x - r.w, r.y - r.h, r.w * (1 + .07 * f), r.h * 3); x.fillRect(r.x + r.w * (1 - .07 * f), r.y - r.h, r.w * (1 + .07 * f), r.h * 3); break;
     }
     x.restore();
     // polsino: in fondo al pezzo della manica
-    const cuff = safeColor(c.cuffs);
-    if (k.cuffs === 'band') { x.fillStyle = cuff; x.fillRect(r.x - 2, cuffTop, r.w + 4, r.y + r.h - cuffTop + 2); }
-    if (k.cuffs === 'double') {
-      x.fillStyle = cuff; x.fillRect(r.x - 2, cuffTop, r.w + 4, r.y + r.h - cuffTop + 2);
-      x.fillStyle = sleeveColor(p); x.fillRect(r.x - 2, cuffTop + cb * .375, r.w + 4, cb * .19);
-    }
-    if (k.cuffs === 'thin') { x.fillStyle = cuff; x.fillRect(r.x - 2, cuffTop, r.w + 4, cb * .22); }
+    // stesse fasce sulle due maglie (cuffBandsOf): raglan nella texture (il polsino è il fondo del pezzo), classica per
+    // distanza dalla piega dell'orlo misurata sulla manica (cuff-bands.json), alta quanto quello della raglan
+    x.fillStyle = safeColor(c.cuffs);
+    cuffBandsOf(k).forEach(([t0, th]) => {
+      const cd = cuffBands && cuffBands.parts[p];
+      if (cd) {
+        const hc = cuffBands.hc, last = t0 + th >= .999;
+        // l'ultima fascia arriva fino all'orlo e copre anche il risvolto interno
+        fillDistBand(x, S, cd, hc * (1 - t0), last ? -Infinity : hc * (1 - t0 - th));
+      } else x.fillRect(r.x - 2, cuffTop + cb * t0, r.w + 4, t0 + th >= .999 ? r.y + r.h - cuffTop - cb * t0 + 2 : cb * th);
+    });
   }));
   if (k.sleeveDeco === 'side') ['front', 'back'].forEach(p => inPart(p, (x, r) => {
     const f = clamp(k.sleeveTf.scale, 40, 200) / 100;
-    // classica: solo sotto il braccio (dall'ascella in giù); più in alto il bordo del pezzo è il giro manica e la banda
-    // saliva sulla spalla come un triangolo
-    const top = raglan ? r.y : r.y + r.h * (p === 'front' ? .36 : .38);
-    x.fillStyle = trim; x.fillRect(r.x, top, r.w * .045 * f, r.y + r.h - top); x.fillRect(r.x + r.w * (1 - .045 * f), top, r.w * .045 * f, r.y + r.h - top);
+    x.fillStyle = trim;
+    // classica: banda di larghezza costante misurata sulla maglia (side-bands.json), dall'ascella all'orlo
+    if (sideBands && sideBands.parts[p]) { fillDistBand(x, S, sideBands.parts[p], sideBands.half * f); return; }
+    x.fillRect(r.x, r.y, r.w * .045 * f, r.h); x.fillRect(r.x + r.w * (1 - .045 * f), r.y, r.w * .045 * f, r.h);
   }));
 
   // 4. colletto (striscia intorno al collo) ed eventuale bordo sul petto e sulla schiena
