@@ -1,16 +1,41 @@
 import { ClassificaService } from "./services/classificaService.js";
+import { GwService } from "./services/gwService.js";
+import { LiveMatchModule } from "./liveMatch.js";
+import { openSimulaGiornate } from "./components/SimulaGiornate.js";
 import { esc, sid, sameId } from "./utils.js";
 
 const isVincente = (id) => sid(id).startsWith('VINCENTE_');
+const isBye = (id) => /BYE|RIPOSO/i.test(String(id ?? ''));
+const isKnockoutCouple = (c) => /^(ELIMINAZIONE|FINALE)/i.test(String(c?.type || '')) || !!c?.phaseKey;
+/** Partita che conta per la classifica (no riposi, no tabellone). */
+const contaInClassifica = (c) => c && c.homeId && c.awayId && !isBye(c.homeId) && !isBye(c.awayId) && !isKnockoutCouple(c);
+const SIM_KEY = (compId) => `fantacapp-cls-sim-${compId}`;
+
+const MODE_CSS = `
+#cls-mode{display:flex;gap:.35rem;margin-bottom:.6rem;background:var(--subbox-bg);border:1px solid var(--border);border-radius:999px;padding:.25rem}
+#cls-mode button{flex:1;border:none;background:transparent;color:var(--text2);font-family:var(--font-btn,inherit);font-size:.78rem;font-weight:600;padding:.45rem .3rem;border-radius:999px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:.3rem}
+#cls-mode button.on{background:var(--btn-primary);color:var(--btn-primary-text)}
+#cls-mode .dot{width:7px;height:7px;border-radius:50%;background:var(--accent3);animation:clsPulse 1.4s infinite}
+@keyframes clsPulse{50%{opacity:.3}}
+.cls-banner{display:flex;align-items:center;gap:.5rem;font-size:.75rem;color:var(--text2);font-family:var(--font-sub,inherit);background:var(--subbox-bg);border:1px solid var(--border);border-radius:12px;padding:.5rem .7rem;margin-bottom:.8rem}
+.cls-banner span{flex:1;min-width:0}
+.cls-banner .btn{width:auto;padding:.35rem .7rem;font-size:.72rem;flex-shrink:0}
+.cls-delta{font-size:.68rem;font-weight:700;font-family:'DM Mono',monospace;flex-shrink:0;display:inline-flex;align-items:center}
+.cls-live{font-size:.68rem;font-weight:700;font-family:'DM Mono',monospace;border-radius:6px;padding:.05rem .35rem;flex-shrink:0;border:1px solid currentColor}
+`;
 
 export const ClassificaPage = {
   // Vista scelta nei tornei con tabellone (classifica / tabellone): resta tra un aggiornamento e l'altro dei dati
   _showTabellone: false,
   _compId: null,
+  // Modo della classifica scelto dall'utente: 'ufficiale' | 'live' | 'simulata' (null = automatico: live se c'è la diretta)
+  _mode: null,
+  _sim: null, // { n, picks } della competizione aperta (simulazione)
 
   renderHTML() {
     return `
       <div id="page-classifica" class="page">
+        <div id="cls-mode-wrap"></div>
         <div id="classifica-actions" style="margin-bottom: 1rem; display:none; gap:0.5rem;"></div>
 
         <div id="classifica-content"></div>
@@ -25,8 +50,9 @@ export const ClassificaPage = {
 
     const compId = state.currentCompetition;
     const compData = (state.competitions || []).find(c => sameId(c.id, compId)) || null;
-    // cambiando competizione si riparte dalla classifica
-    if (!sameId(this._compId, compId)) { this._compId = compId; this._showTabellone = false; }
+    // cambiando competizione si riparte dalla classifica (e dal modo automatico)
+    if (!sameId(this._compId, compId)) { this._compId = compId; this._showTabellone = false; this._mode = null; this._sim = null; }
+    this._state = state;
 
     if (!compData) {
       contentDiv.innerHTML = `<div class="card" style="text-align:center; color:var(--text2);font-family:var(--font-sub,inherit);">Seleziona una competizione valida nel menu in alto.</div>`;
@@ -43,14 +69,23 @@ export const ClassificaPage = {
     let compTeams = state.teams ? [...state.teams] : [];
     const classificaDbNode = compData.classifica || {};
 
-    // Calcolo ed elaborazione tramite il Service
-    const teamCalculatedStats = ClassificaService.calcolaStatistiche(compTeams, classificaDbNode);
+    // Calcolo ed elaborazione tramite il Service (classifica ufficiale)
+    const officialStats = ClassificaService.calcolaStatistiche(compTeams, classificaDbNode);
+
+    // Modo: ufficiale / live (diretta in corso sommata) / simulata (risultati scelti dall'utente)
+    const modeWrap = document.getElementById('cls-mode-wrap');
+    const modo = compType === 'diretta' ? null : this._calcolaModo(state, compData, compTeams, officialStats);
+    if (modeWrap) modeWrap.innerHTML = modo ? this._modeBarHTML(modo) : '';
+    if (modo) this._bindModeBar(modeWrap, compData);
+    const teamCalculatedStats = modo ? modo.stats : officialStats;
+    // confronto con la classifica ufficiale (frecce su/giù) e risultato live accanto al nome
+    const extra = modo && modo.mode !== 'ufficiale' ? { baseStats: officialStats, liveRes: modo.liveRes || null } : {};
 
     // 1) CASO CAMPIONATO STANDARD
     if (compType === 'campionato') {
       const squadreComp = ClassificaService.getSquadreCompetizione(compData, compTeams);
       const sortedTeams = ClassificaService.ordinaSquadre(squadreComp, teamCalculatedStats);
-      contentDiv.innerHTML = this.renderTabellaClassica(sortedTeams, compId, null, teamCalculatedStats);
+      contentDiv.innerHTML = this.renderTabellaClassica(sortedTeams, compId, null, teamCalculatedStats, extra);
     } 
     
     // 2) CASO TORNEO MISTO
@@ -83,7 +118,7 @@ export const ClassificaPage = {
               if (sortedGirone.length > 0) {
                 html += this.renderTabellaClassica(sortedGirone, compId, (index) => {
                   return index < numQualificati ? 'border-left: 4px solid var(--accent);' : '';
-                }, teamCalculatedStats);
+                }, teamCalculatedStats, extra);
               } else {
                 html += `<div class="card" style="text-align:center; color:var(--text2);font-family:var(--font-sub,inherit); padding:1rem;">Nessuna squadra trovata per questo girone.</div>`;
               }
@@ -124,7 +159,7 @@ export const ClassificaPage = {
           if (pos <= 6) return 'border-left: 4px solid var(--accent2);';
           if (pos <= 10) return 'border-left: 4px solid var(--accent);';
           return 'border-left: 4px solid var(--accent3);';
-        }, teamCalculatedStats);
+        }, teamCalculatedStats, extra.baseStats ? { ...extra, baseRank: ClassificaService.mappaPosizioni(squadreComp, extra.baseStats) } : extra);
 
         html += '</div>';
         return html;
@@ -141,8 +176,11 @@ export const ClassificaPage = {
     }
   },
 
-  renderTabellaClassica(teamsList, compId, rowStyleCallback = null, teamCalculatedStats = {}) {
+  renderTabellaClassica(teamsList, compId, rowStyleCallback = null, teamCalculatedStats = {}, extra = {}) {
     const myTeamId = window.STATE && window.STATE.user ? String(window.STATE.user.id) : null;
+    // posizioni nella classifica ufficiale, per le frecce (solo in live / simulata)
+    const baseRank = extra.baseRank || (extra.baseStats ? ClassificaService.mappaPosizioni(teamsList, extra.baseStats) : null);
+    const liveRes = extra.liveRes || null;
 
     // Pannello trasparente, come le card della home (--subbox-bg)
     let html = `
@@ -177,6 +215,20 @@ export const ClassificaPage = {
       const fantaPtsColor = isLast ? 'var(--accent3)' : (idx === 0 ? 'var(--accent)' : 'var(--text2)');
       const meBg = isMe ? 'background: color-mix(in srgb, var(--accent) 12%, transparent);' : '';
 
+      let deltaHTML = '';
+      if (baseRank && baseRank[String(t.id)] !== undefined) {
+        const d = baseRank[String(t.id)] - idx;
+        deltaHTML = d > 0
+          ? `<span class="cls-delta" style="color:var(--accent);" title="Sale di ${d}"><i class="ri-arrow-up-s-fill"></i>${d}</span>`
+          : d < 0
+            ? `<span class="cls-delta" style="color:var(--accent3);" title="Scende di ${-d}"><i class="ri-arrow-down-s-fill"></i>${-d}</span>`
+            : `<span class="cls-delta" style="color:var(--text3);" title="Stessa posizione">=</span>`;
+      }
+      const lr = liveRes ? liveRes[String(t.id)] : null;
+      const liveHTML = lr
+        ? `<span class="cls-live" style="color:${lr.esito === 'V' ? 'var(--accent)' : lr.esito === 'P' ? 'var(--accent3)' : 'var(--text2)'};" title="Risultato live">${lr.gf}-${lr.gs}</span>`
+        : '';
+
       // Tutta la riga è cliccabile: apre la scheda della squadra
       html += `
         <div class="row-link" data-th="cls-row" ${isMe ? 'data-me' : ''} role="button" tabindex="0" data-team-id="${esc(t.id)}" onclick="window.openTeamPage(this.dataset.teamId, 'classifica')"
@@ -186,6 +238,7 @@ export const ClassificaPage = {
             <span data-th="cls-pos" style="font-weight: 700; color: var(--text2); font-family: var(--font-sub, inherit); font-size: 0.95rem; min-width: 18px; text-align: center;">${idx + 1}</span>
             ${logoHTML}
             <span data-th="cls-team" style="font-weight: 600; color: var(--text); font-size: 0.9rem; overflow-wrap: anywhere; flex: 1; min-width: 0;">${esc(t.name)}</span>
+            ${liveHTML}${deltaHTML}
             <i class="ri-arrow-right-s-line" style="color: var(--text3); font-family: var(--font-text3, inherit); font-size: 1.1rem; flex-shrink: 0;"></i>
           </div>
 
@@ -208,6 +261,181 @@ export const ClassificaPage = {
 
     html += `</div></div>`;
     return html;
+  },
+
+  // ------------------------------------------------------------------
+  // Classifica live e simulata
+  // ------------------------------------------------------------------
+
+  /** Competizione con il calendario aggiornato (STATE.matches è quello della competizione aperta). */
+  _compConMatches(state, compData) {
+    const m = state.matches && Object.keys(state.matches).length ? state.matches : (compData.matches || {});
+    return { ...compData, matches: m };
+  },
+
+  /** Giornata in diretta di questa competizione, con le sue partite di classifica; null se non c'è. */
+  _liveInfo(state, compData) {
+    if (state.live !== true) return null;
+    const realGw = GwService.getGwReale(state);
+    if (realGw === null) return null;
+    const comp = this._compConMatches(state, compData);
+    const gwKey = GwService.getGwKey(comp, realGw);
+    if (!gwKey) return null;
+    const couples = GwService.getCouples(comp, gwKey).filter(contaInClassifica);
+    if (!couples.length) return null;
+    return { comp, gwKey, realGw, couples };
+  },
+
+  /** Giornate con partite di classifica ancora da giocare, in ordine (per la simulazione). */
+  _giornateDaGiocare(state, compData) {
+    const comp = this._compConMatches(state, compData);
+    const giocate = compData.classifica || {};
+    const ord = (k) => {
+      const r = GwService.getRealOf(comp, k);
+      const n = parseInt(String(k).replace(/\D/g, '')) || 0;
+      return (String(k).startsWith('gw_playoff_') ? 1e6 : 0) + (r !== null ? r * 1000 : 0) + n;
+    };
+    return Object.keys(comp.matches || {})
+      .sort((a, b) => ord(a) - ord(b))
+      .map(gwKey => ({
+        gwKey,
+        label: GwService.label(gwKey),
+        couples: GwService.getCouples(comp, gwKey)
+          .filter(c => contaInClassifica(c) && c.finished !== true && !(giocate[gwKey] && giocate[gwKey][c.homeId]))
+          .map(c => ({ key: String(c.key), homeId: c.homeId, awayId: c.awayId }))
+      }))
+      .filter(g => g.couples.length > 0);
+  },
+
+  _loadSim(compId) {
+    if (this._sim) return this._sim;
+    let s = null;
+    try { s = JSON.parse(localStorage.getItem(SIM_KEY(compId)) || 'null'); } catch (e) {}
+    this._sim = s && typeof s === 'object' ? { n: Number(s.n) || 1, picks: s.picks || {} } : { n: 1, picks: {} };
+    return this._sim;
+  },
+
+  _saveSim(compId) {
+    try { localStorage.setItem(SIM_KEY(compId), JSON.stringify(this._sim)); } catch (e) {}
+  },
+
+  /**
+   * Statistiche del modo attivo.
+   * live: classifica senza la giornata in diretta + risultati live (6 a chi deve ancora giocare, sostituzioni).
+   * simulata: classifica ufficiale + i risultati 1/X/2 scelti (solo punti e V/N/P; gol e fanta restano quelli reali).
+   */
+  _calcolaModo(state, compData, compTeams, officialStats) {
+    const live = this._liveInfo(state, compData);
+    let mode = this._mode || (live ? 'live' : 'ufficiale');
+    if (mode === 'live' && !live) mode = 'ufficiale';
+    const out = { mode, liveOn: !!live, stats: officialStats };
+
+    if (mode === 'live') {
+      const node = { ...(compData.classifica || {}) };
+      delete node[live.gwKey]; // la giornata in diretta si rifà da capo coi punteggi live
+      const stats = ClassificaService.calcolaStatistiche(compTeams, node);
+      const liveRes = {};
+      live.couples.forEach(c => {
+        let gH, gA, fH, fA;
+        if (c.finished === true && (c.goalHome ?? c.homeScore) !== undefined) {
+          gH = Number(c.goalHome ?? c.homeScore) || 0; gA = Number(c.goalAway ?? c.awayScore) || 0;
+          fH = Number(c.punteggioFinaleHome) || 0; fA = Number(c.punteggioFinaleAway) || 0;
+        } else {
+          let r = null;
+          try { r = LiveMatchModule.liveSummary({ comp: live.comp, gwKey: live.gwKey, couple: c, gwReale: live.realGw }); } catch (e) { console.warn('Classifica live:', e); }
+          gH = Number(r?.goalHome) || 0; gA = Number(r?.goalAway) || 0;
+          fH = Number(r?.fvHome) || 0; fA = Number(r?.fvAway) || 0;
+        }
+        const esH = gH > gA ? 'V' : gH < gA ? 'P' : 'N';
+        const esA = esH === 'V' ? 'P' : esH === 'P' ? 'V' : 'N';
+        ClassificaService.aggiungiRisultato(stats, c.homeId, { esito: esH, gf: gH, gs: gA, fanta: fH });
+        ClassificaService.aggiungiRisultato(stats, c.awayId, { esito: esA, gf: gA, gs: gH, fanta: fA });
+        liveRes[String(c.homeId)] = { gf: gH, gs: gA, esito: esH };
+        liveRes[String(c.awayId)] = { gf: gA, gs: gH, esito: esA };
+      });
+      return { ...out, stats, liveRes, gwKey: live.gwKey };
+    }
+
+    if (mode === 'simulata') {
+      const sim = this._loadSim(compData.id);
+      const giornate = this._giornateDaGiocare(state, compData);
+      const stats = ClassificaService.copiaStatistiche(officialStats);
+      let partite = 0;
+      const usate = giornate.slice(0, Math.max(1, sim.n));
+      usate.forEach(g => g.couples.forEach(c => {
+        const v = sim.picks[g.gwKey]?.[c.key];
+        if (!v) return;
+        partite++;
+        const esH = v === '1' ? 'V' : v === '2' ? 'P' : 'N';
+        const esA = v === '1' ? 'P' : v === '2' ? 'V' : 'N';
+        ClassificaService.aggiungiRisultato(stats, c.homeId, { esito: esH });
+        ClassificaService.aggiungiRisultato(stats, c.awayId, { esito: esA });
+      }));
+      return { ...out, stats, partite, giornate: usate.length, ultima: usate.length ? usate[usate.length - 1].label : null };
+    }
+    return out;
+  },
+
+  _modeBarHTML(modo) {
+    if (!document.getElementById('cls-mode-css')) {
+      const st = document.createElement('style');
+      st.id = 'cls-mode-css';
+      st.textContent = MODE_CSS;
+      document.head.appendChild(st);
+    }
+    const btn = (m, html) => `<button data-mode="${m}" class="${modo.mode === m ? 'on' : ''}">${html}</button>`;
+    let html = `<div id="cls-mode" role="tablist">
+      ${btn('ufficiale', '<i class="ri-bar-chart-2-line"></i> Ufficiale')}
+      ${modo.liveOn ? btn('live', '<span class="dot"></span> Live') : ''}
+      ${btn('simulata', '<i class="ri-magic-line"></i> Simulata')}
+    </div>`;
+    if (modo.mode === 'live') {
+      html += `<div class="cls-banner"><i class="ri-record-circle-fill" style="color:var(--accent3);"></i>
+        <span>${esc(GwService.label(modo.gwKey))} in diretta: risultati live sommati alla classifica, con 6 a chi deve ancora giocare.</span></div>`;
+    } else if (modo.mode === 'simulata') {
+      const txt = modo.partite
+        ? `${modo.partite} risultat${modo.partite === 1 ? 'o' : 'i'} simulat${modo.partite === 1 ? 'o' : 'i'} fino alla ${esc(modo.ultima)} (contano solo i punti).`
+        : 'Nessun risultato scelto: tocca Scegli per simulare le prossime giornate.';
+      html += `<div class="cls-banner"><i class="ri-magic-line" style="color:var(--accent);"></i><span>${txt}</span>
+        <button class="btn btn-green" data-act="sim-open"><i class="ri-edit-line"></i> Scegli</button></div>`;
+    }
+    return html;
+  },
+
+  _bindModeBar(wrap, compData) {
+    wrap.querySelectorAll('[data-mode]').forEach(b => {
+      b.onclick = () => {
+        const m = b.dataset.mode;
+        if (m === 'simulata') {
+          const sim = this._loadSim(compData.id);
+          const vuota = !Object.keys(sim.picks || {}).length;
+          this._mode = 'simulata';
+          this._rerender();
+          if (vuota) this._openSim(compData); // prima volta: si apre subito la finestra
+          return;
+        }
+        this._mode = m;
+        this._rerender();
+      };
+    });
+    const open = wrap.querySelector('[data-act="sim-open"]');
+    if (open) open.onclick = () => this._openSim(compData);
+  },
+
+  _openSim(compData) {
+    const state = this._state || window.STATE || {};
+    const sim = this._loadSim(compData.id);
+    openSimulaGiornate({
+      giornate: this._giornateDaGiocare(state, compData),
+      teams: state.teams || [],
+      sim,
+      onChange: () => { this._saveSim(compData.id); if (this._mode === 'simulata') this._rerender(); },
+      onApply: () => { this._mode = 'simulata'; this._rerender(); }
+    });
+  },
+
+  _rerender() {
+    this.render(this._state || window.STATE);
   },
 
   renderModoConTabellone(actionsDiv, contentDiv, compData, state, classificaHtmlCallback) {
