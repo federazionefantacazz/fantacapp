@@ -587,7 +587,7 @@ export const LiveMatchModule = {
   /**
    * Risultato live di un incontro per la card della Home: simulato con il 6 a chi deve
    * ancora giocare e con le sostituzioni dalla panchina (come "Simula partita", senza modifiche a mano).
-   * Ritorna { goalHome, goalAway, ptsHome, ptsAway } (punti già formattati; null dove manca la formazione).
+   * Ritorna { goalHome, goalAway, ptsHome, ptsAway, fvHome, fvAway } (pts già formattati, fv numeri; null dove manca la formazione).
    */
   liveSummary({ comp, gwKey, couple, gwReale }) {
     const STATE = window.STATE || {};
@@ -604,7 +604,9 @@ export const LiveMatchModule = {
       goalHome: tH ? CalcoloMatchService.calcolaGol(tH.fv) : null,
       goalAway: tA ? CalcoloMatchService.calcolaGol(tA.fv) : null,
       ptsHome: tH ? fmt(tH.fv) : null,
-      ptsAway: tA ? fmt(tA.fv) : null
+      ptsAway: tA ? fmt(tA.fv) : null,
+      fvHome: tH ? tH.fv : null, // numeri grezzi (classifica live)
+      fvAway: tA ? tA.fv : null
     };
   },
 

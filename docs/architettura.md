@@ -30,7 +30,7 @@ Guida per Claude (e per chi vuole capire come è fatta l'app). Le regole di lavo
 |---|---|
 | `home.js` | Home: la tua squadra, ultima e prossima partita. |
 | `calendario.js` | Calendario della competizione, partite per turno. |
-| `classifica.js` | Classifica (anche gironi/tabellone con `components/AnteprimaClassifica*.js`). |
+| `classifica.js` | Classifica (anche gironi/tabellone con `components/AnteprimaClassifica*.js`). Tre modi, uno alla volta: **Ufficiale**, **Live** (attivo da solo con la diretta: classifica senza la giornata in corso + risultati live di `LiveMatchModule.liveSummary`, col 6 a chi deve ancora giocare) e **Simulata** (risultati 1/X/2 scelti in `components/SimulaGiornate.js` per le prossime N giornate; contano solo punti e V/N/P, le scelte restano sul telefono in `localStorage`). Frecce = posizioni guadagnate/perse rispetto all'ufficiale. |
 | `formazione.js` | Schieramento della formazione (titolari + panchina, scelta giocatori). |
 | `liveMatch.js` | Live: punteggi in diretta, colonne o **visuale stadio 3D** (`createStadiumViewer` con `framePitch`). |
 | `mercato.js` | Scambi e prestiti tra squadre (`services/mercatoService.js`). |

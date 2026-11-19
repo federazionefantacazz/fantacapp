@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fantacapp-pwa-alpha-v1.1.0.52'; // Incrementa ad ogni modifica dei file statici
+const CACHE_NAME = 'fantacapp-pwa-alpha-v1.1.0.53'; // Incrementa ad ogni modifica dei file statici
 const IMAGE_CACHE = 'fantacapp-images-v1'; // riempita da js/services/assetPreloader.js: non va cancellata agli aggiornamenti
 // Librerie e font esterni (Firebase SDK, icone, Google Fonts): URL con versione fissa, restano tra un aggiornamento e l'altro
 const RUNTIME_CACHE = 'fantacapp-runtime-v1';
@@ -101,6 +101,7 @@ const ASSETS_TO_CACHE = [
   './js/components/AnteprimaClassifica.js',
   './js/components/AnteprimaClassificaStandard.js',
   './js/components/AnteprimaClassificaTabellone.js',
+  './js/components/SimulaGiornate.js',
   './js/components/MatchCardResult.js',
   './js/components/MatchCardVS.js',
   './js/components/MenuPanel.js',

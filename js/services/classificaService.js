@@ -48,6 +48,41 @@ export const ClassificaService = {
     return teamCalculatedStats;
   },
 
+  /** Statistiche vuote di una squadra. */
+  statsVuote() {
+    return { giocate: 0, pts: 0, w: 0, d: 0, l: 0, totFanta: 0, gf: 0, gs: 0 };
+  },
+
+  /**
+   * Aggiunge un risultato (gol e punti fanta facoltativi) alle statistiche di una squadra.
+   * esito: 'V' | 'N' | 'P'. Restituisce lo stesso oggetto stats.
+   */
+  aggiungiRisultato(stats, teamId, { esito, gf = 0, gs = 0, fanta = 0 }) {
+    const s = stats[teamId] || (stats[teamId] = this.statsVuote());
+    s.giocate += 1;
+    if (esito === 'V') { s.w += 1; s.pts += 3; }
+    else if (esito === 'N') { s.d += 1; s.pts += 1; }
+    else { s.l += 1; }
+    s.gf += Number(gf) || 0;
+    s.gs += Number(gs) || 0;
+    s.totFanta += Number(fanta) || 0;
+    return stats;
+  },
+
+  /** Copia profonda delle statistiche (per sommarci risultati live o simulati senza toccare quelle ufficiali). */
+  copiaStatistiche(stats) {
+    const out = {};
+    Object.keys(stats || {}).forEach(id => { out[id] = { ...stats[id] }; });
+    return out;
+  },
+
+  /** Posizione (0 = primo) di ogni squadra della lista: { teamId: indice }. */
+  mappaPosizioni(teamsList, stats) {
+    const out = {};
+    this.ordinaSquadre(teamsList, stats).forEach((t, i) => { out[String(t.id)] = i; });
+    return out;
+  },
+
   /**
    * Ordina una lista di squadre in base a Punti e Totale Fanta.
    */

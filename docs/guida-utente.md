@@ -62,3 +62,14 @@ In alto resta sempre ferma l'**anteprima 3D**, con sotto *Annulla modifiche*, *S
 | Area Patron | `admin.html` + `js/admin/` |
 | Versione della cache (aggiornamenti) | `sw.js`, riga `CACHE_NAME` |
 | Bug noti e idee | [bug-e-idee.md](bug-e-idee.md) |
+
+## Classifica live e simulata
+In alto nella pagina Classifica ci sono tre pulsanti (se ne usa uno alla volta):
+- **Ufficiale**: la classifica salvata dal Patron.
+- **Live** (c'è solo durante la diretta, e si apre da solo): somma alla classifica i risultati della giornata in
+  corso, dando 6 a chi deve ancora giocare (come "Simula partita" del Live). Accanto al nome: il risultato live e le
+  posizioni guadagnate (▲) o perse (▼).
+- **Simulata**: tocca **Scegli** e, per ogni partita delle prossime giornate, scegli 1, X o 2 ("Giornate avanti" dice
+  quante giornate contare; "Casuale" riempie a caso). Contano solo i punti: gol e punti fanta restano quelli veri.
+  Le scelte restano salvate sul telefono.
+
