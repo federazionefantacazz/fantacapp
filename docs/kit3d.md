@@ -95,7 +95,7 @@ L'utente vuole il colletto con la sua forma pulita e originale, non deformato, e
 - **Patch**:
   - la patch della **competizione** va sulla manica sinistra, automatica nel Live in base alla competizione (`opts.compPatches`);
   - le patch **campione** hanno posizione, dimensione e x/y (non sulla manica sinistra).
-- **Fascia da capitano**: modello 3D vero, da sola o indossata sulla manica sinistra sotto la patch (`setArmband`, `_bandRing`, `_sleeveRing`, `_wornBand`, `BAND_RING_ASPECT`). Ha livelli, immagini, "C" personalizzabile e si sceglie chi la porta in Formazione e Live.
+- **Fascia da capitano**: modello 3D vero, da sola o indossata sulla manica sinistra sotto la patch (`setArmband`, `_bandRing`, `_sleeveRing`, `_wornBand`, `BAND_RING_ASPECT`). Ha livelli, immagini, "C" personalizzabile e si sceglie chi la porta in Formazione e Live. Posizione (`armbandRow` in KitRenderer.js, uguale per classica e raglan): asse e larghezza dal giro dell'orlo della manica, bordo basso `t` altezze della fascia sopra l'orlo (classica 0,06, raglan 0,24), così sta tutta sulla stoffa e sotto si vede il polsino; prima scendeva oltre l'orlo e si vedeva l'interno della manica. Il giro della fascia non scende mai sotto la stoffa (la media dei vicini faceva bucare la fascia dalla manica raglan). Render di prova: `"band": true` nel kit di `render.sh`.
 - **Inquadrature** `FOCUS` in Kit3D.js (`collar`, `shoulder`, `sleevePatch`, `bandArm`, ...); `focus()` accetta anche `pitch`.
   Il punto guardato resta **sempre sull'asse della maglia** (si usa solo `y`): per le parti di lato si gira la maglia
   (`yaw`) e ci si avvicina (`d`). Con `x`/`z` il centro della rotazione finiva sulla spalla (vedi [editor.md](editor.md)).

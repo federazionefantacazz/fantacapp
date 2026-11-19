@@ -139,6 +139,7 @@ export function injectStyle() {
     .kit-zoom-stage > div { position: absolute; inset: 0; }
     .kit-zoom-bar { display: flex; gap: .4rem; justify-content: center; flex-wrap: wrap; padding: .5rem .8rem calc(.8rem + var(--safe-b, env(safe-area-inset-bottom, 0px))); }
     .kit-zoom-bar button, .kit-zoom-head button { background: var(--kz-btn-bg, var(--bg2)); color: var(--kz-btn-text, var(--text)); font-family: var(--font-btn, inherit); border: 1px solid var(--kz-btn-border, var(--border)); border-radius: 10px; padding: .45rem .8rem; font-weight: 700; cursor: pointer; font-size: .85rem; }
+    .kit-zoom-bar button.on { background: var(--kz-btn-on-bg, var(--accent)); color: var(--kz-btn-on-text, var(--bg, #111)); border-color: var(--kz-btn-on-bg, var(--accent)); }
     .kit-view-btns { position: absolute; right: 0; bottom: 0; display: flex; gap: .3rem; z-index: 2; }
     .kit-view-btns button { background: color-mix(in srgb, var(--bg2) 85%, transparent); color: var(--text2); border: 1px solid var(--border);
       border-radius: 999px; padding: .2rem .6rem; font-family: inherit; font-size: .7rem; font-weight: 600; cursor: pointer; }
@@ -1129,13 +1130,27 @@ export const DivisaSquadra = {
         <button data-z="front">Davanti</button><button data-z="back">Retro</button>
         <button data-z="in" aria-label="Avvicina">＋ Zoom</button>
         <button data-z="out" aria-label="Allontana">− Zoom</button>
+        <button data-z="band" aria-pressed="false">Fascia</button>
       </div>`;
     document.body.appendChild(el);
     const viewer = createKitViewer(el.querySelector('.kit-zoom-stage > div'), { zoom: true });
     // si apre sulla parte che si sta modificando (come l'anteprima piccola)
     const part = this._focusName;
+    // fascia da capitano: pulsante "Fascia" per mostrarla o toglierla; aperta dalla fase della fascia è già accesa
+    // (da sola o sulla manica come nell'anteprima), altrove si accende sulla manica sinistra
+    let bandOn = this._isBand(), bandAlone = bandOn && this._bandView === 'alone';
+    const bandBtn = el.querySelector('[data-z="band"]');
+    const showBand = (focus) => {
+      bandBtn.classList.toggle('on', bandOn); bandBtn.setAttribute('aria-pressed', String(bandOn));
+      if (!bandOn) { viewer.setArmband(null); if (focus) viewer.focus('front'); return Promise.resolve(); }
+      return bandRaster(this._band, BAND_RING_ASPECT, 512).then(raster => {
+        if (!this._zoom || !bandOn) return;
+        viewer.setArmband(bandAlone ? raster : { ...raster, row: armbandRow(this._kit) });
+        if (focus) viewer.focus(bandAlone ? 'bandAlone' : 'bandArm');
+      });
+    };
     viewer.update(this._kit, { crestUrl: this._crest(), ...this._compPatchOpts() })
-      .then(() => { if (part && part !== 'front' && !part.startsWith('band')) viewer.focus(part); })
+      .then(() => bandOn ? showBand(true) : (part && part !== 'front' && !part.startsWith('band') && viewer.focus(part)))
       .catch(err => console.error('Divisa:', err));
     // tasto Indietro del telefono: chiude solo la vista grande (prima chiudeva tutto l'editor)
     const close = (fromBack = false) => { viewer.dispose(); el.remove(); this._zoom = null; if (!fromBack) BackNav.pop('kit-zoom'); };
@@ -1147,6 +1162,7 @@ export const DivisaSquadra = {
       if (z === 'close') close();
       else if (z === 'in') viewer.zoomBy(.75);
       else if (z === 'out') viewer.zoomBy(1 / .75);
+      else if (z === 'band') { bandOn = !bandOn; bandAlone = false; showBand(true).catch(err => console.error('Divisa:', err)); }
       else viewer.setView(z);
     });
     this._zoom = { close: () => close() };

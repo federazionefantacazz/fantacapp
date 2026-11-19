@@ -597,7 +597,8 @@ export const MODELS = {
 export const kitModel = (k) => MODELS[k && k.sleeveCut] || MODELS.setin;
 /** Dove si porta la fascia da capitano 3D sulla manica sinistra (sotto la patch della competizione). */
 // raglan: t = altezza nel riquadro UV della manica (le righe girano intorno al braccio); manica sulla spalla: t = distanza dall'orlo del polsino, in altezze della fascia
-export const armbandRow = (k) => { const m = kitModel(normalizeKit(k)); return m === MODELS.raglan ? { rect: m.uv.sleeveL, t: .87, mode: 'rows' } : { rect: m.uv.sleeveL, t: .25, mode: 'cuff' }; };
+// fascia da capitano indossata: misurata dall'orlo della manica sinistra; t = spazio tra orlo e fascia (in altezze della fascia)
+export const armbandRow = (k) => { const m = kitModel(normalizeKit(k)); return { rect: m.uv.sleeveL, t: m === MODELS.raglan ? .24 : .06, mode: 'cuff' }; }; // raglan: il fondo del pezzo è più in basso
 
 /* ------------------------------------------------------------ utilità */
 const svgUrl = (svg) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);

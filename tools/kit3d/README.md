@@ -48,6 +48,7 @@ tools/kit3d/render/render.sh /tmp/prova '<kit json>' '<inquadrature json>' [dbg]
 - Crea `/tmp/prova_0.png`, `_1.png`, … e un mosaico `/tmp/prova.png`. Copia da solo `web/zoom.html` come `_test_zoom.html` nella radice e lo toglie alla fine.
 - `kit`: lo stesso oggetto salvato dall'editor, per esempio
   `{"sleeveCut":"raglan","collarShape":"v","neckV":2,"collar":"trim","collarBig":true,"collarStripes":2,"colors":{"base":"#1e6fd0","sleeves":"#1e6fd0","collar":"#55dddd","cuffs":"#ffffff","trim":"#ffffff"}}`.
+- `"band": true` nel kit: fascia da capitano (quella di base) indossata sulla manica sinistra; inquadratura `{"yaw":-88,"y":0.12,"d":0.62}`.
 - Inquadrature: `{yaw (gradi, 0 davanti, 180 dietro), x, y, z (spostamento del punto guardato), d (distanza, 0,08 molto vicino … 1,15 maglia intera), pitch (gradi dall'alto)}`, come `FOCUS` in Kit3D.js.
 - `dbg`: interno della maglia verde e rovescio della costina scambiata rosso. Serve la riga temporanea `window.__stage = stage; // DEBUG` in `createKitViewer`, da togliere prima del commit.
 - Un render da 8 inquadrature impiega circa 3-4 minuti (SwiftShader): conviene lanciarlo in background.

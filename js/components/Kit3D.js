@@ -672,11 +672,12 @@ class Stage {
       const toBody = new THREE.Vector3(this.center.x, cc.y, this.center.z).sub(cc);
       if (axis.dot(toBody) < 0) axis.negate();
       pts = edge;
-      // la fascia sta un po' sopra il polsino (row.t = quante altezze della fascia)
+      // tutta la fascia sopra l'orlo, sulla stoffa (prima scendeva sotto l'orlo e si vedeva l'interno della manica):
+      // il bordo basso sta row.t altezze della fascia sopra l'orlo
       const rm = Math.sqrt(2 * edge.reduce((a, p) => { const d = p.clone().sub(cc); d.sub(axis.clone().multiplyScalar(d.dot(axis))); return a + d.lengthSq(); }, 0) / edge.length / 2);
-      c = cc.clone().add(axis.clone().multiplyScalar(rm * 2 * Math.PI / BAND_RING_ASPECT * .88 * row.t));
+      const half = rm * Math.PI / BAND_RING_ASPECT * .9;
+      c = cc.clone().add(axis.clone().multiplyScalar(half * (1 + 2 * row.t)));
       // la stoffa dentro l'altezza della fascia non deve sporgere: larghezze massime della manica in quel tratto
-      const half = rm * Math.PI / BAND_RING_ASPECT * .88;
       const sec = pick(row.rect.y + row.rect.h / 2, row.rect.h / 2).filter(p => Math.abs(p.clone().sub(c).dot(axis)) < half);
       fit = sec.length > 8 ? sec : null;
       pts = edge.map(p => p.clone().add(c.clone().sub(cc)));
@@ -748,7 +749,8 @@ class Stage {
     // le righe senza stoffa vicina sono più strette di quelle sopra: niente scalini, la fascia scende dritta
     for (let j = NA - 2; j >= 0; j--) for (let i = 0; i < NT; i++) grid[j][i] = Math.max(grid[j][i], grid[j + 1][i] * .985);
     // ammorbidisco il giro (pieghe minute)
-    grid.forEach(rw => { const c = Float32Array.from(rw); for (let i = 0; i < NT; i++) rw[i] = (c[(i + NT - 1) % NT] + 2 * c[i] + c[(i + 1) % NT]) / 4; });
+    // (mai sotto la stoffa: la media abbassava i punti più in fuori e la manica bucava la fascia)
+    grid.forEach(rw => { const c = Float32Array.from(rw); for (let i = 0; i < NT; i++) rw[i] = Math.max(c[i], (c[(i + NT - 1) % NT] + 2 * c[i] + c[(i + 1) % NT]) / 4); });
     const pos = [], uvs = [], index = [];
     for (let j = 0; j < NA; j++) {
       const a = -half + 2 * half * j / (NA - 1);
