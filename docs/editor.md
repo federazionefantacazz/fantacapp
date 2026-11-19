@@ -47,6 +47,10 @@ L'anteprima 3D si gira da sola verso la parte che si sta modificando.
   sposta il centro: prima il centro finiva sulla spalla e, girando col dito, la maglia ruotava intorno alla spalla e
   usciva dallo schermo.
 
+### Vista grande (lente, `_openZoom` in `DivisaSquadra.js`)
+- Pulsanti Davanti, Retro, + Zoom, − Zoom e **Fascia**: mostra o toglie la fascia da capitano sulla manica sinistra e la
+  inquadra (`bandArm`). Aperta dalla fase 8 (Fascia) è già accesa, come nell'anteprima (da sola o sulla maglia).
+
 ### Stadio (`focus` in `Stadium3D.js`)
 - Ogni fase ha la sua inquadratura (4ª colonna di `SECTIONS` in `StadioSquadra.js`): `aerial` (nome, stili, anelli),
   `roof` (copertura), `outside` (esterno), `entrance` (ingressi: si guarda dal primo lato che ha un ingresso,

@@ -1,6 +1,7 @@
 <!doctype html><html><body style="margin:0;background:#1b1f25">
 <!-- Pagina di prova dei render 3D: va copiata nella radice del repo (gli asset sono relativi a icons/kit3d/), vedi render/render.sh.
-     Hash dell'URL: [[kit, [inquadratura, ...]], ...]; inquadratura = { yaw, x, y, z, d, pitch } come FOCUS in Kit3D.js. -->
+     Hash dell'URL: [[kit, [inquadratura, ...]], ...]; inquadratura = { yaw, x, y, z, d, pitch } come FOCUS in Kit3D.js.
+     Con "band": true nel kit la fascia da capitano (BAND_DEFAULT) è indossata sulla manica sinistra. -->
 <div id="v" style="width:600px;height:600px"></div>
 <script type="module">
 window.showToast = () => {};
@@ -12,6 +13,11 @@ if (window.__dbg) window.__dbg();
 const out = [];
 for (const [kit, foci] of list) {
   await viewer.update(kit, {});
+  if (kit.band) {
+    const CB = await import('./js/components/CaptainBand.js'), KR = await import('./js/components/KitRenderer.js');
+    const raster = await CB.bandRaster(CB.normalizeBand(null), K3.BAND_RING_ASPECT, 256);
+    await viewer.setArmband({ ...raster, row: KR.armbandRow(kit) });
+  } else await viewer.setArmband(null);
   K3.FOCUS.z = foci[0]; viewer.focus('z'); await new Promise(r => setTimeout(r, 900));
   for (const f of foci) {
     K3.FOCUS.z = f; viewer.focus('z');
